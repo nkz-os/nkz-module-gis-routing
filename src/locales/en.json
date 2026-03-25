@@ -1,0 +1,14 @@
+{
+  "dev": {
+    "title": "MODULE_DISPLAY_NAME",
+    "shellNote": "Development shell — not part of the production bundle.",
+    "buildInstructions": "Run {{cmd}} to produce {{out}}, then upload it to MinIO."
+  },
+  "slot": {
+    "authRequired": "Authentication required.",
+    "refreshAria": "Refresh",
+    "entity": "Entity:",
+    "user": "User:",
+    "placeholder": "Replace this component with your module's functionality."
+  }
+}

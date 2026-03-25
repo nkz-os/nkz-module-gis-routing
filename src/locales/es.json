@@ -1,0 +1,14 @@
+{
+  "dev": {
+    "title": "MODULE_DISPLAY_NAME",
+    "shellNote": "Shell de desarrollo — no forma parte del bundle de producción.",
+    "buildInstructions": "Ejecuta {{cmd}} para generar {{out}} y súbelo a MinIO."
+  },
+  "slot": {
+    "authRequired": "Autenticación requerida.",
+    "refreshAria": "Actualizar",
+    "entity": "Entidad:",
+    "user": "Usuario:",
+    "placeholder": "Sustituye este componente por la funcionalidad de tu módulo."
+  }
+}

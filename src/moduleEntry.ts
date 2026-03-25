@@ -4,6 +4,7 @@
  *
  * MODULE_ID must match the `id` column in marketplace_modules exactly.
  */
+import './i18n';
 import { moduleSlots } from './slots';
 import pkg from '../package.json';
 

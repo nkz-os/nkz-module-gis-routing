@@ -8,7 +8,7 @@
  * - Keep panels responsive (300–600px wide).
  */
 import React, { useState } from 'react';
-import { useViewer, useAuth } from '@nekazari/sdk';
+import { useViewer, useAuth, useTranslation } from '@nekazari/sdk';
 import { AlertCircle, RefreshCw } from 'lucide-react';
 
 interface ExampleSlotProps {
@@ -16,6 +16,7 @@ interface ExampleSlotProps {
 }
 
 export const ExampleSlot: React.FC<ExampleSlotProps> = ({ className }) => {
+  const { t } = useTranslation('template');
   const { selectedEntityId } = useViewer();
   const { isAuthenticated, user } = useAuth();
   const [loading, setLoading] = useState(false);
@@ -24,7 +25,7 @@ export const ExampleSlot: React.FC<ExampleSlotProps> = ({ className }) => {
     return (
       <div className={`flex items-center gap-2 text-amber-600 p-4 ${className ?? ''}`}>
         <AlertCircle className="w-4 h-4 flex-shrink-0" />
-        <span className="text-sm">Authentication required.</span>
+        <span className="text-sm">{t('slot.authRequired')}</span>
       </div>
     );
   }
@@ -32,11 +33,11 @@ export const ExampleSlot: React.FC<ExampleSlotProps> = ({ className }) => {
   return (
     <div className={`p-4 space-y-3 ${className ?? ''}`}>
       <div className="flex items-center justify-between">
-        <h3 className="text-sm font-semibold text-slate-800">MODULE_DISPLAY_NAME</h3>
+        <h3 className="text-sm font-semibold text-slate-800">{t('dev.title')}</h3>
         <button
           onClick={() => setLoading(l => !l)}
           className="p-1 rounded hover:bg-slate-100 text-slate-500"
-          aria-label="Refresh"
+          aria-label={t('slot.refreshAria')}
         >
           <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
         </button>
@@ -44,18 +45,16 @@ export const ExampleSlot: React.FC<ExampleSlotProps> = ({ className }) => {
 
       <div className="text-xs text-slate-500 space-y-1 bg-slate-50 rounded p-2">
         <div className="flex justify-between gap-2">
-          <span>Entity:</span>
+          <span>{t('slot.entity')}</span>
           <span className="font-mono text-slate-700 truncate">{selectedEntityId ?? '—'}</span>
         </div>
         <div className="flex justify-between gap-2">
-          <span>User:</span>
+          <span>{t('slot.user')}</span>
           <span className="text-slate-700 truncate">{user?.email ?? '—'}</span>
         </div>
       </div>
 
-      <p className="text-xs text-slate-400 italic">
-        Replace this component with your module's functionality.
-      </p>
+      <p className="text-xs text-slate-400 italic">{t('slot.placeholder')}</p>
     </div>
   );
 };

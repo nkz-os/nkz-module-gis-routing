@@ -9,6 +9,7 @@
  *   entity-tree    — context menu entry in the entity tree
  *   dashboard-widget — card in the tenant dashboard
  */
+import '../i18n';
 import type { ModuleViewerSlots } from '../types/module-slots';
 import { ExampleSlot } from '../components/slots/ExampleSlot';
 

@@ -6,6 +6,16 @@
 declare module '@nekazari/sdk' {
   import { ReactNode } from 'react';
 
+  export const i18n: {
+    addResourceBundle?: (
+      lng: string,
+      ns: string,
+      resources: Record<string, unknown>,
+      deep?: boolean,
+      overwrite?: boolean
+    ) => unknown;
+  };
+
   export interface NKZClientOptions {
     baseUrl?: string;
     getToken?: () => string | undefined;
@@ -39,7 +49,7 @@ declare module '@nekazari/sdk' {
     };
   }
 
-  export function useTranslation(namespace?: string): TranslationContextValue;
+  export function useTranslation(namespace?: string | string[]): TranslationContextValue;
 
   export interface ViewerContextValue {
     selectedEntityId: string | null;
