@@ -12,6 +12,7 @@ import time
 import uuid
 from fastapi import APIRouter, Request, Query, HTTPException
 from fastapi.responses import JSONResponse
+from fastapi.responses import Response as FastAPIResponse
 from pydantic import BaseModel, Field
 from typing import Optional
 
@@ -19,6 +20,7 @@ from app.services.sync_service import SyncService, SyncConflictError
 from app.services.geometry import generate_swaths
 from app.services.orion_client import OrionLDClient
 from app.services.timescale_client import TimescaleDBClient
+from app.services.export_service import RouteExporter
 from app.config import get_settings
 
 logger = logging.getLogger(__name__)
@@ -357,3 +359,57 @@ async def generate_routing_with_vra(request: Request, body: GenerateVRARequest):
         },
         "prescription_map": prescription_map,
     }
+
+
+@router.get("/export/{operation_id}")
+async def export_operation(
+    request: Request,
+    operation_id: str,
+    format: str = Query("geojson", description="Export format: isoxml, geojson, gpx"),
+):
+    tenant_id = _get_tenant_id(request)
+    settings = get_settings()
+    orion = OrionLDClient(
+        base_url=settings.context_broker_url, context_url=settings.ngsi_ld_context
+    )
+    entity = await orion.get_entity(operation_id, tenant_id)
+    await orion.close()
+    if not entity:
+        raise HTTPException(status_code=404, detail="Operation not found")
+    location = entity.get("location", {}).get("value", {})
+    op_record = {
+        "id": entity["id"],
+        "name": entity.get("name", {}).get("value", ""),
+        "operation_type": entity.get("operationType", {}).get("value", ""),
+        "ab_line_geojson": json.dumps(location) if location else "{}",
+        "implement_width": entity.get("implementWidth", {}).get("value", 24.0),
+        "vra_enabled": entity.get("vraEnabled", {}).get("value", False),
+    }
+    exporter = RouteExporter()
+    if format == "isoxml":
+        content = exporter.to_isoxml(op_record)
+        return FastAPIResponse(
+            content=content,
+            media_type="application/xml",
+            headers={
+                "Content-Disposition": f'attachment; filename="{operation_id.rsplit(":", 1)[-1]}.xml"'
+            },
+        )
+    elif format == "gpx":
+        content = exporter.to_gpx(op_record)
+        return FastAPIResponse(
+            content=content,
+            media_type="application/gpx+xml",
+            headers={
+                "Content-Disposition": f'attachment; filename="{operation_id.rsplit(":", 1)[-1]}.gpx"'
+            },
+        )
+    else:
+        content = exporter.to_geojson(op_record)
+        return FastAPIResponse(
+            content=content,
+            media_type="application/geo+json",
+            headers={
+                "Content-Disposition": f'attachment; filename="{operation_id.rsplit(":", 1)[-1]}.geojson"'
+            },
+        )
