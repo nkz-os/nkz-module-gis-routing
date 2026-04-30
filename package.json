@@ -1,7 +1,7 @@
 {
-  "name": "MODULE_NAME-module",
-  "version": "1.0.0",
-  "description": "MODULE_DISPLAY_NAME — Nekazari Platform Module",
+  "name": "nkz-module-gis-routing",
+  "version": "2.0.0",
+  "description": "Professional AB-line routing guidance with VRA prescription maps, ISOBUS export, offline PMTiles, and WatermelonDB sync",
   "license": "AGPL-3.0",
   "type": "module",
   "main": "./src/moduleEntry.ts",

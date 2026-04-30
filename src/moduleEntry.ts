@@ -8,7 +8,7 @@ import './i18n';
 import { moduleSlots } from './slots';
 import pkg from '../package.json';
 
-const MODULE_ID = 'MODULE_NAME';
+const MODULE_ID = 'nkz-module-gis-routing';
 
 if (typeof window !== 'undefined' && window.__NKZ__) {
   window.__NKZ__.register({
