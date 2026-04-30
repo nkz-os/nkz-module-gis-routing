@@ -6,6 +6,7 @@ offline sync, plus the existing POST /routing/generate endpoint with
 Orion-LD persistence.
 """
 
+import hashlib
 import json
 import logging
 import time
@@ -21,6 +22,7 @@ from app.services.geometry import generate_swaths
 from app.services.orion_client import OrionLDClient
 from app.services.timescale_client import TimescaleDBClient
 from app.services.export_service import RouteExporter
+from app.services.pmtiles_generator import PMTileGenerator
 from app.config import get_settings
 
 logger = logging.getLogger(__name__)
@@ -359,6 +361,35 @@ async def generate_routing_with_vra(request: Request, body: GenerateVRARequest):
         },
         "prescription_map": prescription_map,
     }
+
+
+@router.get("/tiles")
+async def get_offline_tiles(
+    request: Request, parcel_id: str = Query(..., description="Parcel entity ID")
+):
+    tenant_id = _get_tenant_id(request)
+    generator = PMTileGenerator()
+    cached = generator.get_from_cache(tenant_id, parcel_id)
+    if cached is not None:
+        sha = hashlib.sha256(cached).hexdigest()
+        return FastAPIResponse(
+            content=cached,
+            media_type="application/octet-stream",
+            headers={
+                "Content-Disposition": f'attachment; filename="{parcel_id}_basemap.pmtiles"',
+                "X-File-Hash": f"sha256:{sha}",
+                "X-Bounding-Box": "0,0,0,0",
+                "Cache-Control": "public, max-age=86400",
+            },
+        )
+    return JSONResponse(
+        status_code=202,
+        content={
+            "message": "PMTiles generation started",
+            "retry_after_seconds": 60,
+        },
+        headers={"Retry-After": "60"},
+    )
 
 
 @router.get("/export/{operation_id}")
