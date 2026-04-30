@@ -1,14 +1,36 @@
 {
-  "dev": {
-    "title": "MODULE_DISPLAY_NAME",
-    "shellNote": "Shell de desarrollo — no forma parte del bundle de producción.",
-    "buildInstructions": "Ejecuta {{cmd}} para generar {{out}} y súbelo a MinIO."
-  },
-  "slot": {
-    "authRequired": "Autenticación requerida.",
-    "refreshAria": "Actualizar",
-    "entity": "Entidad:",
-    "user": "Usuario:",
-    "placeholder": "Sustituye este componente por la funcionalidad de tu módulo."
+  "loading": "Cargando...",
+  "tabs": { "routing": "Guiado", "zoning": "Zonas VRA" },
+  "title": "GIS Routing",
+  "subtitle": "Guiado por líneas A-B para agricultura de precisión",
+  "parcel": { "label": "Parcela", "select": "Seleccionar parcela...", "mock": "Parcela Demo" },
+  "equipment": { "label": "Tractor / Maquinaria", "select": "Seleccionar equipo...", "mock": "Tractor Demo" },
+  "parameters": { "heading": "Rumbo (°)", "width": "Ancho de trabajo (m)" },
+  "actions": { "generate": "Generar Ruta", "generating": "Generando...", "sync": "Sincronizar Móvil", "export": "Exportar" },
+  "export": { "isoxml": "ISOXML", "geojson": "GeoJSON", "gpx": "GPX" },
+  "vra": { "enabled": "Prescripción VRA", "baseRate": "Dosis Base", "rateUnit": "Unidad", "zonesFound": "{{count}} zonas VRA encontradas", "noZones": "Sin zonas VRA para esta parcela" },
+  "errors": { "authRequired": "Autenticación requerida", "noParcel": "Ninguna parcela seleccionada", "generateFailed": "Error al generar la ruta", "exportFailed": "Error al exportar", "syncFailed": "Error de sincronización" },
+  "zoning": {
+    "title": "Zonificación VRA",
+    "description": "Genera zonas de manejo variable (VRA).",
+    "selectParcel": "Selecciona una parcela",
+    "selectParcelHint": "Accede desde una parcela en el visor principal.",
+    "generateZones": "Generar Zonas",
+    "generateBtn": "Generar Zonas VRA",
+    "generating": "Generando...",
+    "numZones": "Número de Zonas",
+    "numZonesHint": "Se crearán {{zones}} zonas.",
+    "refresh": "Actualizar datos",
+    "loadingZones": "Cargando zonas...",
+    "existingZones": "Zonas Existentes ({{count}})",
+    "zoneLabel": "Zona {{id}}",
+    "noZones": "No hay zonas generadas",
+    "noZonesHint": "Pulsa Generar para crear zonas.",
+    "viewOnMap": "Ver en el mapa",
+    "generatingStatus": "Generando {{zones}} zonas. Task ID: {{taskId}}",
+    "zonesGenerated": "Zonas generadas: {{count}} zonas",
+    "generateError": "Error al iniciar la generación",
+    "pollTimeout": "Proceso tardando. Pulsa Actualizar.",
+    "taskId": "Task ID: {{taskId}}"
   }
 }
