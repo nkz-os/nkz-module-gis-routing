@@ -34,7 +34,29 @@ class Settings(BaseSettings):
     
     # Redis (for caching/celery - optional)
     # redis_url: str = ""
-    
+
+    # Orion-LD Context Broker
+    context_broker_url: str = "http://orion-service:1026"
+    ngsi_ld_context: str = ""  # Set via CONTEXT_URL env var
+
+    # TimescaleDB / PostGIS
+    database_url: str = ""  # postgresql://user:pass@postgresql:5432/nekazari
+
+    # MinIO (for PMTiles cache)
+    minio_endpoint: str = "minio-service:9000"
+    minio_access_key: str = ""  # From K8s secret
+    minio_secret_key: str = ""  # From K8s secret
+    minio_bucket: str = "nekazari-gis-routing"
+    minio_secure: bool = False
+
+    # PMTiles
+    pmtiles_margin_meters: int = 500
+    pmtiles_max_area_ha: float = 100.0
+
+    # Sync
+    sync_default_schema_version: int = 3
+    sync_supported_schema_versions: list[int] = [3]
+
     @property
     def jwt_issuer_url(self) -> str:
         """Get the JWT issuer URL."""
