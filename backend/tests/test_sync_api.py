@@ -27,7 +27,9 @@ class TestSyncPull:
         )
         assert resp.status_code == 404
         data = resp.json()
-        assert data["error"]["code"] == "TENANT_NOT_FOUND"
+        # FastAPI wraps HTTPException detail; access via the detail envelope
+        detail = data.get("detail", data)
+        assert detail["error"]["code"] == "TENANT_NOT_FOUND"
 
     def test_pull_missing_collections_returns_422(self, client):
         """Missing required 'collections' query param -> 422 validation error."""
