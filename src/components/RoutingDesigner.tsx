@@ -20,7 +20,7 @@ import { api } from '../services/api';
 
 const NS = 'gis-routing';
 
-export const RoutingDesigner: React.FC = () => {
+const RoutingDesigner: React.FC = () => {
   const { t } = useTranslation(NS);
 
   // Parcel / equipment
@@ -58,8 +58,12 @@ export const RoutingDesigner: React.FC = () => {
         persist: true,
       };
 
-      const res = vraEnabled
-        ? await api.generateWithVRA({ ...body, base_rate: baseRate, rate_unit: rateUnit })
+      const res: any = vraEnabled
+        ? await api.generateWithVRA({
+            ...body,
+            base_rate: baseRate,
+            rate_unit: rateUnit,
+          })
         : await api.generate(body);
 
       setResult(res);
@@ -68,7 +72,7 @@ export const RoutingDesigner: React.FC = () => {
         setLastOperationId(opId);
       }
     } catch (err: any) {
-      setError(err?.message || t('errors.generateFailed', 'Route generation failed'));
+      setError(err?.message || t('errors.generateFailed'));
     } finally {
       setGenerating(false);
     }
@@ -90,11 +94,9 @@ export const RoutingDesigner: React.FC = () => {
       <div>
         <h2 className="text-lg font-bold text-slate-800 flex items-center gap-2">
           <MapPin className="w-5 h-5 text-amber-500" />
-          {t('title', 'GIS Routing')}
+          {t('title')}
         </h2>
-        <p className="text-sm text-slate-500 mt-1">
-          {t('subtitle', 'A-B line guidance for precision agriculture')}
-        </p>
+        <p className="text-sm text-slate-500 mt-1">{t('subtitle')}</p>
       </div>
 
       {/* Error */}
@@ -109,14 +111,14 @@ export const RoutingDesigner: React.FC = () => {
       <div className="bg-white rounded-lg border border-slate-200 p-4 space-y-4">
         <h3 className="text-sm font-semibold text-slate-700 flex items-center gap-2">
           <Settings2 className="w-4 h-4" />
-          {t('parameters.heading', 'Heading')} &amp; {t('parameters.width', 'Working Width')}
+          {t('parameters.heading')} &amp; {t('parameters.width')}
         </h3>
 
         <div className="grid grid-cols-2 gap-4">
           <div>
             <label className="block text-xs font-medium text-slate-600 mb-1 flex items-center gap-1">
               <Compass className="w-3.5 h-3.5" />
-              {t('parameters.heading', 'Heading (°)')}
+              {t('parameters.heading')}
             </label>
             <input
               type="number"
@@ -130,7 +132,7 @@ export const RoutingDesigner: React.FC = () => {
           <div>
             <label className="block text-xs font-medium text-slate-600 mb-1 flex items-center gap-1">
               <Ruler className="w-3.5 h-3.5" />
-              {t('parameters.width', 'Working Width (m)')}
+              {t('parameters.width')}
             </label>
             <input
               type="number"
@@ -147,33 +149,33 @@ export const RoutingDesigner: React.FC = () => {
         <div className="pt-2 border-t border-slate-100">
           <h3 className="text-sm font-semibold text-slate-700 flex items-center gap-2 mb-3">
             <Tractor className="w-4 h-4" />
-            {t('equipment.label', 'Tractor / Equipment')}
+            {t('equipment.label')}
           </h3>
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-xs font-medium text-slate-600 mb-1">
-                {t('equipment.label', 'Tractor / Equipment')}
+                {t('equipment.label')}
               </label>
               <select
                 value={tractorId || ''}
                 onChange={(e) => setTractorId(e.target.value || null)}
                 className="w-full border border-slate-300 rounded px-3 py-2 text-sm"
               >
-                <option value="">{t('equipment.select', 'Select equipment...')}</option>
-                <option value="mock-tractor-001">{t('equipment.mock', 'Demo Tractor')}</option>
+                <option value="">{t('equipment.select')}</option>
+                <option value="mock-tractor-001">{t('equipment.mock')}</option>
               </select>
             </div>
             <div>
               <label className="block text-xs font-medium text-slate-600 mb-1">
-                {t('parcel.label', 'Parcel')}
+                {t('parcel.label')}
               </label>
               <select
                 value={parcelId || ''}
                 onChange={(e) => setParcelId(e.target.value || null)}
                 className="w-full border border-slate-300 rounded px-3 py-2 text-sm"
               >
-                <option value="">{t('parcel.select', 'Select a parcel...')}</option>
-                <option value="mock-parcel-001">{t('parcel.mock', 'Demo Parcel')}</option>
+                <option value="">{t('parcel.select')}</option>
+                <option value="mock-parcel-001">{t('parcel.mock')}</option>
               </select>
             </div>
           </div>
@@ -189,14 +191,14 @@ export const RoutingDesigner: React.FC = () => {
               className="rounded border-slate-300 text-amber-500 focus:ring-amber-500"
             />
             <span className="text-sm font-medium text-slate-700">
-              {t('vra.enabled', 'VRA Prescription')}
+              {t('vra.enabled')}
             </span>
           </label>
           {vraEnabled && (
             <div className="mt-3 grid grid-cols-2 gap-4">
               <div>
                 <label className="block text-xs font-medium text-slate-600 mb-1">
-                  {t('vra.baseRate', 'Base Rate')}
+                  {t('vra.baseRate')}
                 </label>
                 <input
                   type="number"
@@ -208,7 +210,7 @@ export const RoutingDesigner: React.FC = () => {
               </div>
               <div>
                 <label className="block text-xs font-medium text-slate-600 mb-1">
-                  {t('vra.rateUnit', 'Rate Unit')}
+                  {t('vra.rateUnit')}
                 </label>
                 <input
                   type="text"
@@ -231,10 +233,10 @@ export const RoutingDesigner: React.FC = () => {
         {generating ? (
           <>
             <Loader2 className="w-4 h-4 animate-spin" />
-            {t('actions.generating', 'Generating...')}
+            {t('actions.generating')}
           </>
         ) : (
-          t('actions.generate', 'Generate Route')
+          t('actions.generate')
         )}
       </button>
 
@@ -243,26 +245,32 @@ export const RoutingDesigner: React.FC = () => {
         <div className="bg-white rounded-lg border border-slate-200 p-4 space-y-3">
           <h3 className="text-sm font-semibold text-slate-700 flex items-center gap-2">
             <Download className="w-4 h-4" />
-            {t('actions.export', 'Export')}
+            {t('actions.export')}
           </h3>
           <div className="flex gap-2">
             <button
-              onClick={() => window.open(api.getExportUrl(lastOperationId, 'isoxml'), '_blank')}
+              onClick={() =>
+                window.open(api.getExportUrl(lastOperationId, 'isoxml'), '_blank')
+              }
               className="flex-1 min-h-[48px] font-bold text-xs uppercase bg-slate-700 text-amber-500 rounded border border-slate-600 hover:bg-slate-600 transition-colors"
             >
-              {t('export.isoxml', 'ISOXML')}
+              {t('export.isoxml')}
             </button>
             <button
-              onClick={() => window.open(api.getExportUrl(lastOperationId, 'geojson'), '_blank')}
+              onClick={() =>
+                window.open(api.getExportUrl(lastOperationId, 'geojson'), '_blank')
+              }
               className="flex-1 min-h-[48px] font-bold text-xs uppercase bg-slate-700 text-sky-400 rounded border border-slate-600 hover:bg-slate-600 transition-colors"
             >
-              {t('export.geojson', 'GeoJSON')}
+              {t('export.geojson')}
             </button>
             <button
-              onClick={() => window.open(api.getExportUrl(lastOperationId, 'gpx'), '_blank')}
+              onClick={() =>
+                window.open(api.getExportUrl(lastOperationId, 'gpx'), '_blank')
+              }
               className="flex-1 min-h-[48px] font-bold text-xs uppercase bg-slate-700 text-emerald-400 rounded border border-slate-600 hover:bg-slate-600 transition-colors"
             >
-              {t('export.gpx', 'GPX')}
+              {t('export.gpx')}
             </button>
           </div>
         </div>
@@ -273,19 +281,19 @@ export const RoutingDesigner: React.FC = () => {
         <div className="bg-white rounded-lg border border-slate-200 p-4">
           <dl className="grid grid-cols-2 gap-3 text-sm">
             <div>
-              <dt className="text-xs text-slate-400">{t('parameters.heading', 'Heading (°)')}</dt>
+              <dt className="text-xs text-slate-400">{t('parameters.heading')}</dt>
               <dd className="font-semibold text-slate-700">
                 {result.data.properties.heading_deg}&deg;
               </dd>
             </div>
             <div>
-              <dt className="text-xs text-slate-400">{t('parameters.width', 'Working Width (m)')}</dt>
+              <dt className="text-xs text-slate-400">{t('parameters.width')}</dt>
               <dd className="font-semibold text-slate-700">
                 {result.data.properties.width_m} m
               </dd>
             </div>
             <div>
-              <dt className="text-xs text-slate-400">{t('actions.generate', 'Swaths')}</dt>
+              <dt className="text-xs text-slate-400">{t('actions.generate')}</dt>
               <dd className="font-semibold text-slate-700">
                 {result.data.properties.swath_count}
               </dd>
@@ -305,4 +313,5 @@ export const RoutingDesigner: React.FC = () => {
   );
 };
 
+export { RoutingDesigner };
 export default RoutingDesigner;

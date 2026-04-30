@@ -33,7 +33,7 @@ const App: React.FC = () => {
           }`}
         >
           <MapPin className="w-4 h-4" />
-          {t('tabs.routing', 'Routing')}
+          {t('tabs.routing')}
         </button>
         <button
           onClick={() => setActiveTab('zoning')}
@@ -44,7 +44,7 @@ const App: React.FC = () => {
           }`}
         >
           <Layers className="w-4 h-4" />
-          {t('tabs.zoning', 'VRA Zoning')}
+          {t('tabs.zoning')}
         </button>
       </nav>
 
@@ -53,7 +53,7 @@ const App: React.FC = () => {
         <Suspense
           fallback={
             <div className="flex items-center justify-center h-64 text-slate-400 text-sm">
-              {t('loading', 'Loading...')}
+              {t('loading')}
             </div>
           }
         >

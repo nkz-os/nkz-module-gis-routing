@@ -4,7 +4,7 @@
  * Displays existing management zones and allows generating new ones
  * from parcel geometry.
  */
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useCallback } from 'react';
 import { useTranslation } from '@nekazari/sdk';
 import { Layers, RefreshCw, Loader2, MapPin } from 'lucide-react';
 import { api } from '../../services/api';
@@ -22,7 +22,7 @@ const ZoningTab: React.FC = () => {
   const { t } = useTranslation(NS);
   const [generating, setGenerating] = useState(false);
   const [taskId, setTaskId] = useState<string | null>(null);
-  const [zones, setZones] = useState<Zone[]>([]);
+  const [zones] = useState<Zone[]>([]);
   const [loading, setLoading] = useState(false);
   const [numZones, setNumZones] = useState(3);
   const [error, setError] = useState<string | null>(null);
@@ -31,7 +31,7 @@ const ZoningTab: React.FC = () => {
     setGenerating(true);
     setError(null);
     try {
-      const result = await api.generateWithVRA({
+      const result: any = await api.generateWithVRA({
         parcel_geometry: { type: 'Polygon', coordinates: [] },
         start_point: [-1.5, 42.5],
         heading_deg: 0,
@@ -43,7 +43,7 @@ const ZoningTab: React.FC = () => {
         setTaskId(result.properties.operation_id);
       }
     } catch (err: any) {
-      setError(err?.message || t('zoning.generateError', 'Error starting zone generation'));
+      setError(err?.message || t('zoning.generateError'));
     } finally {
       setGenerating(false);
     }
@@ -54,11 +54,9 @@ const ZoningTab: React.FC = () => {
       <div>
         <h2 className="text-lg font-bold text-slate-800 flex items-center gap-2">
           <Layers className="w-5 h-5 text-emerald-500" />
-          {t('zoning.title', 'VRA Zoning')}
+          {t('zoning.title')}
         </h2>
-        <p className="text-sm text-slate-500 mt-1">
-          {t('zoning.description', 'Generate Variable Rate Application (VRA) management zones.')}
-        </p>
+        <p className="text-sm text-slate-500 mt-1">{t('zoning.description')}</p>
       </div>
 
       {error && (
@@ -71,9 +69,9 @@ const ZoningTab: React.FC = () => {
         <div className="flex items-start gap-3">
           <MapPin className="w-5 h-5 text-slate-400 mt-0.5" />
           <div>
-            <p className="text-sm text-slate-700">{t('zoning.selectParcel', 'Select a parcel')}</p>
+            <p className="text-sm text-slate-700">{t('zoning.selectParcel')}</p>
             <p className="text-xs text-slate-400 mt-1">
-              {t('zoning.selectParcelHint', 'Access this module from a parcel in the main viewer.')}
+              {t('zoning.selectParcelHint')}
             </p>
           </div>
         </div>
@@ -81,18 +79,22 @@ const ZoningTab: React.FC = () => {
         <div className="flex items-center gap-3">
           <div className="flex-1">
             <label className="block text-xs font-medium text-slate-600 mb-1">
-              {t('zoning.numZones', 'Number of Zones')}
+              {t('zoning.numZones')}
             </label>
             <input
               type="number"
               min={2}
               max={10}
               value={numZones}
-              onChange={(e) => setNumZones(Math.max(2, Math.min(10, parseInt(e.target.value) || 2)))}
+              onChange={(e) =>
+                setNumZones(
+                  Math.max(2, Math.min(10, parseInt(e.target.value) || 2)),
+                )
+              }
               className="w-full border border-slate-300 rounded px-3 py-2 text-sm"
             />
             <p className="text-xs text-slate-400 mt-1">
-              {t('zoning.numZonesHint', '{{zones}} zones will be created.', { zones: numZones })}
+              {t('zoning.numZonesHint', { zones: numZones })}
             </p>
           </div>
         </div>
@@ -105,16 +107,16 @@ const ZoningTab: React.FC = () => {
           {generating ? (
             <>
               <Loader2 className="w-4 h-4 animate-spin" />
-              {t('zoning.generating', 'Generating...')}
+              {t('zoning.generating')}
             </>
           ) : (
-            t('zoning.generateBtn', 'Generate VRA Zones')
+            t('zoning.generateBtn')
           )}
         </button>
 
         {taskId && (
           <div className="text-xs text-slate-500 bg-slate-50 rounded p-2">
-            {t('zoning.taskId', 'Task ID: {{taskId}}', { taskId })}
+            {t('zoning.taskId', { taskId })}
           </div>
         )}
       </div>
@@ -122,13 +124,13 @@ const ZoningTab: React.FC = () => {
       <div className="bg-white rounded-lg border border-slate-200 p-4">
         <div className="flex items-center justify-between mb-3">
           <h3 className="text-sm font-semibold text-slate-700">
-            {t('zoning.existingZones', 'Existing Zones ({{count}})', { count: zones.length })}
+            {t('zoning.existingZones', { count: zones.length })}
           </h3>
           <button
             onClick={() => setLoading(true)}
             disabled={loading}
             className="p-1.5 rounded hover:bg-slate-100 text-slate-400"
-            title={t('zoning.refresh', 'Refresh zoning data')}
+            title={t('zoning.refresh')}
           >
             <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
           </button>
@@ -136,10 +138,8 @@ const ZoningTab: React.FC = () => {
 
         {zones.length === 0 ? (
           <div className="text-center py-6 text-sm text-slate-400">
-            <p>{t('zoning.noZones', 'No zones generated')}</p>
-            <p className="text-xs mt-1">
-              {t('zoning.noZonesHint', 'Click Generate to create zones.')}
-            </p>
+            <p>{t('zoning.noZones')}</p>
+            <p className="text-xs mt-1">{t('zoning.noZonesHint')}</p>
           </div>
         ) : (
           <div className="space-y-2">
@@ -148,9 +148,7 @@ const ZoningTab: React.FC = () => {
                 key={zone.id}
                 className="flex items-center justify-between bg-slate-50 rounded p-2 text-sm"
               >
-                <span className="font-medium text-slate-700">
-                  {zone.label}
-                </span>
+                <span className="font-medium text-slate-700">{zone.label}</span>
                 <span className="text-xs text-slate-400">
                   {zone.areaHa.toFixed(1)} ha
                 </span>
