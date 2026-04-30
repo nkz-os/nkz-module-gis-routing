@@ -30,7 +30,7 @@ spec:
     spec:
       containers:
         - name: backend
-          image: ghcr.io/YOUR_ORG/MODULE_NAME-backend:v1.0.0
+          image: ghcr.io/nkz-os/nkz-module-gis-routing/nkz-module-gis-routing-backend:main
           imagePullPolicy: Always
           ports:
             - name: http
