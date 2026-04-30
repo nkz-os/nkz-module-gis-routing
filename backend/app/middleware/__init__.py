@@ -13,6 +13,9 @@ from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from jose import jwt, jwk, JWTError
 from jose.exceptions import JWKError
 
+from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.requests import Request
+
 from app.config import get_settings, Settings
 
 
@@ -211,3 +214,58 @@ def get_tenant_id(
     if user.tenant_id:
         return user.tenant_id
     return "default"
+
+
+class TenantStateMiddleware(BaseHTTPMiddleware):
+    """Extracts tenant_id from JWT and injects into request.state for all routes.
+
+    This runs BEFORE FastAPI dependency injection, so request.state.tenant_id
+    is available in every route handler without requiring Depends(get_current_user).
+    """
+
+    async def dispatch(self, request: Request, call_next):
+        # Skip auth for health endpoint
+        if request.url.path == "/health":
+            request.state.tenant_id = None
+            request.state.user_id = None
+            return await call_next(request)
+
+        auth_header = request.headers.get("Authorization", "")
+        if not auth_header.startswith("Bearer "):
+            request.state.tenant_id = None
+            request.state.user_id = None
+            return await call_next(request)
+
+        token = auth_header[7:]
+        settings = get_settings()
+
+        try:
+            unverified_header = jwt.get_unverified_header(token)
+            kid = unverified_header.get("kid")
+            if not kid:
+                request.state.tenant_id = None
+                request.state.user_id = None
+                return await call_next(request)
+
+            jwks_client = get_jwks_client()
+            key_data = await jwks_client.get_signing_key(kid)
+            public_key = jwk.construct(key_data)
+
+            payload = jwt.decode(
+                token, public_key, algorithms=["RS256"],
+                audience=settings.jwt_audience,
+                issuer=settings.jwt_issuer_url,
+            )
+
+            request.state.user_id = payload.get("sub", "")
+            request.state.tenant_id = (
+                payload.get("tenant_id")
+                or payload.get("tenant")
+                or "default"
+            )
+
+        except (JWTError, JWKError):
+            request.state.tenant_id = None
+            request.state.user_id = None
+
+        return await call_next(request)
