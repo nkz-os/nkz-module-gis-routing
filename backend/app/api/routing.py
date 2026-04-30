@@ -213,3 +213,147 @@ async def generate_routing_plan(request: Request, body: GenerateRequest):
             },
         },
     }
+
+
+class GenerateVRARequest(BaseModel):
+    parcel_geometry: dict
+    start_point: list[float]
+    heading_deg: float = Field(..., ge=0, lt=360)
+    width_m: float = Field(..., gt=0)
+    parcel_id: Optional[str] = None
+    tractor_id: Optional[str] = None
+    implement_id: Optional[str] = None
+    operation_type: Optional[str] = "spraying"
+    base_rate: float = Field(
+        ..., gt=0, description="Base application rate l/ha or kg/ha"
+    )
+    rate_unit: Optional[str] = "l_ha"
+    zone_ids: Optional[list[str]] = None
+    persist: bool = True
+
+
+@router.post("/generate/with-vra")
+async def generate_routing_with_vra(request: Request, body: GenerateVRARequest):
+    from shapely.geometry import mapping
+    from app.services.vra_intersector import intersect_swaths_with_zones
+
+    if body.parcel_geometry.get("type") != "Polygon":
+        raise HTTPException(
+            status_code=400, detail="parcel_geometry must be a GeoJSON Polygon"
+        )
+    tenant_id = _get_tenant_id(request)
+    settings = get_settings()
+
+    # Generate swaths
+    try:
+        multi_line_string = generate_swaths(
+            geojson_polygon=body.parcel_geometry,
+            start_point=body.start_point,
+            heading_deg=body.heading_deg,
+            width_m=body.width_m,
+        )
+        swath_geojson = mapping(multi_line_string)
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+    # Fetch VRA zones from Orion-LD
+    orion = OrionLDClient(
+        base_url=settings.context_broker_url, context_url=settings.ngsi_ld_context
+    )
+    zones = await orion.query_entities("AgriManagementZone", tenant_id)
+    await orion.close()
+
+    # Filter zones linked to parcel
+    if body.parcel_id:
+        zones = [
+            z
+            for z in zones
+            if body.parcel_id
+            in str(z.get("refAgriParcel", {}).get("value", ""))
+        ]
+    if body.zone_ids:
+        zones = [z for z in zones if z["id"] in body.zone_ids]
+
+    # Intersect with VRA zones
+    prescription_map = None
+    if zones:
+        zone_features = []
+        for z in zones:
+            loc = z.get("location", {}).get("value", {})
+            if loc:
+                zone_features.append(
+                    {
+                        "type": "Feature",
+                        "geometry": loc,
+                        "properties": {
+                            "zone_id": z.get("zoneId", {}).get("value", z["id"]),
+                            "zone_class": z.get("zoneClass", {}).get("value", ""),
+                            "prescription_rate": float(
+                                z.get("prescriptionRate", {}).get("value", 1.0)
+                            ),
+                        },
+                    }
+                )
+        if zone_features:
+            prescription_map = intersect_swaths_with_zones(
+                multi_line_string, zone_features, body.base_rate, body.width_m
+            )
+
+    # Persist
+    operation_id = None
+    if body.persist and body.parcel_id:
+        op_remote_id = (
+            f"urn:ngsi-ld:AgriParcelOperation:{tenant_id}:"
+            f"{uuid.uuid4().hex[:8]}"
+        )
+        now_ms = int(time.time() * 1000)
+        orion = OrionLDClient(
+            base_url=settings.context_broker_url,
+            context_url=settings.ngsi_ld_context,
+        )
+        entity = {
+            "id": op_remote_id,
+            "type": "AgriParcelOperation",
+            "name": {
+                "type": "Property",
+                "value": f"VRA {body.operation_type} - {body.parcel_id[:8]}",
+            },
+            "operationType": {"type": "Property", "value": body.operation_type},
+            "status": {"type": "Property", "value": "planned"},
+            "location": {"type": "GeoProperty", "value": swath_geojson},
+            "implementWidth": {"type": "Property", "value": body.width_m},
+            "vraEnabled": {"type": "Property", "value": bool(zones)},
+            "baseRate": {"type": "Property", "value": body.base_rate},
+            "rateUnit": {"type": "Property", "value": body.rate_unit},
+        }
+        if prescription_map:
+            entity["prescriptionMap"] = {
+                "type": "Property",
+                "value": prescription_map,
+            }
+        try:
+            await orion.create_entity(entity, tenant_id)
+            operation_id = op_remote_id
+        except Exception as e:
+            logger.error("Failed to persist VRA operation: %s", e)
+        finally:
+            await orion.close()
+
+    return {
+        "success": True,
+        "data": {
+            "type": "Feature",
+            "geometry": swath_geojson,
+            "properties": {
+                "heading_deg": body.heading_deg,
+                "width_m": body.width_m,
+                "swath_count": len(swath_geojson.get("coordinates", [])),
+                "vra_enabled": bool(zones),
+                "zone_count": len(zones),
+                "base_rate": body.base_rate,
+                "rate_unit": body.rate_unit,
+                "operation_id": operation_id,
+            },
+        },
+        "prescription_map": prescription_map,
+    }
