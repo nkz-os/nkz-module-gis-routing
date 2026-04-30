@@ -28,8 +28,6 @@ spec:
         component: backend
         module: MODULE_NAME
     spec:
-      imagePullSecrets:
-        - name: ghcr-secret
       containers:
         - name: backend
           image: ghcr.io/YOUR_ORG/MODULE_NAME-backend:v1.0.0
@@ -46,10 +44,10 @@ spec:
               value: "/api/MODULE_NAME"
             # CORS — explicit origin whitelist (never *)
             - name: CORS_ORIGINS
-              value: '["https://your-frontend-domain"]'
+              value: '["https://nekazari.robotika.cloud"]'
             # Keycloak Configuration
             - name: KEYCLOAK_URL
-              value: "https://auth.your-domain/auth"  # Override per environment
+              value: "https://auth.robotika.cloud/auth"  # Override per environment
             - name: KEYCLOAK_REALM
               value: "nekazari"
             - name: JWT_AUDIENCE
@@ -61,12 +59,28 @@ spec:
                   name: module-secrets
                   key: management-key
                   optional: true
-          # Database (if needed - uncomment and configure)
-          # - name: DATABASE_URL
-          #   valueFrom:
-          #     secretKeyRef:
-          #       name: postgresql-secret
-          #       key: connection-string
+            - name: CONTEXT_URL
+              value: "http://api-gateway-service:5000/ngsi-ld-context.json"
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: postgresql-secret
+                  key: connection-string
+                  optional: true
+            - name: MINIO_ENDPOINT
+              value: "minio-service:9000"
+            - name: MINIO_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: minio-secret
+                  key: access-key
+                  optional: true
+            - name: MINIO_SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: minio-secret
+                  key: secret-key
+                  optional: true
           resources:
             requests:
               memory: "128Mi"
