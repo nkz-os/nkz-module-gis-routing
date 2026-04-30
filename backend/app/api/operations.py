@@ -1,8 +1,9 @@
 import httpx
-from fastapi import APIRouter, HTTPException, BackgroundTasks
+from fastapi import APIRouter, HTTPException, BackgroundTasks, Request
 from pydantic import BaseModel, Field
 from typing import Optional, Dict, Any
-from app.services.timescale_client import timescale_client
+from app.services.timescale_client import TimescaleDBClient
+from app.services.coverage_service import CoverageService
 from app.config import get_settings
 
 router = APIRouter(prefix="/operations", tags=["operations"])
@@ -63,18 +64,24 @@ async def close_operation_session(request: SessionCloseRequest, background_tasks
     }
 
 @router.get("/coverage/{operation_id}")
-async def get_operation_coverage(operation_id: str) -> Dict[str, Any]:
+async def get_operation_coverage(request: Request, operation_id: str) -> Dict[str, Any]:
     """
     Retrieves the actual executed track (MultiLineString) for a given operation.
-    Queries the TimescaleDB / PostGIS historics (where the IoT Agent dumped the data).
+    Queries telemetry_events via CoverageService/PostGIS.
     Returns a GeoJSON Feature that the MapLibre frontend can render immediately.
     """
-    # Delegate complex PostGIS aggregation to the timescale client
-    geojson_multiline = await timescale_client.get_operation_coverage_map(operation_id)
-    
+    settings = get_settings()
+    ts = TimescaleDBClient(dsn=settings.database_url)
+    svc = CoverageService(timescale=ts)
+    tenant_id = getattr(request.state, "tenant_id", None)
+    geojson_multiline = await svc.get_operation_coverage(operation_id, tenant_id or "")
+
     if not geojson_multiline:
-        raise HTTPException(status_code=404, detail="No telemetry coverage found for this operation.")
-        
+        raise HTTPException(
+            status_code=404,
+            detail="No telemetry coverage found for this operation.",
+        )
+
     return {
         "success": True,
         "data": {
@@ -82,7 +89,7 @@ async def get_operation_coverage(operation_id: str) -> Dict[str, Any]:
             "geometry": geojson_multiline,
             "properties": {
                 "operation_id": operation_id,
-                "layer_type": "actual_coverage"
-            }
-        }
+                "layer_type": "actual_coverage",
+            },
+        },
     }
