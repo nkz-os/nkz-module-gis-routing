@@ -1,41 +1,98 @@
 /**
- * API Client for MODULE_DISPLAY_NAME
- * 
- * This is a template for creating an API client that uses the Nekazari SDK.
- * Replace with your actual API endpoints and methods.
+ * API Client for GIS Routing module.
+ *
+ * Provides access to the module's own backend (sync, generate, export)
+ * via the Nekazari authentication context and tenant-aware headers.
  */
 
-import { NKZClient, useAuth } from '@nekazari/sdk';
+const BASE_URL = '/api/nkz-module-gis-routing';
 
-/**
- * Hook to get API client instance
- * Automatically handles authentication and tenant context
- */
-export function useModuleApi() {
-  const { getToken, tenantId } = useAuth();
-  
-  const client = new NKZClient({
-    baseUrl: '/api/MODULE_NAME',
-    getToken,
-    getTenantId: () => tenantId,
-  });
+function getTenantId(): string | undefined {
+  const ctx = (window as any).__nekazariAuthContext;
+  return ctx?.tenantId;
+}
 
-  return {
-    // Example API methods - replace with your actual endpoints
-    getData: () => client.get('/data'),
-    getDataById: (id: string) => client.get(`/data/${id}`),
-    createData: (data: any) => client.post('/data', data),
-    updateData: (id: string, data: any) => client.put(`/data/${id}`, data),
-    deleteData: (id: string) => client.delete(`/data/${id}`),
+async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+    ...(options.headers as Record<string, string> || {}),
   };
+  const tid = getTenantId();
+  if (tid) headers['X-Tenant-ID'] = tid;
+  const resp = await fetch(`${BASE_URL}${path}`, {
+    ...options,
+    headers,
+    credentials: 'include',
+  });
+  if (!resp.ok) {
+    const error = await resp.json().catch(() => ({ detail: resp.statusText }));
+    throw new ApiError(resp.status, error);
+  }
+  return resp.json();
 }
 
-/**
- * Standalone API client (for use outside React components)
- */
-export function createModuleApiClient() {
-  // This would need token and tenantId passed in
-  // For React components, use useModuleApi() instead
-  throw new Error('Use useModuleApi() hook in React components');
+export class ApiError extends Error {
+  status: number;
+  body: any;
+
+  constructor(status: number, body: any) {
+    super(body?.error?.message || body?.detail || `HTTP ${status}`);
+    this.status = status;
+    this.body = body;
+  }
 }
 
+export interface SyncPullResponse {
+  changes: {
+    parcels: any;
+    equipment: any;
+    operations: any;
+  };
+  timestamp: number;
+}
+
+export interface CollectionChanges {
+  created: any[];
+  updated: any[];
+  deleted: string[];
+}
+
+export const api = {
+  pull(
+    collections: string[],
+    lastPulledAt: number,
+    schemaVersion = 3,
+  ): Promise<SyncPullResponse> {
+    return request(
+      `/sync?collections=${collections.join(',')}&last_pulled_at=${lastPulledAt}&schema_version=${schemaVersion}`,
+    );
+  },
+
+  push(
+    collections: string[],
+    body: { changes: any; last_pulled_at: number },
+  ): Promise<SyncPullResponse> {
+    return request(`/sync?collections=${collections.join(',')}`, {
+      method: 'POST',
+      body: JSON.stringify(body),
+    });
+  },
+
+  generate(body: any) {
+    return request('/generate', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    });
+  },
+
+  generateWithVRA(body: any) {
+    return request('/generate/with-vra', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    });
+  },
+
+  getExportUrl(operationId: string, format: 'isoxml' | 'geojson' | 'gpx'): string {
+    return `${BASE_URL}/export/${encodeURIComponent(operationId)}?format=${format}`;
+  },
+};
