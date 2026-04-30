@@ -5,6 +5,8 @@ Environment-based configuration using pydantic-settings.
 """
 
 from functools import lru_cache
+
+from pydantic import Field, model_validator
 from pydantic_settings import BaseSettings
 
 
@@ -37,10 +39,10 @@ class Settings(BaseSettings):
 
     # Orion-LD Context Broker
     context_broker_url: str = "http://orion-service:1026"
-    ngsi_ld_context: str = ""  # Set via CONTEXT_URL env var
+    ngsi_ld_context: str = Field(default="", alias="CONTEXT_URL")  # Set via CONTEXT_URL env var
 
     # TimescaleDB / PostGIS
-    database_url: str = ""  # postgresql://user:pass@postgresql:5432/nekazari
+    database_url: str = ""  # postgresql+asyncpg://user:pass@postgresql:5432/nekazari
 
     # MinIO (for PMTiles cache)
     minio_endpoint: str = "minio-service:9000"
@@ -50,8 +52,8 @@ class Settings(BaseSettings):
     minio_secure: bool = False
 
     # PMTiles
-    pmtiles_margin_meters: int = 500
-    pmtiles_max_area_ha: float = 100.0
+    pmtiles_margin_meters: int = Field(default=500, gt=0)
+    pmtiles_max_area_ha: float = Field(default=100.0, gt=0)
 
     # Sync
     sync_default_schema_version: int = 3
@@ -68,7 +70,17 @@ class Settings(BaseSettings):
     def jwks_url(self) -> str:
         """Get the JWKS URL for token verification."""
         return f"{self.jwt_issuer_url}/protocol/openid-connect/certs"
-    
+
+    @model_validator(mode="after")
+    def validate_sync_schema_version(self) -> "Settings":
+        """Ensure sync_default_schema_version is in sync_supported_schema_versions."""
+        if self.sync_default_schema_version not in self.sync_supported_schema_versions:
+            raise ValueError(
+                f"sync_default_schema_version={self.sync_default_schema_version} "
+                f"not in sync_supported_schema_versions={self.sync_supported_schema_versions}"
+            )
+        return self
+
     class Config:
         env_file = ".env"
         env_file_encoding = "utf-8"
