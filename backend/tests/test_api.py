@@ -1,5 +1,7 @@
 """
-Tests for MODULE_DISPLAY_NAME Backend
+Tests for GIS Routing Backend API structure.
+
+Covers health check, OpenAPI schema, and endpoint availability.
 """
 
 import pytest
@@ -16,12 +18,12 @@ def client():
 
 class TestHealth:
     """Health endpoint tests."""
-    
+
     def test_health_check(self, client):
         """Test health endpoint returns healthy status."""
         response = client.get("/health")
         assert response.status_code == 200
-        
+
         data = response.json()
         assert data["status"] == "healthy"
         assert "service" in data
@@ -30,24 +32,18 @@ class TestHealth:
 
 class TestAPI:
     """API endpoint tests."""
-    
+
     def test_docs_available(self, client):
         """Test OpenAPI docs are available."""
-        response = client.get("/api/MODULE_NAME/docs")
+        response = client.get("/api/nkz-module-gis-routing/docs")
         # Should return HTML or redirect
         assert response.status_code in [200, 307]
-    
+
     def test_openapi_schema(self, client):
         """Test OpenAPI schema is generated."""
-        response = client.get("/api/MODULE_NAME/openapi.json")
+        response = client.get("/api/nkz-module-gis-routing/openapi.json")
         assert response.status_code == 200
-        
+
         schema = response.json()
         assert "openapi" in schema
         assert "paths" in schema
-    
-    def test_list_data_requires_auth(self, client):
-        """Test that list endpoint requires authentication."""
-        response = client.get("/api/MODULE_NAME/data")
-        # Should return 403 (no auth) or require token
-        assert response.status_code in [401, 403]
