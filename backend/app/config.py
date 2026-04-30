@@ -14,12 +14,12 @@ class Settings(BaseSettings):
     """Application settings loaded from environment variables."""
     
     # Application
-    app_name: str = "MODULE_DISPLAY_NAME"
+    app_name: str = "NKZ GIS Routing"
     app_version: str = "1.0.0"
     debug: bool = False
-    
+
     # API
-    api_prefix: str = "/api/MODULE_NAME"
+    api_prefix: str = "/api/nkz-module-gis-routing"
     cors_origins: list[str] = []  # Set via CORS_ORIGINS env var; empty = deny all cross-origin
 
     # Keycloak / JWT Authentication
