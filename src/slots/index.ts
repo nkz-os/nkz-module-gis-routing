@@ -11,19 +11,19 @@
  */
 import '../i18n';
 import type { ModuleViewerSlots } from '../types/module-slots';
-import { ExampleSlot } from '../components/slots/ExampleSlot';
+import { RoutingDesigner } from '../components/RoutingDesigner';
 
-const MODULE_ID = 'MODULE_NAME';
+const MODULE_ID = 'nkz-module-gis-routing';
 
 export const moduleSlots: ModuleViewerSlots = {
   'map-layer': [],
   'layer-toggle': [],
   'context-panel': [
     {
-      id: 'MODULE_NAME-context',
+      id: 'gis-routing-context',
       moduleId: MODULE_ID,
-      component: 'ExampleSlot',
-      localComponent: ExampleSlot,
+      component: 'RoutingDesigner',
+      localComponent: RoutingDesigner,
       priority: 10,
     },
   ],

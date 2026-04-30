@@ -20,7 +20,7 @@ import { api } from '../services/api';
 
 const NS = 'gis-routing';
 
-const RoutingDesigner: React.FC = () => {
+export const RoutingDesigner: React.FC = () => {
   const { t } = useTranslation(NS);
 
   // Parcel / equipment
