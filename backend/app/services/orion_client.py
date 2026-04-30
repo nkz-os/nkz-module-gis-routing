@@ -45,6 +45,10 @@ class OrionLDClient:
 
         Uses application/json Content-Type and sends @context via Link header.
         """
+        if '\n' in tenant_id or '\r' in tenant_id:
+            raise ValueError(
+                "Invalid tenant_id: contains newline characters"
+            )
         return {
             "Content-Type": "application/json",
             "Link": (
@@ -97,7 +101,16 @@ class OrionLDClient:
             resp.raise_for_status()
             return resp.json()
         except httpx.HTTPError as e:
-            logger.error("Orion-LD query failed: %s", e)
+            body = ""
+            if 'resp' in dir() and hasattr(resp, 'text'):
+                try:
+                    body = resp.text[:1000]
+                except Exception:
+                    pass
+            logger.error(
+                "Orion-LD query entities failed [status=%s]: %s",
+                getattr(resp, 'status_code', '?'), body,
+            )
             raise OrionLDError(f"Query entities failed: {e}") from e
 
     async def get_entity(
@@ -122,12 +135,21 @@ class OrionLDClient:
             resp.raise_for_status()
             return resp.json()
         except httpx.HTTPError as e:
-            logger.error("Orion-LD get entity failed: %s", e)
+            body = ""
+            if 'resp' in dir() and hasattr(resp, 'text'):
+                try:
+                    body = resp.text[:1000]
+                except Exception:
+                    pass
+            logger.error(
+                "Orion-LD get entity failed [status=%s]: %s",
+                getattr(resp, 'status_code', '?'), body,
+            )
             raise OrionLDError(f"Get entity failed: {e}") from e
 
     async def create_entity(
         self, entity: dict, tenant_id: str
-    ) -> httpx.Response:
+    ) -> str:
         """Create a new NGSI-LD entity.
 
         Args:
@@ -135,8 +157,17 @@ class OrionLDClient:
             tenant_id: Tenant identifier for isolation headers.
 
         Returns:
-            httpx.Response with 201 status on success.
+            Entity ID string extracted from the Location header.
+
+        Raises:
+            ValueError: If entity dict is missing 'id' or 'type'.
+            OrionLDError: On HTTP failure.
         """
+        if 'id' not in entity:
+            raise ValueError("Entity payload must contain 'id' field")
+        if 'type' not in entity:
+            raise ValueError("Entity payload must contain 'type' field")
+
         client = await self._get_client()
         url = f"{self.base_url}/ngsi-ld/v1/entities"
 
@@ -145,9 +176,21 @@ class OrionLDClient:
                 url, json=entity, headers=self._headers(tenant_id)
             )
             resp.raise_for_status()
-            return resp
+            location = resp.headers.get("Location", "")
+            if location:
+                return location.rsplit("/", 1)[-1]
+            return entity["id"]
         except httpx.HTTPError as e:
-            logger.error("Orion-LD create failed: %s", e)
+            body = ""
+            if 'resp' in dir() and hasattr(resp, 'text'):
+                try:
+                    body = resp.text[:1000]
+                except Exception:
+                    pass
+            logger.error(
+                "Orion-LD create entity failed [status=%s]: %s",
+                getattr(resp, 'status_code', '?'), body,
+            )
             raise OrionLDError(f"Create entity failed: {e}") from e
 
     async def patch_entity(
@@ -169,7 +212,16 @@ class OrionLDClient:
             )
             resp.raise_for_status()
         except httpx.HTTPError as e:
-            logger.error("Orion-LD patch failed: %s", e)
+            body = ""
+            if 'resp' in dir() and hasattr(resp, 'text'):
+                try:
+                    body = resp.text[:1000]
+                except Exception:
+                    pass
+            logger.error(
+                "Orion-LD patch entity failed [status=%s]: %s",
+                getattr(resp, 'status_code', '?'), body,
+            )
             raise OrionLDError(f"Patch entity failed: {e}") from e
 
     async def delete_entity(self, entity_id: str, tenant_id: str) -> None:
@@ -188,7 +240,16 @@ class OrionLDClient:
             )
             resp.raise_for_status()
         except httpx.HTTPError as e:
-            logger.error("Orion-LD delete failed: %s", e)
+            body = ""
+            if 'resp' in dir() and hasattr(resp, 'text'):
+                try:
+                    body = resp.text[:1000]
+                except Exception:
+                    pass
+            logger.error(
+                "Orion-LD delete entity failed [status=%s]: %s",
+                getattr(resp, 'status_code', '?'), body,
+            )
             raise OrionLDError(f"Delete entity failed: {e}") from e
 
     async def close(self):

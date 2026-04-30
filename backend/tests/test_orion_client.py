@@ -65,13 +65,28 @@ class TestOrionLDClientHeaders:
             assert headers["NGSILD-Tenant"] == "test_tenant"
             assert headers["FIWARE-Service"] == "test_tenant"
 
+    @pytest.mark.asyncio
+    async def test_headers_rejects_newlines_in_tenant_id(self, orion_client):
+        """tenant_id with newline characters must raise ValueError."""
+        with pytest.raises(ValueError, match="Invalid tenant_id"):
+            orion_client._headers("test\ntenant")
+
+        with pytest.raises(ValueError, match="Invalid tenant_id"):
+            orion_client._headers("test\rtenant")
+
+    @pytest.mark.asyncio
+    async def test_headers_accepts_valid_tenant_id(self, orion_client):
+        """Valid tenant_id must not raise."""
+        headers = orion_client._headers("valid_tenant_123")
+        assert headers["NGSILD-Tenant"] == "valid_tenant_123"
+
 
 class TestOrionLDClientCRUD:
     """CRUD operation routing and response handling."""
 
     @pytest.mark.asyncio
     async def test_create_entity_posts_to_ngsild(self, orion_client):
-        """POST must go to /ngsi-ld/v1/entities."""
+        """POST must go to /ngsi-ld/v1/entities and return entity ID."""
         with patch("httpx.AsyncClient.post", new_callable=AsyncMock) as mock_post:
             mock_resp = MagicMock()
             mock_resp.status_code = 201
@@ -85,9 +100,9 @@ class TestOrionLDClientCRUD:
                 "type": "Test",
                 "name": {"type": "Property", "value": "test"},
             }
-            result = await orion_client.create_entity(entity, "test_tenant")
+            entity_id = await orion_client.create_entity(entity, "test_tenant")
 
-            assert result.status_code == 201
+            assert entity_id == "urn:ngsi-ld:Test:001"
             call_url = mock_post.call_args[0][0]
             assert "/ngsi-ld/v1/entities" in call_url
 
@@ -173,6 +188,78 @@ class TestOrionLDClientCRUD:
             assert params["limit"] == 50
             assert params["offset"] == 10
             assert params["type"] == "AgriParcel"
+
+    @pytest.mark.asyncio
+    async def test_create_entity_validates_required_fields(self, orion_client):
+        """create_entity must raise ValueError on missing 'id' or 'type'."""
+        with pytest.raises(ValueError, match="'id' field"):
+            await orion_client.create_entity(
+                {"type": "Test", "name": {"type": "Property", "value": "x"}},
+                "test_tenant",
+            )
+
+        with pytest.raises(ValueError, match="'type' field"):
+            await orion_client.create_entity(
+                {"id": "urn:test", "name": {"type": "Property", "value": "x"}},
+                "test_tenant",
+            )
+
+    @pytest.mark.asyncio
+    async def test_create_entity_raises_orion_error_on_http_failure(self, orion_client):
+        """HTTP errors on create must raise OrionLDError."""
+        with patch("httpx.AsyncClient.post", new_callable=AsyncMock) as mock_post:
+            mock_resp = MagicMock()
+            mock_resp.status_code = 400
+            mock_resp.raise_for_status.side_effect = httpx.HTTPError(
+                "400 Bad Request"
+            )
+            mock_post.return_value = mock_resp
+
+            entity = {
+                "id": "urn:ngsi-ld:Test:001",
+                "type": "Test",
+                "name": {"type": "Property", "value": "test"},
+            }
+            with pytest.raises(OrionLDError) as exc_info:
+                await orion_client.create_entity(entity, "test_tenant")
+
+            assert "Create entity failed" in str(exc_info.value)
+
+    @pytest.mark.asyncio
+    async def test_patch_entity_raises_orion_error_on_http_failure(self, orion_client):
+        """HTTP errors on patch must raise OrionLDError."""
+        with patch("httpx.AsyncClient.patch", new_callable=AsyncMock) as mock_patch:
+            mock_resp = MagicMock()
+            mock_resp.status_code = 400
+            mock_resp.raise_for_status.side_effect = httpx.HTTPError(
+                "400 Bad Request"
+            )
+            mock_patch.return_value = mock_resp
+
+            with pytest.raises(OrionLDError) as exc_info:
+                await orion_client.patch_entity(
+                    "urn:x",
+                    {"temp": {"type": "Property", "value": 25}},
+                    "test_tenant",
+                )
+
+            assert "Patch entity failed" in str(exc_info.value)
+
+    @pytest.mark.asyncio
+    async def test_delete_entity_raises_orion_error_on_http_failure(self, orion_client):
+        """HTTP errors on delete must raise OrionLDError."""
+        with patch("httpx.AsyncClient.delete", new_callable=AsyncMock) as mock_delete:
+            mock_resp = MagicMock()
+            mock_resp.status_code = 400
+            mock_resp.raise_for_status.side_effect = httpx.HTTPError(
+                "400 Bad Request"
+            )
+            mock_delete.return_value = mock_resp
+
+            with pytest.raises(OrionLDError) as exc_info:
+                await orion_client.delete_entity("urn:x", "test_tenant")
+
+            assert "Delete entity failed" in str(exc_info.value)
 
     @pytest.mark.asyncio
     async def test_close_cleans_up_client(self, orion_client):
