@@ -14,7 +14,7 @@ from app.services.orion_client import OrionLDClient
 logger = logging.getLogger(__name__)
 
 VALID_COLLECTIONS = {"parcels", "equipment", "operations"}
-SUPPORTED_SCHEMA_VERSIONS = {3}
+SUPPORTED_SCHEMA_VERSIONS = {3, 4}
 
 
 class SyncConflictError(Exception):

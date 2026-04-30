@@ -5,7 +5,7 @@
  * via the Nekazari authentication context and tenant-aware headers.
  */
 
-const BASE_URL = '/api/nkz-module-gis-routing';
+const BASE_URL = '/api/routing';
 
 function getTenantId(): string | undefined {
   const ctx = (window as any).__nekazariAuthContext;

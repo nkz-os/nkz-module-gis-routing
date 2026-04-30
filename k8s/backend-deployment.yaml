@@ -41,7 +41,7 @@ spec:
             - name: DEBUG
               value: "false"
             - name: API_PREFIX
-              value: "/api/MODULE_NAME"
+              value: "/api/routing"
             # CORS — explicit origin whitelist (never *)
             - name: CORS_ORIGINS
               value: '["https://nekazari.robotika.cloud"]'

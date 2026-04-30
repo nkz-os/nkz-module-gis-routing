@@ -22,7 +22,7 @@ class TestSyncPull:
     def test_pull_without_auth_returns_404(self, client):
         """Without a valid JWT, tenant_id is None -> 404 TENANT_NOT_FOUND."""
         resp = client.get(
-            "/api/nkz-module-gis-routing/sync",
+            "/api/routing/sync",
             params={"collections": "parcels", "last_pulled_at": 0, "schema_version": 3},
         )
         assert resp.status_code == 404
@@ -34,7 +34,7 @@ class TestSyncPull:
     def test_pull_missing_collections_returns_422(self, client):
         """Missing required 'collections' query param -> 422 validation error."""
         resp = client.get(
-            "/api/nkz-module-gis-routing/sync",
+            "/api/routing/sync",
             params={"last_pulled_at": 0, "schema_version": 3},
         )
         assert resp.status_code == 422
@@ -42,7 +42,7 @@ class TestSyncPull:
     def test_pull_invalid_collection_returns_400(self, client):
         """An unknown collection name must return 400 INVALID_COLLECTION."""
         resp = client.get(
-            "/api/nkz-module-gis-routing/sync",
+            "/api/routing/sync",
             params={
                 "collections": "invalid",
                 "last_pulled_at": 0,
@@ -55,7 +55,7 @@ class TestSyncPull:
     def test_pull_partially_invalid_collections_returns_400(self, client):
         """A mix of valid and invalid collections -> 400."""
         resp = client.get(
-            "/api/nkz-module-gis-routing/sync",
+            "/api/routing/sync",
             params={
                 "collections": "parcels,invalid",
                 "last_pulled_at": 0,
@@ -71,7 +71,7 @@ class TestSyncPush:
     def test_push_without_body_returns_422(self, client):
         """POST without JSON body -> 422 (FastAPI cannot parse)."""
         resp = client.post(
-            "/api/nkz-module-gis-routing/sync",
+            "/api/routing/sync",
             params={"collections": "parcels"},
         )
         # 422 from FastAPI body parsing, 404 from tenant check, or 400 from body check
@@ -80,7 +80,7 @@ class TestSyncPush:
     def test_push_missing_changes_returns_400(self, client):
         """POST with JSON body but missing 'changes' -> 400 INVALID_BODY."""
         resp = client.post(
-            "/api/nkz-module-gis-routing/sync",
+            "/api/routing/sync",
             params={"collections": "parcels"},
             json={"last_pulled_at": 0},
         )
@@ -89,7 +89,7 @@ class TestSyncPush:
     def test_push_empty_changes_returns_400_or_404(self, client):
         """Valid shape but no auth -> 404 (or 400 if validation fires first)."""
         resp = client.post(
-            "/api/nkz-module-gis-routing/sync",
+            "/api/routing/sync",
             params={"collections": "parcels"},
             json={
                 "changes": {"parcels": {"created": [], "updated": [], "deleted": []}},
@@ -102,7 +102,7 @@ class TestSyncPush:
     def test_push_invalid_collection_returns_400(self, client):
         """Unknown collection -> 400 INVALID_COLLECTION."""
         resp = client.post(
-            "/api/nkz-module-gis-routing/sync",
+            "/api/routing/sync",
             params={"collections": "does-not-exist"},
             json={
                 "changes": {},
@@ -117,13 +117,13 @@ class TestGenerate:
 
     def test_generate_without_body_returns_422(self, client):
         """POST /generate without JSON body -> 422."""
-        resp = client.post("/api/nkz-module-gis-routing/generate")
+        resp = client.post("/api/routing/generate")
         assert resp.status_code == 422
 
     def test_generate_invalid_geometry_returns_400(self, client):
         """Non-Polygon geometry -> 400."""
         resp = client.post(
-            "/api/nkz-module-gis-routing/generate",
+            "/api/routing/generate",
             json={
                 "parcel_geometry": {"type": "Point", "coordinates": [0, 0]},
                 "start_point": [0, 0],
@@ -136,7 +136,7 @@ class TestGenerate:
     def test_generate_heading_out_of_range_returns_422(self, client):
         """heading_deg outside [0, 360) -> 422."""
         resp = client.post(
-            "/api/nkz-module-gis-routing/generate",
+            "/api/routing/generate",
             json={
                 "parcel_geometry": {"type": "Polygon", "coordinates": [[[0, 0], [1, 0], [1, 1], [0, 1], [0, 0]]]},
                 "start_point": [0, 0],
@@ -149,7 +149,7 @@ class TestGenerate:
     def test_generate_negative_width_returns_422(self, client):
         """width_m <= 0 -> 422."""
         resp = client.post(
-            "/api/nkz-module-gis-routing/generate",
+            "/api/routing/generate",
             json={
                 "parcel_geometry": {"type": "Polygon", "coordinates": [[[0, 0], [1, 0], [1, 1], [0, 1], [0, 0]]]},
                 "start_point": [0, 0],

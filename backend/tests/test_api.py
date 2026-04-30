@@ -35,13 +35,13 @@ class TestAPI:
 
     def test_docs_available(self, client):
         """Test OpenAPI docs are available."""
-        response = client.get("/api/nkz-module-gis-routing/docs")
+        response = client.get("/api/routing/docs")
         # Should return HTML or redirect
         assert response.status_code in [200, 307]
 
     def test_openapi_schema(self, client):
         """Test OpenAPI schema is generated."""
-        response = client.get("/api/nkz-module-gis-routing/openapi.json")
+        response = client.get("/api/routing/openapi.json")
         assert response.status_code == 200
 
         schema = response.json()
