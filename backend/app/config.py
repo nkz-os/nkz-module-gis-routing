@@ -19,7 +19,7 @@ class Settings(BaseSettings):
     debug: bool = False
 
     # API
-    api_prefix: str = "/api/nkz-module-gis-routing"
+    api_prefix: str = "/api/routing"
     cors_origins: list[str] = []  # Set via CORS_ORIGINS env var; empty = deny all cross-origin
 
     # Keycloak / JWT Authentication
