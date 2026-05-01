@@ -1,32 +1,32 @@
 # =============================================================================
-# MODULE_DISPLAY_NAME Backend Deployment
+# GIS Routing Backend Deployment
 # =============================================================================
-# Backend API service for MODULE_DISPLAY_NAME module
+# Backend API service for GIS Routing module
 # =============================================================================
 
 ---
-# Deployment: MODULE_DISPLAY_NAME Backend Service
+# Deployment: GIS Routing Backend Service
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: MODULE_NAME-backend
+  name: nkz-module-gis-routing-backend
   namespace: nekazari
   labels:
-    app: MODULE_NAME-backend
+    app: nkz-module-gis-routing-backend
     component: backend
-    module: MODULE_NAME
+    module: nkz-module-gis-routing
     nekazari.io/profile: addon
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: MODULE_NAME-backend
+      app: nkz-module-gis-routing-backend
   template:
     metadata:
       labels:
-        app: MODULE_NAME-backend
+        app: nkz-module-gis-routing-backend
         component: backend
-        module: MODULE_NAME
+        module: nkz-module-gis-routing
     spec:
       containers:
         - name: backend
@@ -37,7 +37,7 @@ spec:
               containerPort: 8000
           env:
             - name: APP_NAME
-              value: "MODULE_DISPLAY_NAME"
+              value: "GIS Routing"
             - name: DEBUG
               value: "false"
             - name: API_PREFIX
@@ -104,15 +104,15 @@ spec:
             timeoutSeconds: 3
 
 ---
-# Service: MODULE_DISPLAY_NAME Backend API
+# Service: GIS Routing Backend API
 apiVersion: v1
 kind: Service
 metadata:
-  name: MODULE_NAME-api-service
+  name: nkz-module-gis-routing-api-service
   namespace: nekazari
   labels:
-    app: MODULE_NAME-backend
-    module: MODULE_NAME
+    app: nkz-module-gis-routing-backend
+    module: nkz-module-gis-routing
 spec:
   type: ClusterIP
   ports:
@@ -121,4 +121,4 @@ spec:
       protocol: TCP
       name: http
   selector:
-    app: MODULE_NAME-backend
+    app: nkz-module-gis-routing-backend
