@@ -95,4 +95,16 @@ export const api = {
   getExportUrl(operationId: string, format: 'isoxml' | 'geojson' | 'gpx'): string {
     return `${BASE_URL}/export/${encodeURIComponent(operationId)}?format=${format}`;
   },
+
+  // Zoning — fetched from Orion-LD via our backend
+  getZones(parcelId: string) {
+    return request(`/zones/${encodeURIComponent(parcelId)}`);
+  },
+
+  generateZones(parcelId: string, nZones: number) {
+    return request(`/zones/${encodeURIComponent(parcelId)}/generate`, {
+      method: 'POST',
+      body: JSON.stringify({ n_zones: nZones }),
+    });
+  },
 };
