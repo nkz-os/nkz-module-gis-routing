@@ -38,7 +38,7 @@ class Settings(BaseSettings):
     # redis_url: str = ""
 
     # Orion-LD Context Broker
-    context_broker_url: str = "http://orion-service:1026"
+    context_broker_url: str = "http://orion-ld-service:1026"
     ngsi_ld_context: str = Field(default="", alias="CONTEXT_URL")  # Set via CONTEXT_URL env var
 
     # TimescaleDB / PostGIS
