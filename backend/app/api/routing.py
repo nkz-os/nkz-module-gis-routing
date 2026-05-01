@@ -17,6 +17,7 @@ from fastapi.responses import Response as FastAPIResponse
 from pydantic import BaseModel, Field
 from typing import Optional
 
+import httpx
 from app.services.sync_service import SyncService, SyncConflictError
 from app.services.geometry import generate_swaths
 from app.services.orion_client import OrionLDClient
@@ -390,6 +391,55 @@ async def get_offline_tiles(
         },
         headers={"Retry-After": "60"},
     )
+
+
+# ── Zoning (AgriManagementZone via Orion-LD, generation via vegetation-health proxy) ──
+
+
+@router.get("/zones/{parcel_id}")
+async def get_parcel_zones(request: Request, parcel_id: str):
+    """Fetch AgriManagementZone entities for a parcel from Orion-LD."""
+    tenant_id = _get_tenant_id(request)
+    settings = get_settings()
+    orion = OrionLDClient(base_url=settings.context_broker_url, context_url=settings.ngsi_ld_context)
+    zones = await orion.query_entities("AgriManagementZone", tenant_id)
+    await orion.close()
+
+    matched = []
+    for z in zones:
+        ref = str(z.get("refAgriParcel", {}).get("value", ""))
+        if parcel_id in ref:
+            location = z.get("location", {}).get("value", {})
+            matched.append({
+                "id": z["id"],
+                "zone_id": z.get("zoneId", {}).get("value", ""),
+                "zone_class": z.get("zoneClass", {}).get("value", ""),
+                "prescription_rate": z.get("prescriptionRate", {}).get("value", 1.0),
+                "mean_value": z.get("meanValue", {}).get("value", 0),
+                "area_ha": z.get("areaHa", {}).get("value", 0),
+                "geometry": location,
+            })
+    return {"success": True, "data": {"parcel_id": parcel_id, "zones": matched, "count": len(matched)}}
+
+
+@router.post("/zones/{parcel_id}/generate")
+async def generate_vra_zones(request: Request, parcel_id: str):
+    """Trigger VRA zone generation via vegetation-health backend (server-to-server proxy)."""
+    tenant_id = _get_tenant_id(request)
+    body = await request.json()
+    n_zones = body.get("n_zones", 3)
+
+    async with httpx.AsyncClient(timeout=30.0) as client:
+        try:
+            resp = await client.post(
+                f"http://vegetation-health-api-service:8000/api/vegetation/jobs/zoning/{parcel_id}",
+                json={"n_zones": n_zones, "tenant_id": tenant_id},
+            )
+            resp.raise_for_status()
+            return resp.json()
+        except httpx.HTTPError as e:
+            logger.error("Vegetation-health proxy failed: %s", e)
+            raise HTTPException(status_code=502, detail="Zone generation service unavailable")
 
 
 @router.get("/export/{operation_id}")
