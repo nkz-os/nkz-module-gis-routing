@@ -61,7 +61,9 @@ jobs:
                   cache-dependency-path: backend/requirements.txt
 
             - name: Install system dependencies (GIS)
-              run: sudo apt-get update -qq && sudo apt-get install -y -qq libgeos-dev libproj-dev
+              run: |
+                sudo apt-get update -qq
+                sudo apt-get install -y libgeos-dev libproj-dev libgdal-dev gdal-bin
 
             - name: Install backend dependencies
               run: pip install -r backend/requirements.txt
