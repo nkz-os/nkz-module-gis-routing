@@ -4,9 +4,11 @@ FROM python:3.11-slim AS builder
 
 WORKDIR /app
 
-# Install build dependencies
+# Install build dependencies + GIS libraries
 RUN apt-get update && apt-get install -y --no-install-recommends \
     gcc \
+    libgeos-dev \
+    libproj-dev \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy and install requirements
