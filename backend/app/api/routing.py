@@ -444,3 +444,102 @@ async def export_operation(
                 "Content-Disposition": f'attachment; filename="{operation_id.rsplit(":", 1)[-1]}.geojson"'
             },
         )
+
+
+@router.post("/notify")
+async def on_ngsild_notification(request: Request):
+    """Receive NGSI-LD subscription notifications from Orion-LD.
+
+    Called by Orion-LD when entities matching our subscriptions change.
+    Extracts the changed entities and materializes them into TimescaleDB.
+    No JWT required — Orion-LD sends service-to-service notifications.
+    """
+    body = await request.json()
+    tenant_id = request.headers.get("FIWARE-Service", "default")
+    data = body.get("data", [])
+
+    if not data:
+        return {"status": "ok", "materialized": 0}
+
+    settings = get_settings()
+    ts = TimescaleDBClient(dsn=settings.database_url)
+    await ts.connect()
+    count = 0
+    try:
+        for entity in data:
+            etype = entity.get("type", "")
+            eid = entity.get("id", "")
+            if not eid:
+                continue
+
+            if etype == "AgriParcel":
+                location = entity.get("location", {}).get("value", {})
+                geojson_str = json.dumps(location) if location else "{}"
+                coords_list = location.get("coordinates", [[[0, 0]]]) if location else [[[0, 0]]]
+                centroid = coords_list[0][0] if coords_list and coords_list[0] else [0, 0]
+                name = str(entity.get("name", {}).get("value", eid))
+                area = float(entity.get("area", {}).get("value", 0))
+                crop_type = str(entity.get("category", {}).get("value", ""))
+                status_val = str(entity.get("cropStatus", {}).get("value", "active"))
+                status = "active" if status_val in ("growing", "active") else "fallow"
+                updated_at = int(time.time() * 1000)
+                await ts.materialize_parcel(
+                    remote_id=eid, tenant_id=tenant_id, name=name,
+                    geojson=geojson_str, area=area, crop_type=crop_type,
+                    status=status, centroid_lat=float(centroid[1]) if len(centroid) > 1 else 0,
+                    centroid_lng=float(centroid[0]), updated_at=updated_at)
+                count += 1
+
+            elif etype in ("AgriculturalTractor", "AgriculturalImplement"):
+                name = str(entity.get("name", {}).get("value", eid))
+                eq_type = "tractor" if etype == "AgriculturalTractor" else "implement"
+                width = float(entity.get("implementWidth", {}).get("value", 0) or 3.0)
+                status = str(entity.get("status", {}).get("value", "available"))
+                steering = str(entity.get("steeringType", {}).get("value", "ackermann"))
+                axles = str(entity.get("steeringAxles", {}).get("value", "front"))
+                updated_at = int(time.time() * 1000)
+                await ts.materialize_equipment(
+                    remote_id=eid, tenant_id=tenant_id, name=name,
+                    equipment_type=eq_type, implement_width=max(width, 1.0),
+                    status=status, steering_type=steering, steering_axles=axles,
+                    track_width=float(entity.get("trackWidth", {}).get("value", 0)),
+                    wheelbase=float(entity.get("wheelbase", {}).get("value", 0)),
+                    gps_offset_x=float(entity.get("gpsOffsetX", {}).get("value", 0)),
+                    gps_offset_y=float(entity.get("gpsOffsetY", {}).get("value", 0)),
+                    gps_offset_z=float(entity.get("gpsOffsetZ", {}).get("value", 0)),
+                    hitch_type=str(entity.get("hitchType", {}).get("value", "none")),
+                    hitch_offset_x=float(entity.get("hitchOffsetX", {}).get("value", 0)),
+                    implement_length=float(entity.get("implementLength", {}).get("value", 0)),
+                    implement_offset_x=float(entity.get("implementOffsetX", {}).get("value", 0)),
+                    updated_at=updated_at)
+                count += 1
+
+            elif etype == "AgriParcelOperation":
+                status = str(entity.get("status", {}).get("value", "planned"))
+                updated_at = int(time.time() * 1000)
+                prescription_map = None
+                pm_attr = entity.get("prescriptionMap", {})
+                if pm_attr:
+                    pm_value = pm_attr.get("value")
+                    prescription_map = json.dumps(pm_value) if pm_value else None
+                await ts.materialize_operation(
+                    remote_id=eid, tenant_id=tenant_id,
+                    parcel_id=str(entity.get("refAgriParcel", {}).get("value", "")),
+                    equipment_id=None,
+                    tractor_id=str(entity.get("refTractor", {}).get("value", "")),
+                    implement_id=str(entity.get("refImplement", {}).get("value", "")),
+                    operation_type=str(entity.get("operationType", {}).get("value", "")),
+                    ab_line_geojson=json.dumps(entity.get("location", {}).get("value", {})),
+                    implement_width=float(entity.get("implementWidth", {}).get("value", 24.0)),
+                    status=status,
+                    vra_enabled=bool(entity.get("vraEnabled", {}).get("value", False)),
+                    prescription_map=prescription_map,
+                    base_rate=float(entity.get("baseRate", {}).get("value", 0)) if entity.get("baseRate") else None,
+                    rate_unit=str(entity.get("rateUnit", {}).get("value", "")) if entity.get("rateUnit") else None,
+                    started_at=None, completed_at=None, updated_at=updated_at)
+                count += 1
+    finally:
+        await ts.close()
+
+    logger.info("Materialized %d entities for tenant %s from notification", count, tenant_id)
+    return {"status": "ok", "materialized": count}
