@@ -225,7 +225,7 @@ class TenantStateMiddleware(BaseHTTPMiddleware):
 
     async def dispatch(self, request: Request, call_next):
         # Skip auth for health endpoint
-        if request.url.path == "/health":
+        if request.url.path in ("/health", "/api/routing/notify"):
             request.state.tenant_id = None
             request.state.user_id = None
             return await call_next(request)
