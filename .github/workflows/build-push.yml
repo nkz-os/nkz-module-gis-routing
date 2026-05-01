@@ -60,6 +60,9 @@ jobs:
                   cache: "pip"
                   cache-dependency-path: backend/requirements.txt
 
+            - name: Install system dependencies (GIS)
+              run: sudo apt-get update -qq && sudo apt-get install -y -qq libgeos-dev libproj-dev
+
             - name: Install backend dependencies
               run: pip install -r backend/requirements.txt
 
