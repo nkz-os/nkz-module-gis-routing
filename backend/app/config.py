@@ -1,5 +1,5 @@
 """
-MODULE_DISPLAY_NAME Backend - Configuration
+GIS Routing Backend - Configuration
 
 Environment-based configuration using pydantic-settings.
 """
