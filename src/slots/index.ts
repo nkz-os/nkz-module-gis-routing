@@ -11,7 +11,7 @@
  */
 import '../i18n';
 import type { ModuleViewerSlots } from '../types/module-slots';
-import { RoutingDesigner } from '../components/RoutingDesigner';
+import RoutingSlot from '../components/slots/ExampleSlot';
 
 const MODULE_ID = 'nkz-module-gis-routing';
 
@@ -22,8 +22,8 @@ export const moduleSlots: ModuleViewerSlots = {
     {
       id: 'gis-routing-context',
       moduleId: MODULE_ID,
-      component: 'RoutingDesigner',
-      localComponent: RoutingDesigner,
+      component: 'RoutingSlot',
+      localComponent: RoutingSlot,
       priority: 10,
     },
   ],
