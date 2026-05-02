@@ -1,5 +1,5 @@
 """
-MODULE_DISPLAY_NAME Backend - FastAPI Application
+GIS Routing Backend - FastAPI Application
 
 Main entry point for the backend service.
 """
@@ -34,7 +34,7 @@ def create_app() -> FastAPI:
     app = FastAPI(
         title=settings.app_name,
         version=settings.app_version,
-        description="MODULE_DISPLAY_NAME - Backend API for Nekazari Platform",
+        description="GIS Routing - Backend API for Nekazari Platform",
         docs_url=f"{settings.api_prefix}/docs",
         redoc_url=f"{settings.api_prefix}/redoc",
         openapi_url=f"{settings.api_prefix}/openapi.json",

@@ -1,5 +1,5 @@
 """
-MODULE_DISPLAY_NAME Backend - Authentication Middleware
+GIS Routing Backend - Authentication Middleware
 
 JWT validation middleware for Keycloak tokens.
 Compatible with Nekazari platform authentication.
