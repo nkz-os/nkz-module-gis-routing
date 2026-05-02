@@ -1,8 +1,10 @@
 import math
-from typing import List, Tuple
-from shapely.geometry import Polygon, LineString, MultiLineString, shape
-from pyproj import CRS, Transformer
+from typing import List, Optional, Tuple
+
+import httpx
 import numpy as np
+from pyproj import CRS, Transformer
+from shapely.geometry import LineString, MultiLineString, Polygon, shape
 
 def get_utm_crs(lon: float, lat: float) -> CRS:
     """
@@ -146,3 +148,100 @@ def generate_swaths(
         swaths_wgs84.append(LineString(np.column_stack((wgs_x, wgs_y))))
         
     return MultiLineString(swaths_wgs84)
+
+
+async def generate_swaths_with_dem(
+    geojson_polygon: dict,
+    start_point: list[float],
+    heading_deg: float,
+    width_m: float,
+    dem_url: Optional[str] = None,
+    dem_sample_spacing_m: float = 10.0,
+):
+    """Generate parallel swaths with optional DEM slope correction.
+
+    When dem_url is provided, samples elevation along the AB reference line
+    and adjusts swath spacing so that the real terrain distance between
+    passes equals width_m (the implement width).
+    """
+    from shapely.geometry import MultiLineString as MLS
+
+    swaths = generate_swaths(geojson_polygon, start_point, heading_deg, width_m)
+
+    if dem_url is None:
+        return swaths
+
+    ref_points = _sample_ab_line(start_point, heading_deg, swaths, dem_sample_spacing_m)
+    elevations = []
+    async with httpx.AsyncClient(timeout=15.0) as client:
+        for pt in ref_points:
+            try:
+                resp = await client.get(
+                    f"{dem_url}/point",
+                    params={"lat": pt[1], "lon": pt[0], "source": "auto"},
+                )
+                if resp.status_code == 200:
+                    data = resp.json()
+                    elevations.append(data["elevation_m"])
+            except Exception:
+                pass
+
+    if len(elevations) < 2:
+        return swaths
+
+    slopes = []
+    for i in range(1, len(elevations)):
+        dz = abs(elevations[i] - elevations[i-1])
+        slope = math.atan(dz / dem_sample_spacing_m)
+        slopes.append(slope)
+    mean_slope = sum(slopes) / len(slopes)
+
+    if mean_slope <= math.radians(1.0):
+        return swaths
+
+    width_plane = width_m / math.cos(mean_slope)
+    return generate_swaths(geojson_polygon, start_point, heading_deg, width_plane)
+
+
+def _sample_ab_line(
+    start_point: list[float],
+    heading_deg: float,
+    swaths,
+    spacing_m: float,
+) -> list[list[float]]:
+    """Sample points along the AB reference line at regular intervals."""
+    import numpy as np
+    from pyproj import CRS, Transformer
+
+    if swaths.is_empty:
+        return []
+    ref_line = list(swaths.geoms)[0]
+
+    centroid = ref_line.centroid
+    utm_crs = get_utm_crs(centroid.x, centroid.y)
+    wgs84 = CRS.from_epsg(4326)
+    to_utm = Transformer.from_crs(wgs84, utm_crs, always_xy=True).transform
+    to_wgs = Transformer.from_crs(utm_crs, wgs84, always_xy=True).transform
+
+    coords = np.array(ref_line.coords)
+    x, y = to_utm(coords[:, 0], coords[:, 1])
+
+    points = []
+    cumulative = 0.0
+    target = 0.0
+    for i in range(1, len(x)):
+        dx = x[i] - x[i-1]
+        dy = y[i] - y[i-1]
+        seg_len = math.hypot(dx, dy)
+
+        while target < cumulative + seg_len:
+            t = (target - cumulative) / seg_len if seg_len > 0 else 0
+            px = x[i-1] + dx * t
+            py = y[i-1] + dy * t
+            wgs_x, wgs_y = to_wgs(px, py)
+            points.append([wgs_x, wgs_y])
+            target += spacing_m
+
+        cumulative += seg_len
+
+    return points
