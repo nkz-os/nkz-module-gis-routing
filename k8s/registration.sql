@@ -19,7 +19,7 @@ INSERT INTO marketplace_modules (
     '2.0.0',
     'nkz-os',
     'analytics',
-    '//gis-routing',
+    '/gis-routing',
     'GIS Routing',
     'ADDON_FREE',
     'basic',
