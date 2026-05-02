@@ -119,6 +119,7 @@ class GenerateRequest(BaseModel):
     tractor_id: Optional[str] = None
     implement_id: Optional[str] = None
     operation_type: Optional[str] = "spraying"
+    dem_correction: bool = Field(False, description="Enable DEM slope correction via eu-elevation")
     persist: bool = True
 
 
@@ -129,9 +130,27 @@ async def generate_routing_plan(request: Request, body: GenerateRequest):
                             detail="parcel_geometry must be a GeoJSON Polygon")
     try:
         from shapely.geometry import mapping
-        multi_line_string = generate_swaths(
-            geojson_polygon=body.parcel_geometry, start_point=body.start_point,
-            heading_deg=body.heading_deg, width_m=body.width_m)
+
+        if body.dem_correction:
+            from app.config import get_settings
+            from app.services.geometry import generate_swaths_with_dem
+
+            dem_url = get_settings().eu_elevation_url
+            multi_line_string = await generate_swaths_with_dem(
+                geojson_polygon=body.parcel_geometry,
+                start_point=body.start_point,
+                heading_deg=body.heading_deg,
+                width_m=body.width_m,
+                dem_url=dem_url,
+            )
+        else:
+            multi_line_string = generate_swaths(
+                geojson_polygon=body.parcel_geometry,
+                start_point=body.start_point,
+                heading_deg=body.heading_deg,
+                width_m=body.width_m,
+            )
+
         geojson_result = mapping(multi_line_string)
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -229,6 +248,7 @@ class GenerateVRARequest(BaseModel):
     tractor_id: Optional[str] = None
     implement_id: Optional[str] = None
     operation_type: Optional[str] = "spraying"
+    dem_correction: bool = Field(False, description="Enable DEM slope correction via eu-elevation")
     base_rate: float = Field(
         ..., gt=0, description="Base application rate l/ha or kg/ha"
     )
@@ -251,12 +271,24 @@ async def generate_routing_with_vra(request: Request, body: GenerateVRARequest):
 
     # Generate swaths
     try:
-        multi_line_string = generate_swaths(
-            geojson_polygon=body.parcel_geometry,
-            start_point=body.start_point,
-            heading_deg=body.heading_deg,
-            width_m=body.width_m,
-        )
+        if body.dem_correction:
+            from app.services.geometry import generate_swaths_with_dem
+
+            dem_url = settings.eu_elevation_url
+            multi_line_string = await generate_swaths_with_dem(
+                geojson_polygon=body.parcel_geometry,
+                start_point=body.start_point,
+                heading_deg=body.heading_deg,
+                width_m=body.width_m,
+                dem_url=dem_url,
+            )
+        else:
+            multi_line_string = generate_swaths(
+                geojson_polygon=body.parcel_geometry,
+                start_point=body.start_point,
+                heading_deg=body.heading_deg,
+                width_m=body.width_m,
+            )
         swath_geojson = mapping(multi_line_string)
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
