@@ -41,6 +41,9 @@ class Settings(BaseSettings):
     context_broker_url: str = "http://orion-ld-service:1026"
     ngsi_ld_context: str = Field(default="", alias="CONTEXT_URL")  # Set via CONTEXT_URL env var
 
+    # EU Elevation integration (DEM slope correction)
+    eu_elevation_url: str = "http://eu-elevation-api-service:8000/api/elevation"
+
     # TimescaleDB / PostGIS
     database_url: str = ""  # postgresql+asyncpg://user:pass@postgresql:5432/nekazari
 
