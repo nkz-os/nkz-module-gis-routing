@@ -21,7 +21,7 @@
     "platform_version": "^2.0.0"
   },
   "permissions": {
-    "api_access": ["/api/nkz-module-gis-routing/*"],
+    "api_access": ["/api/routing/*"],
     "storage_access": false,
     "external_requests": []
   },
@@ -32,7 +32,7 @@
   "slots": {
     "map-layer": [],
     "layer-toggle": [],
-    "context-panel": ["RoutingDesigner"],
+    "context-panel": ["RoutingSlot"],
     "bottom-panel": [],
     "entity-tree": [],
     "dashboard-widget": []
