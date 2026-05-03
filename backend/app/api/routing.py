@@ -572,9 +572,10 @@ async def on_ngsild_notification(request: Request):
                     centroid_lng=float(centroid[0]), updated_at=updated_at)
                 count += 1
 
-            elif etype in ("AgriculturalTractor", "AgriculturalImplement"):
+            elif etype == "ManufacturingMachine":
                 name = str(entity.get("name", {}).get("value", eid))
-                eq_type = "tractor" if etype == "AgriculturalTractor" else "implement"
+                category_val = str(entity.get("category", {}).get("value", "tractor"))
+                eq_type = "tractor" if category_val == "tractor" else "implement"
                 width = float(entity.get("implementWidth", {}).get("value", 0) or 3.0)
                 status = str(entity.get("status", {}).get("value", "available"))
                 steering = str(entity.get("steeringType", {}).get("value", "ackermann"))

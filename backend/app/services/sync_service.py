@@ -215,17 +215,17 @@ class SyncService:
             }
 
         elif collection == "equipment":
-            etype = (
-                "AgriculturalTractor"
-                if record.get("equipment_type") == "tractor"
-                else "AgriculturalImplement"
-            )
+            etype = "ManufacturingMachine"
             return {
                 "id": (
                     f"urn:ngsi-ld:{etype}:{tenant_id}:"
                     f"{record.get('id', '')[:8]}"
                 ),
                 "type": etype,
+                "category": {
+                    "type": "Property",
+                    "value": record.get("equipment_type", "tractor"),
+                },
                 "name": {"type": "Property", "value": record.get("name", "")},
                 "implementWidth": {
                     "type": "Property",
