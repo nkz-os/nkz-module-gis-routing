@@ -1,0 +1,17 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: nkz-module-gis-routing-service
+  namespace: nekazari
+  labels:
+    app: nkz-module-gis-routing-backend
+    module: nkz-module-gis-routing
+spec:
+  type: ClusterIP
+  ports:
+    - port: 8000
+      targetPort: 8000
+      protocol: TCP
+      name: http
+  selector:
+    app: nkz-module-gis-routing-backend
