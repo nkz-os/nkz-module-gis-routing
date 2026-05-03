@@ -76,7 +76,7 @@ class TestTimescaleDBClient:
         """materialize_equipment must call conn.execute with equipment UPSERT."""
         mock_conn = _connect(ts_client)
         await ts_client.materialize_equipment(
-            remote_id="urn:ngsi-ld:AgriEquipment:test:1",
+            remote_id="urn:ngsi-ld:ManufacturingMachine:test:1",
             tenant_id="test",
             name="Tractor-1",
             equipment_type="tractor",
@@ -108,8 +108,8 @@ class TestTimescaleDBClient:
             remote_id="urn:ngsi-ld:AgriOperation:test:1",
             tenant_id="test",
             parcel_id="urn:ngsi-ld:AgriParcel:test:1",
-            equipment_id="urn:ngsi-ld:AgriEquipment:test:1",
-            tractor_id="urn:ngsi-ld:AgriEquipment:test:1",
+            equipment_id="urn:ngsi-ld:ManufacturingMachine:test:1",
+            tractor_id="urn:ngsi-ld:ManufacturingMachine:test:1",
             implement_id=None,
             operation_type="spraying",
             ab_line_geojson='{"type":"LineString","coordinates":[]}',

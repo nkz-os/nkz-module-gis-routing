@@ -34,35 +34,35 @@ async def materialize_parcels(orion: OrionLDClient, ts: TimescaleDBClient, tenan
 
 
 async def materialize_equipment_entities(orion: OrionLDClient, ts: TimescaleDBClient, tenant_id: str):
-    """Fetch AgriculturalTractor + AgriculturalImplement entities from Orion-LD."""
-    for etype in ("AgriculturalTractor", "AgriculturalImplement"):
-        entities = await orion.query_entities(etype, tenant_id)
-        for e in entities:
-            name = str(e.get("name", {}).get("value", e["id"]))
-            eq_type = "tractor" if etype == "AgriculturalTractor" else "implement"
-            width = float(e.get("implementWidth", {}).get("value", 0)
-                          or e.get("workingWidth", {}).get("value", 0)
-                          or e.get("width", {}).get("value", 3.0))
-            steering = str(e.get("steeringType", {}).get("value", "ackermann"))
-            axles = str(e.get("steeringAxles", {}).get("value", "front"))
-            gps_x = float(e.get("gpsOffsetX", {}).get("value", 0))
-            gps_y = float(e.get("gpsOffsetY", {}).get("value", 0))
-            gps_z = float(e.get("gpsOffsetZ", {}).get("value", 0))
-            hitch = str(e.get("hitchType", {}).get("value", "none"))
-            hitch_ox = float(e.get("hitchOffsetX", {}).get("value", 0))
-            impl_len = float(e.get("implementLength", {}).get("value", 0))
-            impl_ox = float(e.get("implementOffsetX", {}).get("value", 0))
-            track_w = float(e.get("trackWidth", {}).get("value", 0))
-            wb = float(e.get("wheelbase", {}).get("value", 0))
-            status = str(e.get("status", {}).get("value", "available"))
-            updated_at = _parse_datetime_attr(e, "modifiedAt") or _parse_datetime_attr(e, "dateModified") or 0
-            await ts.materialize_equipment(
-                remote_id=e["id"], tenant_id=tenant_id, name=name, equipment_type=eq_type,
-                implement_width=max(width, 1.0), status=status, steering_type=steering,
-                steering_axles=axles, track_width=track_w, wheelbase=wb,
-                gps_offset_x=gps_x, gps_offset_y=gps_y, gps_offset_z=gps_z,
-                hitch_type=hitch, hitch_offset_x=hitch_ox, implement_length=impl_len,
-                implement_offset_x=impl_ox, updated_at=updated_at)
+    """Fetch ManufacturingMachine entities from Orion-LD (category differentiates tractor vs implement)."""
+    entities = await orion.query_entities("ManufacturingMachine", tenant_id)
+    for e in entities:
+        name = str(e.get("name", {}).get("value", e["id"]))
+        category = str(e.get("category", {}).get("value", "tractor"))
+        eq_type = "tractor" if category == "tractor" else "implement"
+        width = float(e.get("implementWidth", {}).get("value", 0)
+                      or e.get("workingWidth", {}).get("value", 0)
+                      or e.get("width", {}).get("value", 3.0))
+        steering = str(e.get("steeringType", {}).get("value", "ackermann"))
+        axles = str(e.get("steeringAxles", {}).get("value", "front"))
+        gps_x = float(e.get("gpsOffsetX", {}).get("value", 0))
+        gps_y = float(e.get("gpsOffsetY", {}).get("value", 0))
+        gps_z = float(e.get("gpsOffsetZ", {}).get("value", 0))
+        hitch = str(e.get("hitchType", {}).get("value", "none"))
+        hitch_ox = float(e.get("hitchOffsetX", {}).get("value", 0))
+        impl_len = float(e.get("implementLength", {}).get("value", 0))
+        impl_ox = float(e.get("implementOffsetX", {}).get("value", 0))
+        track_w = float(e.get("trackWidth", {}).get("value", 0))
+        wb = float(e.get("wheelbase", {}).get("value", 0))
+        status = str(e.get("status", {}).get("value", "available"))
+        updated_at = _parse_datetime_attr(e, "modifiedAt") or _parse_datetime_attr(e, "dateModified") or 0
+        await ts.materialize_equipment(
+            remote_id=e["id"], tenant_id=tenant_id, name=name, equipment_type=eq_type,
+            implement_width=max(width, 1.0), status=status, steering_type=steering,
+            steering_axles=axles, track_width=track_w, wheelbase=wb,
+            gps_offset_x=gps_x, gps_offset_y=gps_y, gps_offset_z=gps_z,
+            hitch_type=hitch, hitch_offset_x=hitch_ox, implement_length=impl_len,
+            implement_offset_x=impl_ox, updated_at=updated_at)
 
 
 def _parse_datetime_attr(entity: dict, attr_name: str) -> int:
