@@ -2,11 +2,15 @@ import { defineConfig } from 'vite';
 import { nkzModulePreset } from '@nekazari/module-builder';
 import path from 'path';
 
-const MODULE_ID = 'MODULE_NAME';
+const MODULE_ID = 'nkz-module-gis-routing';
 
 export default defineConfig(nkzModulePreset({
   moduleId: MODULE_ID,
   entry: 'src/moduleEntry.ts',
+  additionalExternals: {
+    '@nekazari/design-tokens': '__NKZ_DESIGN_TOKENS__',
+    '@nekazari/viewer-kit': '__NKZ_VIEWER_KIT__',
+  },
   viteConfig: {
     resolve: {
       alias: { '@': path.resolve(__dirname, './src') },

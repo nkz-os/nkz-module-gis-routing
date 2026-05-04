@@ -8,7 +8,6 @@ import './i18n';
 import React, { Suspense, lazy, useState } from 'react';
 import { useTranslation } from '@nekazari/sdk';
 import { MapPin, Layers } from 'lucide-react';
-import './index.css';
 
 const NS = 'gis-routing';
 const RoutingDesigner = lazy(() => import('./components/RoutingDesigner'));

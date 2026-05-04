@@ -37,6 +37,30 @@
     "entity-tree": [],
     "dashboard-widget": []
   },
+  "accent": {
+    "base": "#CA8A04",
+    "soft": "#FEF9C3",
+    "strong": "#A16207"
+  },
+  "surfaces": {
+    "web": {
+      "slots": {
+        "context-panel": [
+          {
+            "id": "gis-routing-context",
+            "moduleId": "nkz-module-gis-routing",
+            "component": "RoutingSlot",
+            "priority": 10
+          }
+        ],
+        "map-layer": [],
+        "layer-toggle": [],
+        "bottom-panel": [],
+        "entity-tree": [],
+        "dashboard-widget": []
+      }
+    }
+  },
   "metadata": {
     "icon": "navigation",
     "color": "#F59E0B",
