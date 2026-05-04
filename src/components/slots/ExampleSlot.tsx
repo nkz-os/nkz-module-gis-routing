@@ -19,7 +19,7 @@ interface RoutingSlotProps {
   className?: string;
 }
 
-export const RoutingSlot: React.FC<RoutingSlotProps> = ({ className }) => {
+export const RoutingSlot: React.FC<RoutingSlotProps> = ({ className: _className }) => {
   const { t } = useTranslation(NS);
   const { selectedEntityId, selectedEntityType } = useViewer();
   const { isAuthenticated } = useAuth();
