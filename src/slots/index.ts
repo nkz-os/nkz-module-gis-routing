@@ -31,3 +31,6 @@ export const moduleSlots: ModuleViewerSlots = {
   'entity-tree': [],
   'dashboard-widget': [],
 };
+
+/** Alias for host integration */
+export const viewerSlots = moduleSlots;
