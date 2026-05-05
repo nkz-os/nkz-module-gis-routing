@@ -5,7 +5,10 @@
  * via the Nekazari authentication context and tenant-aware headers.
  */
 
-const BASE_URL = '/api/routing';
+const BASE_URL = (() => {
+  const env = (window as any).__ENV__;
+  return (env?.VITE_API_URL || 'https://nkz.robotika.cloud') + '/api/routing';
+})();
 
 function getTenantId(): string | undefined {
   const ctx = (window as any).__nekazariAuthContext;

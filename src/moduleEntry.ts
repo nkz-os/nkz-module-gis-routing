@@ -6,6 +6,7 @@
  */
 import './i18n';
 import { moduleSlots } from './slots';
+import App from './App';
 import pkg from '../package.json';
 
 const MODULE_ID = 'nkz-module-gis-routing';
@@ -13,6 +14,7 @@ const MODULE_ID = 'nkz-module-gis-routing';
 if (typeof window !== 'undefined' && window.__NKZ__) {
   window.__NKZ__.register({
     id: MODULE_ID,
+    main: App,
     viewerSlots: moduleSlots,
     version: pkg.version,
   });
