@@ -3,8 +3,9 @@
  *
  * Allows users to configure A-B line parameters, generate swaths,
  * and export in multiple formats (ISOXML, GeoJSON, GPX).
+ * Fetches real parcel and equipment data from Orion-LD via the module backend.
  */
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { useTranslation } from '@nekazari/sdk';
 import {
   MapPin,
@@ -15,6 +16,7 @@ import {
   Loader2,
   Download,
   AlertCircle,
+  RefreshCw,
 } from 'lucide-react';
 import { api } from '../services/api';
 import manifest from '../../manifest.json';
@@ -22,12 +24,20 @@ import manifest from '../../manifest.json';
 const NS = 'gis-routing';
 const { accent } = manifest;
 
+interface ParcelOption { id: string; name: string; area?: number }
+interface EquipmentOption { id: string; name: string; category?: string }
+
 const RoutingDesigner: React.FC = () => {
   const { t } = useTranslation(NS);
 
+  const [parcels, setParcels] = useState<ParcelOption[]>([]);
+  const [parcelsLoading, setParcelsLoading] = useState(true);
   const [parcelId, setParcelId] = useState<string | null>(null);
+  const [parcelGeometry, setParcelGeometry] = useState<any>(null);
+
+  const [equipment, setEquipment] = useState<EquipmentOption[]>([]);
+  const [equipLoading, setEquipLoading] = useState(true);
   const [tractorId, setTractorId] = useState<string | null>(null);
-  const [implementId] = useState<string | null>(null);
 
   const [heading, setHeading] = useState(0);
   const [width, setWidth] = useState(24);
@@ -40,19 +50,61 @@ const RoutingDesigner: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [lastOperationId, setLastOperationId] = useState<string | null>(null);
 
+  useEffect(() => {
+    let cancelled = false;
+    async function load() {
+      setParcelsLoading(true);
+      try {
+        const data = await api.listParcels();
+        if (!cancelled) setParcels(data || []);
+      } catch { if (!cancelled) setParcels([]); }
+      finally { if (!cancelled) setParcelsLoading(false); }
+    }
+    load();
+    return () => { cancelled = true; };
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    async function load() {
+      setEquipLoading(true);
+      try {
+        const data = await api.listEquipment();
+        if (!cancelled) setEquipment(data || []);
+      } catch { if (!cancelled) setEquipment([]); }
+      finally { if (!cancelled) setEquipLoading(false); }
+    }
+    load();
+    return () => { cancelled = true; };
+  }, []);
+
+  useEffect(() => {
+    if (!parcelId) { setParcelGeometry(null); return; }
+    let cancelled = false;
+    async function load() {
+      try {
+        const data = await api.getParcelGeometry(parcelId!);
+        if (!cancelled && data?.geometry) setParcelGeometry(data.geometry);
+      } catch { if (!cancelled) setParcelGeometry(null); }
+    }
+    load();
+    return () => { cancelled = true; };
+  }, [parcelId]);
+
   const handleGenerate = useCallback(async () => {
     setGenerating(true);
     setError(null);
     setResult(null);
     try {
       const body: any = {
-        parcel_geometry: { type: 'Polygon', coordinates: [] },
-        start_point: [-1.5, 42.5],
+        parcel_geometry: parcelGeometry || { type: 'Polygon', coordinates: [] },
+        start_point: parcelGeometry
+          ? extractCentroid(parcelGeometry)
+          : [-1.5, 42.5],
         heading_deg: heading,
         width_m: width,
         parcel_id: parcelId || undefined,
         tractor_id: tractorId || undefined,
-        implement_id: implementId || undefined,
         operation_type: 'spraying',
         persist: true,
       };
@@ -67,25 +119,13 @@ const RoutingDesigner: React.FC = () => {
 
       setResult(res);
       const opId = res?.data?.properties?.operation_id;
-      if (opId) {
-        setLastOperationId(opId);
-      }
+      if (opId) setLastOperationId(opId);
     } catch (err: any) {
       setError(err?.message || t('errors.generateFailed'));
     } finally {
       setGenerating(false);
     }
-  }, [
-    heading,
-    width,
-    parcelId,
-    tractorId,
-    implementId,
-    vraEnabled,
-    baseRate,
-    rateUnit,
-    t,
-  ]);
+  }, [heading, width, parcelId, tractorId, parcelGeometry, vraEnabled, baseRate, rateUnit, t]);
 
   return (
     <div className="p-nkz-lg max-w-2xl mx-auto space-y-nkz-stack">
@@ -117,10 +157,7 @@ const RoutingDesigner: React.FC = () => {
               {t('parameters.heading')}
             </label>
             <input
-              type="number"
-              min={0}
-              max={359}
-              value={heading}
+              type="number" min={0} max={359} value={heading}
               onChange={(e) => setHeading(Number(e.target.value) % 360)}
               className="w-full border border-nkz-default rounded-nkz-md px-3 py-2 text-nkz-sm"
             />
@@ -131,10 +168,7 @@ const RoutingDesigner: React.FC = () => {
               {t('parameters.width')}
             </label>
             <input
-              type="number"
-              min={1}
-              max={120}
-              value={width}
+              type="number" min={1} max={120} value={width}
               onChange={(e) => setWidth(Number(e.target.value))}
               className="w-full border border-nkz-default rounded-nkz-md px-3 py-2 text-nkz-sm"
             />
@@ -151,27 +185,62 @@ const RoutingDesigner: React.FC = () => {
               <label className="block text-nkz-xs font-medium text-nkz-text-secondary mb-1">
                 {t('equipment.label')}
               </label>
-              <select
-                value={tractorId || ''}
-                onChange={(e) => setTractorId(e.target.value || null)}
-                className="w-full border border-nkz-default rounded-nkz-md px-3 py-2 text-nkz-sm"
-              >
-                <option value="">{t('equipment.select')}</option>
-                <option value="mock-tractor-001">{t('equipment.mock')}</option>
-              </select>
+              {equipLoading ? (
+                <span className="text-nkz-xs text-nkz-text-secondary">
+                  <Loader2 className="w-3 h-3 inline animate-spin mr-1" />
+                  {t('loading')}
+                </span>
+              ) : (
+                <select
+                  value={tractorId || ''}
+                  onChange={(e) => setTractorId(e.target.value || null)}
+                  className="w-full border border-nkz-default rounded-nkz-md px-3 py-2 text-nkz-sm"
+                >
+                  <option value="">{t('equipment.select')}</option>
+                  {equipment.map((eq) => (
+                    <option key={eq.id} value={eq.id}>
+                      {eq.name}{eq.category ? ` (${eq.category})` : ''}
+                    </option>
+                  ))}
+                </select>
+              )}
             </div>
             <div>
               <label className="block text-nkz-xs font-medium text-nkz-text-secondary mb-1">
                 {t('parcel.label')}
               </label>
-              <select
-                value={parcelId || ''}
-                onChange={(e) => setParcelId(e.target.value || null)}
-                className="w-full border border-nkz-default rounded-nkz-md px-3 py-2 text-nkz-sm"
-              >
-                <option value="">{t('parcel.select')}</option>
-                <option value="mock-parcel-001">{t('parcel.mock')}</option>
-              </select>
+              {parcelsLoading ? (
+                <span className="text-nkz-xs text-nkz-text-secondary">
+                  <Loader2 className="w-3 h-3 inline animate-spin mr-1" />
+                  {t('loading')}
+                </span>
+              ) : parcels.length === 0 ? (
+                <div className="text-nkz-xs text-nkz-text-secondary">
+                  <p>{t('parcel.empty')}</p>
+                  <button
+                    onClick={() => {
+                      setParcelsLoading(true);
+                      api.listParcels().then(d => setParcels(d || [])).finally(() => setParcelsLoading(false));
+                    }}
+                    className="mt-1 flex items-center gap-1 text-nkz-text-accent hover:underline"
+                  >
+                    <RefreshCw className="w-3 h-3" /> {t('actions.retry')}
+                  </button>
+                </div>
+              ) : (
+                <select
+                  value={parcelId || ''}
+                  onChange={(e) => setParcelId(e.target.value || null)}
+                  className="w-full border border-nkz-default rounded-nkz-md px-3 py-2 text-nkz-sm"
+                >
+                  <option value="">{t('parcel.select')}</option>
+                  {parcels.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.name}{p.area ? ` (${p.area.toFixed(1)} ha)` : ''}
+                    </option>
+                  ))}
+                </select>
+              )}
             </div>
           </div>
         </div>
@@ -179,8 +248,7 @@ const RoutingDesigner: React.FC = () => {
         <div className="pt-2 border-t border-nkz-default">
           <label className="flex items-center gap-nkz-sm cursor-pointer">
             <input
-              type="checkbox"
-              checked={vraEnabled}
+              type="checkbox" checked={vraEnabled}
               onChange={(e) => setVraEnabled(e.target.checked)}
               className="rounded-nkz-md border-nkz-default text-nkz-text-accent focus:ring-nkz-accent"
             />
@@ -195,9 +263,7 @@ const RoutingDesigner: React.FC = () => {
                   {t('vra.baseRate')}
                 </label>
                 <input
-                  type="number"
-                  min={0}
-                  value={baseRate}
+                  type="number" min={0} value={baseRate}
                   onChange={(e) => setBaseRate(Number(e.target.value))}
                   className="w-full border border-nkz-default rounded-nkz-md px-3 py-2 text-nkz-sm"
                 />
@@ -207,9 +273,7 @@ const RoutingDesigner: React.FC = () => {
                   {t('vra.rateUnit')}
                 </label>
                 <input
-                  type="text"
-                  value={rateUnit}
-                  disabled
+                  type="text" value={rateUnit} disabled
                   className="w-full border border-nkz-default rounded-nkz-md px-3 py-2 text-nkz-sm bg-nkz-surface-alt text-nkz-text-secondary"
                 />
               </div>
@@ -219,8 +283,7 @@ const RoutingDesigner: React.FC = () => {
       </div>
 
       <button
-        onClick={handleGenerate}
-        disabled={generating}
+        onClick={handleGenerate} disabled={generating}
         className="w-full min-h-[48px] font-bold text-nkz-sm rounded-nkz-lg transition-colors flex items-center justify-center gap-nkz-sm text-nkz-text-on-accent"
         style={{
           backgroundColor: generating ? accent.soft : accent.base,
@@ -228,10 +291,7 @@ const RoutingDesigner: React.FC = () => {
         }}
       >
         {generating ? (
-          <>
-            <Loader2 className="w-4 h-4 animate-spin" />
-            {t('actions.generating')}
-          </>
+          <><Loader2 className="w-4 h-4 animate-spin" />{t('actions.generating')}</>
         ) : (
           t('actions.generate')
         )}
@@ -245,27 +305,21 @@ const RoutingDesigner: React.FC = () => {
           </h3>
           <div className="flex gap-nkz-sm">
             <button
-              onClick={() =>
-                window.open(api.getExportUrl(lastOperationId, 'isoxml'), '_blank')
-              }
+              onClick={() => window.open(api.getExportUrl(lastOperationId, 'isoxml'), '_blank')}
               className="flex-1 min-h-[48px] font-bold text-nkz-xs uppercase rounded-nkz-md border border-nkz-accent transition-colors"
               style={{ backgroundColor: accent.strong, color: accent.base }}
             >
               {t('export.isoxml')}
             </button>
             <button
-              onClick={() =>
-                window.open(api.getExportUrl(lastOperationId, 'geojson'), '_blank')
-              }
+              onClick={() => window.open(api.getExportUrl(lastOperationId, 'geojson'), '_blank')}
               className="flex-1 min-h-[48px] font-bold text-nkz-xs uppercase rounded-nkz-md border border-nkz-accent text-nkz-text-success transition-colors"
               style={{ backgroundColor: accent.strong }}
             >
               {t('export.geojson')}
             </button>
             <button
-              onClick={() =>
-                window.open(api.getExportUrl(lastOperationId, 'gpx'), '_blank')
-              }
+              onClick={() => window.open(api.getExportUrl(lastOperationId, 'gpx'), '_blank')}
               className="flex-1 min-h-[48px] font-bold text-nkz-xs uppercase rounded-nkz-md border border-nkz-accent text-nkz-text-accent transition-colors"
               style={{ backgroundColor: accent.strong }}
             >
@@ -280,21 +334,15 @@ const RoutingDesigner: React.FC = () => {
           <dl className="grid grid-cols-2 gap-nkz-md text-nkz-sm">
             <div>
               <dt className="text-nkz-xs text-nkz-text-secondary">{t('parameters.heading')}</dt>
-              <dd className="font-semibold text-nkz-text-primary">
-                {result.data.properties.heading_deg}&deg;
-              </dd>
+              <dd className="font-semibold text-nkz-text-primary">{result.data.properties.heading_deg}&deg;</dd>
             </div>
             <div>
               <dt className="text-nkz-xs text-nkz-text-secondary">{t('parameters.width')}</dt>
-              <dd className="font-semibold text-nkz-text-primary">
-                {result.data.properties.width_m} m
-              </dd>
+              <dd className="font-semibold text-nkz-text-primary">{result.data.properties.width_m} m</dd>
             </div>
             <div>
-              <dt className="text-nkz-xs text-nkz-text-secondary">{t('actions.generate')}</dt>
-              <dd className="font-semibold text-nkz-text-primary">
-                {result.data.properties.swath_count}
-              </dd>
+              <dt className="text-nkz-xs text-nkz-text-secondary">{t('parameters.swaths')}</dt>
+              <dd className="font-semibold text-nkz-text-primary">{result.data.properties.swath_count}</dd>
             </div>
             {result.data.properties.vra_enabled !== undefined && (
               <div>
@@ -310,6 +358,25 @@ const RoutingDesigner: React.FC = () => {
     </div>
   );
 };
+
+function extractCentroid(geometry: any): [number, number] {
+  try {
+    if (geometry.type === 'Point') return geometry.coordinates as [number, number];
+    const coords = geometry.coordinates?.[0];
+    if (coords?.[0]?.[0] !== undefined) {
+      const ring = coords[0];
+      const lng = ring.reduce((s: number, c: number[]) => s + c[0], 0) / ring.length;
+      const lat = ring.reduce((s: number, c: number[]) => s + c[1], 0) / ring.length;
+      return [lng, lat];
+    }
+    if (Array.isArray(coords?.[0])) {
+      const lng = coords.reduce((s: number, c: number[]) => s + c[0], 0) / coords.length;
+      const lat = coords.reduce((s: number, c: number[]) => s + c[1], 0) / coords.length;
+      return [lng, lat];
+    }
+  } catch {}
+  return [-1.5, 42.5];
+}
 
 export { RoutingDesigner };
 export default RoutingDesigner;

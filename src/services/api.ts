@@ -110,4 +110,22 @@ export const api = {
       body: JSON.stringify({ n_zones: nZones }),
     });
   },
+
+  listParcels() {
+    return request<any[]>('/parcels');
+  },
+
+  getParcelGeometry(parcelId: string) {
+    return request<{ id: string; name: string; geometry: any }>(
+      `/parcels/${encodeURIComponent(parcelId)}/geometry`,
+    );
+  },
+
+  listEquipment() {
+    return request<any[]>('/equipment');
+  },
+
+  listOperations(limit = 20) {
+    return request<any[]>(`/operations?limit=${limit}`);
+  },
 };

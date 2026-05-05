@@ -1,15 +1,47 @@
 {
   "loading": "Chargement...",
-  "tabs": { "routing": "Guidage", "zoning": "Zones VRA" },
+  "tabs": {
+    "routing": "Guidage",
+    "zoning": "Zones VRA"
+  },
   "title": "GIS Routing",
   "subtitle": "Guidage par lignes A-B pour l'agriculture de précision",
-  "parcel": { "label": "Parcelle", "select": "Sélectionner une parcelle...", "mock": "Parcelle Démo" },
-  "equipment": { "label": "Tracteur / Matériel", "select": "Sélectionner l'équipement...", "mock": "Tracteur Démo" },
-  "parameters": { "heading": "Cap (°)", "width": "Largeur de travail (m)" },
-  "actions": { "generate": "Générer la Route", "generating": "Génération en cours...", "export": "Exporter" },
-  "export": { "isoxml": "ISOXML", "geojson": "GeoJSON", "gpx": "GPX" },
-  "vra": { "enabled": "Prescription VRA", "baseRate": "Dose de Base", "rateUnit": "Unité" },
-  "errors": { "authRequired": "Authentification requise", "generateFailed": "Échec de la génération de la route" },
+  "parcel": {
+    "label": "Parcelle",
+    "select": "Sélectionner une parcelle...",
+    "mock": "Parcelle Démo",
+    "empty": "Aucune parcelle"
+  },
+  "equipment": {
+    "label": "Tracteur / Matériel",
+    "select": "Sélectionner l'équipement...",
+    "mock": "Tracteur Démo"
+  },
+  "parameters": {
+    "heading": "Cap (°)",
+    "width": "Largeur de travail (m)",
+    "swaths": "Bandes"
+  },
+  "actions": {
+    "generate": "Générer la Route",
+    "generating": "Génération en cours...",
+    "export": "Exporter",
+    "retry": "Réessayer"
+  },
+  "export": {
+    "isoxml": "ISOXML",
+    "geojson": "GeoJSON",
+    "gpx": "GPX"
+  },
+  "vra": {
+    "enabled": "Prescription VRA",
+    "baseRate": "Dose de Base",
+    "rateUnit": "Unité"
+  },
+  "errors": {
+    "authRequired": "Authentification requise",
+    "generateFailed": "Échec de la génération de la route"
+  },
   "zoning": {
     "title": "Zonage VRA",
     "description": "Génère des zones de gestion variable (VRA) basées sur les indices de végétation.",

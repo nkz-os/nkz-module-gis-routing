@@ -1,15 +1,47 @@
 {
   "loading": "Loading...",
-  "tabs": { "routing": "Routing", "zoning": "VRA Zoning" },
+  "tabs": {
+    "routing": "Routing",
+    "zoning": "VRA Zoning"
+  },
   "title": "GIS Routing",
   "subtitle": "A-B line guidance for precision agriculture",
-  "parcel": { "label": "Parcel", "select": "Select a parcel...", "mock": "Demo Parcel" },
-  "equipment": { "label": "Tractor / Equipment", "select": "Select equipment...", "mock": "Demo Tractor" },
-  "parameters": { "heading": "Heading (°)", "width": "Working Width (m)" },
-  "actions": { "generate": "Generate Route", "generating": "Generating...", "export": "Export" },
-  "export": { "isoxml": "ISOXML", "geojson": "GeoJSON", "gpx": "GPX" },
-  "vra": { "enabled": "VRA Prescription", "baseRate": "Base Rate", "rateUnit": "Rate Unit" },
-  "errors": { "authRequired": "Authentication required", "generateFailed": "Route generation failed" },
+  "parcel": {
+    "label": "Parcel",
+    "select": "Select a parcel...",
+    "mock": "Demo Parcel",
+    "empty": "No parcels found"
+  },
+  "equipment": {
+    "label": "Tractor / Equipment",
+    "select": "Select equipment...",
+    "mock": "Demo Tractor"
+  },
+  "parameters": {
+    "heading": "Heading (°)",
+    "width": "Working Width (m)",
+    "swaths": "Swaths"
+  },
+  "actions": {
+    "generate": "Generate Route",
+    "generating": "Generating...",
+    "export": "Export",
+    "retry": "Retry"
+  },
+  "export": {
+    "isoxml": "ISOXML",
+    "geojson": "GeoJSON",
+    "gpx": "GPX"
+  },
+  "vra": {
+    "enabled": "VRA Prescription",
+    "baseRate": "Base Rate",
+    "rateUnit": "Rate Unit"
+  },
+  "errors": {
+    "authRequired": "Authentication required",
+    "generateFailed": "Route generation failed"
+  },
   "zoning": {
     "title": "VRA Zoning",
     "description": "Generate Variable Rate Application (VRA) management zones.",

@@ -1,15 +1,47 @@
 {
   "loading": "Kargatzen...",
-  "tabs": { "routing": "Gidatzea", "zoning": "VRA guneak" },
+  "tabs": {
+    "routing": "Gidatzea",
+    "zoning": "VRA guneak"
+  },
   "title": "GIS Routing",
   "subtitle": "A-B lerroen bidezko gidatze-sistema nekazaritza zehatzerako",
-  "parcel": { "label": "Lursaila", "select": "Hautatu lursaila...", "mock": "Demo Lursaila" },
-  "equipment": { "label": "Traktorea / Makineria", "select": "Hautatu ekipoa...", "mock": "Demo Traktorea" },
-  "parameters": { "heading": "Norabidea (°)", "width": "Lan-zabalera (m)" },
-  "actions": { "generate": "Ibilbidea Sortu", "generating": "Sortzen...", "export": "Esportatu" },
-  "export": { "isoxml": "ISOXML", "geojson": "GeoJSON", "gpx": "GPX" },
-  "vra": { "enabled": "VRA Preskripzioa", "baseRate": "Oinarrizko Dosia", "rateUnit": "Unitatea" },
-  "errors": { "authRequired": "Autentikazioa beharrezkoa", "generateFailed": "Ibilbidea sortzean errorea" },
+  "parcel": {
+    "label": "Lursaila",
+    "select": "Hautatu lursaila...",
+    "mock": "Demo Lursaila",
+    "empty": "Ez dago lursailik"
+  },
+  "equipment": {
+    "label": "Traktorea / Makineria",
+    "select": "Hautatu ekipoa...",
+    "mock": "Demo Traktorea"
+  },
+  "parameters": {
+    "heading": "Norabidea (°)",
+    "width": "Lan-zabalera (m)",
+    "swaths": "Zerrendak"
+  },
+  "actions": {
+    "generate": "Ibilbidea Sortu",
+    "generating": "Sortzen...",
+    "export": "Esportatu",
+    "retry": "Saiatu berriro"
+  },
+  "export": {
+    "isoxml": "ISOXML",
+    "geojson": "GeoJSON",
+    "gpx": "GPX"
+  },
+  "vra": {
+    "enabled": "VRA Preskripzioa",
+    "baseRate": "Oinarrizko Dosia",
+    "rateUnit": "Unitatea"
+  },
+  "errors": {
+    "authRequired": "Autentikazioa beharrezkoa",
+    "generateFailed": "Ibilbidea sortzean errorea"
+  },
   "zoning": {
     "title": "VRA Zonifikazioa",
     "description": "Sortu maneiua aldakorreko guneak (VRA) landaredi-indizeetan oinarrituta.",

@@ -1,15 +1,47 @@
 {
   "loading": "A carregar...",
-  "tabs": { "routing": "Orientação", "zoning": "Zonas VRA" },
+  "tabs": {
+    "routing": "Orientação",
+    "zoning": "Zonas VRA"
+  },
   "title": "GIS Routing",
   "subtitle": "Orientação por linhas A-B para agricultura de precisão",
-  "parcel": { "label": "Parcela", "select": "Selecionar parcela...", "mock": "Parcela Demo" },
-  "equipment": { "label": "Trator / Equipamento", "select": "Selecionar equipamento...", "mock": "Trator Demo" },
-  "parameters": { "heading": "Rumo (°)", "width": "Largura de trabalho (m)" },
-  "actions": { "generate": "Gerar Rota", "generating": "A gerar...", "export": "Exportar" },
-  "export": { "isoxml": "ISOXML", "geojson": "GeoJSON", "gpx": "GPX" },
-  "vra": { "enabled": "Prescrição VRA", "baseRate": "Dose Base", "rateUnit": "Unidade" },
-  "errors": { "authRequired": "Autenticação necessária", "generateFailed": "Falha ao gerar a rota" },
+  "parcel": {
+    "label": "Parcela",
+    "select": "Selecionar parcela...",
+    "mock": "Parcela Demo",
+    "empty": "Sem parcelas"
+  },
+  "equipment": {
+    "label": "Trator / Equipamento",
+    "select": "Selecionar equipamento...",
+    "mock": "Trator Demo"
+  },
+  "parameters": {
+    "heading": "Rumo (°)",
+    "width": "Largura de trabalho (m)",
+    "swaths": "Faixas"
+  },
+  "actions": {
+    "generate": "Gerar Rota",
+    "generating": "A gerar...",
+    "export": "Exportar",
+    "retry": "Tentar novamente"
+  },
+  "export": {
+    "isoxml": "ISOXML",
+    "geojson": "GeoJSON",
+    "gpx": "GPX"
+  },
+  "vra": {
+    "enabled": "Prescrição VRA",
+    "baseRate": "Dose Base",
+    "rateUnit": "Unidade"
+  },
+  "errors": {
+    "authRequired": "Autenticação necessária",
+    "generateFailed": "Falha ao gerar a rota"
+  },
   "zoning": {
     "title": "Zoneamento VRA",
     "description": "Gera zonas de gestão variável (VRA) com base em índices de vegetação.",
