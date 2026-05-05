@@ -39,7 +39,15 @@ export class ApiError extends Error {
   body: any;
 
   constructor(status: number, body: any) {
-    super(body?.error?.message || body?.detail || `HTTP ${status}`);
+    const detail = body?.detail;
+    const message: string =
+      typeof detail === 'string' ? detail
+      : Array.isArray(detail) ? detail.map((d: any) => d.msg || JSON.stringify(d)).join('; ')
+      : typeof detail === 'object' && detail?.error?.message ? detail.error.message
+      : typeof detail === 'object' ? JSON.stringify(detail)
+      : body?.error?.message
+      || `HTTP ${status}`;
+    super(message);
     this.status = status;
     this.body = body;
   }
