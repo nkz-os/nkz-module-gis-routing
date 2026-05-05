@@ -32,11 +32,13 @@ const RoutingDesigner: React.FC = () => {
 
   const [parcels, setParcels] = useState<ParcelOption[]>([]);
   const [parcelsLoading, setParcelsLoading] = useState(true);
+  const [parcelsError, setParcelsError] = useState<string | null>(null);
   const [parcelId, setParcelId] = useState<string | null>(null);
   const [parcelGeometry, setParcelGeometry] = useState<any>(null);
 
   const [equipment, setEquipment] = useState<EquipmentOption[]>([]);
   const [equipLoading, setEquipLoading] = useState(true);
+  const [equipError, setEquipError] = useState<string | null>(null);
   const [tractorId, setTractorId] = useState<string | null>(null);
 
   const [heading, setHeading] = useState(0);
@@ -54,29 +56,31 @@ const RoutingDesigner: React.FC = () => {
     let cancelled = false;
     async function load() {
       setParcelsLoading(true);
+      setParcelsError(null);
       try {
         const data = await api.listParcels();
         if (!cancelled) setParcels(data || []);
-      } catch { if (!cancelled) setParcels([]); }
+      } catch (err: any) { if (!cancelled) setParcelsError(err?.message || t('errors.generateFailed')); }
       finally { if (!cancelled) setParcelsLoading(false); }
     }
     load();
     return () => { cancelled = true; };
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     let cancelled = false;
     async function load() {
       setEquipLoading(true);
+      setEquipError(null);
       try {
         const data = await api.listEquipment();
         if (!cancelled) setEquipment(data || []);
-      } catch { if (!cancelled) setEquipment([]); }
+      } catch (err: any) { if (!cancelled) setEquipError(err?.message || t('errors.generateFailed')); }
       finally { if (!cancelled) setEquipLoading(false); }
     }
     load();
     return () => { cancelled = true; };
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     if (!parcelId) { setParcelGeometry(null); return; }
@@ -190,6 +194,17 @@ const RoutingDesigner: React.FC = () => {
                   <Loader2 className="w-3 h-3 inline animate-spin mr-1" />
                   {t('loading')}
                 </span>
+              ) : equipError ? (
+                <div className="text-nkz-xs text-nkz-text-error">
+                  <AlertCircle className="w-3 h-3 inline mr-1" />
+                  {equipError}
+                  <button
+                    onClick={() => { setEquipLoading(true); setEquipError(null); api.listEquipment().then(d => setEquipment(d || [])).catch((e: any) => setEquipError(e?.message)).finally(() => setEquipLoading(false)); }}
+                    className="ml-2 text-nkz-text-accent hover:underline"
+                  >
+                    {t('actions.retry')}
+                  </button>
+                </div>
               ) : (
                 <select
                   value={tractorId || ''}
@@ -214,6 +229,20 @@ const RoutingDesigner: React.FC = () => {
                   <Loader2 className="w-3 h-3 inline animate-spin mr-1" />
                   {t('loading')}
                 </span>
+              ) : parcelsError ? (
+                <div className="text-nkz-xs text-nkz-text-error">
+                  <AlertCircle className="w-3 h-3 inline mr-1" />
+                  {parcelsError}
+                  <button
+                    onClick={() => {
+                      setParcelsLoading(true); setParcelsError(null);
+                      api.listParcels().then(d => setParcels(d || [])).catch((e: any) => setParcelsError(e?.message)).finally(() => setParcelsLoading(false));
+                    }}
+                    className="ml-2 text-nkz-text-accent hover:underline"
+                  >
+                    {t('actions.retry')}
+                  </button>
+                </div>
               ) : parcels.length === 0 ? (
                 <div className="text-nkz-xs text-nkz-text-secondary">
                   <p>{t('parcel.empty')}</p>
