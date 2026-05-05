@@ -18,15 +18,15 @@ INSERT INTO marketplace_modules (
     '/modules/nkz-module-gis-routing/nkz-module.js',
     '2.0.0',
     'nkz-os',
-    'analytics',
+    'agriculture',
     '/gis-routing',
-    'GIS Routing',
+    'GIS Routing &amp; VRA',
     'ADDON_FREE',
     'basic',
     'FREE',
     false,
     true,
-    ARRAY['Farmer', 'TenantAdmin', 'PlatformAdmin'],
+    ARRAY['TenantAdmin', 'PlatformAdmin'],
     '{"icon": "navigation", "color": "#F59E0B"}'::jsonb
 ) ON CONFLICT (id) DO UPDATE SET
     display_name   = EXCLUDED.display_name,

@@ -205,6 +205,18 @@ class TimescaleDBClient:
             self._pool = None
             logger.info("TimescaleDB pool closed")
 
+    # ----- public query helper -------------------------------------------
+
+    async def fetchrow(self, query: str, *args):
+        """Execute a query and return a single row.
+
+        Handles connection lifecycle so callers don't need to manage
+        connect()/close() or access the internal pool.
+        """
+        await self.connect()
+        async with self._pool.acquire() as conn:
+            return await conn.fetchrow(query, *args)
+
     # ----- materialisation (upsert) --------------------------------------
 
     async def materialize_parcel(
@@ -345,9 +357,4 @@ class TimescaleDBClient:
         return {"created": created, "updated": updated, "deleted": []}
 
 
-# Global instance for dependency injection.
-# In production the DSN is configured via the ``DATABASE_URL`` environment
-# variable (see ``app.config.Settings``).
-timescale_client = TimescaleDBClient(
-    dsn="postgresql://user:pass@postgresql:5432/nekazari",
-)
+

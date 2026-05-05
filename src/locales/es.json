@@ -6,10 +6,10 @@
   "parcel": { "label": "Parcela", "select": "Seleccionar parcela...", "mock": "Parcela Demo" },
   "equipment": { "label": "Tractor / Maquinaria", "select": "Seleccionar equipo...", "mock": "Tractor Demo" },
   "parameters": { "heading": "Rumbo (°)", "width": "Ancho de trabajo (m)" },
-  "actions": { "generate": "Generar Ruta", "generating": "Generando...", "sync": "Sincronizar Móvil", "export": "Exportar" },
+  "actions": { "generate": "Generar Ruta", "generating": "Generando...", "export": "Exportar" },
   "export": { "isoxml": "ISOXML", "geojson": "GeoJSON", "gpx": "GPX" },
-  "vra": { "enabled": "Prescripción VRA", "baseRate": "Dosis Base", "rateUnit": "Unidad", "zonesFound": "{{count}} zonas VRA encontradas", "noZones": "Sin zonas VRA para esta parcela" },
-  "errors": { "authRequired": "Autenticación requerida", "noParcel": "Ninguna parcela seleccionada", "generateFailed": "Error al generar la ruta", "exportFailed": "Error al exportar", "syncFailed": "Error de sincronización" },
+  "vra": { "enabled": "Prescripción VRA", "baseRate": "Dosis Base", "rateUnit": "Unidad" },
+  "errors": { "authRequired": "Autenticación requerida", "generateFailed": "Error al generar la ruta" },
   "zoning": {
     "title": "Zonificación VRA",
     "description": "Genera zonas de manejo variable (VRA).",
@@ -21,16 +21,10 @@
     "numZones": "Número de Zonas",
     "numZonesHint": "Se crearán {{zones}} zonas.",
     "refresh": "Actualizar datos",
-    "loadingZones": "Cargando zonas...",
     "existingZones": "Zonas Existentes ({{count}})",
     "zoneLabel": "Zona {{id}}",
     "noZones": "No hay zonas generadas",
     "noZonesHint": "Pulsa Generar para crear zonas.",
-    "viewOnMap": "Ver en el mapa",
-    "generatingStatus": "Generando {{zones}} zonas. Task ID: {{taskId}}",
-    "zonesGenerated": "Zonas generadas: {{count}} zonas",
-    "generateError": "Error al iniciar la generación",
-    "pollTimeout": "Proceso tardando. Pulsa Actualizar.",
-    "taskId": "Task ID: {{taskId}}"
+    "generateError": "Error al iniciar la generación"
   }
 }

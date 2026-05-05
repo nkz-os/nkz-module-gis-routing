@@ -23,9 +23,9 @@ interface ZoneData {
 }
 
 const ZONE_COLORS: Record<string, string> = {
-  high: 'bg-emerald-500',
-  medium: 'bg-yellow-500',
-  low: 'bg-red-500',
+  high: 'bg-nkz-text-success',
+  medium: 'bg-nkz-text-accent',
+  low: 'bg-nkz-text-error',
 };
 
 const ZoningTab: React.FC = () => {
@@ -59,7 +59,6 @@ const ZoningTab: React.FC = () => {
     setError(null);
     try {
       await api.generateZones(parcelId, numZones);
-      // Poll for result after generation
       let attempts = 0;
       const poll = async () => {
         attempts++;
@@ -79,34 +78,34 @@ const ZoningTab: React.FC = () => {
   }, [parcelId, numZones, t]);
 
   return (
-    <div className="p-4 max-w-2xl mx-auto space-y-6">
+    <div className="p-nkz-lg max-w-2xl mx-auto space-y-nkz-stack">
       <div>
-        <h2 className="text-lg font-bold text-slate-800 flex items-center gap-2">
-          <Layers className="w-5 h-5 text-emerald-500" />
+        <h2 className="text-nkz-lg font-bold text-nkz-text-primary flex items-center gap-nkz-sm">
+          <Layers className="w-5 h-5 text-nkz-text-success" />
           {t('zoning.title')}
         </h2>
-        <p className="text-sm text-slate-500 mt-1">{t('zoning.description')}</p>
+        <p className="text-nkz-sm text-nkz-text-secondary mt-1">{t('zoning.description')}</p>
       </div>
 
       {error && (
-        <div className="bg-red-50 border border-red-200 rounded p-3 text-sm text-red-700">{error}</div>
+        <div className="bg-nkz-surface border border-nkz-accent rounded-nkz-md p-nkz-md text-nkz-sm text-nkz-text-error">{error}</div>
       )}
 
-      <div className="bg-white rounded-lg border border-slate-200 p-4 space-y-4">
+      <div className="bg-nkz-surface rounded-nkz-lg border border-nkz-default p-nkz-md space-y-nkz-stack">
         <div>
-          <label className="block text-xs font-medium text-slate-600 mb-1">{t('parcel.label')}</label>
-          <div className="flex gap-2">
+          <label className="block text-nkz-xs font-medium text-nkz-text-secondary mb-1">{t('parcel.label')}</label>
+          <div className="flex gap-nkz-sm">
             <input
               type="text"
               value={parcelId}
               onChange={(e) => setParcelId(e.target.value)}
               placeholder="urn:ngsi-ld:AgriParcel:..."
-              className="flex-1 border border-slate-300 rounded px-3 py-2 text-sm"
+              className="flex-1 border border-nkz-default rounded-nkz-md px-3 py-2 text-nkz-sm"
             />
             <button
               onClick={handleFetchZones}
               disabled={loading || !parcelId.trim()}
-              className="px-4 py-2 bg-slate-100 text-slate-700 rounded font-medium hover:bg-slate-200 disabled:opacity-50"
+              className="px-4 py-2 bg-nkz-surface-alt text-nkz-text-primary rounded-nkz-md font-medium hover:opacity-80 disabled:opacity-50"
               title={t('zoning.refresh')}
             >
               <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
@@ -115,22 +114,23 @@ const ZoningTab: React.FC = () => {
         </div>
 
         <div>
-          <label className="block text-xs font-medium text-slate-600 mb-1">{t('zoning.numZones')}</label>
+          <label className="block text-nkz-xs font-medium text-nkz-text-secondary mb-1">{t('zoning.numZones')}</label>
           <input
             type="number"
             min={2}
             max={10}
             value={numZones}
             onChange={(e) => setNumZones(Math.max(2, Math.min(10, parseInt(e.target.value) || 2)))}
-            className="w-full border border-slate-300 rounded px-3 py-2 text-sm"
+            className="w-full border border-nkz-default rounded-nkz-md px-3 py-2 text-nkz-sm"
           />
-          <p className="text-xs text-slate-400 mt-1">{t('zoning.numZonesHint', { zones: numZones })}</p>
+          <p className="text-nkz-xs text-nkz-text-secondary mt-1">{t('zoning.numZonesHint', { zones: numZones })}</p>
         </div>
 
         <button
           onClick={handleGenerate}
           disabled={generating || !parcelId.trim()}
-          className="w-full flex items-center justify-center gap-2 py-3 bg-emerald-600 text-white rounded-lg font-medium hover:bg-emerald-700 disabled:bg-slate-300 disabled:cursor-wait transition-colors"
+          className="w-full flex items-center justify-center gap-nkz-sm py-3 text-nkz-text-on-accent rounded-nkz-lg font-medium disabled:opacity-50 transition-colors"
+          style={{ backgroundColor: '#059669' }}
         >
           {generating ? (
             <>
@@ -143,33 +143,33 @@ const ZoningTab: React.FC = () => {
         </button>
       </div>
 
-      <div className="bg-white rounded-lg border border-slate-200 p-4">
-        <h3 className="text-sm font-semibold text-slate-700 mb-3">
+      <div className="bg-nkz-surface rounded-nkz-lg border border-nkz-default p-nkz-md">
+        <h3 className="text-nkz-sm font-semibold text-nkz-text-primary mb-3">
           {t('zoning.existingZones', { count: zones.length })}
         </h3>
 
         {zones.length === 0 ? (
-          <div className="text-center py-6 text-sm text-slate-400">
-            <MapPin className="w-8 h-8 mx-auto mb-2 text-slate-300" />
+          <div className="text-center py-6 text-nkz-sm text-nkz-text-secondary">
+            <MapPin className="w-8 h-8 mx-auto mb-2 opacity-30" />
             <p>{t('zoning.noZones')}</p>
-            <p className="text-xs mt-1">{t('zoning.noZonesHint')}</p>
+            <p className="text-nkz-xs mt-1">{t('zoning.noZonesHint')}</p>
           </div>
         ) : (
-          <div className="space-y-2">
+          <div className="space-y-nkz-stack">
             {zones.map((zone) => {
-              const colorClass = ZONE_COLORS[zone.zone_class] || 'bg-slate-400';
+              const colorClass = ZONE_COLORS[zone.zone_class] || 'bg-nkz-text-secondary';
               return (
-                <div key={zone.id} className="flex items-center justify-between bg-slate-50 rounded p-3 text-sm">
-                  <div className="flex items-center gap-3">
-                    <div className={`w-4 h-4 rounded ${colorClass}`} />
+                <div key={zone.id} className="flex items-center justify-between bg-nkz-surface-alt rounded-nkz-md p-nkz-md text-nkz-sm">
+                  <div className="flex items-center gap-nkz-md">
+                    <div className={`w-4 h-4 rounded-nkz-full ${colorClass}`} />
                     <div>
-                      <div className="font-medium text-slate-700">
+                      <div className="font-medium text-nkz-text-primary">
                         {t('zoning.zoneLabel', { id: zone.zone_id })}
                       </div>
-                      <div className="text-xs text-slate-500">{zone.zone_class}</div>
+                      <div className="text-nkz-xs text-nkz-text-secondary">{zone.zone_class}</div>
                     </div>
                   </div>
-                  <div className="text-right text-xs text-slate-500">
+                  <div className="text-right text-nkz-xs text-nkz-text-secondary">
                     <div>{zone.mean_value?.toFixed(3) || '-'}</div>
                     <div>{zone.area_ha?.toFixed(1) || '-'} ha</div>
                   </div>

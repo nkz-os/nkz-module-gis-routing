@@ -29,6 +29,12 @@ declare global {
     ReactRouterDOM: typeof import('react-router-dom');
     /** CesiumJS — available in the map viewer context */
     Cesium?: unknown;
+    /** Auth context injected by the host for API calls */
+    __nekazariAuthContext?: {
+      tenantId?: string;
+      token?: string;
+      user?: unknown;
+    };
   }
 }
 

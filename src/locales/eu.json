@@ -6,10 +6,10 @@
   "parcel": { "label": "Lursaila", "select": "Hautatu lursaila...", "mock": "Demo Lursaila" },
   "equipment": { "label": "Traktorea / Makineria", "select": "Hautatu ekipoa...", "mock": "Demo Traktorea" },
   "parameters": { "heading": "Norabidea (°)", "width": "Lan-zabalera (m)" },
-  "actions": { "generate": "Ibilbidea Sortu", "generating": "Sortzen...", "sync": "Mugikorrarekin Sinkronizatu", "export": "Esportatu" },
+  "actions": { "generate": "Ibilbidea Sortu", "generating": "Sortzen...", "export": "Esportatu" },
   "export": { "isoxml": "ISOXML", "geojson": "GeoJSON", "gpx": "GPX" },
-  "vra": { "enabled": "VRA Preskripzioa", "baseRate": "Oinarrizko Dosia", "rateUnit": "Unitatea", "zonesFound": "{{count}} VRA gune aurkitu dira", "noZones": "Ez dago VRA gunerik lursail honetan" },
-  "errors": { "authRequired": "Autentikazioa beharrezkoa", "noParcel": "Ez da lursailik hautatu", "generateFailed": "Ibilbidea sortzean errorea", "exportFailed": "Esportatzean errorea", "syncFailed": "Sinkronizatzean errorea" },
+  "vra": { "enabled": "VRA Preskripzioa", "baseRate": "Oinarrizko Dosia", "rateUnit": "Unitatea" },
+  "errors": { "authRequired": "Autentikazioa beharrezkoa", "generateFailed": "Ibilbidea sortzean errorea" },
   "zoning": {
     "title": "VRA Zonifikazioa",
     "description": "Sortu maneiua aldakorreko guneak (VRA) landaredi-indizeetan oinarrituta.",
@@ -21,16 +21,10 @@
     "numZones": "Gune Kopurua",
     "numZonesHint": "{{zones}} gune sortuko dira hautatutako landaredi-indizearen balioetan oinarrituta.",
     "refresh": "Eguneratu zonifikazio datuak",
-    "loadingZones": "Existitzen diren guneak kargatzen...",
     "existingZones": "Existitzen diren Guneak ({{count}})",
     "zoneLabel": "{{id}} Gunea",
     "noZones": "Ez dago gune sorturik lursail honetan",
     "noZonesHint": "Sakatu \"Sortu VRA Guneak\" maneiu aldakorreko guneak sortzeko.",
-    "viewOnMap": "Ikusi mapan",
-    "generatingStatus": "{{zones}} gune sortzen. Task ID: {{taskId}}",
-    "zonesGenerated": "Guneak sortuta: {{count}} gune",
-    "generateError": "Errorea guneen sorrera hasterakoan",
-    "pollTimeout": "Prozesua espero baino gehiago luzatzen ari da. Sakatu \"Eguneratu\" egiaztatzeko.",
-    "taskId": "Task ID: {{taskId}}"
+    "generateError": "Errorea guneen sorrera hasterakoan"
   }
 }

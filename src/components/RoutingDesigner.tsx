@@ -17,25 +17,24 @@ import {
   AlertCircle,
 } from 'lucide-react';
 import { api } from '../services/api';
+import manifest from '../../manifest.json';
 
 const NS = 'gis-routing';
+const { accent } = manifest;
 
 const RoutingDesigner: React.FC = () => {
   const { t } = useTranslation(NS);
 
-  // Parcel / equipment
   const [parcelId, setParcelId] = useState<string | null>(null);
   const [tractorId, setTractorId] = useState<string | null>(null);
   const [implementId] = useState<string | null>(null);
 
-  // Parameters
   const [heading, setHeading] = useState(0);
   const [width, setWidth] = useState(24);
   const [vraEnabled, setVraEnabled] = useState(false);
   const [baseRate, setBaseRate] = useState(100);
   const [rateUnit] = useState('l_ha');
 
-  // State
   const [generating, setGenerating] = useState(false);
   const [result, setResult] = useState<any>(null);
   const [error, setError] = useState<string | null>(null);
@@ -89,34 +88,31 @@ const RoutingDesigner: React.FC = () => {
   ]);
 
   return (
-    <div className="p-4 max-w-2xl mx-auto space-y-6">
-      {/* Header */}
+    <div className="p-nkz-lg max-w-2xl mx-auto space-y-nkz-stack">
       <div>
-        <h2 className="text-lg font-bold text-slate-800 flex items-center gap-2">
-          <MapPin className="w-5 h-5 text-amber-500" />
+        <h2 className="text-nkz-lg font-bold text-nkz-text-primary flex items-center gap-nkz-sm">
+          <MapPin className="w-5 h-5 text-nkz-text-accent" />
           {t('title')}
         </h2>
-        <p className="text-sm text-slate-500 mt-1">{t('subtitle')}</p>
+        <p className="text-nkz-sm text-nkz-text-secondary mt-1">{t('subtitle')}</p>
       </div>
 
-      {/* Error */}
       {error && (
-        <div className="flex items-start gap-2 bg-red-50 border border-red-200 rounded p-3 text-sm text-red-700">
+        <div className="flex items-start gap-nkz-sm bg-nkz-surface border border-nkz-accent rounded-nkz-md p-nkz-md text-nkz-sm text-nkz-text-error">
           <AlertCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />
           <span>{error}</span>
         </div>
       )}
 
-      {/* Parameters */}
-      <div className="bg-white rounded-lg border border-slate-200 p-4 space-y-4">
-        <h3 className="text-sm font-semibold text-slate-700 flex items-center gap-2">
+      <div className="bg-nkz-surface rounded-nkz-lg border border-nkz-default p-nkz-md space-y-nkz-stack">
+        <h3 className="text-nkz-sm font-semibold text-nkz-text-primary flex items-center gap-nkz-sm">
           <Settings2 className="w-4 h-4" />
           {t('parameters.heading')} &amp; {t('parameters.width')}
         </h3>
 
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-2 gap-nkz-md">
           <div>
-            <label className="block text-xs font-medium text-slate-600 mb-1 flex items-center gap-1">
+            <label className="block text-nkz-xs font-medium text-nkz-text-secondary mb-1 flex items-center gap-1">
               <Compass className="w-3.5 h-3.5" />
               {t('parameters.heading')}
             </label>
@@ -126,11 +122,11 @@ const RoutingDesigner: React.FC = () => {
               max={359}
               value={heading}
               onChange={(e) => setHeading(Number(e.target.value) % 360)}
-              className="w-full border border-slate-300 rounded px-3 py-2 text-sm"
+              className="w-full border border-nkz-default rounded-nkz-md px-3 py-2 text-nkz-sm"
             />
           </div>
           <div>
-            <label className="block text-xs font-medium text-slate-600 mb-1 flex items-center gap-1">
+            <label className="block text-nkz-xs font-medium text-nkz-text-secondary mb-1 flex items-center gap-1">
               <Ruler className="w-3.5 h-3.5" />
               {t('parameters.width')}
             </label>
@@ -140,39 +136,38 @@ const RoutingDesigner: React.FC = () => {
               max={120}
               value={width}
               onChange={(e) => setWidth(Number(e.target.value))}
-              className="w-full border border-slate-300 rounded px-3 py-2 text-sm"
+              className="w-full border border-nkz-default rounded-nkz-md px-3 py-2 text-nkz-sm"
             />
           </div>
         </div>
 
-        {/* Equipment */}
-        <div className="pt-2 border-t border-slate-100">
-          <h3 className="text-sm font-semibold text-slate-700 flex items-center gap-2 mb-3">
+        <div className="pt-2 border-t border-nkz-default">
+          <h3 className="text-nkz-sm font-semibold text-nkz-text-primary flex items-center gap-nkz-sm mb-3">
             <Tractor className="w-4 h-4" />
             {t('equipment.label')}
           </h3>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-2 gap-nkz-md">
             <div>
-              <label className="block text-xs font-medium text-slate-600 mb-1">
+              <label className="block text-nkz-xs font-medium text-nkz-text-secondary mb-1">
                 {t('equipment.label')}
               </label>
               <select
                 value={tractorId || ''}
                 onChange={(e) => setTractorId(e.target.value || null)}
-                className="w-full border border-slate-300 rounded px-3 py-2 text-sm"
+                className="w-full border border-nkz-default rounded-nkz-md px-3 py-2 text-nkz-sm"
               >
                 <option value="">{t('equipment.select')}</option>
                 <option value="mock-tractor-001">{t('equipment.mock')}</option>
               </select>
             </div>
             <div>
-              <label className="block text-xs font-medium text-slate-600 mb-1">
+              <label className="block text-nkz-xs font-medium text-nkz-text-secondary mb-1">
                 {t('parcel.label')}
               </label>
               <select
                 value={parcelId || ''}
                 onChange={(e) => setParcelId(e.target.value || null)}
-                className="w-full border border-slate-300 rounded px-3 py-2 text-sm"
+                className="w-full border border-nkz-default rounded-nkz-md px-3 py-2 text-nkz-sm"
               >
                 <option value="">{t('parcel.select')}</option>
                 <option value="mock-parcel-001">{t('parcel.mock')}</option>
@@ -181,23 +176,22 @@ const RoutingDesigner: React.FC = () => {
           </div>
         </div>
 
-        {/* VRA toggle */}
-        <div className="pt-2 border-t border-slate-100">
-          <label className="flex items-center gap-2 cursor-pointer">
+        <div className="pt-2 border-t border-nkz-default">
+          <label className="flex items-center gap-nkz-sm cursor-pointer">
             <input
               type="checkbox"
               checked={vraEnabled}
               onChange={(e) => setVraEnabled(e.target.checked)}
-              className="rounded border-slate-300 text-amber-500 focus:ring-amber-500"
+              className="rounded-nkz-md border-nkz-default text-nkz-text-accent focus:ring-nkz-accent"
             />
-            <span className="text-sm font-medium text-slate-700">
+            <span className="text-nkz-sm font-medium text-nkz-text-primary">
               {t('vra.enabled')}
             </span>
           </label>
           {vraEnabled && (
-            <div className="mt-3 grid grid-cols-2 gap-4">
+            <div className="mt-3 grid grid-cols-2 gap-nkz-md">
               <div>
-                <label className="block text-xs font-medium text-slate-600 mb-1">
+                <label className="block text-nkz-xs font-medium text-nkz-text-secondary mb-1">
                   {t('vra.baseRate')}
                 </label>
                 <input
@@ -205,18 +199,18 @@ const RoutingDesigner: React.FC = () => {
                   min={0}
                   value={baseRate}
                   onChange={(e) => setBaseRate(Number(e.target.value))}
-                  className="w-full border border-slate-300 rounded px-3 py-2 text-sm"
+                  className="w-full border border-nkz-default rounded-nkz-md px-3 py-2 text-nkz-sm"
                 />
               </div>
               <div>
-                <label className="block text-xs font-medium text-slate-600 mb-1">
+                <label className="block text-nkz-xs font-medium text-nkz-text-secondary mb-1">
                   {t('vra.rateUnit')}
                 </label>
                 <input
                   type="text"
                   value={rateUnit}
                   disabled
-                  className="w-full border border-slate-200 rounded px-3 py-2 text-sm bg-slate-50 text-slate-500"
+                  className="w-full border border-nkz-default rounded-nkz-md px-3 py-2 text-nkz-sm bg-nkz-surface-alt text-nkz-text-secondary"
                 />
               </div>
             </div>
@@ -224,11 +218,14 @@ const RoutingDesigner: React.FC = () => {
         </div>
       </div>
 
-      {/* Generate button */}
       <button
         onClick={handleGenerate}
         disabled={generating}
-        className="w-full min-h-[48px] font-bold text-sm bg-amber-500 hover:bg-amber-600 disabled:bg-amber-300 text-white rounded-lg transition-colors flex items-center justify-center gap-2"
+        className="w-full min-h-[48px] font-bold text-nkz-sm rounded-nkz-lg transition-colors flex items-center justify-center gap-nkz-sm text-nkz-text-on-accent"
+        style={{
+          backgroundColor: generating ? accent.soft : accent.base,
+          opacity: generating ? 0.7 : 1,
+        }}
       >
         {generating ? (
           <>
@@ -240,19 +237,19 @@ const RoutingDesigner: React.FC = () => {
         )}
       </button>
 
-      {/* Export buttons */}
       {lastOperationId && (
-        <div className="bg-white rounded-lg border border-slate-200 p-4 space-y-3">
-          <h3 className="text-sm font-semibold text-slate-700 flex items-center gap-2">
+        <div className="bg-nkz-surface rounded-nkz-lg border border-nkz-default p-nkz-md space-y-nkz-stack">
+          <h3 className="text-nkz-sm font-semibold text-nkz-text-primary flex items-center gap-nkz-sm">
             <Download className="w-4 h-4" />
             {t('actions.export')}
           </h3>
-          <div className="flex gap-2">
+          <div className="flex gap-nkz-sm">
             <button
               onClick={() =>
                 window.open(api.getExportUrl(lastOperationId, 'isoxml'), '_blank')
               }
-              className="flex-1 min-h-[48px] font-bold text-xs uppercase bg-slate-700 text-amber-500 rounded border border-slate-600 hover:bg-slate-600 transition-colors"
+              className="flex-1 min-h-[48px] font-bold text-nkz-xs uppercase rounded-nkz-md border border-nkz-accent transition-colors"
+              style={{ backgroundColor: accent.strong, color: accent.base }}
             >
               {t('export.isoxml')}
             </button>
@@ -260,7 +257,8 @@ const RoutingDesigner: React.FC = () => {
               onClick={() =>
                 window.open(api.getExportUrl(lastOperationId, 'geojson'), '_blank')
               }
-              className="flex-1 min-h-[48px] font-bold text-xs uppercase bg-slate-700 text-sky-400 rounded border border-slate-600 hover:bg-slate-600 transition-colors"
+              className="flex-1 min-h-[48px] font-bold text-nkz-xs uppercase rounded-nkz-md border border-nkz-accent text-nkz-text-success transition-colors"
+              style={{ backgroundColor: accent.strong }}
             >
               {t('export.geojson')}
             </button>
@@ -268,7 +266,8 @@ const RoutingDesigner: React.FC = () => {
               onClick={() =>
                 window.open(api.getExportUrl(lastOperationId, 'gpx'), '_blank')
               }
-              className="flex-1 min-h-[48px] font-bold text-xs uppercase bg-slate-700 text-emerald-400 rounded border border-slate-600 hover:bg-slate-600 transition-colors"
+              className="flex-1 min-h-[48px] font-bold text-nkz-xs uppercase rounded-nkz-md border border-nkz-accent text-nkz-text-accent transition-colors"
+              style={{ backgroundColor: accent.strong }}
             >
               {t('export.gpx')}
             </button>
@@ -276,32 +275,31 @@ const RoutingDesigner: React.FC = () => {
         </div>
       )}
 
-      {/* Stats */}
       {result?.data?.properties && (
-        <div className="bg-white rounded-lg border border-slate-200 p-4">
-          <dl className="grid grid-cols-2 gap-3 text-sm">
+        <div className="bg-nkz-surface rounded-nkz-lg border border-nkz-default p-nkz-md">
+          <dl className="grid grid-cols-2 gap-nkz-md text-nkz-sm">
             <div>
-              <dt className="text-xs text-slate-400">{t('parameters.heading')}</dt>
-              <dd className="font-semibold text-slate-700">
+              <dt className="text-nkz-xs text-nkz-text-secondary">{t('parameters.heading')}</dt>
+              <dd className="font-semibold text-nkz-text-primary">
                 {result.data.properties.heading_deg}&deg;
               </dd>
             </div>
             <div>
-              <dt className="text-xs text-slate-400">{t('parameters.width')}</dt>
-              <dd className="font-semibold text-slate-700">
+              <dt className="text-nkz-xs text-nkz-text-secondary">{t('parameters.width')}</dt>
+              <dd className="font-semibold text-nkz-text-primary">
                 {result.data.properties.width_m} m
               </dd>
             </div>
             <div>
-              <dt className="text-xs text-slate-400">{t('actions.generate')}</dt>
-              <dd className="font-semibold text-slate-700">
+              <dt className="text-nkz-xs text-nkz-text-secondary">{t('actions.generate')}</dt>
+              <dd className="font-semibold text-nkz-text-primary">
                 {result.data.properties.swath_count}
               </dd>
             </div>
             {result.data.properties.vra_enabled !== undefined && (
               <div>
-                <dt className="text-xs text-slate-400">VRA</dt>
-                <dd className="font-semibold text-slate-700">
+                <dt className="text-nkz-xs text-nkz-text-secondary">VRA</dt>
+                <dd className="font-semibold text-nkz-text-primary">
                   {result.data.properties.vra_enabled ? 'Enabled' : 'Disabled'}
                 </dd>
               </div>

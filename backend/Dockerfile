@@ -20,6 +20,12 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
+# Install GIS runtime shared libraries
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libgeos-c1v5 \
+    libproj25 \
+    && rm -rf /var/lib/apt/lists/*
+
 # Create non-root user first
 RUN useradd -m -u 1000 appuser
 

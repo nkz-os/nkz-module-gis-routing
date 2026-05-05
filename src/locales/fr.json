@@ -6,10 +6,10 @@
   "parcel": { "label": "Parcelle", "select": "Sélectionner une parcelle...", "mock": "Parcelle Démo" },
   "equipment": { "label": "Tracteur / Matériel", "select": "Sélectionner l'équipement...", "mock": "Tracteur Démo" },
   "parameters": { "heading": "Cap (°)", "width": "Largeur de travail (m)" },
-  "actions": { "generate": "Générer la Route", "generating": "Génération en cours...", "sync": "Synchroniser Mobile", "export": "Exporter" },
+  "actions": { "generate": "Générer la Route", "generating": "Génération en cours...", "export": "Exporter" },
   "export": { "isoxml": "ISOXML", "geojson": "GeoJSON", "gpx": "GPX" },
-  "vra": { "enabled": "Prescription VRA", "baseRate": "Dose de Base", "rateUnit": "Unité", "zonesFound": "{{count}} zones VRA trouvées", "noZones": "Aucune zone VRA pour cette parcelle" },
-  "errors": { "authRequired": "Authentification requise", "noParcel": "Aucune parcelle sélectionnée", "generateFailed": "Échec de la génération de la route", "exportFailed": "Échec de l'exportation", "syncFailed": "Échec de la synchronisation" },
+  "vra": { "enabled": "Prescription VRA", "baseRate": "Dose de Base", "rateUnit": "Unité" },
+  "errors": { "authRequired": "Authentification requise", "generateFailed": "Échec de la génération de la route" },
   "zoning": {
     "title": "Zonage VRA",
     "description": "Génère des zones de gestion variable (VRA) basées sur les indices de végétation.",
@@ -21,16 +21,10 @@
     "numZones": "Nombre de Zones",
     "numZonesHint": "{{zones}} zones seront créées selon les valeurs de l'indice de végétation sélectionné.",
     "refresh": "Actualiser les données de zonage",
-    "loadingZones": "Chargement des zones existantes...",
     "existingZones": "Zones Existantes ({{count}})",
     "zoneLabel": "Zone {{id}}",
     "noZones": "Aucune zone générée pour cette parcelle",
     "noZonesHint": "Cliquez sur \"Générer Zones VRA\" pour créer des zones de gestion variable.",
-    "viewOnMap": "Voir sur la carte",
-    "generatingStatus": "Génération de {{zones}} zones. Task ID: {{taskId}}",
-    "zonesGenerated": "Zones générées : {{count}} zones",
-    "generateError": "Erreur lors du lancement de la génération",
-    "pollTimeout": "Le processus prend plus de temps que prévu. Cliquez sur \"Actualiser\".",
-    "taskId": "Task ID: {{taskId}}"
+    "generateError": "Erreur lors du lancement de la génération"
   }
 }
