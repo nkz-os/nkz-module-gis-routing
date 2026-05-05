@@ -29,10 +29,6 @@ from app.config import get_settings
 logger = logging.getLogger(__name__)
 router = APIRouter(tags=["routing"])
 
-@router.get("/health")
-async def api_health_check():
-    return {"status": "healthy", "service": "gis-routing", "version": get_settings().app_version}
-
 VALID_COLLECTIONS = {"parcels", "equipment", "operations"}
 
 
