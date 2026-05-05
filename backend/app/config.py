@@ -30,10 +30,7 @@ class Settings(BaseSettings):
     
     # Service-to-service authentication
     module_management_key: str = ""
-    
-    # Database (optional - uncomment if using)
-    # database_url: str = ""
-    
+
     # Redis (for caching/celery - optional)
     # redis_url: str = ""
 
@@ -60,7 +57,7 @@ class Settings(BaseSettings):
 
     # Sync
     sync_default_schema_version: int = 3
-    sync_supported_schema_versions: list[int] = [3]
+    sync_supported_schema_versions: list[int] = [3, 4]
 
     @property
     def jwt_issuer_url(self) -> str:

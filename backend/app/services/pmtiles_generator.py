@@ -48,7 +48,14 @@ class PMTileGenerator:
         geom = shape(json.loads(geojson_str))
         margin = margin_m / 111320.0
         minx, miny, maxx, maxy = geom.bounds
-        return (minx - margin, miny - margin, maxx + margin, maxy + margin)
+        bbox = (minx - margin, miny - margin, maxx + margin, maxy + margin)
+
+        if abs(bbox[2] - bbox[0]) > 10 or abs(bbox[3] - bbox[1]) > 10:
+            raise ValueError(
+                f"Bounding box too large ({abs(bbox[2] - bbox[0]):.1f} x {abs(bbox[3] - bbox[1]):.1f} degrees). "
+                f"Max 10x10 degrees for PMTiles generation."
+            )
+        return bbox
 
     async def generate_async(
         self, tenant_id: str, parcel_id: str

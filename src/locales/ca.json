@@ -6,10 +6,10 @@
   "parcel": { "label": "Parcel·la", "select": "Seleccionar parcel·la...", "mock": "Parcel·la Demo" },
   "equipment": { "label": "Tractor / Maquinària", "select": "Seleccionar equip...", "mock": "Tractor Demo" },
   "parameters": { "heading": "Rumb (°)", "width": "Amplada de treball (m)" },
-  "actions": { "generate": "Generar Ruta", "generating": "S'està generant...", "sync": "Sincronitzar Mòbil", "export": "Exportar" },
+  "actions": { "generate": "Generar Ruta", "generating": "S'està generant...", "export": "Exportar" },
   "export": { "isoxml": "ISOXML", "geojson": "GeoJSON", "gpx": "GPX" },
-  "vra": { "enabled": "Prescripció VRA", "baseRate": "Dosi Base", "rateUnit": "Unitat", "zonesFound": "{{count}} zones VRA trobades", "noZones": "Sense zones VRA per a aquesta parcel·la" },
-  "errors": { "authRequired": "Autenticació requerida", "noParcel": "Cap parcel·la seleccionada", "generateFailed": "Error en generar la ruta", "exportFailed": "Error en exportar", "syncFailed": "Error de sincronització" },
+  "vra": { "enabled": "Prescripció VRA", "baseRate": "Dosi Base", "rateUnit": "Unitat" },
+  "errors": { "authRequired": "Autenticació requerida", "generateFailed": "Error en generar la ruta" },
   "zoning": {
     "title": "Zonificació VRA",
     "description": "Genera zones de maneig variable (VRA) basades en índexs de vegetació.",
@@ -21,16 +21,10 @@
     "numZones": "Nombre de Zones",
     "numZonesHint": "Es crearan {{zones}} zones basades en els valors de l'índex de vegetació seleccionat.",
     "refresh": "Actualitzar dades de zonificació",
-    "loadingZones": "S'estan carregant zones existents...",
     "existingZones": "Zones Existents ({{count}})",
     "zoneLabel": "Zona {{id}}",
     "noZones": "No hi ha zones generades per a aquesta parcel·la",
     "noZonesHint": "Prem \"Generar Zones VRA\" per crear zones de maneig variable.",
-    "viewOnMap": "Veure al mapa",
-    "generatingStatus": "S'estan generant {{zones}} zones. Task ID: {{taskId}}",
-    "zonesGenerated": "Zones generades: {{count}} zones",
-    "generateError": "Error en iniciar la generació de zones",
-    "pollTimeout": "El procés està trigant més de l'esperat. Prem \"Actualitzar\" per comprovar.",
-    "taskId": "Task ID: {{taskId}}"
+    "generateError": "Error en iniciar la generació de zones"
   }
 }

@@ -1,0 +1,83 @@
+---
+# NetworkPolicy for GIS Routing Backend
+# Restricts egress to only required cluster-internal services.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: nkz-module-gis-routing-netpol
+  namespace: nekazari
+  labels:
+    app: nkz-module-gis-routing-backend
+    module: nkz-module-gis-routing
+spec:
+  podSelector:
+    matchLabels:
+      app: nkz-module-gis-routing-backend
+  policyTypes:
+    - Egress
+  egress:
+    # Allow DNS resolution
+    - to:
+        - namespaceSelector: {}
+          podSelector:
+            matchLabels:
+              k8s-app: kube-dns
+      ports:
+        - protocol: UDP
+          port: 53
+    # Orion-LD Context Broker
+    - to:
+        - podSelector:
+            matchLabels:
+              app: orion-ld
+      ports:
+        - protocol: TCP
+          port: 1026
+    # PostgreSQL / TimescaleDB
+    - to:
+        - podSelector:
+            matchLabels:
+              app: postgresql
+      ports:
+        - protocol: TCP
+          port: 5432
+    # Keycloak
+    - to:
+        - podSelector:
+            matchLabels:
+              app: keycloak
+      ports:
+        - protocol: TCP
+          port: 8080
+    # MinIO
+    - to:
+        - podSelector:
+            matchLabels:
+              app: minio
+      ports:
+        - protocol: TCP
+          port: 9000
+    # API Gateway (for NGSI-LD context)
+    - to:
+        - podSelector:
+            matchLabels:
+              app: api-gateway
+      ports:
+        - protocol: TCP
+          port: 5000
+    # Vegetation Health API (for zone generation proxy)
+    - to:
+        - podSelector:
+            matchLabels:
+              app: vegetation-health-api
+      ports:
+        - protocol: TCP
+          port: 8000
+    # EU Elevation API (for DEM correction)
+    - to:
+        - podSelector:
+            matchLabels:
+              app: eu-elevation-api
+      ports:
+        - protocol: TCP
+          port: 8000

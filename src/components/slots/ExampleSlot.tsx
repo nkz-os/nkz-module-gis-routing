@@ -10,8 +10,9 @@ import { useViewer, useAuth, useTranslation } from '@nekazari/sdk';
 import { SlotShell } from '@nekazari/viewer-kit';
 import { MapPin, Loader2, ExternalLink } from 'lucide-react';
 import { api } from '../../services/api';
+import manifest from '../../../manifest.json';
 
-const gisRoutingAccent = { base: '#CA8A04', soft: '#FEF9C3', strong: '#A16207' };
+const gisRoutingAccent = manifest.accent;
 
 const NS = 'gis-routing';
 

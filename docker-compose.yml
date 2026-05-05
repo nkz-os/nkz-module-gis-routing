@@ -1,5 +1,5 @@
 # =============================================================================
-# MODULE_DISPLAY_NAME - Local Development with Docker Compose
+# GIS Routing - Local Development with Docker Compose
 # =============================================================================
 # Runs the backend API locally. The frontend is a Vite dev server (npm run dev),
 # not a Docker container — IIFE modules don't ship a standalone frontend image.
@@ -21,9 +21,9 @@ services:
     ports:
       - "8000:8000"
     environment:
-      - APP_NAME=MODULE_DISPLAY_NAME
+      - APP_NAME=GIS Routing
       - DEBUG=true
-      - API_PREFIX=/api/MODULE_NAME
+      - API_PREFIX=/api/routing
       - KEYCLOAK_URL=https://auth.example.com/auth
       - KEYCLOAK_REALM=nekazari
       - JWT_AUDIENCE=account
@@ -31,7 +31,7 @@ services:
     volumes:
       - ./backend/app:/app/app:ro
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      test: ["CMD", "python", "-c", "import httpx; httpx.get('http://localhost:8000/health')"]
       interval: 30s
       timeout: 10s
       retries: 3

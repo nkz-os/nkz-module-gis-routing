@@ -4,12 +4,14 @@
   "description": "Professional AB-line routing guidance with VRA prescription maps, ISOBUS export, offline PMTiles, and WatermelonDB sync",
   "license": "AGPL-3.0",
   "type": "module",
-  "main": "./src/moduleEntry.ts",
+  "main": "./dist/nkz-module.js",
   "scripts": {
     "dev": "vite --port 5003",
+    "build": "vite build",
     "build:module": "vite build",
     "preview": "vite preview",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "lint": "tsc --noEmit"
   },
   "dependencies": {
     "@nekazari/design-tokens": "^0.1.0-alpha.0",

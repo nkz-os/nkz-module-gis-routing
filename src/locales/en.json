@@ -6,10 +6,10 @@
   "parcel": { "label": "Parcel", "select": "Select a parcel...", "mock": "Demo Parcel" },
   "equipment": { "label": "Tractor / Equipment", "select": "Select equipment...", "mock": "Demo Tractor" },
   "parameters": { "heading": "Heading (°)", "width": "Working Width (m)" },
-  "actions": { "generate": "Generate Route", "generating": "Generating...", "sync": "Sync to Mobile", "export": "Export" },
+  "actions": { "generate": "Generate Route", "generating": "Generating...", "export": "Export" },
   "export": { "isoxml": "ISOXML", "geojson": "GeoJSON", "gpx": "GPX" },
-  "vra": { "enabled": "VRA Prescription", "baseRate": "Base Rate", "rateUnit": "Rate Unit", "zonesFound": "{{count}} VRA zones found", "noZones": "No VRA zones for this parcel" },
-  "errors": { "authRequired": "Authentication required", "noParcel": "No parcel selected", "generateFailed": "Route generation failed", "exportFailed": "Export failed", "syncFailed": "Sync failed" },
+  "vra": { "enabled": "VRA Prescription", "baseRate": "Base Rate", "rateUnit": "Rate Unit" },
+  "errors": { "authRequired": "Authentication required", "generateFailed": "Route generation failed" },
   "zoning": {
     "title": "VRA Zoning",
     "description": "Generate Variable Rate Application (VRA) management zones.",
@@ -21,16 +21,10 @@
     "numZones": "Number of Zones",
     "numZonesHint": "{{zones}} zones will be created.",
     "refresh": "Refresh zoning data",
-    "loadingZones": "Loading existing zones...",
     "existingZones": "Existing Zones ({{count}})",
     "zoneLabel": "Zone {{id}}",
     "noZones": "No zones generated",
     "noZonesHint": "Click Generate to create zones.",
-    "viewOnMap": "View on map",
-    "generatingStatus": "Generating {{zones}} zones. Task ID: {{taskId}}",
-    "zonesGenerated": "Zones generated: {{count}} zones",
-    "generateError": "Error starting zone generation",
-    "pollTimeout": "Process taking longer. Click Refresh.",
-    "taskId": "Task ID: {{taskId}}"
+    "generateError": "Error starting zone generation"
   }
 }

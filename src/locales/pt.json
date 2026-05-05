@@ -6,10 +6,10 @@
   "parcel": { "label": "Parcela", "select": "Selecionar parcela...", "mock": "Parcela Demo" },
   "equipment": { "label": "Trator / Equipamento", "select": "Selecionar equipamento...", "mock": "Trator Demo" },
   "parameters": { "heading": "Rumo (°)", "width": "Largura de trabalho (m)" },
-  "actions": { "generate": "Gerar Rota", "generating": "A gerar...", "sync": "Sincronizar Dispositivo", "export": "Exportar" },
+  "actions": { "generate": "Gerar Rota", "generating": "A gerar...", "export": "Exportar" },
   "export": { "isoxml": "ISOXML", "geojson": "GeoJSON", "gpx": "GPX" },
-  "vra": { "enabled": "Prescrição VRA", "baseRate": "Dose Base", "rateUnit": "Unidade", "zonesFound": "{{count}} zonas VRA encontradas", "noZones": "Sem zonas VRA para esta parcela" },
-  "errors": { "authRequired": "Autenticação necessária", "noParcel": "Nenhuma parcela selecionada", "generateFailed": "Falha ao gerar a rota", "exportFailed": "Falha ao exportar", "syncFailed": "Falha na sincronização" },
+  "vra": { "enabled": "Prescrição VRA", "baseRate": "Dose Base", "rateUnit": "Unidade" },
+  "errors": { "authRequired": "Autenticação necessária", "generateFailed": "Falha ao gerar a rota" },
   "zoning": {
     "title": "Zoneamento VRA",
     "description": "Gera zonas de gestão variável (VRA) com base em índices de vegetação.",
@@ -21,16 +21,10 @@
     "numZones": "Número de Zonas",
     "numZonesHint": "Serão criadas {{zones}} zonas com base nos valores do índice de vegetação selecionado.",
     "refresh": "Atualizar dados de zoneamento",
-    "loadingZones": "A carregar zonas existentes...",
     "existingZones": "Zonas Existentes ({{count}})",
     "zoneLabel": "Zona {{id}}",
     "noZones": "Sem zonas geradas para esta parcela",
     "noZonesHint": "Clique em \"Gerar Zonas VRA\" para criar zonas de gestão variável.",
-    "viewOnMap": "Ver no mapa",
-    "generatingStatus": "A gerar {{zones}} zonas. Task ID: {{taskId}}",
-    "zonesGenerated": "Zonas geradas: {{count}} zonas",
-    "generateError": "Erro ao iniciar a geração de zonas",
-    "pollTimeout": "O processo está a demorar mais do que o esperado. Clique em \"Atualizar\".",
-    "taskId": "Task ID: {{taskId}}"
+    "generateError": "Erro ao iniciar a geração de zonas"
   }
 }

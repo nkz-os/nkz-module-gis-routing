@@ -195,30 +195,6 @@ async def generate_routing_plan(request: Request, body: GenerateRequest):
         try:
             await orion.create_entity(entity, tenant_id)
             operation_id = op_remote_id
-            ts = TimescaleDBClient(dsn=settings.database_url)
-            await ts.connect()
-            try:
-                await ts.materialize_operation(
-                    remote_id=op_remote_id,
-                    tenant_id=tenant_id,
-                    parcel_id=body.parcel_id,
-                    equipment_id=None,
-                    tractor_id=body.tractor_id,
-                    implement_id=body.implement_id,
-                    operation_type=body.operation_type,
-                    ab_line_geojson=json.dumps(geojson_result),
-                    implement_width=body.width_m,
-                    status="planned",
-                    vra_enabled=False,
-                    prescription_map=None,
-                    base_rate=None,
-                    rate_unit=None,
-                    started_at=None,
-                    completed_at=None,
-                    updated_at=int(time.time() * 1000),
-                )
-            finally:
-                await ts.close()
         except Exception as e:
             logger.error("Failed to persist operation: %s", e)
         finally:
@@ -533,9 +509,14 @@ async def on_ngsild_notification(request: Request):
     """Receive NGSI-LD subscription notifications from Orion-LD.
 
     Called by Orion-LD when entities matching our subscriptions change.
-    Extracts the changed entities and materializes them into TimescaleDB.
     No JWT required — Orion-LD sends service-to-service notifications.
     """
+    settings = get_settings()
+    if settings.module_management_key:
+        secret = request.headers.get("X-Orion-Secret", "")
+        if secret != settings.module_management_key:
+            raise HTTPException(status_code=403, detail="Invalid shared secret")
+
     body = await request.json()
     tenant_id = request.headers.get("FIWARE-Service", "default")
     data = body.get("data", [])

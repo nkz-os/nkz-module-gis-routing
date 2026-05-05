@@ -1,5 +1,25 @@
 """Intersect A-B routing swaths with VRA management zones for prescription maps."""
+from pyproj import CRS, Transformer
 from shapely.geometry import shape, MultiLineString, mapping
+
+
+def _utm_length_m(geom) -> float:
+    """Compute accurate length in meters using local UTM projection."""
+    centroid = geom.centroid
+    utm_crs = _get_utm_crs(centroid.x, centroid.y)
+    wgs84 = CRS.from_epsg(4326)
+    to_utm = Transformer.from_crs(wgs84, utm_crs, always_xy=True).transform
+    utm_coords = [to_utm(x, y) for x, y in geom.coords]
+    from shapely.geometry import LineString
+    utm_line = LineString(utm_coords)
+    return utm_line.length
+
+
+def _get_utm_crs(lon: float, lat: float) -> CRS:
+    zone = int((lon + 180) / 6) + 1
+    is_north = lat >= 0
+    epsg_code = 32600 + zone if is_north else 32700 + zone
+    return CRS.from_epsg(epsg_code)
 
 
 def intersect_swaths_with_zones(
@@ -26,7 +46,7 @@ def intersect_swaths_with_zones(
                         "type": "Feature",
                         "geometry": mapping(geom),
                         "properties": {
-                            "length_m": round(geom.length * 111320, 2),
+                            "length_m": round(_utm_length_m(geom), 2),
                             "rate": round(base_rate * zone_rate, 2),
                             "zone_id": zone["properties"].get("zone_id"),
                             "zone_class": zone["properties"].get("zone_class", ""),

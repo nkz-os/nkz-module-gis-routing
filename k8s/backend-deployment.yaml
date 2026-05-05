@@ -28,9 +28,17 @@ spec:
         component: backend
         module: nkz-module-gis-routing
     spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
       containers:
         - name: backend
-          image: ghcr.io/nkz-os/nkz-module-gis-routing/nkz-module-gis-routing-backend:main
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+            readOnlyRootFilesystem: true
+          image: ghcr.io/nkz-os/nkz-module-gis-routing/nkz-module-gis-routing-backend:latest
           imagePullPolicy: Always
           ports:
             - name: http
@@ -38,6 +46,8 @@ spec:
           env:
             - name: APP_NAME
               value: "GIS Routing"
+            - name: APP_VERSION
+              value: "2.0.0"
             - name: DEBUG
               value: "false"
             - name: API_PREFIX
@@ -69,6 +79,8 @@ spec:
                   optional: true
             - name: MINIO_ENDPOINT
               value: "minio-service:9000"
+            - name: MINIO_BUCKET
+              value: "nekazari-gis-routing"
             - name: MINIO_ACCESS_KEY
               valueFrom:
                 secretKeyRef:
@@ -83,11 +95,11 @@ spec:
                   optional: true
           resources:
             requests:
-              memory: "128Mi"
-              cpu: "100m"
-            limits:
               memory: "256Mi"
               cpu: "200m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
           livenessProbe:
             httpGet:
               path: /health
