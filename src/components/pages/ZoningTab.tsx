@@ -62,11 +62,13 @@ const ZoningTab: React.FC = () => {
       let attempts = 0;
       const poll = async () => {
         attempts++;
-        const result: any = await api.getZones(parcelId);
-        if (result?.data?.zones?.length > 0) {
-          setZones(result.data.zones);
-          return;
-        }
+        try {
+          const result: any = await api.getZones(parcelId);
+          if (result?.data?.zones?.length > 0) {
+            setZones(result.data.zones);
+            return;
+          }
+        } catch { /* polling gracefully stops on error */ }
         if (attempts < 15) setTimeout(poll, 2000);
       };
       setTimeout(poll, 2000);
