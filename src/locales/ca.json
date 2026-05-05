@@ -1,15 +1,47 @@
 {
   "loading": "S'està carregant...",
-  "tabs": { "routing": "Guiatge", "zoning": "Zones VRA" },
+  "tabs": {
+    "routing": "Guiatge",
+    "zoning": "Zones VRA"
+  },
   "title": "GIS Routing",
   "subtitle": "Guiatge per línies A-B per a agricultura de precisió",
-  "parcel": { "label": "Parcel·la", "select": "Seleccionar parcel·la...", "mock": "Parcel·la Demo" },
-  "equipment": { "label": "Tractor / Maquinària", "select": "Seleccionar equip...", "mock": "Tractor Demo" },
-  "parameters": { "heading": "Rumb (°)", "width": "Amplada de treball (m)" },
-  "actions": { "generate": "Generar Ruta", "generating": "S'està generant...", "export": "Exportar" },
-  "export": { "isoxml": "ISOXML", "geojson": "GeoJSON", "gpx": "GPX" },
-  "vra": { "enabled": "Prescripció VRA", "baseRate": "Dosi Base", "rateUnit": "Unitat" },
-  "errors": { "authRequired": "Autenticació requerida", "generateFailed": "Error en generar la ruta" },
+  "parcel": {
+    "label": "Parcel·la",
+    "select": "Seleccionar parcel·la...",
+    "mock": "Parcel·la Demo",
+    "empty": "Sense parcel·les"
+  },
+  "equipment": {
+    "label": "Tractor / Maquinària",
+    "select": "Seleccionar equip...",
+    "mock": "Tractor Demo"
+  },
+  "parameters": {
+    "heading": "Rumb (°)",
+    "width": "Amplada de treball (m)",
+    "swaths": "Franges"
+  },
+  "actions": {
+    "generate": "Generar Ruta",
+    "generating": "S'està generant...",
+    "export": "Exportar",
+    "retry": "Reintentar"
+  },
+  "export": {
+    "isoxml": "ISOXML",
+    "geojson": "GeoJSON",
+    "gpx": "GPX"
+  },
+  "vra": {
+    "enabled": "Prescripció VRA",
+    "baseRate": "Dosi Base",
+    "rateUnit": "Unitat"
+  },
+  "errors": {
+    "authRequired": "Autenticació requerida",
+    "generateFailed": "Error en generar la ruta"
+  },
   "zoning": {
     "title": "Zonificació VRA",
     "description": "Genera zones de maneig variable (VRA) basades en índexs de vegetació.",
