@@ -33,6 +33,136 @@ router = APIRouter(tags=["routing"])
 async def api_health_check():
     return {"status": "healthy", "service": "gis-routing", "version": get_settings().app_version}
 
+@router.get("/parcels")
+async def list_parcels(request: Request):
+    """List AgriParcel entities for the authenticated tenant."""
+    tenant_id = _get_tenant_id(request)
+    if not tenant_id or tenant_id == "default":
+        raise HTTPException(status_code=404, detail="Tenant not found")
+    settings = get_settings()
+    orion = OrionLDClient(
+        base_url=settings.context_broker_url,
+        context_url=settings.ngsi_ld_context,
+    )
+    try:
+        entities = await orion.query_entities(
+            "AgriParcel", tenant_id, attrs="name,location,area,ownedBy,dateCreated",
+            limit=200,
+        )
+        return [
+            {
+                "id": e.get("id", ""),
+                "name": (e.get("name", {}) or {}).get("value", ""),
+                "location": (e.get("location", {}) or {}).get("value"),
+                "area": (e.get("area", {}) or {}).get("value"),
+                "ownedBy": (e.get("ownedBy", {}) or {}).get("object", ""),
+            }
+            for e in entities
+        ]
+    finally:
+        await orion.close()
+
+@router.get("/parcels/{parcel_id}/geometry")
+async def get_parcel_geometry(request: Request, parcel_id: str):
+    """Get the full geometry (GeoJSON) of a specific AgriParcel."""
+    tenant_id = _get_tenant_id(request)
+    if not tenant_id or tenant_id == "default":
+        raise HTTPException(status_code=404, detail="Tenant not found")
+    settings = get_settings()
+    orion = OrionLDClient(
+        base_url=settings.context_broker_url,
+        context_url=settings.ngsi_ld_context,
+    )
+    try:
+        entity = await orion.get_entity(parcel_id, tenant_id)
+        if not entity:
+            raise HTTPException(status_code=404, detail="Parcel not found")
+        location_val = (entity.get("location", {}) or {}).get("value")
+        if not location_val:
+            raise HTTPException(status_code=404, detail="Parcel has no geometry")
+        return {
+            "id": entity.get("id", ""),
+            "name": (entity.get("name", {}) or {}).get("value", ""),
+            "geometry": location_val,
+        }
+    finally:
+        await orion.close()
+
+@router.get("/equipment")
+async def list_equipment(request: Request):
+    """List ManufacturingMachine entities (tractors/implements) for the tenant."""
+    tenant_id = _get_tenant_id(request)
+    if not tenant_id or tenant_id == "default":
+        raise HTTPException(status_code=404, detail="Tenant not found")
+    settings = get_settings()
+    orion = OrionLDClient(
+        base_url=settings.context_broker_url,
+        context_url=settings.ngsi_ld_context,
+    )
+    try:
+        entities = await orion.query_entities(
+            "ManufacturingMachine", tenant_id,
+            attrs="name,category,description,serialNumber,isobusCompatible,dateCreated",
+            limit=100,
+        )
+        return [
+            {
+                "id": e.get("id", ""),
+                "name": (e.get("name", {}) or {}).get("value", ""),
+                "category": (e.get("category", {}) or {}).get("value", ""),
+                "description": (e.get("description", {}) or {}).get("value", ""),
+                "serialNumber": (e.get("serialNumber", {}) or {}).get("value", ""),
+                "isobusCompatible": (e.get("isobusCompatible", {}) or {}).get("value", False),
+            }
+            for e in entities
+        ]
+    finally:
+        await orion.close()
+
+@router.get("/operations")
+async def list_operations(request: Request, limit: int = 20):
+    """List operations previously generated for the tenant (from TimescaleDB)."""
+    tenant_id = _get_tenant_id(request)
+    if not tenant_id or tenant_id == "default":
+        raise HTTPException(status_code=404, detail="Tenant not found")
+    settings = get_settings()
+    try:
+        ts = TimescaleDBClient(dsn=settings.database_url)
+        await ts.connect()
+        try:
+            async with ts._pool.acquire() as conn:
+                rows = await conn.fetch(
+                    """
+                    SELECT remote_id, parcel_id, operation_type, ab_line_geojson,
+                           implement_width, vra_enabled, prescription_map,
+                           status, started_at, completed_at, updated_at
+                    FROM sync_operations
+                    WHERE tenant_id = $1
+                    ORDER BY updated_at DESC
+                    LIMIT $2
+                    """,
+                    tenant_id, limit,
+                )
+                return [
+                    {
+                        "id": row["remote_id"],
+                        "parcel_id": row["parcel_id"],
+                        "operation_type": row["operation_type"],
+                        "implement_width": row["implement_width"],
+                        "vra_enabled": row["vra_enabled"],
+                        "status": row["status"],
+                        "started_at": row["started_at"],
+                        "completed_at": row["completed_at"],
+                        "updated_at": row["updated_at"],
+                    }
+                    for row in rows
+                ]
+        finally:
+            await ts.close()
+    except Exception as e:
+        logger.error("Failed to list operations: %s", e)
+        return []
+
 VALID_COLLECTIONS = {"parcels", "equipment", "operations"}
 
 
