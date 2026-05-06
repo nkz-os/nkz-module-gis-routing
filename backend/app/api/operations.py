@@ -5,11 +5,21 @@ from pydantic import BaseModel, Field
 from typing import Optional, Dict, Any
 from app.services.timescale_client import TimescaleDBClient
 from app.services.coverage_service import CoverageService
+from app.services.active_operation_service import (
+    find_in_progress_operations,
+    find_other_active_operation_id,
+    summarize_active,
+)
 from app.config import get_settings
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/operations", tags=["operations"])
+
+class SessionStartRequest(BaseModel):
+    operation_id: str = Field(..., description="URN of the AgriParcelOperation in Orion-LD")
+    start_date: str = Field(..., description="ISO 8601 Start DateTime of the operation")
+    status: str = Field(default="in_progress", description="Status to patch, usually 'in_progress'")
 
 class SessionCloseRequest(BaseModel):
     operation_id: str = Field(..., description="URN of the AgriParcelOperation in Orion-LD")
@@ -72,6 +82,74 @@ async def close_operation_session(request: Request, session_req: SessionCloseReq
         "success": True, 
         "message": f"Operation {session_req.operation_id} marked for closure."
     }
+
+@router.post("/session/start")
+async def start_operation_session(request: Request, session_req: SessionStartRequest, background_tasks: BackgroundTasks):
+    """
+    Starts an AgriParcelOperation session.
+    Updates metadata in Orion-LD (status = in_progress, startDate).
+    """
+    tenant_id = getattr(request.state, "tenant_id", None)
+    if not tenant_id or tenant_id == "default":
+        raise HTTPException(
+            status_code=404,
+            detail={"error": {"code": "TENANT_NOT_FOUND",
+                              "message": "Tenant not found or token missing tenant_id claim"}})
+
+    conflict_id = await find_other_active_operation_id(tenant_id, session_req.operation_id)
+    if conflict_id:
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "error": {
+                    "code": "ACTIVE_OPERATION_CONFLICT",
+                    "message": "Another operation is already in progress for this tenant.",
+                    "active_operation_id": conflict_id,
+                }
+            },
+        )
+
+    orion_payload = {
+        "status": {
+            "type": "Property",
+            "value": session_req.status
+        },
+        "startDate": {
+            "type": "Property",
+            "value": {"@type": "DateTime", "@value": session_req.start_date}
+        }
+    }
+    background_tasks.add_task(patch_orion_operation, session_req.operation_id, orion_payload, tenant_id)
+
+    return {
+        "success": True,
+        "message": f"Operation {session_req.operation_id} marked as started."
+    }
+
+@router.get("/active")
+async def get_active_operation(request: Request) -> Dict[str, Any]:
+    """
+    Returns the current in-progress AgriParcelOperation for this tenant (Orion-LD), if any.
+    """
+    tenant_id = getattr(request.state, "tenant_id", None)
+    if not tenant_id or tenant_id == "default":
+        raise HTTPException(
+            status_code=404,
+            detail={"error": {"code": "TENANT_NOT_FOUND",
+                              "message": "Tenant not found or token missing tenant_id claim"}})
+
+    active_list = await find_in_progress_operations(tenant_id)
+    if not active_list:
+        return {"success": True, "data": {"operation": None}}
+
+    # If multiple (data inconsistency), surface the first and log.
+    if len(active_list) > 1:
+        logger.warning(
+            "Multiple in_progress AgriParcelOperation for tenant %s (count=%s)",
+            tenant_id,
+            len(active_list),
+        )
+    return {"success": True, "data": {"operation": summarize_active(active_list[0])}}
 
 @router.get("/coverage/{operation_id}")
 async def get_operation_coverage(request: Request, operation_id: str) -> Dict[str, Any]:
