@@ -19,7 +19,7 @@ from typing import Optional
 
 import httpx
 from app.services.sync_service import SyncService, SyncConflictError
-from app.services.geometry import generate_swaths
+from app.services.geometry import generate_swaths, generate_swaths_with_dem
 from app.services.orion_client import OrionLDClient
 from app.services.timescale_client import TimescaleDBClient
 from app.services.export_service import RouteExporter
@@ -28,6 +28,74 @@ from app.config import get_settings
 
 logger = logging.getLogger(__name__)
 router = APIRouter(tags=["routing"])
+
+
+def _relationship_target(entity: dict, key: str) -> str:
+    rel = entity.get(key, {}) or {}
+    return str(rel.get("object") or rel.get("value") or "")
+
+
+def _pick_trajectory_alternative(
+    alternatives: list[dict],
+    selected_alternative_id: Optional[str],
+    heading_deg: float,
+) -> dict:
+    if selected_alternative_id:
+        for alt in alternatives:
+            if alt.get("id") == selected_alternative_id:
+                return alt
+    for alt in alternatives:
+        if abs(float(alt.get("heading_deg", 0)) - heading_deg) < 0.01:
+            return alt
+    return alternatives[0]
+
+
+async def _build_trajectory_alternatives(
+    *,
+    base_heading_deg: float,
+    parcel_geometry: dict,
+    start_point: list[float],
+    width_m: float,
+    dem_correction: bool,
+    dem_url: Optional[str],
+) -> list[dict]:
+    """Return 2–3 heuristic trajectory alternatives (different headings)."""
+    from shapely.geometry import mapping
+
+    offsets_deg = [0.0, 45.0, 90.0]
+    alternatives: list[dict] = []
+    seen: set[float] = set()
+    for off in offsets_deg:
+        h = (base_heading_deg + off) % 360
+        key = round(h, 4)
+        if key in seen:
+            continue
+        seen.add(key)
+        if dem_correction and dem_url:
+            multi_line_string = await generate_swaths_with_dem(
+                geojson_polygon=parcel_geometry,
+                start_point=start_point,
+                heading_deg=h,
+                width_m=width_m,
+                dem_url=dem_url,
+            )
+        else:
+            multi_line_string = generate_swaths(
+                geojson_polygon=parcel_geometry,
+                start_point=start_point,
+                heading_deg=h,
+                width_m=width_m,
+            )
+        geojson_result = mapping(multi_line_string)
+        alternatives.append(
+            {
+                "id": f"alt-{len(alternatives)}",
+                "heading_deg": h,
+                "swath_count": len(geojson_result.get("coordinates", [])),
+                "geometry": geojson_result,
+            }
+        )
+    return alternatives
 
 @router.get("/health")
 async def api_health_check():
@@ -102,7 +170,11 @@ async def list_equipment(request: Request):
     try:
         entities = await orion.query_entities(
             "ManufacturingMachine", tenant_id,
-            attrs="name,category,description,serialNumber,isobusCompatible,dateCreated",
+            attrs=(
+                "name,category,description,serialNumber,isobusCompatible,"
+                "implementWidth,trackWidth,wheelbase,gpsOffsetX,gpsOffsetY,gpsOffsetZ,"
+                "hitchType,hitchOffsetX,implementLength,implementOffsetX,steeringType,steeringAxles,dateCreated"
+            ),
             limit=100,
         )
         return [
@@ -113,6 +185,18 @@ async def list_equipment(request: Request):
                 "description": (e.get("description", {}) or {}).get("value", ""),
                 "serialNumber": (e.get("serialNumber", {}) or {}).get("value", ""),
                 "isobusCompatible": (e.get("isobusCompatible", {}) or {}).get("value", False),
+                "implementWidth": (e.get("implementWidth", {}) or {}).get("value"),
+                "trackWidth": (e.get("trackWidth", {}) or {}).get("value"),
+                "wheelbase": (e.get("wheelbase", {}) or {}).get("value"),
+                "gpsOffsetX": (e.get("gpsOffsetX", {}) or {}).get("value"),
+                "gpsOffsetY": (e.get("gpsOffsetY", {}) or {}).get("value"),
+                "gpsOffsetZ": (e.get("gpsOffsetZ", {}) or {}).get("value"),
+                "hitchType": (e.get("hitchType", {}) or {}).get("value"),
+                "hitchOffsetX": (e.get("hitchOffsetX", {}) or {}).get("value"),
+                "implementLength": (e.get("implementLength", {}) or {}).get("value"),
+                "implementOffsetX": (e.get("implementOffsetX", {}) or {}).get("value"),
+                "steeringType": (e.get("steeringType", {}) or {}).get("value"),
+                "steeringAxles": (e.get("steeringAxles", {}) or {}).get("value"),
             }
             for e in entities
         ]
@@ -255,6 +339,10 @@ class GenerateRequest(BaseModel):
     operation_type: Optional[str] = "spraying"
     dem_correction: bool = Field(False, description="Enable DEM slope correction via eu-elevation")
     persist: bool = True
+    selected_alternative_id: Optional[str] = Field(
+        default=None,
+        description="When set, persist/export uses this trajectory variant from the computed set",
+    )
 
 
 @router.post("/generate")
@@ -263,33 +351,24 @@ async def generate_routing_plan(request: Request, body: GenerateRequest):
         raise HTTPException(status_code=400,
                             detail="parcel_geometry must be a GeoJSON Polygon")
     try:
-        from shapely.geometry import mapping
-
-        if body.dem_correction:
-            from app.config import get_settings
-            from app.services.geometry import generate_swaths_with_dem
-
-            dem_url = get_settings().eu_elevation_url
-            multi_line_string = await generate_swaths_with_dem(
-                geojson_polygon=body.parcel_geometry,
-                start_point=body.start_point,
-                heading_deg=body.heading_deg,
-                width_m=body.width_m,
-                dem_url=dem_url,
-            )
-        else:
-            multi_line_string = generate_swaths(
-                geojson_polygon=body.parcel_geometry,
-                start_point=body.start_point,
-                heading_deg=body.heading_deg,
-                width_m=body.width_m,
-            )
-
-        geojson_result = mapping(multi_line_string)
+        settings = get_settings()
+        dem_url = settings.eu_elevation_url if body.dem_correction else None
+        alternatives = await _build_trajectory_alternatives(
+            base_heading_deg=body.heading_deg,
+            parcel_geometry=body.parcel_geometry,
+            start_point=body.start_point,
+            width_m=body.width_m,
+            dem_correction=body.dem_correction,
+            dem_url=dem_url,
+        )
+        chosen = _pick_trajectory_alternative(
+            alternatives, body.selected_alternative_id, body.heading_deg
+        )
+        geojson_result = chosen["geometry"]
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
-    swath_count = len(geojson_result.get("coordinates", []))
+    swath_count = int(chosen.get("swath_count", 0))
     operation_id = None
 
     if body.persist and body.parcel_id:
@@ -321,10 +400,12 @@ async def generate_routing_plan(request: Request, body: GenerateRequest):
                 },
             },
         }
+        entity["refAgriParcel"] = {"type": "Relationship", "object": body.parcel_id}
         if body.tractor_id:
-            entity["refTractor"] = {"type": "Relationship", "value": body.tractor_id}
+            entity["refTractor"] = {"type": "Relationship", "object": body.tractor_id}
         if body.implement_id:
-            entity["refImplement"] = {"type": "Relationship", "value": body.implement_id}
+            entity["refImplement"] = {"type": "Relationship", "object": body.implement_id}
+        entity["routingVariantId"] = {"type": "Property", "value": str(chosen["id"])}
 
         try:
             await orion.create_entity(entity, tenant_id)
@@ -336,14 +417,23 @@ async def generate_routing_plan(request: Request, body: GenerateRequest):
 
     return {
         "success": True,
+        "alternatives": [
+            {
+                "id": a["id"],
+                "heading_deg": a["heading_deg"],
+                "swath_count": a["swath_count"],
+            }
+            for a in alternatives
+        ],
         "data": {
             "type": "Feature",
             "geometry": geojson_result,
             "properties": {
-                "heading_deg": body.heading_deg,
+                "heading_deg": chosen["heading_deg"],
                 "width_m": body.width_m,
                 "swath_count": swath_count,
                 "operation_id": operation_id,
+                "selected_alternative_id": chosen["id"],
             },
         },
     }
@@ -365,11 +455,15 @@ class GenerateVRARequest(BaseModel):
     rate_unit: Optional[str] = "l_ha"
     zone_ids: Optional[list[str]] = None
     persist: bool = True
+    selected_alternative_id: Optional[str] = Field(
+        default=None,
+        description="Trajectory variant to use before VRA intersection / persistence",
+    )
 
 
 @router.post("/generate/with-vra")
 async def generate_routing_with_vra(request: Request, body: GenerateVRARequest):
-    from shapely.geometry import mapping
+    from shapely.geometry import shape
     from app.services.vra_intersector import intersect_swaths_with_zones
 
     if body.parcel_geometry.get("type") != "Polygon":
@@ -379,27 +473,22 @@ async def generate_routing_with_vra(request: Request, body: GenerateVRARequest):
     tenant_id = _get_tenant_id(request)
     settings = get_settings()
 
-    # Generate swaths
+    # Generate swaths (trajectory alternatives)
     try:
-        if body.dem_correction:
-            from app.services.geometry import generate_swaths_with_dem
-
-            dem_url = settings.eu_elevation_url
-            multi_line_string = await generate_swaths_with_dem(
-                geojson_polygon=body.parcel_geometry,
-                start_point=body.start_point,
-                heading_deg=body.heading_deg,
-                width_m=body.width_m,
-                dem_url=dem_url,
-            )
-        else:
-            multi_line_string = generate_swaths(
-                geojson_polygon=body.parcel_geometry,
-                start_point=body.start_point,
-                heading_deg=body.heading_deg,
-                width_m=body.width_m,
-            )
-        swath_geojson = mapping(multi_line_string)
+        dem_url = settings.eu_elevation_url if body.dem_correction else None
+        alternatives = await _build_trajectory_alternatives(
+            base_heading_deg=body.heading_deg,
+            parcel_geometry=body.parcel_geometry,
+            start_point=body.start_point,
+            width_m=body.width_m,
+            dem_correction=body.dem_correction,
+            dem_url=dem_url,
+        )
+        chosen_alt = _pick_trajectory_alternative(
+            alternatives, body.selected_alternative_id, body.heading_deg
+        )
+        swath_geojson = chosen_alt["geometry"]
+        multi_line_string = shape(swath_geojson)
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
@@ -416,7 +505,7 @@ async def generate_routing_with_vra(request: Request, body: GenerateVRARequest):
             z
             for z in zones
             if body.parcel_id
-            in str(z.get("refAgriParcel", {}).get("value", ""))
+            in _relationship_target(z, "refAgriParcel")
         ]
     if body.zone_ids:
         zones = [z for z in zones if z["id"] in body.zone_ids]
@@ -473,6 +562,12 @@ async def generate_routing_with_vra(request: Request, body: GenerateVRARequest):
             "baseRate": {"type": "Property", "value": body.base_rate},
             "rateUnit": {"type": "Property", "value": body.rate_unit},
         }
+        entity["refAgriParcel"] = {"type": "Relationship", "object": body.parcel_id}
+        if body.tractor_id:
+            entity["refTractor"] = {"type": "Relationship", "object": body.tractor_id}
+        if body.implement_id:
+            entity["refImplement"] = {"type": "Relationship", "object": body.implement_id}
+        entity["routingVariantId"] = {"type": "Property", "value": str(chosen_alt["id"])}
         if prescription_map:
             entity["prescriptionMap"] = {
                 "type": "Property",
@@ -488,11 +583,19 @@ async def generate_routing_with_vra(request: Request, body: GenerateVRARequest):
 
     return {
         "success": True,
+        "alternatives": [
+            {
+                "id": a["id"],
+                "heading_deg": a["heading_deg"],
+                "swath_count": a["swath_count"],
+            }
+            for a in alternatives
+        ],
         "data": {
             "type": "Feature",
             "geometry": swath_geojson,
             "properties": {
-                "heading_deg": body.heading_deg,
+                "heading_deg": chosen_alt["heading_deg"],
                 "width_m": body.width_m,
                 "swath_count": len(swath_geojson.get("coordinates", [])),
                 "vra_enabled": bool(zones),
@@ -500,6 +603,7 @@ async def generate_routing_with_vra(request: Request, body: GenerateVRARequest):
                 "base_rate": body.base_rate,
                 "rate_unit": body.rate_unit,
                 "operation_id": operation_id,
+                "selected_alternative_id": chosen_alt["id"],
             },
         },
         "prescription_map": prescription_map,
@@ -549,7 +653,7 @@ async def get_parcel_zones(request: Request, parcel_id: str):
 
     matched = []
     for z in zones:
-        ref = str(z.get("refAgriParcel", {}).get("value", ""))
+        ref = _relationship_target(z, "refAgriParcel")
         if parcel_id in ref:
             location = z.get("location", {}).get("value", {})
             matched.append({
@@ -722,10 +826,10 @@ async def on_ngsild_notification(request: Request):
                     prescription_map = json.dumps(pm_value) if pm_value else None
                 await ts.materialize_operation(
                     remote_id=eid, tenant_id=tenant_id,
-                    parcel_id=str(entity.get("refAgriParcel", {}).get("value", "")),
+                    parcel_id=_relationship_target(entity, "refAgriParcel"),
                     equipment_id=None,
-                    tractor_id=str(entity.get("refTractor", {}).get("value", "")),
-                    implement_id=str(entity.get("refImplement", {}).get("value", "")),
+                    tractor_id=_relationship_target(entity, "refTractor"),
+                    implement_id=_relationship_target(entity, "refImplement"),
                     operation_type=str(entity.get("operationType", {}).get("value", "")),
                     ab_line_geojson=json.dumps(entity.get("location", {}).get("value", {})),
                     implement_width=float(entity.get("implementWidth", {}).get("value", 24.0)),

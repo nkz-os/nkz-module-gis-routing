@@ -15,12 +15,91 @@
   "equipment": {
     "label": "Tractor / Equipment",
     "select": "Select equipment...",
-    "mock": "Demo Tractor"
+    "mock": "Demo Tractor",
+    "tractorLabel": "Tractor",
+    "implementLabel": "Implement",
+    "selectTractor": "Select tractor...",
+    "selectImplement": "Select implement...",
+    "kinematicsTitle": "Kinematics parameters (SDM)",
+    "trackWidth": "Track width",
+    "wheelbase": "Wheelbase",
+    "gpsOffsetX": "GPS offset X",
+    "gpsOffsetY": "GPS offset Y",
+    "gpsOffsetZ": "GPS offset Z",
+    "steering": "Steering",
+    "hitchType": "Hitch type",
+    "hitchOffsetX": "Hitch offset X",
+    "implementLength": "Implement length",
+    "implementOffsetX": "Implement offset X",
+    "implementWidth": "Effective implement width"
   },
   "parameters": {
     "heading": "Heading (°)",
     "width": "Working Width (m)",
-    "swaths": "Swaths"
+    "swaths": "Swaths",
+    "operationType": "Operation Type",
+    "demCorrection": "DEM correction (pending)"
+  },
+  "operationType": {
+    "spraying": "Spraying",
+    "fertilizing": "Fertilizing",
+    "seeding": "Seeding",
+    "tillage": "Tillage"
+  },
+  "operationStatus": {
+    "planned": "Planned",
+    "in_progress": "In progress",
+    "paused": "Paused",
+    "completed": "Completed",
+    "cancelled": "Cancelled",
+    "ended": "Ended",
+    "finished": "Finished"
+  },
+  "workflow": {
+    "plan": "1) Plan",
+    "validate": "2) Validate",
+    "execute": "3) Execute"
+  },
+  "validation": {
+    "parcelReady": "Parcel selected",
+    "parcelMissing": "Select a parcel",
+    "geometryReady": "Geometry loaded",
+    "geometryMissing": "Waiting for parcel geometry",
+    "widthReady": "Working width is valid",
+    "widthMissing": "Working width is not valid",
+    "equipmentReady": "Equipment selected",
+    "equipmentOptional": "Equipment optional (recommended)",
+    "equipmentMissing": "Select tractor and implement",
+    "sdmTitle": "SDM completeness (recommended)",
+    "sdmGpsOffsets": "Tractor GPS offsets (X/Y/Z) are missing in the Context Broker",
+    "sdmImplementWidth": "Implement effective width is missing (needed for spraying/fertilizing)",
+    "sdmTrackWidth": "Tractor track width is missing (recommended for tillage)",
+    "sdmWheelbase": "Tractor wheelbase is missing (recommended for tillage)",
+    "sdmHitchOffset": "Implement hitch offset X is missing (recommended for seeding)"
+  },
+  "common": {
+    "enabled": "Enabled",
+    "disabled": "Disabled"
+  },
+  "operations": {
+    "title": "4) Executed operations",
+    "refresh": "Refresh",
+    "empty": "No recent operations",
+    "coverage": "Coverage",
+    "start": "Start",
+    "starting": "Starting...",
+    "close": "Close session",
+    "closing": "Closing...",
+    "loadError": "Could not load operations",
+    "closeError": "Could not close the operation",
+    "startError": "Could not start the operation",
+    "coverageError": "Could not fetch coverage",
+    "coverageNoGeometry": "No coverage geometry",
+    "coverageSummaryLines": "Coverage: {{lines}} lines, {{points}} points",
+    "coverageSummaryLine": "Coverage: 1 line, {{points}} points",
+    "coverageSummaryType": "Coverage geometry type: {{type}}",
+    "activeBannerTitle": "Active field session",
+    "activeConflict": "Another operation is already in progress ({{id}}). Close it before starting another."
   },
   "actions": {
     "generate": "Generate Route",
@@ -34,9 +113,19 @@
     "gpx": "GPX"
   },
   "vra": {
+    "label": "VRA",
     "enabled": "VRA Prescription",
     "baseRate": "Base Rate",
-    "rateUnit": "Rate Unit"
+    "rateUnit": "Rate Unit",
+    "zoneSelection": "Zone selection",
+    "selectAll": "Select all",
+    "clearAll": "Clear selection",
+    "noZonesForParcel": "No zones available for the selected parcel",
+    "prescriptionSummary": "Prescription summary",
+    "summarySegments": "Segments",
+    "summaryZones": "Applied zones",
+    "summaryLength": "Total length",
+    "summaryRate": "Average rate"
   },
   "errors": {
     "authRequired": "Authentication required",
@@ -47,16 +136,35 @@
     "description": "Generate Variable Rate Application (VRA) management zones.",
     "selectParcel": "Select a parcel",
     "selectParcelHint": "Access this module from a parcel in the main viewer.",
+    "manualUrnLabel": "Manual parcel URN (optional)",
+    "manualUrnPlaceholder": "urn:ngsi-ld:AgriParcel:…",
+    "manualUrnHint": "If set, overrides the dropdown selection for fetch/generate.",
     "generateZones": "Generate Zones",
     "generateBtn": "Generate VRA Zones",
     "generating": "Generating...",
     "numZones": "Number of Zones",
     "numZonesHint": "{{zones}} zones will be created.",
     "refresh": "Refresh zoning data",
+    "loadingZones": "Loading zones...",
     "existingZones": "Existing Zones ({{count}})",
     "zoneLabel": "Zone {{id}}",
     "noZones": "No zones generated",
     "noZonesHint": "Click Generate to create zones.",
-    "generateError": "Error starting zone generation"
+    "generateError": "Error starting zone generation",
+    "jobQueued": "Generation queued, waiting for results...",
+    "jobPolling": "Waiting for generated zones... attempt {{attempt}}/{{max}}",
+    "jobDone": "Zones generated and loaded",
+    "jobTimeout": "No new zones were detected in time. Retry or check backend status."
+  },
+  "trajectory": {
+    "title": "Trajectory alternatives",
+    "hint": "Compare swath headings. Apply selection to regenerate the stored plan with that variant.",
+    "optionLabel": "{{heading}}° heading · {{swaths}} swaths",
+    "applySelection": "Apply selected trajectory"
+  },
+  "handoff": {
+    "title": "Continue on mobile",
+    "body": "Open NKZ Mobile → Operations, run sync if needed, then Start session for this operation ID.",
+    "copyId": "Copy operation ID"
   }
 }

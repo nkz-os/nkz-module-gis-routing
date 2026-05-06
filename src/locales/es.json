@@ -15,12 +15,91 @@
   "equipment": {
     "label": "Tractor / Maquinaria",
     "select": "Seleccionar equipo...",
-    "mock": "Tractor Demo"
+    "mock": "Tractor Demo",
+    "tractorLabel": "Tractor",
+    "implementLabel": "Apero",
+    "selectTractor": "Seleccionar tractor...",
+    "selectImplement": "Seleccionar apero...",
+    "kinematicsTitle": "Parámetros cinemáticos (SDM)",
+    "trackWidth": "Ancho de vía",
+    "wheelbase": "Batalla",
+    "gpsOffsetX": "GPS Offset X",
+    "gpsOffsetY": "GPS Offset Y",
+    "gpsOffsetZ": "GPS Offset Z",
+    "steering": "Dirección",
+    "hitchType": "Tipo de enganche",
+    "hitchOffsetX": "Offset enganche X",
+    "implementLength": "Longitud apero",
+    "implementOffsetX": "Offset apero X",
+    "implementWidth": "Ancho efectivo apero"
   },
   "parameters": {
     "heading": "Rumbo (°)",
     "width": "Ancho de trabajo (m)",
-    "swaths": "Franjas"
+    "swaths": "Franjas",
+    "operationType": "Tipo de operación",
+    "demCorrection": "Corrección DEM (pendiente)"
+  },
+  "operationType": {
+    "spraying": "Pulverización",
+    "fertilizing": "Fertilización",
+    "seeding": "Siembra",
+    "tillage": "Labranza"
+  },
+  "operationStatus": {
+    "planned": "Planificada",
+    "in_progress": "En curso",
+    "paused": "Pausada",
+    "completed": "Completada",
+    "cancelled": "Cancelada",
+    "ended": "Cerrada",
+    "finished": "Finalizada"
+  },
+  "workflow": {
+    "plan": "1) Planificar",
+    "validate": "2) Validar",
+    "execute": "3) Ejecutar"
+  },
+  "validation": {
+    "parcelReady": "Parcela seleccionada",
+    "parcelMissing": "Selecciona una parcela",
+    "geometryReady": "Geometría lista",
+    "geometryMissing": "Esperando geometría de parcela",
+    "widthReady": "Ancho de trabajo válido",
+    "widthMissing": "Ancho de trabajo no válido",
+    "equipmentReady": "Maquinaria seleccionada",
+    "equipmentOptional": "Maquinaria opcional (recomendado)",
+    "equipmentMissing": "Selecciona tractor y apero",
+    "sdmTitle": "Completitud SDM (recomendado)",
+    "sdmGpsOffsets": "Faltan offsets GPS del tractor (X/Y/Z) en el Context Broker",
+    "sdmImplementWidth": "Falta el ancho efectivo del apero (necesario para pulverización/fertilización)",
+    "sdmTrackWidth": "Falta el ancho de vía del tractor (recomendado para labranza)",
+    "sdmWheelbase": "Falta la batalla del tractor (recomendado para labranza)",
+    "sdmHitchOffset": "Falta el offset de enganche X del apero (recomendado para siembra)"
+  },
+  "common": {
+    "enabled": "Activado",
+    "disabled": "Desactivado"
+  },
+  "operations": {
+    "title": "4) Operaciones ejecutadas",
+    "refresh": "Actualizar",
+    "empty": "No hay operaciones recientes",
+    "coverage": "Cobertura",
+    "start": "Iniciar",
+    "starting": "Iniciando...",
+    "close": "Cerrar sesión",
+    "closing": "Cerrando...",
+    "loadError": "No se pudieron cargar las operaciones",
+    "closeError": "No se pudo cerrar la operación",
+    "startError": "No se pudo iniciar la operación",
+    "coverageError": "No se pudo consultar la cobertura",
+    "coverageNoGeometry": "Sin geometría de cobertura",
+    "coverageSummaryLines": "Cobertura: {{lines}} líneas, {{points}} puntos",
+    "coverageSummaryLine": "Cobertura: 1 línea, {{points}} puntos",
+    "coverageSummaryType": "Tipo de geometría de cobertura: {{type}}",
+    "activeBannerTitle": "Sesión de campo activa",
+    "activeConflict": "Hay otra operación en curso ({{id}}). Ciérrala antes de iniciar otra."
   },
   "actions": {
     "generate": "Generar Ruta",
@@ -34,9 +113,19 @@
     "gpx": "GPX"
   },
   "vra": {
+    "label": "VRA",
     "enabled": "Prescripción VRA",
     "baseRate": "Dosis Base",
-    "rateUnit": "Unidad"
+    "rateUnit": "Unidad",
+    "zoneSelection": "Selección de zonas",
+    "selectAll": "Seleccionar todas",
+    "clearAll": "Limpiar selección",
+    "noZonesForParcel": "Sin zonas disponibles para la parcela seleccionada",
+    "prescriptionSummary": "Resumen de prescripción",
+    "summarySegments": "Segmentos",
+    "summaryZones": "Zonas aplicadas",
+    "summaryLength": "Longitud total",
+    "summaryRate": "Dosis media"
   },
   "errors": {
     "authRequired": "Autenticación requerida",
@@ -47,16 +136,35 @@
     "description": "Genera zonas de manejo variable (VRA).",
     "selectParcel": "Selecciona una parcela",
     "selectParcelHint": "Accede desde una parcela en el visor principal.",
+    "manualUrnLabel": "URN manual de parcela (opcional)",
+    "manualUrnPlaceholder": "urn:ngsi-ld:AgriParcel:…",
+    "manualUrnHint": "Si se indica, tiene prioridad sobre la lista desplegable.",
     "generateZones": "Generar Zonas",
     "generateBtn": "Generar Zonas VRA",
     "generating": "Generando...",
     "numZones": "Número de Zonas",
     "numZonesHint": "Se crearán {{zones}} zonas.",
     "refresh": "Actualizar datos",
+    "loadingZones": "Cargando zonas...",
     "existingZones": "Zonas Existentes ({{count}})",
     "zoneLabel": "Zona {{id}}",
     "noZones": "No hay zonas generadas",
     "noZonesHint": "Pulsa Generar para crear zonas.",
-    "generateError": "Error al iniciar la generación"
+    "generateError": "Error al iniciar la generación",
+    "jobQueued": "Generación encolada, esperando resultados...",
+    "jobPolling": "Esperando zonas generadas... intento {{attempt}}/{{max}}",
+    "jobDone": "Zonas generadas y cargadas",
+    "jobTimeout": "No se detectaron zonas nuevas a tiempo. Reintenta o revisa el estado del servicio."
+  },
+  "trajectory": {
+    "title": "Alternativas de trayectoria",
+    "hint": "Compara rumbos de franja. Aplica la selección para regenerar el plan almacenado con esa variante.",
+    "optionLabel": "Rumbo {{heading}}° · {{swaths}} franjas",
+    "applySelection": "Aplicar trayectoria seleccionada"
+  },
+  "handoff": {
+    "title": "Continuar en el móvil",
+    "body": "Abre NKZ Mobile → Operaciones, sincroniza si hace falta y pulsa Iniciar sesión con este ID de operación.",
+    "copyId": "Copiar ID de operación"
   }
 }

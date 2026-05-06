@@ -68,6 +68,69 @@ export interface CollectionChanges {
   deleted: string[];
 }
 
+export interface ZoneData {
+  id: string;
+  zone_id: number | string;
+  zone_class: string;
+  prescription_rate: number;
+  mean_value: number;
+  area_ha: number;
+  geometry: any;
+}
+
+export interface ZonesResponse {
+  success: boolean;
+  data: {
+    parcel_id: string;
+    zones: ZoneData[];
+    count: number;
+  };
+}
+
+export interface OperationSummary {
+  id: string;
+  parcel_id: string;
+  operation_type: string;
+  implement_width: number;
+  vra_enabled: boolean;
+  status: string;
+  started_at?: string | null;
+  completed_at?: string | null;
+  updated_at?: string | null;
+}
+
+export interface CoverageResponse {
+  success: boolean;
+  data: {
+    type: 'Feature';
+    geometry: any;
+    properties: {
+      operation_id: string;
+      layer_type: string;
+    };
+  };
+}
+
+export interface TrajectoryAlternative {
+  id: string;
+  heading_deg: number;
+  swath_count: number;
+}
+
+export interface ActiveOperationInfo {
+  id: string;
+  parcel_id: string;
+  operation_type: string;
+  status: string;
+  started_at?: string | null;
+  name?: string;
+}
+
+export interface ActiveOperationResponse {
+  success: boolean;
+  data: { operation: ActiveOperationInfo | null };
+}
+
 export const api = {
   pull(
     collections: string[],
@@ -109,7 +172,7 @@ export const api = {
 
   // Zoning — fetched from Orion-LD via our backend
   getZones(parcelId: string) {
-    return request(`/zones/${encodeURIComponent(parcelId)}`);
+    return request<ZonesResponse>(`/zones/${encodeURIComponent(parcelId)}`);
   },
 
   generateZones(parcelId: string, nZones: number) {
@@ -134,6 +197,36 @@ export const api = {
   },
 
   listOperations(limit = 20) {
-    return request<any[]>(`/operations?limit=${limit}`);
+    return request<OperationSummary[]>(`/operations?limit=${limit}`);
+  },
+
+  closeOperationSession(operationId: string, endDate: string, status = 'ended') {
+    return request<{ success: boolean; message: string }>('/operations/session/close', {
+      method: 'POST',
+      body: JSON.stringify({
+        operation_id: operationId,
+        end_date: endDate,
+        status,
+      }),
+    });
+  },
+
+  startOperationSession(operationId: string, startDate: string, status = 'in_progress') {
+    return request<{ success: boolean; message: string }>('/operations/session/start', {
+      method: 'POST',
+      body: JSON.stringify({
+        operation_id: operationId,
+        start_date: startDate,
+        status,
+      }),
+    });
+  },
+
+  getOperationCoverage(operationId: string) {
+    return request<CoverageResponse>(`/operations/coverage/${encodeURIComponent(operationId)}`);
+  },
+
+  getActiveOperation() {
+    return request<ActiveOperationResponse>('/operations/active');
   },
 };

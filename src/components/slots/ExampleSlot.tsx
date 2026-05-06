@@ -57,9 +57,14 @@ export const RoutingSlot: React.FC<RoutingSlotProps> = ({ className: _className 
     setGenerating(true);
     setError(null);
     try {
+      const parcel = await api.getParcelGeometry(selectedEntityId);
+      const geometry = parcel?.geometry;
+      if (!geometry) {
+        throw new Error(t('errors.generateFailed'));
+      }
       const res: any = await api.generate({
-        parcel_geometry: { type: 'Polygon', coordinates: [[[-1.643, 42.816], [-1.641, 42.816], [-1.641, 42.818], [-1.643, 42.818], [-1.643, 42.816]]] },
-        start_point: [-1.642, 42.817],
+        parcel_geometry: geometry,
+        start_point: extractCentroid(geometry),
         heading_deg: heading,
         width_m: width,
         parcel_id: selectedEntityId,
@@ -141,3 +146,28 @@ export const RoutingSlot: React.FC<RoutingSlotProps> = ({ className: _className 
 };
 
 export default RoutingSlot;
+
+function extractCentroid(geometry: any): [number, number] {
+  try {
+    if (geometry?.type === 'Point') return geometry.coordinates as [number, number];
+    if (geometry?.type === 'Polygon') {
+      const ring = geometry.coordinates?.[0];
+      if (Array.isArray(ring) && ring.length > 0) {
+        const lng = ring.reduce((s: number, c: number[]) => s + c[0], 0) / ring.length;
+        const lat = ring.reduce((s: number, c: number[]) => s + c[1], 0) / ring.length;
+        return [lng, lat];
+      }
+    }
+    if (geometry?.type === 'MultiPolygon') {
+      const ring = geometry.coordinates?.[0]?.[0];
+      if (Array.isArray(ring) && ring.length > 0) {
+        const lng = ring.reduce((s: number, c: number[]) => s + c[0], 0) / ring.length;
+        const lat = ring.reduce((s: number, c: number[]) => s + c[1], 0) / ring.length;
+        return [lng, lat];
+      }
+    }
+  } catch {
+    // Fallback to default point when geometry is malformed.
+  }
+  return [-1.5, 42.5];
+}
