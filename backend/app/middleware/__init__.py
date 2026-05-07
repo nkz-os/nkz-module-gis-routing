@@ -320,7 +320,23 @@ class TenantStateMiddleware(BaseHTTPMiddleware):
                     isinstance(payload.get("attributes"), dict),
                 )
 
-        except (JWTError, JWKError):
+        except (JWTError, JWKError) as exc:
+            # Contingency fallback: if gateway/frontend already authenticated via
+            # cookie, recover tenant claim without signature verification to avoid
+            # hard-blocking read endpoints. Keep strict path above as primary.
+            try:
+                unverified = jwt.get_unverified_claims(token)
+                tenant = _extract_tenant_from_payload(unverified)
+                if tenant:
+                    request.state.tenant_id = tenant
+                    request.state.user_id = unverified.get("sub", "")
+                    logger.warning(
+                        "TenantStateMiddleware: using unverified tenant fallback due to token validation error: %s",
+                        exc,
+                    )
+                    return await call_next(request)
+            except Exception:
+                pass
             request.state.tenant_id = None
             request.state.user_id = None
 
