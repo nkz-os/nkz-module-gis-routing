@@ -31,14 +31,21 @@
     "hitchOffsetX": "Hitch offset X",
     "implementLength": "Implement length",
     "implementOffsetX": "Implement offset X",
-    "implementWidth": "Effective implement width"
+    "implementWidth": "Effective implement width",
+    "unclassifiedTitle": "Unclassified machinery",
+    "unclassifiedHelp": "These machines do not have a canonical role (tractor/implement). Review them in the Entity Wizard and assign the correct category."
   },
   "parameters": {
     "heading": "Heading (°)",
     "width": "Working Width (m)",
     "swaths": "Swaths",
     "operationType": "Operation Type",
-    "demCorrection": "DEM correction (pending)"
+    "demCorrection": "DEM correction (pending)",
+    "couplingModel": "Coupling model",
+    "couplingModelRigid": "Rigid set (tractor + implement)",
+    "couplingModelArticulated": "Articulated set (tractor + implement)",
+    "couplingModelRigidHelp": "Current computation is validated for rigid coupling.",
+    "couplingModelArticulatedNotSupported": "Articulated mode is not supported yet in computation. Select rigid coupling."
   },
   "operationType": {
     "spraying": "Spraying",
@@ -70,6 +77,8 @@
     "equipmentReady": "Equipment selected",
     "equipmentOptional": "Equipment optional (recommended)",
     "equipmentMissing": "Select tractor and implement",
+    "couplingReady": "Rigid coupling selected",
+    "couplingNotSupported": "Articulated coupling not supported yet",
     "sdmTitle": "SDM completeness (recommended)",
     "sdmGpsOffsets": "Tractor GPS offsets (X/Y/Z) are missing in the Context Broker",
     "sdmImplementWidth": "Implement effective width is missing (needed for spraying/fertilizing)",
@@ -99,7 +108,14 @@
     "coverageSummaryLine": "Coverage: 1 line, {{points}} points",
     "coverageSummaryType": "Coverage geometry type: {{type}}",
     "activeBannerTitle": "Active field session",
-    "activeConflict": "Another operation is already in progress ({{id}}). Close it before starting another."
+    "activeConflict": "Another operation is already in progress ({{id}}). Close it before starting another.",
+    "traceabilityTitle": "Planning traceability",
+    "traceOperationId": "Operation ID",
+    "traceAlternative": "Trajectory variant",
+    "traceCoupling": "Coupling model",
+    "traceVraSource": "VRA source",
+    "traceTractor": "Tractor",
+    "traceImplement": "Implement"
   },
   "actions": {
     "generate": "Generate Route",
@@ -115,6 +131,13 @@
   "vra": {
     "label": "VRA",
     "enabled": "VRA Prescription",
+    "sourceLabel": "VRA source",
+    "sourceOrion": "Orion-LD zones",
+    "sourceExternal": "External upload",
+    "externalUploadLabel": "External file (GeoJSON/CSV)",
+    "externalUploadError": "Could not process external file",
+    "externalLoaded": "File loaded: {{file}} ({{count}} zones)",
+    "externalPending": "Upload an external file to use VRA prescription",
     "baseRate": "Base Rate",
     "rateUnit": "Rate Unit",
     "zoneSelection": "Zone selection",

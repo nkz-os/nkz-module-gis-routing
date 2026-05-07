@@ -86,12 +86,47 @@ export interface ZoneData {
   geometry: any;
 }
 
+export interface EquipmentSummary {
+  id: string;
+  name: string;
+  category?: string;
+  machine_role?: 'tractor' | 'implement' | 'unknown';
+  implementWidth?: number;
+  trackWidth?: number;
+  wheelbase?: number;
+  gpsOffsetX?: number;
+  gpsOffsetY?: number;
+  gpsOffsetZ?: number;
+  hitchType?: string;
+  hitchOffsetX?: number;
+  implementLength?: number;
+  implementOffsetX?: number;
+  steeringType?: string;
+  steeringAxles?: string;
+}
+
 export interface ZonesResponse {
   success: boolean;
   data: {
     parcel_id: string;
     zones: ZoneData[];
     count: number;
+  };
+}
+
+export interface ExternalZonesIngestResponse {
+  success: boolean;
+  data: {
+    count: number;
+    zones: Array<{
+      type: 'Feature';
+      geometry: any;
+      properties: {
+        zone_id: string | number;
+        zone_class: string;
+        prescription_rate: number;
+      };
+    }>;
   };
 }
 
@@ -190,6 +225,13 @@ export const api = {
     });
   },
 
+  ingestExternalZones(format: 'geojson' | 'csv', content: string) {
+    return request<ExternalZonesIngestResponse>('/zones/external/ingest', {
+      method: 'POST',
+      body: JSON.stringify({ format, content }),
+    });
+  },
+
   listParcels() {
     return request<any[]>('/parcels');
   },
@@ -201,7 +243,7 @@ export const api = {
   },
 
   listEquipment() {
-    return request<any[]>('/equipment');
+    return request<EquipmentSummary[]>('/equipment');
   },
 
   listOperations(limit = 20) {
