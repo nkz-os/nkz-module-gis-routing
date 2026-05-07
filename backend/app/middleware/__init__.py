@@ -230,6 +230,14 @@ class TenantStateMiddleware(BaseHTTPMiddleware):
             request.state.user_id = None
             return await call_next(request)
 
+        # Accept tenant forwarded by gateway/frontend context even when Bearer
+        # token is not present (cookie-auth paths).
+        header_tenant = request.headers.get("x-tenant-id") or request.headers.get("ngsild-tenant")
+        if header_tenant:
+            request.state.tenant_id = header_tenant
+            request.state.user_id = request.headers.get("x-user-id")
+            return await call_next(request)
+
         auth_header = request.headers.get("Authorization", "")
         if not auth_header.startswith("Bearer "):
             request.state.tenant_id = None
