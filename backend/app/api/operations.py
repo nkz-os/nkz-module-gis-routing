@@ -16,6 +16,15 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/operations", tags=["operations"])
 
+
+def _resolve_tenant_id(request: Request) -> Optional[str]:
+    return (
+        getattr(request.state, "tenant_id", None)
+        or request.headers.get("x-tenant-id")
+        or request.headers.get("ngsild-tenant")
+        or request.headers.get("fiware-service")
+    )
+
 class SessionStartRequest(BaseModel):
     operation_id: str = Field(..., description="URN of the AgriParcelOperation in Orion-LD")
     start_date: str = Field(..., description="ISO 8601 Start DateTime of the operation")
@@ -55,7 +64,7 @@ async def close_operation_session(request: Request, session_req: SessionCloseReq
     Updates metadata in Orion-LD (status = ended, endDate).
     Does NOT write geometric tracks to Orion-LD to avoid Context Broker overload.
     """
-    tenant_id = getattr(request.state, "tenant_id", None)
+    tenant_id = _resolve_tenant_id(request)
     if not tenant_id or tenant_id == "default":
         raise HTTPException(
             status_code=404,
@@ -89,7 +98,7 @@ async def start_operation_session(request: Request, session_req: SessionStartReq
     Starts an AgriParcelOperation session.
     Updates metadata in Orion-LD (status = in_progress, startDate).
     """
-    tenant_id = getattr(request.state, "tenant_id", None)
+    tenant_id = _resolve_tenant_id(request)
     if not tenant_id or tenant_id == "default":
         raise HTTPException(
             status_code=404,
@@ -131,7 +140,7 @@ async def get_active_operation(request: Request) -> Dict[str, Any]:
     """
     Returns the current in-progress AgriParcelOperation for this tenant (Orion-LD), if any.
     """
-    tenant_id = getattr(request.state, "tenant_id", None)
+    tenant_id = _resolve_tenant_id(request)
     if not tenant_id or tenant_id == "default":
         raise HTTPException(
             status_code=404,
@@ -158,7 +167,7 @@ async def get_operation_coverage(request: Request, operation_id: str) -> Dict[st
     Queries telemetry_events via CoverageService/PostGIS.
     Returns a GeoJSON Feature that the MapLibre frontend can render immediately.
     """
-    tenant_id = getattr(request.state, "tenant_id", None)
+    tenant_id = _resolve_tenant_id(request)
     if not tenant_id or tenant_id == "default":
         raise HTTPException(
             status_code=404,
