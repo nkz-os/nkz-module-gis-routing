@@ -265,11 +265,24 @@ class TenantStateMiddleware(BaseHTTPMiddleware):
             key_data = await jwks_client.get_signing_key(kid)
             public_key = jwk.construct(key_data)
 
-            payload = jwt.decode(
-                token, public_key, algorithms=["RS256"],
-                audience=settings.jwt_audience,
-                issuer=settings.jwt_issuer_url,
-            )
+            try:
+                payload = jwt.decode(
+                    token,
+                    public_key,
+                    algorithms=["RS256"],
+                    audience=settings.jwt_audience,
+                    issuer=settings.jwt_issuer_url,
+                )
+            except JWTError:
+                # Cookie token can carry a different `aud` (frontend client).
+                # Keep signature+issuer validation, relax only audience check.
+                payload = jwt.decode(
+                    token,
+                    public_key,
+                    algorithms=["RS256"],
+                    issuer=settings.jwt_issuer_url,
+                    options={"verify_aud": False},
+                )
 
             request.state.user_id = payload.get("sub", "")
             request.state.tenant_id = (
