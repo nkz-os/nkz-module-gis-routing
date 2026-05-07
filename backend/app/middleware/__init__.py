@@ -6,6 +6,7 @@ Compatible with Nekazari platform authentication.
 """
 
 import httpx
+import logging
 from typing import Optional
 from functools import lru_cache
 from fastapi import HTTPException, Depends, Header, status
@@ -17,6 +18,31 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
 
 from app.config import get_settings, Settings
+
+logger = logging.getLogger(__name__)
+
+
+def _extract_tenant_from_payload(payload: dict) -> Optional[str]:
+    """Best-effort tenant extraction from Keycloak token payload variants."""
+    direct = payload.get("tenant_id") or payload.get("tenant") or payload.get("tenantId")
+    if isinstance(direct, str) and direct.strip():
+        return direct.strip()
+
+    attrs = payload.get("attributes") or {}
+    if isinstance(attrs, dict):
+        attr_val = attrs.get("tenant_id") or attrs.get("tenant")
+        if isinstance(attr_val, list):
+            attr_val = attr_val[0] if attr_val else None
+        if isinstance(attr_val, str) and attr_val.strip():
+            return attr_val.strip()
+
+    profile = payload.get("tenantProfile") or {}
+    if isinstance(profile, dict):
+        profile_val = profile.get("id") or profile.get("tenant_id")
+        if isinstance(profile_val, str) and profile_val.strip():
+            return profile_val.strip()
+
+    return None
 
 
 # Security scheme
@@ -285,11 +311,14 @@ class TenantStateMiddleware(BaseHTTPMiddleware):
                 )
 
             request.state.user_id = payload.get("sub", "")
-            request.state.tenant_id = (
-                payload.get("tenant_id")
-                or payload.get("tenant")
-                or "default"
-            )
+            tenant = _extract_tenant_from_payload(payload)
+            request.state.tenant_id = tenant or "default"
+            if not tenant:
+                logger.warning(
+                    "TenantStateMiddleware: token decoded but tenant claim missing; payload_keys=%s has_attributes=%s",
+                    sorted(list(payload.keys())),
+                    isinstance(payload.get("attributes"), dict),
+                )
 
         except (JWTError, JWKError):
             request.state.tenant_id = None
