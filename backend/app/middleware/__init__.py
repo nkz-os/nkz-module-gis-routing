@@ -239,12 +239,18 @@ class TenantStateMiddleware(BaseHTTPMiddleware):
             return await call_next(request)
 
         auth_header = request.headers.get("Authorization", "")
-        if not auth_header.startswith("Bearer "):
+        token = ""
+        if auth_header.startswith("Bearer "):
+            token = auth_header[7:]
+        else:
+            # Host surface uses cookie-auth (`nkz_token`) and may not forward
+            # Authorization to module backends.
+            token = request.cookies.get("nkz_token", "")
+        if not token:
             request.state.tenant_id = None
             request.state.user_id = None
             return await call_next(request)
 
-        token = auth_header[7:]
         settings = get_settings()
 
         try:
