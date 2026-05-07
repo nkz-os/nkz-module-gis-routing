@@ -7,10 +7,12 @@ Orion-LD persistence.
 """
 
 import hashlib
+import csv
 import json
 import logging
 import time
 import uuid
+import io
 from fastapi import APIRouter, Request, Query, HTTPException
 from fastapi.responses import JSONResponse
 from fastapi.responses import Response as FastAPIResponse
@@ -33,6 +35,79 @@ router = APIRouter(tags=["routing"])
 def _relationship_target(entity: dict, key: str) -> str:
     rel = entity.get(key, {}) or {}
     return str(rel.get("object") or rel.get("value") or "")
+
+
+def _machine_role_from_category(category: str) -> str:
+    value = (category or "").strip().lower()
+    if value in {"tractor", "tractors", "vehicle", "power_unit"}:
+        return "tractor"
+    if value in {"implement", "apero", "tool", "attachment"}:
+        return "implement"
+    return "unknown"
+
+
+def _to_float(value, default: float = 0.0) -> float:
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return default
+
+
+def _normalize_external_zone_features(raw_features: list[dict]) -> list[dict]:
+    normalized: list[dict] = []
+    for idx, feat in enumerate(raw_features):
+        if not isinstance(feat, dict):
+            continue
+        geometry = feat.get("geometry")
+        if not isinstance(geometry, dict):
+            continue
+        properties = feat.get("properties", {}) or {}
+        normalized.append(
+            {
+                "type": "Feature",
+                "geometry": geometry,
+                "properties": {
+                    "zone_id": properties.get("zone_id", properties.get("zoneId", f"ext-{idx + 1}")),
+                    "zone_class": str(properties.get("zone_class", properties.get("zoneClass", "external"))),
+                    "prescription_rate": _to_float(
+                        properties.get("prescription_rate", properties.get("prescriptionRate", 1.0)),
+                        1.0,
+                    ),
+                },
+            }
+        )
+    return normalized
+
+
+def _parse_external_zones_csv(content: str) -> list[dict]:
+    """
+    Expected columns: geometry (GeoJSON geometry as string), optional zone_id, zone_class, prescription_rate.
+    """
+    reader = csv.DictReader(io.StringIO(content))
+    out: list[dict] = []
+    for idx, row in enumerate(reader):
+        geom_raw = (row.get("geometry") or "").strip()
+        if not geom_raw:
+            continue
+        try:
+            geometry = json.loads(geom_raw)
+        except json.JSONDecodeError as exc:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Invalid CSV geometry at row {idx + 2}: {exc}",
+            ) from exc
+        out.append(
+            {
+                "type": "Feature",
+                "geometry": geometry,
+                "properties": {
+                    "zone_id": (row.get("zone_id") or f"csv-{idx + 1}").strip(),
+                    "zone_class": (row.get("zone_class") or "external").strip(),
+                    "prescription_rate": _to_float(row.get("prescription_rate"), 1.0),
+                },
+            }
+        )
+    return out
 
 
 def _pick_trajectory_alternative(
@@ -182,6 +257,7 @@ async def list_equipment(request: Request):
                 "id": e.get("id", ""),
                 "name": (e.get("name", {}) or {}).get("value", ""),
                 "category": (e.get("category", {}) or {}).get("value", ""),
+                "machine_role": _machine_role_from_category((e.get("category", {}) or {}).get("value", "")),
                 "description": (e.get("description", {}) or {}).get("value", ""),
                 "serialNumber": (e.get("serialNumber", {}) or {}).get("value", ""),
                 "isobusCompatible": (e.get("isobusCompatible", {}) or {}).get("value", False),
@@ -342,6 +418,10 @@ class GenerateRequest(BaseModel):
     tractor_id: Optional[str] = None
     implement_id: Optional[str] = None
     operation_type: Optional[str] = "spraying"
+    coupling_model: str = Field(
+        default="rigid",
+        description="Machine coupling model. Current backend supports only 'rigid'.",
+    )
     dem_correction: bool = Field(False, description="Enable DEM slope correction via eu-elevation")
     persist: bool = True
     selected_alternative_id: Optional[str] = Field(
@@ -355,6 +435,11 @@ async def generate_routing_plan(request: Request, body: GenerateRequest):
     if body.parcel_geometry.get("type") != "Polygon":
         raise HTTPException(status_code=400,
                             detail="parcel_geometry must be a GeoJSON Polygon")
+    if body.coupling_model != "rigid":
+        raise HTTPException(
+            status_code=400,
+            detail="coupling_model not supported yet. Use 'rigid'.",
+        )
     try:
         settings = get_settings()
         dem_url = settings.eu_elevation_url if body.dem_correction else None
@@ -393,6 +478,7 @@ async def generate_routing_plan(request: Request, body: GenerateRequest):
                 "value": f"{body.operation_type} - {body.parcel_id[:8]}",
             },
             "operationType": {"type": "Property", "value": body.operation_type},
+            "couplingModel": {"type": "Property", "value": body.coupling_model},
             "status": {"type": "Property", "value": "planned"},
             "location": {"type": "GeoProperty", "value": geojson_result},
             "implementWidth": {"type": "Property", "value": body.width_m},
@@ -453,12 +539,21 @@ class GenerateVRARequest(BaseModel):
     tractor_id: Optional[str] = None
     implement_id: Optional[str] = None
     operation_type: Optional[str] = "spraying"
+    coupling_model: str = Field(
+        default="rigid",
+        description="Machine coupling model. Current backend supports only 'rigid'.",
+    )
     dem_correction: bool = Field(False, description="Enable DEM slope correction via eu-elevation")
     base_rate: float = Field(
         ..., gt=0, description="Base application rate l/ha or kg/ha"
     )
     rate_unit: Optional[str] = "l_ha"
+    vra_source: str = Field(
+        default="orion",
+        description="VRA source: 'orion' for AgriManagementZone in Orion-LD, 'external' for uploaded zones.",
+    )
     zone_ids: Optional[list[str]] = None
+    external_zone_features: Optional[list[dict]] = None
     persist: bool = True
     selected_alternative_id: Optional[str] = Field(
         default=None,
@@ -474,6 +569,11 @@ async def generate_routing_with_vra(request: Request, body: GenerateVRARequest):
     if body.parcel_geometry.get("type") != "Polygon":
         raise HTTPException(
             status_code=400, detail="parcel_geometry must be a GeoJSON Polygon"
+        )
+    if body.coupling_model != "rigid":
+        raise HTTPException(
+            status_code=400,
+            detail="coupling_model not supported yet. Use 'rigid'.",
         )
     tenant_id = _get_tenant_id(request)
     settings = get_settings()
@@ -497,28 +597,28 @@ async def generate_routing_with_vra(request: Request, body: GenerateVRARequest):
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
-    # Fetch VRA zones from Orion-LD
-    orion = OrionLDClient(
-        base_url=settings.context_broker_url, context_url=settings.ngsi_ld_context
-    )
-    zones = await orion.query_entities("AgriManagementZone", tenant_id)
-    await orion.close()
-
-    # Filter zones linked to parcel
-    if body.parcel_id:
-        zones = [
-            z
-            for z in zones
-            if body.parcel_id
-            in _relationship_target(z, "refAgriParcel")
-        ]
-    if body.zone_ids:
-        zones = [z for z in zones if z["id"] in body.zone_ids]
-
-    # Intersect with VRA zones
+    # Resolve VRA zones source
     prescription_map = None
-    if zones:
-        zone_features = []
+    zone_features: list[dict] = []
+    zones_count = 0
+    if body.vra_source == "external":
+        zone_features = _normalize_external_zone_features(body.external_zone_features or [])
+        zones_count = len(zone_features)
+    else:
+        orion = OrionLDClient(
+            base_url=settings.context_broker_url, context_url=settings.ngsi_ld_context
+        )
+        zones = await orion.query_entities("AgriManagementZone", tenant_id)
+        await orion.close()
+        if body.parcel_id:
+            zones = [
+                z
+                for z in zones
+                if body.parcel_id in _relationship_target(z, "refAgriParcel")
+            ]
+        if body.zone_ids:
+            zones = [z for z in zones if z["id"] in body.zone_ids]
+        zones_count = len(zones)
         for z in zones:
             loc = z.get("location", {}).get("value", {})
             if loc:
@@ -535,10 +635,10 @@ async def generate_routing_with_vra(request: Request, body: GenerateVRARequest):
                         },
                     }
                 )
-        if zone_features:
-            prescription_map = intersect_swaths_with_zones(
-                multi_line_string, zone_features, body.base_rate, body.width_m
-            )
+    if zone_features:
+        prescription_map = intersect_swaths_with_zones(
+            multi_line_string, zone_features, body.base_rate, body.width_m
+        )
 
     # Persist
     operation_id = None
@@ -560,10 +660,12 @@ async def generate_routing_with_vra(request: Request, body: GenerateVRARequest):
                 "value": f"VRA {body.operation_type} - {body.parcel_id[:8]}",
             },
             "operationType": {"type": "Property", "value": body.operation_type},
+            "couplingModel": {"type": "Property", "value": body.coupling_model},
             "status": {"type": "Property", "value": "planned"},
             "location": {"type": "GeoProperty", "value": swath_geojson},
             "implementWidth": {"type": "Property", "value": body.width_m},
-            "vraEnabled": {"type": "Property", "value": bool(zones)},
+            "vraEnabled": {"type": "Property", "value": bool(zone_features)},
+            "vraSource": {"type": "Property", "value": body.vra_source},
             "baseRate": {"type": "Property", "value": body.base_rate},
             "rateUnit": {"type": "Property", "value": body.rate_unit},
         }
@@ -603,8 +705,9 @@ async def generate_routing_with_vra(request: Request, body: GenerateVRARequest):
                 "heading_deg": chosen_alt["heading_deg"],
                 "width_m": body.width_m,
                 "swath_count": len(swath_geojson.get("coordinates", [])),
-                "vra_enabled": bool(zones),
-                "zone_count": len(zones),
+                "vra_enabled": bool(zone_features),
+                "zone_count": zones_count,
+                "vra_source": body.vra_source,
                 "base_rate": body.base_rate,
                 "rate_unit": body.rate_unit,
                 "operation_id": operation_id,
@@ -612,6 +715,36 @@ async def generate_routing_with_vra(request: Request, body: GenerateVRARequest):
             },
         },
         "prescription_map": prescription_map,
+    }
+
+
+class ExternalZonesIngestRequest(BaseModel):
+    format: str = Field(default="geojson", description="Supported: geojson, csv")
+    content: str = Field(..., description="Raw file contents")
+
+
+@router.post("/zones/external/ingest")
+async def ingest_external_zones(body: ExternalZonesIngestRequest):
+    fmt = (body.format or "geojson").strip().lower()
+    if fmt not in {"geojson", "csv"}:
+        raise HTTPException(status_code=400, detail="Unsupported format. Use geojson or csv.")
+    if fmt == "geojson":
+        try:
+            parsed = json.loads(body.content)
+        except json.JSONDecodeError as exc:
+            raise HTTPException(status_code=400, detail=f"Invalid GeoJSON: {exc}") from exc
+        features = parsed.get("features", []) if isinstance(parsed, dict) else []
+        out = _normalize_external_zone_features(features)
+    else:
+        out = _parse_external_zones_csv(body.content)
+    if not out:
+        raise HTTPException(status_code=400, detail="No valid zone features found in external file.")
+    return {
+        "success": True,
+        "data": {
+            "count": len(out),
+            "zones": out,
+        },
     }
 
 

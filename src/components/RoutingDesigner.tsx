@@ -21,31 +21,24 @@ import {
   ClipboardList,
   Layers,
 } from 'lucide-react';
-import { api, type OperationSummary, type ZoneData, type ActiveOperationInfo, ApiError } from '../services/api';
+import {
+  api,
+  type OperationSummary,
+  type ZoneData,
+  type ActiveOperationInfo,
+  type EquipmentSummary,
+  ApiError,
+} from '../services/api';
 import manifest from '../../manifest.json';
 
 const NS = 'gis-routing';
 const { accent } = manifest;
 
 interface ParcelOption { id: string; name: string; area?: number }
-interface EquipmentOption {
-  id: string;
-  name: string;
-  category?: string;
-  implementWidth?: number;
-  trackWidth?: number;
-  wheelbase?: number;
-  gpsOffsetX?: number;
-  gpsOffsetY?: number;
-  gpsOffsetZ?: number;
-  hitchType?: string;
-  hitchOffsetX?: number;
-  implementLength?: number;
-  implementOffsetX?: number;
-  steeringType?: string;
-  steeringAxles?: string;
-}
+interface EquipmentOption extends EquipmentSummary {}
 type OperationType = 'spraying' | 'fertilizing' | 'seeding' | 'tillage';
+type CouplingModel = 'rigid' | 'articulated';
+type VraSource = 'orion' | 'external';
 
 const RoutingDesigner: React.FC = () => {
   const { t } = useTranslation(NS);
@@ -65,6 +58,7 @@ const RoutingDesigner: React.FC = () => {
   const [heading, setHeading] = useState(0);
   const [width, setWidth] = useState(24);
   const [operationType, setOperationType] = useState<OperationType>('spraying');
+  const [couplingModel, setCouplingModel] = useState<CouplingModel>('rigid');
   const [demCorrection, setDemCorrection] = useState(false);
   const [vraEnabled, setVraEnabled] = useState(false);
   const [baseRate, setBaseRate] = useState(100);
@@ -73,6 +67,9 @@ const RoutingDesigner: React.FC = () => {
   const [zonesLoading, setZonesLoading] = useState(false);
   const [zonesError, setZonesError] = useState<string | null>(null);
   const [selectedZoneIds, setSelectedZoneIds] = useState<string[]>([]);
+  const [vraSource, setVraSource] = useState<VraSource>('orion');
+  const [externalZoneFeatures, setExternalZoneFeatures] = useState<any[]>([]);
+  const [externalFileName, setExternalFileName] = useState<string | null>(null);
 
   const [generating, setGenerating] = useState(false);
   const [result, setResult] = useState<any>(null);
@@ -165,7 +162,7 @@ const RoutingDesigner: React.FC = () => {
   }, [loadOperations]);
 
   useEffect(() => {
-    if (!parcelId || !vraEnabled) {
+    if (!parcelId || !vraEnabled || vraSource !== 'orion') {
       setZones([]);
       setSelectedZoneIds([]);
       setZonesError(null);
@@ -195,17 +192,25 @@ const RoutingDesigner: React.FC = () => {
     }
     loadZones();
     return () => { cancelled = true; };
-  }, [parcelId, vraEnabled, t]);
+  }, [parcelId, vraEnabled, vraSource, t]);
 
   const canGenerate = Boolean(
-    parcelId && parcelGeometry && width > 0 && tractorId && implementId,
+    parcelId
+    && parcelGeometry
+    && width > 0
+    && tractorId
+    && implementId
+    && couplingModel === 'rigid'
+    && (!vraEnabled || vraSource !== 'external' || externalZoneFeatures.length > 0),
   );
-  const tractors = equipment.filter((eq) => (eq.category || '').toLowerCase() === 'tractor');
-  const implementOptions = equipment.filter((eq) => (eq.category || '').toLowerCase() !== 'tractor');
+  const tractors = equipment.filter((eq) => eq.machine_role === 'tractor');
+  const implementOptions = equipment.filter((eq) => eq.machine_role === 'implement');
+  const unknownEquipment = equipment.filter((eq) => !eq.machine_role || eq.machine_role === 'unknown');
   const selectedTractor = tractors.find((eq) => eq.id === tractorId) || null;
   const selectedImplement = implementOptions.find((eq) => eq.id === implementId) || null;
   const sdmMessages = getSdmValidationMessages(
     operationType,
+    couplingModel,
     selectedTractor,
     selectedImplement,
     t,
@@ -228,6 +233,7 @@ const RoutingDesigner: React.FC = () => {
         tractor_id: tractorId || undefined,
         implement_id: implementId || undefined,
         operation_type: operationType,
+        coupling_model: couplingModel,
         dem_correction: demCorrection,
         persist: true,
         selected_alternative_id: selectedAlternativeId || undefined,
@@ -238,7 +244,9 @@ const RoutingDesigner: React.FC = () => {
             ...body,
             base_rate: baseRate,
             rate_unit: rateUnit,
-            zone_ids: selectedZoneIds,
+            vra_source: vraSource,
+            zone_ids: vraSource === 'orion' ? selectedZoneIds : undefined,
+            external_zone_features: vraSource === 'external' ? externalZoneFeatures : undefined,
           })
         : await api.generate(body);
 
@@ -267,16 +275,35 @@ const RoutingDesigner: React.FC = () => {
     implementId,
     loadOperations,
     operationType,
+    couplingModel,
     parcelGeometry,
     parcelId,
     rateUnit,
     selectedAlternativeId,
     selectedZoneIds,
+    externalZoneFeatures,
     t,
     tractorId,
+    vraSource,
     vraEnabled,
     width,
   ]);
+
+  const handleExternalZonesFile = useCallback(async (file: File) => {
+    const ext = file.name.toLowerCase().endsWith('.csv') ? 'csv' : 'geojson';
+    try {
+      const content = await file.text();
+      const response = await api.ingestExternalZones(ext as 'csv' | 'geojson', content);
+      const zonesFromFile = response?.data?.zones || [];
+      setExternalZoneFeatures(zonesFromFile);
+      setExternalFileName(file.name);
+      setZonesError(null);
+    } catch (err: any) {
+      setExternalZoneFeatures([]);
+      setExternalFileName(null);
+      setZonesError(err?.message || t('vra.externalUploadError'));
+    }
+  }, [t]);
 
   const handleCloseOperation = useCallback(async (operationId: string) => {
     setClosingOperationId(operationId);
@@ -378,6 +405,28 @@ const RoutingDesigner: React.FC = () => {
               <option value="tillage">{t('operationType.tillage')}</option>
             </select>
           </div>
+            <div>
+              <label className="block text-nkz-xs font-medium text-nkz-text-secondary mb-1">
+                {t('parameters.couplingModel')}
+              </label>
+              <select
+                value={couplingModel}
+                onChange={(e) => setCouplingModel(e.target.value as CouplingModel)}
+                className="w-full border border-nkz-default rounded-nkz-md px-3 py-2 text-nkz-sm"
+              >
+                <option value="rigid">{t('parameters.couplingModelRigid')}</option>
+                <option value="articulated">{t('parameters.couplingModelArticulated')}</option>
+              </select>
+              {couplingModel !== 'rigid' ? (
+                <p className="mt-1 text-[11px] text-nkz-text-warning">
+                  {t('parameters.couplingModelArticulatedNotSupported')}
+                </p>
+              ) : (
+                <p className="mt-1 text-[11px] text-nkz-text-secondary">
+                  {t('parameters.couplingModelRigidHelp')}
+                </p>
+              )}
+            </div>
           <div className="flex items-end">
             <label className="flex items-center gap-nkz-sm cursor-pointer">
               <input
@@ -487,6 +536,21 @@ const RoutingDesigner: React.FC = () => {
               )}
             </div>
           </div>
+          {unknownEquipment.length > 0 ? (
+            <div className="mt-3 rounded-nkz-md border border-nkz-default p-3 bg-nkz-surface-alt">
+              <p className="text-nkz-xs font-medium text-nkz-text-secondary mb-1">
+                {t('equipment.unclassifiedTitle')}
+              </p>
+              <p className="text-[11px] text-nkz-text-secondary mb-2">
+                {t('equipment.unclassifiedHelp')}
+              </p>
+              <ul className="text-[11px] text-nkz-text-secondary list-disc pl-4">
+                {unknownEquipment.map((eq) => (
+                  <li key={eq.id}>{eq.name || eq.id}</li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
 
           {(selectedTractor || selectedImplement) && (
             <div className="mt-3 border border-nkz-default rounded-nkz-md p-3 bg-nkz-surface-alt">
@@ -580,6 +644,37 @@ const RoutingDesigner: React.FC = () => {
               <div className="grid grid-cols-2 gap-nkz-md">
                 <div>
                   <label className="block text-nkz-xs font-medium text-nkz-text-secondary mb-1">
+                    {t('vra.sourceLabel')}
+                  </label>
+                  <select
+                    value={vraSource}
+                    onChange={(e) => setVraSource(e.target.value as VraSource)}
+                    className="w-full border border-nkz-default rounded-nkz-md px-3 py-2 text-nkz-sm"
+                  >
+                    <option value="orion">{t('vra.sourceOrion')}</option>
+                    <option value="external">{t('vra.sourceExternal')}</option>
+                  </select>
+                </div>
+                {vraSource === 'external' ? (
+                  <div>
+                    <label className="block text-nkz-xs font-medium text-nkz-text-secondary mb-1">
+                      {t('vra.externalUploadLabel')}
+                    </label>
+                    <input
+                      type="file"
+                      accept=".geojson,.json,.csv,application/geo+json,application/json,text/csv"
+                      onChange={(e) => {
+                        const f = e.target.files?.[0];
+                        if (f) void handleExternalZonesFile(f);
+                      }}
+                      className="w-full border border-nkz-default rounded-nkz-md px-3 py-2 text-nkz-sm bg-white"
+                    />
+                  </div>
+                ) : null}
+              </div>
+              <div className="grid grid-cols-2 gap-nkz-md">
+                <div>
+                  <label className="block text-nkz-xs font-medium text-nkz-text-secondary mb-1">
                     {t('vra.baseRate')}
                   </label>
                   <input
@@ -605,7 +700,7 @@ const RoutingDesigner: React.FC = () => {
                     <Layers className="w-3.5 h-3.5" />
                     {t('vra.zoneSelection')}
                   </p>
-                  {zones.length > 0 && (
+                  {vraSource === 'orion' && zones.length > 0 && (
                     <button
                       type="button"
                       className="text-nkz-xs text-nkz-text-accent hover:underline"
@@ -619,7 +714,7 @@ const RoutingDesigner: React.FC = () => {
                   )}
                 </div>
 
-                {zonesLoading && (
+                {vraSource === 'orion' && zonesLoading && (
                   <p className="text-nkz-xs text-nkz-text-secondary">
                     <Loader2 className="w-3 h-3 inline animate-spin mr-1" />
                     {t('zoning.loadingZones')}
@@ -628,10 +723,10 @@ const RoutingDesigner: React.FC = () => {
                 {zonesError && !zonesLoading && (
                   <p className="text-nkz-xs text-nkz-text-error">{zonesError}</p>
                 )}
-                {!zonesLoading && !zonesError && zones.length === 0 && (
+                {vraSource === 'orion' && !zonesLoading && !zonesError && zones.length === 0 && (
                   <p className="text-nkz-xs text-nkz-text-secondary">{t('vra.noZonesForParcel')}</p>
                 )}
-                {!zonesLoading && zones.length > 0 && (
+                {vraSource === 'orion' && !zonesLoading && zones.length > 0 && (
                   <div className="space-y-2 max-h-32 overflow-auto pr-1">
                     {zones.map((zone) => (
                       <label key={zone.id} className="flex items-center justify-between gap-3 text-nkz-xs">
@@ -659,6 +754,15 @@ const RoutingDesigner: React.FC = () => {
                     ))}
                   </div>
                 )}
+                {vraSource === 'external' ? (
+                  <div className="text-nkz-xs text-nkz-text-secondary">
+                    {externalFileName ? (
+                      <p>{t('vra.externalLoaded', { file: externalFileName, count: externalZoneFeatures.length })}</p>
+                    ) : (
+                      <p>{t('vra.externalPending')}</p>
+                    )}
+                  </div>
+                ) : null}
               </div>
             </div>
           )}
@@ -683,6 +787,10 @@ const RoutingDesigner: React.FC = () => {
           <div className="flex items-center gap-2">
             <CheckCircle2 className={`w-3.5 h-3.5 ${tractorId && implementId ? 'text-nkz-text-success' : 'text-nkz-text-secondary'}`} />
             <span>{tractorId && implementId ? t('validation.equipmentReady') : t('validation.equipmentMissing')}</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <CheckCircle2 className={`w-3.5 h-3.5 ${couplingModel === 'rigid' ? 'text-nkz-text-success' : 'text-nkz-text-secondary'}`} />
+            <span>{couplingModel === 'rigid' ? t('validation.couplingReady') : t('validation.couplingNotSupported')}</span>
           </div>
         </div>
         {sdmMessages.length > 0 ? (
@@ -802,7 +910,7 @@ const RoutingDesigner: React.FC = () => {
       )}
 
       {result?.data?.properties && (
-        <div className="bg-nkz-surface rounded-nkz-lg border border-nkz-default p-nkz-md">
+        <div className="bg-nkz-surface rounded-nkz-lg border border-nkz-default p-nkz-md space-y-3">
           <dl className="grid grid-cols-2 gap-nkz-md text-nkz-sm">
             <div>
               <dt className="text-nkz-xs text-nkz-text-secondary">{t('parameters.heading')}</dt>
@@ -829,6 +937,39 @@ const RoutingDesigner: React.FC = () => {
               </div>
             )}
           </dl>
+          <div className="rounded-nkz-md border border-nkz-default bg-nkz-surface-alt p-3">
+            <p className="text-nkz-xs font-medium text-nkz-text-secondary mb-2">
+              {t('operations.traceabilityTitle')}
+            </p>
+            <dl className="grid grid-cols-1 md:grid-cols-2 gap-2 text-[11px]">
+              <div>
+                <dt className="text-nkz-text-secondary">{t('operations.traceOperationId')}</dt>
+                <dd className="text-nkz-text-primary break-all">{result.data.properties.operation_id || '-'}</dd>
+              </div>
+              <div>
+                <dt className="text-nkz-text-secondary">{t('operations.traceAlternative')}</dt>
+                <dd className="text-nkz-text-primary">{result.data.properties.selected_alternative_id || '-'}</dd>
+              </div>
+              <div>
+                <dt className="text-nkz-text-secondary">{t('operations.traceCoupling')}</dt>
+                <dd className="text-nkz-text-primary">{couplingModel}</dd>
+              </div>
+              <div>
+                <dt className="text-nkz-text-secondary">{t('operations.traceVraSource')}</dt>
+                <dd className="text-nkz-text-primary">
+                  {result.data.properties.vra_source || (vraEnabled ? vraSource : 'none')}
+                </dd>
+              </div>
+              <div>
+                <dt className="text-nkz-text-secondary">{t('operations.traceTractor')}</dt>
+                <dd className="text-nkz-text-primary break-all">{tractorId || '-'}</dd>
+              </div>
+              <div>
+                <dt className="text-nkz-text-secondary">{t('operations.traceImplement')}</dt>
+                <dd className="text-nkz-text-primary break-all">{implementId || '-'}</dd>
+              </div>
+            </dl>
+          </div>
           {result?.prescription_map?.features?.length > 0 && (
             <PrescriptionSummary
               t={t}
@@ -881,6 +1022,9 @@ const RoutingDesigner: React.FC = () => {
                     <p className="text-[11px] text-nkz-text-secondary">
                       {t(`operationType.${(op.operation_type || 'spraying') as OperationType}`)} · {t(`operationStatus.${op.status || 'planned'}`)}
                     </p>
+                    <p className="text-[11px] text-nkz-text-secondary">
+                      {t('parcel.label')}: <span className="font-mono">{op.parcel_id || '-'}</span> · {t('parameters.width')}: {op.implement_width ?? '-'} m
+                    </p>
                   </div>
                   <div className="flex items-center gap-2">
                     <button
@@ -930,11 +1074,15 @@ const RoutingDesigner: React.FC = () => {
 
 function getSdmValidationMessages(
   operationType: OperationType,
+  couplingModel: CouplingModel,
   tractor: EquipmentOption | null,
   implement: EquipmentOption | null,
   t: (k: string) => string,
 ): string[] {
   const out: string[] = [];
+  if (couplingModel !== 'rigid') {
+    out.push(t('validation.couplingNotSupported'));
+  }
   if (!tractor || !implement) {
     out.push(t('validation.equipmentMissing'));
     return out;

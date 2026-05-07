@@ -31,14 +31,21 @@
     "hitchOffsetX": "Offset enganche X",
     "implementLength": "Longitud apero",
     "implementOffsetX": "Offset apero X",
-    "implementWidth": "Ancho efectivo apero"
+    "implementWidth": "Ancho efectivo apero",
+    "unclassifiedTitle": "Maquinaria sin clasificar",
+    "unclassifiedHelp": "Estas máquinas no tienen rol canónico (tractor/apero). Revísalas en el Entity Wizard para asignar categoría correcta."
   },
   "parameters": {
     "heading": "Rumbo (°)",
     "width": "Ancho de trabajo (m)",
     "swaths": "Franjas",
     "operationType": "Tipo de operación",
-    "demCorrection": "Corrección DEM (pendiente)"
+    "demCorrection": "Corrección DEM (pendiente)",
+    "couplingModel": "Modelo de acople",
+    "couplingModelRigid": "Conjunto rígido (tractor + apero)",
+    "couplingModelArticulated": "Conjunto articulado (tractor + apero)",
+    "couplingModelRigidHelp": "El cálculo actual está validado para conjunto rígido.",
+    "couplingModelArticulatedNotSupported": "El modo articulado aún no está soportado en el cálculo. Selecciona conjunto rígido."
   },
   "operationType": {
     "spraying": "Pulverización",
@@ -70,6 +77,8 @@
     "equipmentReady": "Maquinaria seleccionada",
     "equipmentOptional": "Maquinaria opcional (recomendado)",
     "equipmentMissing": "Selecciona tractor y apero",
+    "couplingReady": "Acople rígido seleccionado",
+    "couplingNotSupported": "Acople articulado no soportado todavía",
     "sdmTitle": "Completitud SDM (recomendado)",
     "sdmGpsOffsets": "Faltan offsets GPS del tractor (X/Y/Z) en el Context Broker",
     "sdmImplementWidth": "Falta el ancho efectivo del apero (necesario para pulverización/fertilización)",
@@ -99,7 +108,14 @@
     "coverageSummaryLine": "Cobertura: 1 línea, {{points}} puntos",
     "coverageSummaryType": "Tipo de geometría de cobertura: {{type}}",
     "activeBannerTitle": "Sesión de campo activa",
-    "activeConflict": "Hay otra operación en curso ({{id}}). Ciérrala antes de iniciar otra."
+    "activeConflict": "Hay otra operación en curso ({{id}}). Ciérrala antes de iniciar otra.",
+    "traceabilityTitle": "Trazabilidad de planificación",
+    "traceOperationId": "ID operación",
+    "traceAlternative": "Variante trayectoria",
+    "traceCoupling": "Modelo de acople",
+    "traceVraSource": "Fuente VRA",
+    "traceTractor": "Tractor",
+    "traceImplement": "Apero"
   },
   "actions": {
     "generate": "Generar Ruta",
@@ -115,6 +131,13 @@
   "vra": {
     "label": "VRA",
     "enabled": "Prescripción VRA",
+    "sourceLabel": "Fuente VRA",
+    "sourceOrion": "Zonas en Orion-LD",
+    "sourceExternal": "Subida externa",
+    "externalUploadLabel": "Archivo externo (GeoJSON/CSV)",
+    "externalUploadError": "No se pudo procesar el archivo externo",
+    "externalLoaded": "Archivo cargado: {{file}} ({{count}} zonas)",
+    "externalPending": "Sube un archivo externo para usar prescripción VRA",
     "baseRate": "Dosis Base",
     "rateUnit": "Unidad",
     "zoneSelection": "Selección de zonas",
