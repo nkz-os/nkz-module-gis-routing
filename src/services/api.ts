@@ -12,7 +12,15 @@ const BASE_URL = (() => {
 
 function getTenantId(): string | undefined {
   const ctx = (window as any).__nekazariAuthContext;
-  return ctx?.tenantId;
+  const fromCtx = ctx?.tenantId;
+  const fromProfile = ctx?.tenantProfile?.id || ctx?.tenantProfile?.tenant_id;
+  const fromUser =
+    ctx?.user?.tenant_id
+    || ctx?.user?.tenantId
+    || ctx?.user?.attributes?.tenant_id
+    || ctx?.user?.attributes?.tenant;
+  const tenant = fromCtx || fromProfile || fromUser;
+  return typeof tenant === 'string' && tenant.trim() ? tenant.trim() : undefined;
 }
 
 async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
