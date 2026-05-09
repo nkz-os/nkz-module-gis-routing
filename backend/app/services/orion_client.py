@@ -41,14 +41,13 @@ class OrionLDClient:
         return self._client
 
     def _headers(self, tenant_id: str) -> dict:
-        """Build NGSI-LD mandatory headers for tenant isolation.
-
-        Uses application/json Content-Type and sends @context via Link header.
-        """
+        """Build NGSI-LD mandatory headers for tenant isolation."""
+        import re
         if '\n' in tenant_id or '\r' in tenant_id:
-            raise ValueError(
-                "Invalid tenant_id: contains newline characters"
-            )
+            raise ValueError("Invalid tenant_id: contains newline characters")
+        n = tenant_id.lower().strip().replace('-', '_').replace(' ', '_')
+        n = re.sub(r'[^a-z0-9_]', '', n)
+        n = n.strip('_') or tenant_id
         return {
             "Content-Type": "application/json",
             "Link": (
@@ -56,8 +55,9 @@ class OrionLDClient:
                 'rel="http://www.w3.org/ns/json-ld#context"; '
                 'type="application/ld+json"'
             ),
-            "NGSILD-Tenant": tenant_id,
-            "FIWARE-Service": tenant_id,
+            "NGSILD-Tenant": n,
+            "FIWARE-Service": n,
+            "Fiware-ServicePath": "/",
         }
 
     async def query_entities(
