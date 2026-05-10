@@ -25,14 +25,14 @@ def project_polygon_to_utm(
     Returns (utm_poly, utm_crs, to_utm_transform, to_wgs84_transform).
     The transform callables accept (x, y) and return projected coordinates.
     """
+    if not wgs84_poly.is_valid:
+        wgs84_poly = wgs84_poly.buffer(0)
+
     centroid = wgs84_poly.centroid
     utm_crs = get_utm_crs(centroid.x, centroid.y)
     wgs84_crs = CRS.from_epsg(4326)
     to_utm = Transformer.from_crs(wgs84_crs, utm_crs, always_xy=True).transform
     to_wgs84 = Transformer.from_crs(utm_crs, wgs84_crs, always_xy=True).transform
-
-    if not wgs84_poly.is_valid:
-        wgs84_poly = wgs84_poly.buffer(0)
 
     ext_coords = np.array(wgs84_poly.exterior.coords)
     ext_x, ext_y = to_utm(ext_coords[:, 0], ext_coords[:, 1])
@@ -77,6 +77,23 @@ class PatternConfig:
     headland_passes: int = 0
     skip_rows: int = 0
     direction: Literal["inside-out", "outside-in"] = "outside-in"
+
+    def __post_init__(self) -> None:
+        if self.overlap_pct < 0 or self.overlap_pct > 100:
+            raise ValueError(
+                f"overlap_pct must be 0-100, got {self.overlap_pct}"
+            )
+        if self.width_m <= 0:
+            raise ValueError(f"width_m must be > 0, got {self.width_m}")
+        if self.headland_passes < 0 or self.headland_passes > 3:
+            raise ValueError(
+                f"headland_passes must be 0-3, got {self.headland_passes}"
+            )
+        if self.skip_rows < 0 or self.skip_rows > 2:
+            raise ValueError(
+                f"skip_rows must be 0-2, got {self.skip_rows}"
+            )
+        self.heading_deg = self.heading_deg % 360.0
 
     @property
     def effective_width_m(self) -> float:

@@ -2,8 +2,8 @@
 
 from app.services.routing.base import RoutingStrategy, PatternConfig, RouteResult
 
-# Strategies are imported lazily inside strategy_for() to avoid circular
-# imports and to allow adding new strategy modules without editing this file.
+# Strategies are loaded lazily on first call to strategy_for().
+# New strategy modules must be registered in _load_strategies().
 
 _STRATEGIES: dict[str, type[RoutingStrategy]] = {}
 
