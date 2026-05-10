@@ -40,3 +40,22 @@ def test_ab_skip_generates_more_passes():
     assert result.pattern == "ab-skip"
     assert result.swath_count > 0
     assert len(result.pass_order) == 2  # skip_rows=1 means 2 alternating passes
+
+
+def test_spiral_generates_rings():
+    s = strategy_for("spiral")
+    config = PatternConfig(width_m=24.0, direction="outside-in")
+    result = s.generate(SQUARE_PARCEL, config)
+    assert "spiral" in result.pattern
+    assert result.swath_count > 0
+    assert result.total_distance_m > 0
+
+
+def test_spiral_inside_out_vs_outside_in():
+    s = strategy_for("spiral")
+    c_in = PatternConfig(width_m=24.0, direction="inside-out")
+    c_out = PatternConfig(width_m=24.0, direction="outside-in")
+    r_in = s.generate(SQUARE_PARCEL, c_in)
+    r_out = s.generate(SQUARE_PARCEL, c_out)
+    assert r_in.swath_count > 0
+    assert r_out.swath_count > 0
