@@ -23,6 +23,27 @@ def _load_strategies() -> None:
     except ImportError:
         pass
 
+    try:
+        from app.services.routing.pattern_ab_skip import ABSkipStrategy  # type: ignore[import-untyped]
+
+        _STRATEGIES["ab-skip"] = ABSkipStrategy
+    except ImportError:
+        pass
+
+    try:
+        from app.services.routing.pattern_spiral import SpiralStrategy  # type: ignore[import-untyped]
+
+        _STRATEGIES["spiral"] = SpiralStrategy
+    except ImportError:
+        pass
+
+    try:
+        from app.services.routing.pattern_headland import HeadlandStrategy  # type: ignore[import-untyped]
+
+        _STRATEGIES["headland-only"] = HeadlandStrategy
+    except ImportError:
+        pass
+
 
 def strategy_for(pattern: str) -> RoutingStrategy:
     """Return a routing strategy instance for the given pattern name."""
