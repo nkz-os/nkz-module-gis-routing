@@ -31,3 +31,12 @@ def test_ab_line_with_overlap_reduces_effective_width():
     r2 = s.generate(SQUARE_PARCEL, config_overlap)
     # Overlap produces more swaths (narrower effective width)
     assert r2.swath_count >= r1.swath_count
+
+
+def test_ab_skip_generates_more_passes():
+    s = strategy_for("ab-skip")
+    config = PatternConfig(heading_deg=0, width_m=24.0, skip_rows=1)
+    result = s.generate(SQUARE_PARCEL, config)
+    assert result.pattern == "ab-skip"
+    assert result.swath_count > 0
+    assert len(result.pass_order) == 2  # skip_rows=1 means 2 alternating passes
