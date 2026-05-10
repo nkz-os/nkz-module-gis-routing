@@ -19,7 +19,7 @@ class ABSkipStrategy(RoutingStrategy):
         start_x, start_y = to_utm(centroid.x, centroid.y)
 
         heading_rad = math.radians(90 - config.heading_deg)
-        spacing = config.effective_width_m * (config.skip_rows + 1)
+        spacing = config.effective_width_m
 
         all_swaths = generate_parallel_swaths(
             utm_poly, start_x, start_y, heading_rad, spacing,
