@@ -62,3 +62,60 @@ def generate_parallel_swaths(
 
 def compute_total_distance_m(utm_lines: list[LineString]) -> float:
     return sum(line.length for line in utm_lines)
+
+
+def connect_swaths_serpentine(swaths: list[LineString]) -> LineString | None:
+    """Connect swaths in serpentine order. Returns a single continuous LineString."""
+    segments = _build_serpentine_segments(swaths)
+    if not segments:
+        return None
+    # Flatten all segments into one continuous line
+    all_coords = []
+    for seg in segments:
+        for coord in seg["coords"]:
+            if not all_coords or all_coords[-1] != coord:
+                all_coords.append(coord)
+    return LineString(all_coords)
+
+
+def build_serpentine_segments(swaths: list[LineString]) -> list[dict]:
+    """Build serpentine path with maneuver flags for each segment.
+
+    Returns a list of segments, each with:
+      - coords: list of [x, y] points
+      - type: "work" (implement engaged) or "turn" (maneuver between passes)
+      - swath_index: index of the work swath (None for turn segments)
+    """
+    if len(swaths) < 1:
+        return []
+
+    segments = []
+    for i, swath in enumerate(swaths):
+        points = list(swath.coords)
+        if i % 2 == 1:
+            points.reverse()
+
+        # Add turn segment from previous swath end to this swath start
+        if i > 0 and segments:
+            prev = segments[-1]
+            prev_end = prev["coords"][-1]
+            curr_start = points[0]
+            segments.append({
+                "coords": [prev_end, curr_start],
+                "type": "turn",
+                "swath_index": None,
+            })
+
+        # Add work segment
+        segments.append({
+            "coords": points,
+            "type": "work",
+            "swath_index": i,
+        })
+
+    return segments
+
+
+def _build_serpentine_segments(swaths) -> list[dict]:
+    """Internal: delegate to build_serpentine_segments."""
+    return build_serpentine_segments(swaths)

@@ -544,6 +544,11 @@ async def generate_routing_plan(request: Request, body: GenerateRequest):
             chosen["result"], body, request, prescription_map,
         )
 
+    maneuver_segments = chosen["result"].maneuver_segments
+    path_continuous_geojson = None
+    if chosen["result"].path_continuous is not None:
+        path_continuous_geojson = mapping(chosen["result"].path_continuous)
+
     return {
         "success": True,
         "alternatives": [
@@ -571,6 +576,8 @@ async def generate_routing_plan(request: Request, body: GenerateRequest):
             },
         },
         "prescription_map": prescription_map,
+        "path_continuous": path_continuous_geojson,
+        "maneuver_segments": maneuver_segments,
     }
 
 
@@ -683,6 +690,12 @@ async def _persist_operation(
         entity["refTractor"] = {"type": "Relationship", "object": body.tractor_id}
     if body.implement_id:
         entity["refImplement"] = {"type": "Relationship", "object": body.implement_id}
+
+    if result.maneuver_segments:
+        entity["maneuverSegments"] = {
+            "type": "Property",
+            "value": json.dumps(result.maneuver_segments),
+        }
 
     if prescription_map:
         entity["vraEnabled"] = {"type": "Property", "value": True}
@@ -826,6 +839,7 @@ async def export_operation(
     if not entity:
         raise HTTPException(status_code=404, detail="Operation not found")
     location = entity.get("location", {}).get("value", {})
+    maneuver_segments_raw = entity.get("maneuverSegments", {}).get("value")
     op_record = {
         "id": entity["id"],
         "name": entity.get("name", {}).get("value", ""),
@@ -833,6 +847,7 @@ async def export_operation(
         "ab_line_geojson": json.dumps(location) if location else "{}",
         "implement_width": entity.get("implementWidth", {}).get("value", 24.0),
         "vra_enabled": entity.get("vraEnabled", {}).get("value", False),
+        "maneuver_segments": maneuver_segments_raw,
     }
     exporter = RouteExporter()
     if format == "isoxml":

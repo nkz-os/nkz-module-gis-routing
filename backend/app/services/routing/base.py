@@ -126,6 +126,8 @@ class RouteResult:
     pass_order: list[list[int]] = field(default_factory=list)
     turn_points: list = field(default_factory=list)
     metadata: dict = field(default_factory=dict)
+    path_continuous: MultiLineString | None = None
+    maneuver_segments: list[dict] = field(default_factory=list)
 
 
 class RoutingStrategy(ABC):
