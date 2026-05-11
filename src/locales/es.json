@@ -117,6 +117,12 @@
     "traceTractor": "Tractor",
     "traceImplement": "Apero"
   },
+  "stats": {
+    "title": "Resultados",
+    "swaths": "Franjas",
+    "distance": "Distancia",
+    "area": "Área"
+  },
   "actions": {
     "generate": "Generar Ruta",
     "generating": "Generando...",
@@ -184,6 +190,9 @@
     "hint": "Compara rumbos de franja. Aplica la selección para regenerar el plan almacenado con esa variante.",
     "optionLabel": "Rumbo {{heading}}° · {{swaths}} franjas",
     "applySelection": "Aplicar trayectoria seleccionada"
+  },
+  "panels": {
+    "emptyState": "Genera una ruta para ver resultados"
   },
   "handoff": {
     "title": "Continuar en el móvil",

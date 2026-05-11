@@ -117,6 +117,12 @@
     "traceTractor": "Tractor",
     "traceImplement": "Implement"
   },
+  "stats": {
+    "title": "Results",
+    "swaths": "Swaths",
+    "distance": "Distance",
+    "area": "Area"
+  },
   "actions": {
     "generate": "Generate Route",
     "generating": "Generating...",
@@ -184,6 +190,9 @@
     "hint": "Compare swath headings. Apply selection to regenerate the stored plan with that variant.",
     "optionLabel": "{{heading}}° heading · {{swaths}} swaths",
     "applySelection": "Apply selected trajectory"
+  },
+  "panels": {
+    "emptyState": "Generate a route to see results"
   },
   "handoff": {
     "title": "Continue on mobile",
