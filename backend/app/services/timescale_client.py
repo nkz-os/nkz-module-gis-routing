@@ -86,6 +86,25 @@ CREATE TABLE IF NOT EXISTS sync_operations (
 );
 CREATE INDEX IF NOT EXISTS idx_sync_operations_tenant ON sync_operations(tenant_id);
 CREATE INDEX IF NOT EXISTS idx_sync_operations_updated ON sync_operations(tenant_id, updated_at);
+
+CREATE TABLE IF NOT EXISTS field_patterns (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    tenant_id TEXT NOT NULL,
+    parcel_id TEXT NOT NULL,
+    name TEXT NOT NULL,
+    pattern_type TEXT NOT NULL,
+    pattern_config JSONB NOT NULL,
+    route_geojson TEXT NOT NULL,
+    vra_prescription_map JSONB,
+    equipment_tractor_id TEXT,
+    equipment_implement_id TEXT,
+    source_operation_id TEXT,
+    is_active BOOLEAN DEFAULT true,
+    created_at BIGINT NOT NULL,
+    updated_at BIGINT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_field_patterns_parcel
+    ON field_patterns(tenant_id, parcel_id);
 """
 
 # ---------------------------------------------------------------------------
