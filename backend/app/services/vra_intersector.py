@@ -2,6 +2,13 @@
 from pyproj import CRS, Transformer
 from shapely.geometry import shape, MultiLineString, mapping
 
+_UNIT_CONVERSION: dict[str, float] = {
+    "l_ha": 1.0,
+    "kg_ha": 1.0,
+    "ml_ha": 0.001,
+    "g_ha": 0.001,
+}
+
 
 def _utm_length_m(geom) -> float:
     """Compute accurate length in meters using local UTM projection."""
@@ -22,8 +29,25 @@ def _get_utm_crs(lon: float, lat: float) -> CRS:
     return CRS.from_epsg(epsg_code)
 
 
+def _smooth_boundary_rates(segments: list[dict]) -> list[dict]:
+    """Apply edge blending: segments at zone boundaries get averaged rates."""
+    for i, seg in enumerate(segments):
+        if i == 0 or i == len(segments) - 1:
+            continue
+        prev_zone = segments[i - 1]["properties"].get("zone_id")
+        curr_zone = seg["properties"].get("zone_id")
+        next_zone = segments[i + 1]["properties"].get("zone_id")
+        if prev_zone != curr_zone or curr_zone != next_zone:
+            neighbors = [segments[i - 1], segments[i + 1]]
+            avg_rate = sum(n["properties"]["rate"] for n in neighbors) / 2
+            seg["properties"]["rate"] = round(
+                seg["properties"]["rate"] * 0.7 + avg_rate * 0.3, 2,
+            )
+    return segments
+
+
 def intersect_swaths_with_zones(
-    swaths: MultiLineString, zones: list[dict], base_rate: float, width_m: float
+    swaths: MultiLineString, zones: list[dict], base_rate: float, width_m: float, rate_unit: str = "l_ha",
 ) -> dict:
     segments = []
     for swath_line in swaths.geoms:
@@ -47,13 +71,15 @@ def intersect_swaths_with_zones(
                         "geometry": mapping(geom),
                         "properties": {
                             "length_m": round(_utm_length_m(geom), 2),
-                            "rate": round(base_rate * zone_rate, 2),
+                            "rate": round(base_rate * zone_rate * _UNIT_CONVERSION.get(rate_unit, 1.0), 2),
                             "zone_id": zone["properties"].get("zone_id"),
                             "zone_class": zone["properties"].get("zone_class", ""),
                             "width_m": width_m,
                         },
                     }
                 )
+    if segments:
+        segments = _smooth_boundary_rates(segments)
     return {"type": "FeatureCollection", "features": segments}
 
 

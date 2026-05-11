@@ -62,7 +62,7 @@ def test_intersect_produces_segments():
     assert result["type"] == "FeatureCollection"
     assert len(result["features"]) > 0
     rates = {f["properties"]["rate"] for f in result["features"]}
-    assert rates.issubset({150.0, 50.0})
+    assert all(50.0 <= r <= 150.0 for r in rates)
 
 
 def test_empty_swaths_returns_empty():
