@@ -233,27 +233,22 @@ const App: React.FC = () => {
           )}
         </>
       }
-      center={
-        <RoutePreviewMap
-          parcelGeometry={wizard.parcelGeometry}
-          parcelName={wizard.parcelName}
-          result={result}
-          generating={generating}
-        />
-      }
       right={
-        result ? (
-          <>
-            <StatsPanel result={result} />
-            <ExportPanel operationId={result?.data?.properties?.operation_id} />
-            <HandoffPanel operationId={result?.data?.properties?.operation_id} />
-          </>
-        ) : (
-          <div className="flex flex-col items-center justify-center h-64 text-nkz-text-secondary text-nkz-sm">
-            <p>{t('panels.emptyState')}</p>
-            <p className="text-nkz-xs mt-1">{t('panels.emptyStateHint')}</p>
-          </div>
-        )
+        <>
+          <RoutePreviewMap
+            parcelGeometry={wizard.parcelGeometry}
+            parcelName={wizard.parcelName}
+            result={result}
+            generating={generating}
+          />
+          {result && (
+            <>
+              <StatsPanel result={result} />
+              <ExportPanel operationId={result?.data?.properties?.operation_id} />
+              <HandoffPanel operationId={result?.data?.properties?.operation_id} />
+            </>
+          )}
+        </>
       }
     />
   );

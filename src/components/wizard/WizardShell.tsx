@@ -7,11 +7,10 @@ const { accent } = manifest;
 
 interface WizardShellProps {
   left: React.ReactNode;
-  center: React.ReactNode;
   right: React.ReactNode;
 }
 
-export const WizardShell: React.FC<WizardShellProps> = ({ left, center, right }) => {
+export const WizardShell: React.FC<WizardShellProps> = ({ left, right }) => {
   const { t } = useTranslation(NS);
 
   return (
@@ -19,7 +18,7 @@ export const WizardShell: React.FC<WizardShellProps> = ({ left, center, right })
       {/* Left: Configuration Panel */}
       <div
         className="flex-shrink-0 overflow-y-auto border-r border-nkz-default bg-nkz-surface"
-        style={{ width: '30%', minWidth: 360, maxWidth: 480 }}
+        style={{ width: '42%', minWidth: 380, maxWidth: 560 }}
       >
         <div className="p-nkz-md space-y-nkz-stack">
           <div className="flex items-center gap-nkz-sm pb-nkz-md border-b border-nkz-default">
@@ -38,16 +37,8 @@ export const WizardShell: React.FC<WizardShellProps> = ({ left, center, right })
         </div>
       </div>
 
-      {/* Center: Map Preview */}
-      <div className="flex-1 relative bg-slate-900 min-w-0">
-        {center}
-      </div>
-
-      {/* Right: Stats & Export */}
-      <div
-        className="flex-shrink-0 overflow-y-auto border-l border-nkz-default bg-nkz-surface"
-        style={{ width: '25%', minWidth: 280, maxWidth: 400 }}
-      >
+      {/* Right: Preview, Stats & Export */}
+      <div className="flex-1 overflow-y-auto bg-nkz-surface min-w-0">
         <div className="p-nkz-md space-y-nkz-stack">
           {right}
         </div>
