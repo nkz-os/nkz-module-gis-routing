@@ -18,12 +18,16 @@ export const RoutePreviewMap: React.FC<Props> = ({
 
   useEffect(() => {
     if (result) {
+      const payload = {
+        geometry: result.data?.geometry,
+        prescriptionMap: result.prescription_map,
+      };
+      // Same-tab: custom event for embedded viewer
       window.dispatchEvent(new CustomEvent('nekazari:gis-routing:routeGenerated', {
-        detail: {
-          geometry: result.data?.geometry,
-          prescriptionMap: result.prescription_map,
-        },
+        detail: payload,
       }));
+      // Cross-tab: localStorage so viewer at /entities picks it up
+      localStorage.setItem('nkz-gis-routing-last', JSON.stringify(payload));
     }
   }, [result]);
 
