@@ -121,7 +121,9 @@
     "title": "Resultados",
     "swaths": "Franjas",
     "distance": "Distancia",
-    "area": "Área"
+    "area": "Área",
+    "pattern": "Patrón",
+    "vra": "VRA"
   },
   "actions": {
     "generate": "Generar Ruta",
@@ -190,6 +192,22 @@
     "hint": "Compara rumbos de franja. Aplica la selección para regenerar el plan almacenado con esa variante.",
     "optionLabel": "Rumbo {{heading}}° · {{swaths}} franjas",
     "applySelection": "Aplicar trayectoria seleccionada"
+  },
+  "patterns": {
+    "saveTitle": "Guardar Patrón",
+    "saved": "Patrón guardado",
+    "namePlaceholder": "Nombre del patrón...",
+    "save": "Guardar"
+  },
+  "pathfinding": {
+    "title": "Navegación",
+    "pointA": "Punto A",
+    "pointB": "Punto B",
+    "calculate": "Calcular Ruta",
+    "calculating": "Calculando",
+    "results": "Alternativas de ruta",
+    "distance": "Distancia",
+    "climb": "Desnivel"
   },
   "panels": {
     "emptyState": "Genera una ruta para ver resultados"

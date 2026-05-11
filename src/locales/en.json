@@ -121,7 +121,9 @@
     "title": "Results",
     "swaths": "Swaths",
     "distance": "Distance",
-    "area": "Area"
+    "area": "Area",
+    "pattern": "Pattern",
+    "vra": "VRA"
   },
   "actions": {
     "generate": "Generate Route",
@@ -190,6 +192,22 @@
     "hint": "Compare swath headings. Apply selection to regenerate the stored plan with that variant.",
     "optionLabel": "{{heading}}° heading · {{swaths}} swaths",
     "applySelection": "Apply selected trajectory"
+  },
+  "patterns": {
+    "saveTitle": "Save Pattern",
+    "saved": "Pattern saved",
+    "namePlaceholder": "Pattern name...",
+    "save": "Save"
+  },
+  "pathfinding": {
+    "title": "Pathfinding",
+    "pointA": "Point A",
+    "pointB": "Point B",
+    "calculate": "Calculate Path",
+    "calculating": "Calculating",
+    "results": "Path alternatives",
+    "distance": "Distance",
+    "climb": "Climb"
   },
   "panels": {
     "emptyState": "Generate a route to see results"
