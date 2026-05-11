@@ -10,55 +10,70 @@ export const PathfindingPickSlot: React.FC<{ viewer?: any }> = ({ viewer }) => {
   const [pointA, setPointA] = useState<[number, number] | null>(null);
   const [pointB, setPointB] = useState<[number, number] | null>(null);
   const [status, setStatus] = useState<string>('clickA');
-  const [isPickMode, setIsPickMode] = useState(false);
-  const handlerRef = useRef<any>(null);
+  const [ready, setReady] = useState(false);
   const pointARef = useRef<[number, number] | null>(null);
   const pointBRef = useRef<[number, number] | null>(null);
+  const markA = useRef(false);
+  const markB = useRef(false);
 
-  // --- Pick mode detection ---
+  // Pick mode detection
+  const isPickMode = useRef(false);
   useEffect(() => {
     const urlPick = new URLSearchParams(window.location.search).get('pick') === 'pathfinding';
     const storagePick = sessionStorage.getItem(PICK_FLAG_KEY) === 'true';
     if (urlPick || storagePick) {
-      setIsPickMode(true);
+      isPickMode.current = true;
       sessionStorage.setItem(PICK_FLAG_KEY, 'true');
+      // Force re-render to show UI
+      setReady(true);
     }
     return () => { sessionStorage.removeItem(PICK_FLAG_KEY); };
   }, []);
 
-  // --- Register click handler ---
+  // Register native DOM click on the Cesium canvas — avoids conflicts
+  // with Cesium's own ScreenSpaceEventHandler
   useEffect(() => {
-    if (!isPickMode) return;
+    if (!ready) return;
 
-    const Cesium = (window as any).Cesium;
+    // Poll for Cesium canvas
     const poll = setInterval(() => {
-      if (!viewer || viewer.isDestroyed?.()) return;
-      if (!Cesium) return;
+      const canvas = document.querySelector('canvas.cesium-widget canvas')
+        || document.querySelector('.cesium-viewer canvas');
+      if (!canvas) return;
       clearInterval(poll);
 
-      const handler = new Cesium.ScreenSpaceEventHandler(viewer.scene.canvas);
-      handlerRef.current = handler;
+      const onClick = (e: MouseEvent) => {
+        if (!viewer || viewer.isDestroyed?.()) return;
+        const rect = canvas.getBoundingClientRect();
+        const x = e.clientX - rect.left;
+        const y = e.clientY - rect.top;
 
-      handler.setInputAction((click: any) => {
-        const v = viewer;
-        if (v.isDestroyed?.()) return;
+        const Cesium = (window as any).Cesium;
+        if (!Cesium) return;
 
-        let cartesian = v.scene.pickPosition(click.position);
-        if (!cartesian) cartesian = v.camera.pickEllipsoid(click.position, v.scene.globe.ellipsoid);
+        let cartesian = viewer.scene.pickPosition(new Cesium.Cartesian2(x, y));
+        if (!cartesian) {
+          cartesian = viewer.camera.pickEllipsoid(
+            new Cesium.Cartesian2(x, y),
+            viewer.scene.globe.ellipsoid,
+          );
+        }
         if (!cartesian) return;
 
         const cg = Cesium.Cartographic.fromCartesian(cartesian);
         const lon = Cesium.Math.toDegrees(cg.longitude);
         const lat = Cesium.Math.toDegrees(cg.latitude);
 
-        if (!pointARef.current) {
+        if (!markA.current) {
+          markA.current = true;
           pointARef.current = [lon, lat];
-          addEntity(v, `pathfinding-A`, lon, lat, '#ef4444', 'A');
+          addEntity(viewer, 'pathfinding-A', lon, lat, '#ef4444', 'A');
           setPointA([lon, lat]);
           setStatus('clickB');
-        } else if (!pointBRef.current) {
+        } else if (!markB.current) {
+          markB.current = true;
           pointBRef.current = [lon, lat];
-          addEntity(v, `pathfinding-B`, lon, lat, '#3b82f6', 'B');
+          addEntity(viewer, 'pathfinding-B', lon, lat, '#3b82f6', 'B');
           setPointB([lon, lat]);
           setStatus('done');
           localStorage.setItem(STORAGE_KEY, JSON.stringify({
@@ -66,23 +81,26 @@ export const PathfindingPickSlot: React.FC<{ viewer?: any }> = ({ viewer }) => {
             pointB: [lon, lat],
           }));
         }
-      }, Cesium.ScreenSpaceEventType.LEFT_CLICK);
-    }, 300);
+      };
+
+      (canvas as HTMLCanvasElement).addEventListener('click', onClick as EventListener);
+      // Store for cleanup
+      (canvas as any).__nkzPathfindingClick = onClick;
+    }, 200);
 
     return () => {
       clearInterval(poll);
-      if (handlerRef.current && !viewer?.isDestroyed?.()) {
-        handlerRef.current.destroy();
-      }
-      if (!viewer?.isDestroyed?.()) {
-        try { viewer.entities.removeById('pathfinding-A'); } catch {}
-        try { viewer.entities.removeById('pathfinding-B'); } catch {}
+      const canvas = document.querySelector('canvas.cesium-widget canvas')
+        || document.querySelector('.cesium-viewer canvas');
+      if (canvas && (canvas as any).__nkzPathfindingClick) {
+        (canvas as HTMLCanvasElement).removeEventListener('click', (canvas as any).__nkzPathfindingClick as EventListener);
       }
     };
-  }, [isPickMode, viewer]);
+  }, [ready, viewer]);
 
-  // --- Reset ---
   const handleReset = useCallback(() => {
+    markA.current = false;
+    markB.current = false;
     pointARef.current = null;
     pointBRef.current = null;
     setPointA(null);
@@ -95,11 +113,11 @@ export const PathfindingPickSlot: React.FC<{ viewer?: any }> = ({ viewer }) => {
     }
   }, [viewer]);
 
-  if (!isPickMode) return null;
+  if (!ready) return null;
 
   return (
     <div
-      className="absolute top-4 left-1/2 z-50 bg-slate-900/95 border border-amber-500/50 rounded-lg px-5 py-4 text-white shadow-2xl"
+      className="absolute top-4 left-1/2 z-50 bg-slate-900/95 border border-amber-500/50 rounded-lg px-5 py-4 text-white shadow-2xl pointer-events-auto"
       style={{ transform: 'translateX(-50%)', minWidth: 340 }}
     >
       <div className="flex items-center gap-2 mb-3">
