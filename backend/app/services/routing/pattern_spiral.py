@@ -37,7 +37,7 @@ class SpiralStrategy(RoutingStrategy):
             if eroded.geom_type == "MultiPolygon":
                 eroded = max(eroded.geoms, key=lambda p: p.area)
 
-                boundary = current.exterior
+            boundary = current.exterior
             if boundary is not None and not boundary.is_empty:
                 rings.append(boundary)
 

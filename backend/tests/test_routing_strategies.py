@@ -51,6 +51,15 @@ def test_spiral_generates_rings():
     assert result.total_distance_m > 0
 
 
+def test_headland_generates_perimeter_passes():
+    s = strategy_for("headland-only")
+    config = PatternConfig(width_m=24.0, headland_passes=3)
+    result = s.generate(SQUARE_PARCEL, config)
+    assert result.pattern == "headland-only"
+    assert result.headland_count > 0
+    assert result.swath_count > 0
+
+
 def test_spiral_inside_out_vs_outside_in():
     s = strategy_for("spiral")
     c_in = PatternConfig(width_m=24.0, direction="inside-out")
