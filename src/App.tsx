@@ -1,17 +1,19 @@
-/**
- * Standalone dev shell — only used by `npm run dev`.
- * In production the host loads nkz-module.js (IIFE) directly; this file is not bundled.
- *
- * Provides 3-column wizard layout: configuration panel, map preview, stats & export.
- */
 import './i18n';
 import React, { useState, useCallback } from 'react';
 import { useTranslation } from '@nekazari/sdk';
 import { WizardShell } from './components/wizard/WizardShell';
-import manifest from '../manifest.json';
-
+import { StepParcel } from './components/wizard/StepParcel';
+import { StepEquipment } from './components/wizard/StepEquipment';
+import { StepPattern } from './components/wizard/StepPattern';
+import { StepVRA } from './components/wizard/StepVRA';
+import { StepGenerate } from './components/wizard/StepGenerate';
+import { StatsPanel } from './components/panels/StatsPanel';
+import { ExportPanel } from './components/panels/ExportPanel';
+import { HandoffPanel } from './components/panels/HandoffPanel';
+import { PatternSaveLoad } from './components/patterns/PatternSaveLoad';
+import { PathfindingTab } from './components/pathfinding/PathfindingTab';
+import { api } from './services/api';
 const NS = 'gis-routing';
-const { accent } = manifest;
 
 export interface WizardState {
   parcelId: string | null;
@@ -40,11 +42,12 @@ export interface WizardState {
 
 const App: React.FC = () => {
   const { t } = useTranslation(NS);
+  const [activeTab, setActiveTab] = useState<'routing' | 'pathfinding'>('routing');
   const [result, setResult] = useState<any>(null);
   const [generating, setGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const [wizard] = useState<WizardState>({
+  const [wizard, setWizard] = useState<WizardState>({
     parcelId: null,
     parcelGeometry: null,
     parcelName: '',
@@ -69,11 +72,15 @@ const App: React.FC = () => {
     basePatternId: null,
   });
 
+  const updateWizard = useCallback((patch: Partial<WizardState>) => {
+    setWizard(prev => ({ ...prev, ...patch }));
+  }, []);
+
   const handleGenerate = useCallback(async () => {
+    if (!wizard.parcelId || !wizard.parcelGeometry) return;
     setGenerating(true);
     setError(null);
     try {
-      const { api } = await import('./services/api');
       const body: any = {
         parcel_geometry: wizard.parcelGeometry,
         parcel_id: wizard.parcelId,
@@ -100,7 +107,7 @@ const App: React.FC = () => {
           zone_ids: wizard.vraSource !== 'external' ? wizard.vraZoneIds : undefined,
         } : undefined,
       };
-      const res: any = await api.generate(body);
+      const res = await api.generate(body);
       setResult(res);
       window.dispatchEvent(new CustomEvent('nekazari:gis-routing:routeGenerated', {
         detail: {
@@ -115,72 +122,144 @@ const App: React.FC = () => {
     }
   }, [wizard, t]);
 
+  const canGenerate = Boolean(wizard.parcelId && wizard.parcelGeometry && wizard.patternConfig.widthM > 0);
+
   return (
     <WizardShell
       left={
-        <div className="space-y-nkz-stack">
-          <p className="text-nkz-sm text-nkz-text-secondary">
-            {t('parcel.label')}: {wizard.parcelId || t('parcel.select')}
-          </p>
-          <p className="text-nkz-sm text-nkz-text-secondary">
-            {t('parameters.heading')}: {wizard.patternConfig.headingDeg}° / {t('parameters.width')}: {wizard.patternConfig.widthM}m
-          </p>
-          <button
-            onClick={handleGenerate}
-            disabled={generating || !wizard.parcelId}
-            className="w-full min-h-[48px] font-bold text-nkz-sm rounded-nkz-lg transition-colors text-nkz-text-on-accent disabled:opacity-50"
-            style={{ backgroundColor: accent.base }}
-          >
-            {generating ? t('actions.generating') : t('actions.generate')}
-          </button>
-          {error && <p className="text-nkz-xs text-nkz-text-error">{error}</p>}
-        </div>
+        <>
+          <div className="flex rounded-nkz-md bg-nkz-surface-alt p-1 gap-1">
+            <button
+              onClick={() => setActiveTab('routing')}
+              className={`flex-1 text-nkz-xs py-2 rounded-nkz-sm font-medium transition-colors ${
+                activeTab === 'routing'
+                  ? 'bg-nkz-surface text-nkz-text-accent shadow-sm'
+                  : 'text-nkz-text-secondary hover:text-nkz-text-primary'
+              }`}
+            >
+              {t('tabs.routing')}
+            </button>
+            <button
+              onClick={() => setActiveTab('pathfinding')}
+              className={`flex-1 text-nkz-xs py-2 rounded-nkz-sm font-medium transition-colors ${
+                activeTab === 'pathfinding'
+                  ? 'bg-nkz-surface text-nkz-text-accent shadow-sm'
+                  : 'text-nkz-text-secondary hover:text-nkz-text-primary'
+              }`}
+            >
+              {t('tabs.pathfinding')}
+            </button>
+          </div>
+
+          {activeTab === 'routing' ? (
+            <>
+              <StepParcel
+                parcelId={wizard.parcelId}
+                onParcelChange={(id, geometry, name) =>
+                  updateWizard({ parcelId: id, parcelGeometry: geometry, parcelName: name })
+                }
+              />
+              <StepEquipment
+                tractorId={wizard.tractorId}
+                implementId={wizard.implementId}
+                operationType={wizard.operationType}
+                onTractorChange={id => updateWizard({ tractorId: id })}
+                onImplementChange={id => updateWizard({ implementId: id })}
+                onOperationTypeChange={op => updateWizard({ operationType: op })}
+              />
+              <StepPattern
+                config={wizard.patternConfig}
+                pattern={wizard.pattern}
+                operationType={wizard.operationType}
+                onPatternChange={p => updateWizard({ pattern: p })}
+                onConfigChange={c => updateWizard({ patternConfig: { ...wizard.patternConfig, ...c } })}
+                onDemCorrectionChange={d => updateWizard({ demCorrection: d })}
+                demCorrection={wizard.demCorrection}
+                basePatternId={wizard.basePatternId}
+                onBasePatternChange={id => updateWizard({ basePatternId: id })}
+                parcelId={wizard.parcelId}
+                onConfigLoaded={(config: any) => {
+                  if (config) {
+                    updateWizard({
+                      patternConfig: {
+                        headingDeg: config.heading_deg ?? wizard.patternConfig.headingDeg,
+                        widthM: config.width_m ?? wizard.patternConfig.widthM,
+                        overlapPct: config.overlap_pct ?? wizard.patternConfig.overlapPct,
+                        headlandPasses: config.headland_passes ?? wizard.patternConfig.headlandPasses,
+                        skipRows: config.skip_rows ?? wizard.patternConfig.skipRows,
+                        direction: config.direction ?? wizard.patternConfig.direction,
+                      },
+                      pattern: config.pattern_type ?? wizard.pattern,
+                    });
+                  }
+                }}
+              />
+              <StepVRA
+                enabled={wizard.vraEnabled}
+                source={wizard.vraSource}
+                baseRate={wizard.vraBaseRate}
+                rateUnit={wizard.vraRateUnit}
+                zoneIds={wizard.vraZoneIds}
+                parcelId={wizard.parcelId}
+                onEnabledChange={v => updateWizard({ vraEnabled: v })}
+                onSourceChange={(s: any) => updateWizard({ vraSource: s })}
+                onBaseRateChange={r => updateWizard({ vraBaseRate: r })}
+                onZoneIdsChange={ids => updateWizard({ vraZoneIds: ids })}
+                onExternalFileChange={() => updateWizard({ vraRateUnit: 'l_ha' })}
+              />
+              <StepGenerate
+                onGenerate={handleGenerate}
+                generating={generating}
+                canGenerate={canGenerate}
+                error={error}
+              />
+              <PatternSaveLoad
+                result={result}
+                parcelId={wizard.parcelId}
+                tractorId={wizard.tractorId}
+                implementId={wizard.implementId}
+                pattern={wizard.pattern}
+                patternConfig={wizard.patternConfig}
+              />
+            </>
+          ) : (
+            <PathfindingTab />
+          )}
+        </>
       }
       center={
         <div className="absolute inset-0 flex items-center justify-center text-slate-500 text-nkz-sm">
-          <p>{wizard.parcelGeometry ? 'Parcela cargada. Pulsa Generar.' : 'Selecciona una parcela para comenzar'}</p>
+          {!wizard.parcelGeometry ? (
+            <div className="text-center space-y-2">
+              <p className="text-slate-400 text-lg">{t('panels.emptyState')}</p>
+              <p className="text-slate-600 text-nkz-xs">Selecciona una parcela en el panel izquierdo</p>
+            </div>
+          ) : !result ? (
+            <div className="text-center space-y-2">
+              <p className="text-slate-400 text-lg">{wizard.parcelName || wizard.parcelId}</p>
+              <p className="text-slate-600 text-nkz-xs">Configura el patrón y pulsa Generar</p>
+            </div>
+          ) : (
+            <div className="text-center space-y-2">
+              <p className="text-slate-400 text-lg">{wizard.parcelName}</p>
+              <p className="text-nkz-text-success text-nkz-xs">
+                {t('stats.swaths')}: {result?.data?.properties?.swath_count ?? '-'}
+              </p>
+            </div>
+          )}
         </div>
       }
       right={
         result ? (
-          <div className="space-y-nkz-stack">
-            <h3 className="text-nkz-sm font-semibold text-nkz-text-primary">
-              {t('stats.title')}
-            </h3>
-            <dl className="space-y-2 text-nkz-sm">
-              <div className="flex justify-between">
-                <dt className="text-nkz-text-secondary">{t('stats.swaths')}</dt>
-                <dd className="font-bold text-nkz-text-primary">{result.data?.properties?.swath_count ?? '-'}</dd>
-              </div>
-              <div className="flex justify-between">
-                <dt className="text-nkz-text-secondary">{t('stats.distance')}</dt>
-                <dd className="font-bold text-nkz-text-primary">
-                  {result.data?.properties?.total_distance_m
-                    ? `${(result.data.properties.total_distance_m / 1000).toFixed(2)} km`
-                    : '-'}
-                </dd>
-              </div>
-              <div className="flex justify-between">
-                <dt className="text-nkz-text-secondary">{t('stats.area')}</dt>
-                <dd className="font-bold text-nkz-text-primary">
-                  {result.data?.properties?.covered_area_ha
-                    ? `${result.data.properties.covered_area_ha.toFixed(1)} ha`
-                    : '-'}
-                </dd>
-              </div>
-            </dl>
-            {result.data?.properties?.operation_id && (
-              <div className="pt-2 border-t border-nkz-default">
-                <p className="text-nkz-xs font-medium text-nkz-text-secondary">{t('handoff.title')}</p>
-                <code className="text-[11px] bg-nkz-surface-alt px-2 py-1 rounded break-all">
-                  {result.data.properties.operation_id}
-                </code>
-              </div>
-            )}
-          </div>
+          <>
+            <StatsPanel result={result} />
+            <ExportPanel operationId={result?.data?.properties?.operation_id} />
+            <HandoffPanel operationId={result?.data?.properties?.operation_id} />
+          </>
         ) : (
           <div className="flex flex-col items-center justify-center h-64 text-nkz-text-secondary text-nkz-sm">
             <p>{t('panels.emptyState')}</p>
+            <p className="text-nkz-xs mt-1">{t('panels.emptyStateHint')}</p>
           </div>
         )
       }

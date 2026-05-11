@@ -216,7 +216,8 @@
     "climb": "Climb"
   },
   "panels": {
-    "emptyState": "Generate a route to see results"
+    "emptyState": "Generate a route to see results",
+    "emptyStateHint": "Configure parcel, equipment, and pattern in the left panel"
   },
   "handoff": {
     "title": "Continue on mobile",

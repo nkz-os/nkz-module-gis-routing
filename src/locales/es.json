@@ -216,7 +216,8 @@
     "climb": "Desnivel"
   },
   "panels": {
-    "emptyState": "Genera una ruta para ver resultados"
+    "emptyState": "Genera una ruta para ver resultados",
+    "emptyStateHint": "Configura parcela, equipo y patrón en el panel izquierdo"
   },
   "handoff": {
     "title": "Continuar en el móvil",
