@@ -76,7 +76,7 @@ const ZoningTab: React.FC = () => {
     setLoading(true);
     setError(null);
     try {
-      const result: any = await api.getZones(targetParcelId);
+      const result: any = await api.getVRAZones(targetParcelId);
       if (result?.data?.zones) {
         setZones(result.data.zones);
       }
@@ -94,29 +94,45 @@ const ZoningTab: React.FC = () => {
     setPollState('queued');
     setPollAttempt(0);
     try {
-      await api.generateZones(targetParcelId, numZones);
-      let attempts = 0;
-      const poll = async () => {
-        attempts++;
-        setPollState('polling');
-        setPollAttempt(attempts);
-        try {
-          const result: any = await api.getZones(targetParcelId);
-          if (result?.data?.zones?.length > 0) {
-            setZones(result.data.zones);
-            setPollState('done');
-            return;
+      // Trigger zone generation via the standard generate endpoint
+      const genResult: any = await api.generate({
+        parcel_id: targetParcelId,
+        vra_enabled: true,
+        external_zone_feature: undefined,
+        zone_ids: [],
+      });
+      if (genResult?.data?.properties?.operation_id) {
+        // Wait for zones to be available
+        let attempts = 0;
+        const poll = async () => {
+          attempts++;
+          setPollState('polling');
+          setPollAttempt(attempts);
+          try {
+            const result: any = await api.getVRAZones(targetParcelId);
+            if (result?.data?.zones?.length > 0) {
+              setZones(result.data.zones);
+              setPollState('done');
+              return;
+            }
+          } catch {
+            /* polling gracefully stops on error */
           }
-        } catch {
-          /* polling gracefully stops on error */
+          if (attempts < 15) {
+            setTimeout(poll, 2000);
+          } else {
+            setPollState('timeout');
+          }
+        };
+        setTimeout(poll, 2000);
+      } else {
+        // Fallback: just fetch existing zones
+        const result: any = await api.getVRAZones(targetParcelId);
+        if (result?.data?.zones) {
+          setZones(result.data.zones);
         }
-        if (attempts < 15) {
-          setTimeout(poll, 2000);
-        } else {
-          setPollState('timeout');
-        }
-      };
-      setTimeout(poll, 2000);
+        setPollState('done');
+      }
     } catch (err: any) {
       setError(err?.message || t('zoning.generateError'));
       setPollState('idle');

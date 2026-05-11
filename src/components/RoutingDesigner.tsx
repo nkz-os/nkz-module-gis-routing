@@ -23,10 +23,6 @@ import {
 } from 'lucide-react';
 import {
   api,
-  type OperationSummary,
-  type ZoneData,
-  type ActiveOperationInfo,
-  type EquipmentSummary,
   ApiError,
 } from '../services/api';
 import manifest from '../../manifest.json';
@@ -35,7 +31,52 @@ const NS = 'gis-routing';
 const { accent } = manifest;
 
 interface ParcelOption { id: string; name: string; area?: number }
-interface EquipmentOption extends EquipmentSummary {}
+interface EquipmentOption {
+  id: string;
+  name: string;
+  category?: string;
+  machine_role?: 'tractor' | 'implement' | 'unknown';
+  implementWidth?: number;
+  trackWidth?: number;
+  wheelbase?: number;
+  gpsOffsetX?: number;
+  gpsOffsetY?: number;
+  gpsOffsetZ?: number;
+  hitchType?: string;
+  hitchOffsetX?: number;
+  implementLength?: number;
+  implementOffsetX?: number;
+  steeringType?: string;
+  steeringAxles?: string;
+}
+interface ZoneData {
+  id: string;
+  zone_id: number | string;
+  zone_class: string;
+  prescription_rate: number;
+  mean_value: number;
+  area_ha: number;
+  geometry: any;
+}
+interface ActiveOperationInfo {
+  id: string;
+  parcel_id: string;
+  operation_type: string;
+  status: string;
+  started_at?: string | null;
+  name?: string;
+}
+interface OperationSummary {
+  id: string;
+  parcel_id: string;
+  operation_type: string;
+  implement_width: number;
+  vra_enabled: boolean;
+  status: string;
+  started_at?: string | null;
+  completed_at?: string | null;
+  updated_at?: string | null;
+}
 type OperationType = 'spraying' | 'fertilizing' | 'seeding' | 'tillage';
 type CouplingModel = 'rigid' | 'articulated';
 type VraSource = 'orion' | 'external';
@@ -174,11 +215,11 @@ const RoutingDesigner: React.FC = () => {
       setZonesLoading(true);
       setZonesError(null);
       try {
-        const response = await api.getZones(currentParcelId);
+        const response = await api.getVRAZones(currentParcelId);
         if (!cancelled) {
-          const zoneList = response?.data?.zones || [];
+          const zoneList: ZoneData[] = response?.data?.zones || [];
           setZones(zoneList);
-          setSelectedZoneIds(zoneList.map((z) => z.id));
+          setSelectedZoneIds(zoneList.map((z: ZoneData) => z.id));
         }
       } catch (err: any) {
         if (!cancelled) {
@@ -240,7 +281,7 @@ const RoutingDesigner: React.FC = () => {
       };
 
       const res: any = vraEnabled
-        ? await api.generateWithVRA({
+        ? await api.generate({
             ...body,
             base_rate: baseRate,
             rate_unit: rateUnit,
@@ -309,7 +350,7 @@ const RoutingDesigner: React.FC = () => {
     setClosingOperationId(operationId);
     setOperationsError(null);
     try {
-      await api.closeOperationSession(operationId, new Date().toISOString(), 'ended');
+      await api.closeOperation(operationId);
       await loadOperations();
     } catch (err: any) {
       setOperationsError(err?.message || t('operations.closeError'));
@@ -322,7 +363,7 @@ const RoutingDesigner: React.FC = () => {
     setStartingOperationId(operationId);
     setOperationsError(null);
     try {
-      await api.startOperationSession(operationId, new Date().toISOString(), 'in_progress');
+      await api.startOperation(operationId);
       await loadOperations();
     } catch (err: any) {
       if (err instanceof ApiError && err.status === 409) {
