@@ -42,7 +42,7 @@ export const PathfindingTab: React.FC = () => {
 
   const openMapPicker = () => {
     localStorage.removeItem(STORAGE_KEY);
-    window.open('/?pick=pathfinding', '_blank', 'noopener');
+    window.open('/entities?pick=pathfinding', '_blank', 'noopener');
   };
 
   const handleCalculate = useCallback(async () => {

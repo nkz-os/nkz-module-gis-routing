@@ -28,7 +28,7 @@ export const RoutePreviewMap: React.FC<Props> = ({
   }, [result]);
 
   const openViewer = () => {
-    window.open('/', '_blank', 'noopener');
+    window.open('/entities', '_blank', 'noopener');
   };
 
   const svgContent = useMemo(() => {
