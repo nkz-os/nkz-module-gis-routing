@@ -17,7 +17,7 @@ from fastapi import APIRouter, Request, Query, HTTPException
 from fastapi.responses import JSONResponse
 from fastapi.responses import Response as FastAPIResponse
 from pydantic import BaseModel, Field
-from typing import Optional
+from typing import Optional, Literal
 
 import httpx
 from app.services.sync_service import SyncService, SyncConflictError
@@ -27,6 +27,9 @@ from app.services.timescale_client import TimescaleDBClient
 from app.services.export_service import RouteExporter
 from app.services.pmtiles_generator import PMTileGenerator
 from app.config import get_settings
+from app.services.routing import strategy_for
+from app.services.routing.base import PatternConfig
+from app.services.routing.dem_correction import apply_dem_correction
 
 logger = logging.getLogger(__name__)
 router = APIRouter(tags=["routing"])
@@ -408,103 +411,138 @@ async def push_changes(
     return JSONResponse(content=result)
 
 
-# Keep existing generate endpoint -- it works with the geometry engine
+class PatternConfigRequest(BaseModel):
+    heading_deg: float = Field(default=0, ge=0, lt=360)
+    width_m: float = Field(default=24, gt=0)
+    overlap_pct: float = Field(default=0, ge=0, le=30)
+    headland_passes: int = Field(default=0, ge=0, le=3)
+    skip_rows: int = Field(default=0, ge=0, le=2)
+    direction: Literal["inside-out", "outside-in"] = "outside-in"
+
+
+class VRAConfig(BaseModel):
+    enabled: bool = False
+    source: Literal["vegetation-health", "orion", "external"] = "orion"
+    base_rate: float = Field(default=100, gt=0)
+    rate_unit: str = "l_ha"
+    zone_ids: Optional[list[str]] = None
+    external_features: Optional[list[dict]] = None
+
+
 class GenerateRequest(BaseModel):
-    parcel_geometry: dict = Field(..., description="GeoJSON Polygon WGS84")
-    start_point: list[float] = Field(..., description="[lon, lat] A-B reference point")
-    heading_deg: float = Field(..., ge=0, lt=360)
-    width_m: float = Field(..., gt=0)
+    parcel_geometry: dict
     parcel_id: Optional[str] = None
     tractor_id: Optional[str] = None
     implement_id: Optional[str] = None
-    operation_type: Optional[str] = "spraying"
-    coupling_model: str = Field(
-        default="rigid",
-        description="Machine coupling model. Current backend supports only 'rigid'.",
-    )
-    dem_correction: bool = Field(False, description="Enable DEM slope correction via eu-elevation")
+    pattern: Literal["ab-line", "ab-skip", "spiral", "headland-only"] = "ab-line"
+    pattern_config: PatternConfigRequest = Field(default_factory=PatternConfigRequest)
+    operation_type: str = "spraying"
+    coupling_model: str = "rigid"
+    dem_correction: bool = False
     persist: bool = True
-    selected_alternative_id: Optional[str] = Field(
-        default=None,
-        description="When set, persist/export uses this trajectory variant from the computed set",
-    )
+    selected_alternative_id: Optional[str] = None
+    base_pattern_id: Optional[str] = None
+    vra: Optional[VRAConfig] = None
 
 
 @router.post("/generate")
 async def generate_routing_plan(request: Request, body: GenerateRequest):
+    """Unified route generation endpoint. Supports all patterns + optional VRA."""
     if body.parcel_geometry.get("type") != "Polygon":
-        raise HTTPException(status_code=400,
-                            detail="parcel_geometry must be a GeoJSON Polygon")
-    if body.coupling_model != "rigid":
-        raise HTTPException(
-            status_code=400,
-            detail="coupling_model not supported yet. Use 'rigid'.",
-        )
-    try:
-        settings = get_settings()
-        dem_url = settings.eu_elevation_url if body.dem_correction else None
-        alternatives = await _build_trajectory_alternatives(
-            base_heading_deg=body.heading_deg,
-            parcel_geometry=body.parcel_geometry,
-            start_point=body.start_point,
-            width_m=body.width_m,
-            dem_correction=body.dem_correction,
-            dem_url=dem_url,
-        )
-        chosen = _pick_trajectory_alternative(
-            alternatives, body.selected_alternative_id, body.heading_deg
-        )
-        geojson_result = chosen["geometry"]
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail="parcel_geometry must be a GeoJSON Polygon")
 
-    swath_count = int(chosen.get("swath_count", 0))
+    from shapely.geometry import shape, mapping
+    wgs84_poly = shape(body.parcel_geometry)
+
+    pc = body.pattern_config
+    pattern_config = PatternConfig(
+        heading_deg=pc.heading_deg,
+        width_m=pc.width_m,
+        overlap_pct=pc.overlap_pct,
+        headland_passes=pc.headland_passes,
+        skip_rows=pc.skip_rows,
+        direction=pc.direction,
+    )
+
+    # Generate alternatives
+    strategy = strategy_for(body.pattern)
+    alternatives = []
+    for offset_deg in [0.0, 45.0, 90.0]:
+        alt_config = PatternConfig(
+            heading_deg=(pattern_config.heading_deg + offset_deg) % 360,
+            width_m=pattern_config.width_m,
+            overlap_pct=pattern_config.overlap_pct,
+            headland_passes=pattern_config.headland_passes,
+            skip_rows=pattern_config.skip_rows,
+            direction=pattern_config.direction,
+        )
+        result = strategy.generate(wgs84_poly, alt_config)
+        alternatives.append({
+            "id": f"alt-{len(alternatives)}",
+            "heading_deg": alt_config.heading_deg,
+            "swath_count": result.swath_count,
+            "total_distance_m": result.total_distance_m,
+            "result": result,
+        })
+
+    # Pick selected alternative
+    chosen = None
+    if body.selected_alternative_id:
+        for a in alternatives:
+            if a["id"] == body.selected_alternative_id:
+                chosen = a
+                break
+    if chosen is None:
+        for a in alternatives:
+            if abs(a["heading_deg"] - pattern_config.heading_deg) < 0.01:
+                chosen = a
+                break
+    if chosen is None:
+        chosen = alternatives[0]
+
+    # Apply DEM correction if enabled
+    if body.dem_correction:
+        settings = get_settings()
+        dem_url = settings.eu_elevation_url
+        if dem_url:
+            centroid = wgs84_poly.centroid
+            corrected_width = await apply_dem_correction(
+                chosen["result"].geometry,
+                [centroid.x, centroid.y],
+                chosen["heading_deg"],
+                pattern_config.width_m,
+                dem_url,
+            )
+            if abs(corrected_width - pattern_config.width_m) > 0.01:
+                # Regenerate with corrected width
+                alt_config = PatternConfig(
+                    heading_deg=chosen["heading_deg"],
+                    width_m=corrected_width,
+                    overlap_pct=pattern_config.overlap_pct,
+                    headland_passes=pattern_config.headland_passes,
+                    skip_rows=pattern_config.skip_rows,
+                    direction=pattern_config.direction,
+                )
+                corrected_result = strategy.generate(wgs84_poly, alt_config)
+                chosen["result"] = corrected_result
+
+    # Apply VRA if enabled
+    prescription_map = None
+    if body.vra and body.vra.enabled:
+        zone_features = await _resolve_vra_zones(body, request)
+        if zone_features:
+            from app.services.vra_intersector import intersect_swaths_with_zones
+            prescription_map = intersect_swaths_with_zones(
+                chosen["result"].geometry, zone_features,
+                body.vra.base_rate, pattern_config.width_m,
+            )
+
+    # Persist to Orion-LD if requested
     operation_id = None
-
     if body.persist and body.parcel_id:
-        tenant_id = _get_tenant_id(request)
-        settings = get_settings()
-        orion = OrionLDClient(base_url=settings.context_broker_url,
-                              context_url=settings.ngsi_ld_context)
-        op_remote_id = (
-            f"urn:ngsi-ld:AgriParcelOperation:{tenant_id}:"
-            f"{uuid.uuid4().hex[:8]}"
+        operation_id = await _persist_operation(
+            chosen["result"], body, request, prescription_map,
         )
-        entity = {
-            "id": op_remote_id,
-            "type": "AgriParcelOperation",
-            "name": {
-                "type": "Property",
-                "value": f"{body.operation_type} - {body.parcel_id[:8]}",
-            },
-            "operationType": {"type": "Property", "value": body.operation_type},
-            "couplingModel": {"type": "Property", "value": body.coupling_model},
-            "status": {"type": "Property", "value": "planned"},
-            "location": {"type": "GeoProperty", "value": geojson_result},
-            "implementWidth": {"type": "Property", "value": body.width_m},
-            "swathCount": {"type": "Property", "value": swath_count},
-            "dateCreated": {
-                "type": "Property",
-                "value": {
-                    "@type": "DateTime",
-                    "@value": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
-                },
-            },
-        }
-        entity["refAgriParcel"] = {"type": "Relationship", "object": body.parcel_id}
-        if body.tractor_id:
-            entity["refTractor"] = {"type": "Relationship", "object": body.tractor_id}
-        if body.implement_id:
-            entity["refImplement"] = {"type": "Relationship", "object": body.implement_id}
-        entity["routingVariantId"] = {"type": "Property", "value": str(chosen["id"])}
-
-        try:
-            await orion.create_entity(entity, tenant_id)
-            operation_id = op_remote_id
-        except Exception as e:
-            logger.error("Failed to persist operation: %s", e)
-        finally:
-            await orion.close()
 
     return {
         "success": True,
@@ -513,209 +551,155 @@ async def generate_routing_plan(request: Request, body: GenerateRequest):
                 "id": a["id"],
                 "heading_deg": a["heading_deg"],
                 "swath_count": a["swath_count"],
+                "total_distance_m": a["total_distance_m"],
             }
             for a in alternatives
         ],
         "data": {
             "type": "Feature",
-            "geometry": geojson_result,
+            "geometry": mapping(chosen["result"].geometry),
             "properties": {
                 "heading_deg": chosen["heading_deg"],
-                "width_m": body.width_m,
-                "swath_count": swath_count,
+                "width_m": pattern_config.width_m,
+                "swath_count": chosen["swath_count"],
+                "total_distance_m": chosen["total_distance_m"],
+                "covered_area_ha": chosen["result"].covered_area_ha,
+                "pattern": body.pattern,
                 "operation_id": operation_id,
                 "selected_alternative_id": chosen["id"],
-            },
-        },
-    }
-
-
-class GenerateVRARequest(BaseModel):
-    parcel_geometry: dict
-    start_point: list[float]
-    heading_deg: float = Field(..., ge=0, lt=360)
-    width_m: float = Field(..., gt=0)
-    parcel_id: Optional[str] = None
-    tractor_id: Optional[str] = None
-    implement_id: Optional[str] = None
-    operation_type: Optional[str] = "spraying"
-    coupling_model: str = Field(
-        default="rigid",
-        description="Machine coupling model. Current backend supports only 'rigid'.",
-    )
-    dem_correction: bool = Field(False, description="Enable DEM slope correction via eu-elevation")
-    base_rate: float = Field(
-        ..., gt=0, description="Base application rate l/ha or kg/ha"
-    )
-    rate_unit: Optional[str] = "l_ha"
-    vra_source: str = Field(
-        default="orion",
-        description="VRA source: 'orion' for AgriManagementZone in Orion-LD, 'external' for uploaded zones.",
-    )
-    zone_ids: Optional[list[str]] = None
-    external_zone_features: Optional[list[dict]] = None
-    persist: bool = True
-    selected_alternative_id: Optional[str] = Field(
-        default=None,
-        description="Trajectory variant to use before VRA intersection / persistence",
-    )
-
-
-@router.post("/generate/with-vra")
-async def generate_routing_with_vra(request: Request, body: GenerateVRARequest):
-    from shapely.geometry import shape
-    from app.services.vra_intersector import intersect_swaths_with_zones
-
-    if body.parcel_geometry.get("type") != "Polygon":
-        raise HTTPException(
-            status_code=400, detail="parcel_geometry must be a GeoJSON Polygon"
-        )
-    if body.coupling_model != "rigid":
-        raise HTTPException(
-            status_code=400,
-            detail="coupling_model not supported yet. Use 'rigid'.",
-        )
-    tenant_id = _get_tenant_id(request)
-    settings = get_settings()
-
-    # Generate swaths (trajectory alternatives)
-    try:
-        dem_url = settings.eu_elevation_url if body.dem_correction else None
-        alternatives = await _build_trajectory_alternatives(
-            base_heading_deg=body.heading_deg,
-            parcel_geometry=body.parcel_geometry,
-            start_point=body.start_point,
-            width_m=body.width_m,
-            dem_correction=body.dem_correction,
-            dem_url=dem_url,
-        )
-        chosen_alt = _pick_trajectory_alternative(
-            alternatives, body.selected_alternative_id, body.heading_deg
-        )
-        swath_geojson = chosen_alt["geometry"]
-        multi_line_string = shape(swath_geojson)
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
-
-    # Resolve VRA zones source
-    prescription_map = None
-    zone_features: list[dict] = []
-    zones_count = 0
-    if body.vra_source == "external":
-        zone_features = _normalize_external_zone_features(body.external_zone_features or [])
-        zones_count = len(zone_features)
-    else:
-        orion = OrionLDClient(
-            base_url=settings.context_broker_url, context_url=settings.ngsi_ld_context
-        )
-        zones = await orion.query_entities("AgriManagementZone", tenant_id)
-        await orion.close()
-        if body.parcel_id:
-            zones = [
-                z
-                for z in zones
-                if body.parcel_id in _relationship_target(z, "refAgriParcel")
-            ]
-        if body.zone_ids:
-            zones = [z for z in zones if z["id"] in body.zone_ids]
-        zones_count = len(zones)
-        for z in zones:
-            loc = z.get("location", {}).get("value", {})
-            if loc:
-                zone_features.append(
-                    {
-                        "type": "Feature",
-                        "geometry": loc,
-                        "properties": {
-                            "zone_id": z.get("zoneId", {}).get("value", z["id"]),
-                            "zone_class": z.get("zoneClass", {}).get("value", ""),
-                            "prescription_rate": float(
-                                z.get("prescriptionRate", {}).get("value", 1.0)
-                            ),
-                        },
-                    }
-                )
-    if zone_features:
-        prescription_map = intersect_swaths_with_zones(
-            multi_line_string, zone_features, body.base_rate, body.width_m
-        )
-
-    # Persist
-    operation_id = None
-    if body.persist and body.parcel_id:
-        op_remote_id = (
-            f"urn:ngsi-ld:AgriParcelOperation:{tenant_id}:"
-            f"{uuid.uuid4().hex[:8]}"
-        )
-        now_ms = int(time.time() * 1000)
-        orion = OrionLDClient(
-            base_url=settings.context_broker_url,
-            context_url=settings.ngsi_ld_context,
-        )
-        entity = {
-            "id": op_remote_id,
-            "type": "AgriParcelOperation",
-            "name": {
-                "type": "Property",
-                "value": f"VRA {body.operation_type} - {body.parcel_id[:8]}",
-            },
-            "operationType": {"type": "Property", "value": body.operation_type},
-            "couplingModel": {"type": "Property", "value": body.coupling_model},
-            "status": {"type": "Property", "value": "planned"},
-            "location": {"type": "GeoProperty", "value": swath_geojson},
-            "implementWidth": {"type": "Property", "value": body.width_m},
-            "vraEnabled": {"type": "Property", "value": bool(zone_features)},
-            "vraSource": {"type": "Property", "value": body.vra_source},
-            "baseRate": {"type": "Property", "value": body.base_rate},
-            "rateUnit": {"type": "Property", "value": body.rate_unit},
-        }
-        entity["refAgriParcel"] = {"type": "Relationship", "object": body.parcel_id}
-        if body.tractor_id:
-            entity["refTractor"] = {"type": "Relationship", "object": body.tractor_id}
-        if body.implement_id:
-            entity["refImplement"] = {"type": "Relationship", "object": body.implement_id}
-        entity["routingVariantId"] = {"type": "Property", "value": str(chosen_alt["id"])}
-        if prescription_map:
-            entity["prescriptionMap"] = {
-                "type": "Property",
-                "value": prescription_map,
-            }
-        try:
-            await orion.create_entity(entity, tenant_id)
-            operation_id = op_remote_id
-        except Exception as e:
-            logger.error("Failed to persist VRA operation: %s", e)
-        finally:
-            await orion.close()
-
-    return {
-        "success": True,
-        "alternatives": [
-            {
-                "id": a["id"],
-                "heading_deg": a["heading_deg"],
-                "swath_count": a["swath_count"],
-            }
-            for a in alternatives
-        ],
-        "data": {
-            "type": "Feature",
-            "geometry": swath_geojson,
-            "properties": {
-                "heading_deg": chosen_alt["heading_deg"],
-                "width_m": body.width_m,
-                "swath_count": len(swath_geojson.get("coordinates", [])),
-                "vra_enabled": bool(zone_features),
-                "zone_count": zones_count,
-                "vra_source": body.vra_source,
-                "base_rate": body.base_rate,
-                "rate_unit": body.rate_unit,
-                "operation_id": operation_id,
-                "selected_alternative_id": chosen_alt["id"],
+                "vra_enabled": prescription_map is not None,
             },
         },
         "prescription_map": prescription_map,
     }
+
+
+async def _resolve_vra_zones(body: GenerateRequest, request: Request) -> list[dict]:
+    """Resolve VRA zone features from configured source."""
+    if body.vra.source == "external":
+        return _normalize_external_zone_features(body.vra.external_features or [])
+
+    if body.vra.source == "vegetation-health":
+        try:
+            async with httpx.AsyncClient(timeout=30.0) as client:
+                resp = await client.get(
+                    f"http://vegetation-health-api-service:8000/"
+                    f"api/vegetation/zones/{body.parcel_id}",
+                    headers={"X-Tenant-ID": _get_tenant_id(request)},
+                )
+                if resp.status_code == 200:
+                    data = resp.json()
+                    return _zones_from_vegetation_health_response(data)
+        except Exception:
+            pass
+
+    # Default: Orion-LD
+    settings = get_settings()
+    orion = OrionLDClient(settings.context_broker_url, settings.ngsi_ld_context)
+    try:
+        zones = await orion.query_entities("AgriManagementZone", _get_tenant_id(request))
+    finally:
+        await orion.close()
+    return _zones_from_orion(zones, body.parcel_id, body.vra.zone_ids if body.vra else None)
+
+
+def _zones_from_vegetation_health_response(data: dict) -> list[dict]:
+    features = []
+    for zone in data.get("data", {}).get("zones", []):
+        geom = zone.get("geometry")
+        if geom:
+            features.append({
+                "type": "Feature",
+                "geometry": geom,
+                "properties": {
+                    "zone_id": zone.get("zone_id", ""),
+                    "zone_class": zone.get("zone_class", ""),
+                    "prescription_rate": float(zone.get("prescription_rate", 1.0)),
+                },
+            })
+    return features
+
+
+def _zones_from_orion(zones: list[dict], parcel_id: str, zone_ids: list[str] | None) -> list[dict]:
+    matched = []
+    for z in zones:
+        ref = _relationship_target(z, "refAgriParcel")
+        if parcel_id not in ref:
+            continue
+        if zone_ids and z["id"] not in zone_ids:
+            continue
+        loc = z.get("location", {}).get("value", {})
+        if loc:
+            matched.append({
+                "type": "Feature",
+                "geometry": loc,
+                "properties": {
+                    "zone_id": z.get("zoneId", {}).get("value", z["id"]),
+                    "zone_class": z.get("zoneClass", {}).get("value", ""),
+                    "prescription_rate": float(z.get("prescriptionRate", {}).get("value", 1.0)),
+                },
+            })
+    return matched
+
+
+async def _persist_operation(
+    result, body: GenerateRequest, request: Request, prescription_map: dict | None,
+) -> Optional[str]:
+    """Persist route as AgriParcelOperation in Orion-LD. Returns operation URN."""
+    import uuid, time
+    tenant_id = _get_tenant_id(request)
+    settings = get_settings()
+    from shapely.geometry import mapping
+
+    op_remote_id = (
+        f"urn:ngsi-ld:AgriParcelOperation:{tenant_id}:"
+        f"{uuid.uuid4().hex[:8]}"
+    )
+    geojson = mapping(result.geometry)
+
+    entity = {
+        "id": op_remote_id,
+        "type": "AgriParcelOperation",
+        "name": {
+            "type": "Property",
+            "value": f"{body.operation_type} - {body.parcel_id[:8] if body.parcel_id else 'op'}",
+        },
+        "operationType": {"type": "Property", "value": body.operation_type},
+        "couplingModel": {"type": "Property", "value": body.coupling_model},
+        "status": {"type": "Property", "value": "planned"},
+        "location": {"type": "GeoProperty", "value": geojson},
+        "implementWidth": {"type": "Property", "value": body.pattern_config.width_m},
+        "swathCount": {"type": "Property", "value": result.swath_count},
+        "dateCreated": {
+            "type": "Property",
+            "value": {
+                "@type": "DateTime",
+                "@value": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+            },
+        },
+    }
+    entity["refAgriParcel"] = {"type": "Relationship", "object": body.parcel_id}
+    if body.tractor_id:
+        entity["refTractor"] = {"type": "Relationship", "object": body.tractor_id}
+    if body.implement_id:
+        entity["refImplement"] = {"type": "Relationship", "object": body.implement_id}
+
+    if prescription_map:
+        entity["vraEnabled"] = {"type": "Property", "value": True}
+        entity["vraSource"] = {"type": "Property", "value": body.vra.source}
+        entity["baseRate"] = {"type": "Property", "value": body.vra.base_rate}
+        entity["rateUnit"] = {"type": "Property", "value": body.vra.rate_unit}
+        entity["prescriptionMap"] = {"type": "Property", "value": prescription_map}
+
+    orion = OrionLDClient(settings.context_broker_url, settings.ngsi_ld_context)
+    try:
+        await orion.create_entity(entity, tenant_id)
+        return op_remote_id
+    except Exception as e:
+        logger.error("Failed to persist operation: %s", e)
+        return None
+    finally:
+        await orion.close()
 
 
 class ExternalZonesIngestRequest(BaseModel):
