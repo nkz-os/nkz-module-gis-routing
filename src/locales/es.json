@@ -199,6 +199,12 @@
     "namePlaceholder": "Nombre del patrón...",
     "save": "Guardar"
   },
+  "patternLabels": {
+    "ab-line": "Linea AB",
+    "ab-skip": "AB Salteo",
+    "spiral": "Espiral",
+    "headland-only": "Solo cabecero"
+  },
   "pathfinding": {
     "title": "Navegación",
     "pointA": "Punto A",

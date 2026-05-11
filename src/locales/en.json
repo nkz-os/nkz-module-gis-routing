@@ -199,6 +199,12 @@
     "namePlaceholder": "Pattern name...",
     "save": "Save"
   },
+  "patternLabels": {
+    "ab-line": "AB Line",
+    "ab-skip": "AB Skip Row",
+    "spiral": "Spiral",
+    "headland-only": "Headland Only"
+  },
   "pathfinding": {
     "title": "Pathfinding",
     "pointA": "Point A",
