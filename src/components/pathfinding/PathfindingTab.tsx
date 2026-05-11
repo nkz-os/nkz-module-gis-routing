@@ -1,9 +1,10 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { useTranslation } from '@nekazari/sdk';
-import { Flag, Loader2 } from 'lucide-react';
+import { Flag, Loader2, Crosshair } from 'lucide-react';
 import { api } from '../../services/api';
 
 const NS = 'gis-routing';
+const STORAGE_KEY = 'nkz-pathfinding-points';
 
 export const PathfindingTab: React.FC = () => {
   const { t } = useTranslation(NS);
@@ -14,6 +15,35 @@ export const PathfindingTab: React.FC = () => {
   const [polling, setPolling] = useState(false);
   const [alternatives, setAlternatives] = useState<any[]>([]);
   const [error, setError] = useState<string | null>(null);
+
+  // Listen for points picked on the 3D map via localStorage
+  useEffect(() => {
+    const onStorage = (e: StorageEvent) => {
+      if (e.key === STORAGE_KEY && e.newValue) {
+        try {
+          const data = JSON.parse(e.newValue);
+          if (data.pointA) setPointA({ lon: data.pointA[0], lat: data.pointA[1] });
+          if (data.pointB) setPointB({ lon: data.pointB[0], lat: data.pointB[1] });
+        } catch {}
+      }
+    };
+    window.addEventListener('storage', onStorage);
+    // Also check on mount (in case points were already picked)
+    const stored = localStorage.getItem(STORAGE_KEY);
+    if (stored) {
+      try {
+        const data = JSON.parse(stored);
+        if (data.pointA) setPointA({ lon: data.pointA[0], lat: data.pointA[1] });
+        if (data.pointB) setPointB({ lon: data.pointB[0], lat: data.pointB[1] });
+      } catch {}
+    }
+    return () => window.removeEventListener('storage', onStorage);
+  }, []);
+
+  const openMapPicker = () => {
+    localStorage.removeItem(STORAGE_KEY);
+    window.open('/?pick=pathfinding', '_blank', 'noopener');
+  };
 
   const handleCalculate = useCallback(async () => {
     setCalculating(true);
@@ -68,6 +98,14 @@ export const PathfindingTab: React.FC = () => {
         <Flag className="w-4 h-4 text-nkz-text-accent" />
         {t('pathfinding.title')}
       </h3>
+
+      <button
+        onClick={openMapPicker}
+        className="w-full flex items-center justify-center gap-2 py-2 rounded-nkz-md text-nkz-xs font-semibold border border-nkz-accent text-nkz-text-accent hover:bg-nkz-surface-alt transition-colors"
+      >
+        <Crosshair className="w-3.5 h-3.5" />
+        {t('pathfinding.pickOnMap')}
+      </button>
 
       <div className="grid grid-cols-2 gap-2">
         <div>
