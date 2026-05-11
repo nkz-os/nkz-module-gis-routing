@@ -12,6 +12,7 @@ import { ExportPanel } from './components/panels/ExportPanel';
 import { HandoffPanel } from './components/panels/HandoffPanel';
 import { PatternSaveLoad } from './components/patterns/PatternSaveLoad';
 import { PathfindingTab } from './components/pathfinding/PathfindingTab';
+import { RoutePreviewMap } from './components/viewer/RoutePreviewMap';
 import { api } from './services/api';
 const NS = 'gis-routing';
 
@@ -228,26 +229,12 @@ const App: React.FC = () => {
         </>
       }
       center={
-        <div className="absolute inset-0 flex items-center justify-center text-slate-500 text-nkz-sm">
-          {!wizard.parcelGeometry ? (
-            <div className="text-center space-y-2">
-              <p className="text-slate-400 text-lg">{t('panels.emptyState')}</p>
-              <p className="text-slate-600 text-nkz-xs">Selecciona una parcela en el panel izquierdo</p>
-            </div>
-          ) : !result ? (
-            <div className="text-center space-y-2">
-              <p className="text-slate-400 text-lg">{wizard.parcelName || wizard.parcelId}</p>
-              <p className="text-slate-600 text-nkz-xs">Configura el patrón y pulsa Generar</p>
-            </div>
-          ) : (
-            <div className="text-center space-y-2">
-              <p className="text-slate-400 text-lg">{wizard.parcelName}</p>
-              <p className="text-nkz-text-success text-nkz-xs">
-                {t('stats.swaths')}: {result?.data?.properties?.swath_count ?? '-'}
-              </p>
-            </div>
-          )}
-        </div>
+        <RoutePreviewMap
+          parcelGeometry={wizard.parcelGeometry}
+          parcelName={wizard.parcelName}
+          result={result}
+          generating={generating}
+        />
       }
       right={
         result ? (

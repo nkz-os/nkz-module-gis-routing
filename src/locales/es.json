@@ -217,7 +217,11 @@
   },
   "panels": {
     "emptyState": "Genera una ruta para ver resultados",
-    "emptyStateHint": "Configura parcela, equipo y patrón en el panel izquierdo"
+    "emptyStateHint": "Configura parcela, equipo y patrón en el panel izquierdo",
+    "selectParcelHint": "Selecciona una parcela para comenzar",
+    "viewOnMap": "Ver en mapa 3D",
+    "viewOnMapHint": "La ruta se proyectará sobre el visor unificado",
+    "readyToGenerate": "Configura el patrón y pulsa Generar"
   },
   "handoff": {
     "title": "Continuar en el móvil",

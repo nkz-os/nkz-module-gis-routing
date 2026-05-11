@@ -217,7 +217,11 @@
   },
   "panels": {
     "emptyState": "Generate a route to see results",
-    "emptyStateHint": "Configure parcel, equipment, and pattern in the left panel"
+    "emptyStateHint": "Configure parcel, equipment, and pattern in the left panel",
+    "selectParcelHint": "Select a parcel to get started",
+    "viewOnMap": "View on 3D Map",
+    "viewOnMapHint": "The route will be projected onto the unified viewer",
+    "readyToGenerate": "Configure the pattern and press Generate"
   },
   "handoff": {
     "title": "Continue on mobile",

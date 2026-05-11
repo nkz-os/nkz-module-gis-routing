@@ -9,6 +9,7 @@ export const PathfindingTab: React.FC = () => {
   const { t } = useTranslation(NS);
   const [pointA, setPointA] = useState({ lon: -1.65, lat: 42.82 });
   const [pointB, setPointB] = useState({ lon: -1.64, lat: 42.81 });
+  const [elevationSource, setElevationSource] = useState<string>('eu-dem');
   const [calculating, setCalculating] = useState(false);
   const [polling, setPolling] = useState(false);
   const [alternatives, setAlternatives] = useState<any[]>([]);
@@ -25,6 +26,7 @@ export const PathfindingTab: React.FC = () => {
         machine_width_m: 3,
         max_slope_deg: 15,
         min_turn_radius_m: 8,
+        elevation_source: elevationSource,
         num_alternatives: 3,
       });
       const id = res.job_id;
@@ -86,6 +88,15 @@ export const PathfindingTab: React.FC = () => {
             onChange={e => setPointB({ ...pointB, lon: +e.target.value })}
             className="w-full border border-nkz-default rounded-nkz-md px-2 py-1 text-nkz-xs mt-1" />
         </div>
+      </div>
+
+      <div>
+        <label className="text-nkz-xs text-nkz-text-secondary">Elevation source</label>
+        <select value={elevationSource} onChange={e => setElevationSource(e.target.value)}
+          className="w-full border border-nkz-default rounded-nkz-md px-3 py-2 text-nkz-sm bg-nkz-surface">
+          <option value="eu-dem">EU-DEM (Copernicus)</option>
+          <option value="lidar">LiDAR DTM (PNOA)</option>
+        </select>
       </div>
 
       <button onClick={handleCalculate} disabled={calculating || polling}

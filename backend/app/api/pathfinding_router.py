@@ -8,7 +8,7 @@ from typing import Literal
 
 from app.config import get_settings
 from app.services.pathfinding.least_cost_path import compute_least_cost_paths
-from app.services.pathfinding.dem_fetcher import fetch_dem_raster
+from app.services.pathfinding.dem_fetcher import fetch_dem_raster, fetch_lidar_raster
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/path", tags=["pathfinding"])
@@ -22,7 +22,7 @@ class PathRequest(BaseModel):
     machine_width_m: float = Field(default=3.0, gt=0)
     max_slope_deg: float = Field(default=15.0, gt=0, le=45)
     min_turn_radius_m: float = Field(default=8.0, gt=0)
-    elevation_source: Literal["eu-dem", "external"] = "eu-dem"
+    elevation_source: Literal["eu-dem", "lidar", "external"] = "eu-dem"
     num_alternatives: int = Field(default=3, ge=1, le=5)
 
 
@@ -45,20 +45,29 @@ async def get_path_result(job_id: str):
 async def _run_pathfinding(job_id: str, body: PathRequest):
     try:
         settings = get_settings()
-        dem_url = settings.eu_elevation_url if body.elevation_source == "eu-dem" else None
-        if not dem_url:
-            _JOBS[job_id] = {"status": "failed", "error": "No DEM source configured"}
-            return
 
         lon_a, lat_a = body.point_a
         lon_b, lat_b = body.point_b
-        margin = 0.005
-        bbox = (
-            min(lon_a, lon_b) - margin, min(lat_a, lat_b) - margin,
-            max(lon_a, lon_b) + margin, max(lat_a, lat_b) + margin,
-        )
 
-        raster = await fetch_dem_raster(dem_url, bbox)
+        if body.elevation_source == "lidar":
+            lidar_url = "http://lidar-api-service:8000/api/lidar"
+            raster = await fetch_lidar_raster(lidar_url, body.parcel_id if hasattr(body, 'parcel_id') else None)
+            if not raster:
+                _JOBS[job_id] = {"status": "failed", "error": "LiDAR DTM not available for this area"}
+                return
+        else:
+            dem_url = settings.eu_elevation_url if body.elevation_source == "eu-dem" else None
+            if not dem_url:
+                _JOBS[job_id] = {"status": "failed", "error": "No DEM source configured"}
+                return
+
+            margin = 0.005
+            bbox = (
+                min(lon_a, lon_b) - margin, min(lat_a, lat_b) - margin,
+                max(lon_a, lon_b) + margin, max(lat_a, lat_b) + margin,
+            )
+
+            raster = await fetch_dem_raster(dem_url, bbox)
         if not raster:
             _JOBS[job_id] = {"status": "failed", "error": "DEM raster fetch failed"}
             return
