@@ -37,6 +37,9 @@
   },
   "parameters": {
     "heading": "Heading (°)",
+    "headingAuto": "Auto",
+    "headingAutoTooltip": "The system will select the heading with the fewest turns",
+    "headingTooltip": "0°=North, 90°=East. Defines the machine travel direction. On Auto (0°) the system picks the orientation with the fewest turns.",
     "width": "Working Width (m)",
     "swaths": "Swaths",
     "operationType": "Operation Type",
@@ -45,7 +48,10 @@
     "couplingModelRigid": "Rigid set (tractor + implement)",
     "couplingModelArticulated": "Articulated set (tractor + implement)",
     "couplingModelRigidHelp": "Current computation is validated for rigid coupling.",
-    "couplingModelArticulatedNotSupported": "Articulated mode is not supported yet in computation. Select rigid coupling."
+    "couplingModelArticulatedNotSupported": "Articulated mode is not supported yet in computation. Select rigid coupling.",
+    "headlandFirst": "Perimeter first",
+    "headlandPassesUnit": "passes",
+    "headlandTooltip": "Complete the field perimeter first, then the interior pattern. Prevents headland compaction."
   },
   "operationType": {
     "spraying": "Spraying",

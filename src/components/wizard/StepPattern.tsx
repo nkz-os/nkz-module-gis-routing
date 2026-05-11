@@ -71,10 +71,27 @@ export const StepPattern: React.FC<Props> = ({
 
           {/* Heading */}
           <div>
-            <label className="text-nkz-xs text-nkz-text-secondary flex items-center gap-1"><Compass className="w-3 h-3" />{t('parameters.heading')}</label>
+            <div className="flex items-center justify-between mb-1">
+              <label className="text-nkz-xs text-nkz-text-secondary flex items-center gap-1">
+                <Compass className="w-3 h-3" />{t('parameters.heading')}
+              </label>
+              <button
+                type="button"
+                onClick={() => onConfigChange({ headingDeg: 0 })}
+                className={`text-nkz-xs px-2 py-0.5 rounded-nkz-sm border transition-colors ${
+                  config.headingDeg === 0
+                    ? 'border-nkz-text-accent text-nkz-text-accent bg-nkz-surface'
+                    : 'border-nkz-default text-nkz-text-secondary hover:border-nkz-accent'
+                }`}
+                title={t('parameters.headingAutoTooltip')}
+              >
+                {t('parameters.headingAuto')}
+              </button>
+            </div>
             <input type="number" min={0} max={359} value={config.headingDeg}
               onChange={e => onConfigChange({ headingDeg: Number(e.target.value) % 360 })}
               className="w-full border border-nkz-default rounded-nkz-md px-3 py-1.5 text-nkz-sm bg-nkz-surface" />
+            <p className="text-[11px] text-nkz-text-secondary mt-1">{t('parameters.headingTooltip')}</p>
           </div>
 
           {/* Width */}
@@ -96,11 +113,14 @@ export const StepPattern: React.FC<Props> = ({
 
           {/* Headland passes */}
           <div>
-            <label className="text-nkz-xs text-nkz-text-secondary">Headland passes</label>
-            <select value={config.headlandPasses} onChange={e => onConfigChange({ headlandPasses: Number(e.target.value) })}
-              className="w-full border border-nkz-default rounded-nkz-md px-3 py-1.5 text-nkz-sm bg-nkz-surface">
-              <option value={0}>0</option><option value={1}>1</option><option value={2}>2</option><option value={3}>3</option>
-            </select>
+            <label className="flex items-center justify-between mb-1">
+              <span className="text-nkz-xs text-nkz-text-secondary">{t('parameters.headlandFirst')}</span>
+              <span className="text-nkz-xs text-nkz-text-secondary">{config.headlandPasses} {t('parameters.headlandPassesUnit')}</span>
+            </label>
+            <input type="range" min={0} max={3} value={config.headlandPasses}
+              onChange={e => onConfigChange({ headlandPasses: Number(e.target.value) })}
+              className="w-full" />
+            <p className="text-[11px] text-nkz-text-secondary mt-1">{t('parameters.headlandTooltip')}</p>
           </div>
 
           {/* Skip rows (only for ab-skip) */}

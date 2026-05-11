@@ -27,7 +27,7 @@ from app.services.timescale_client import TimescaleDBClient
 from app.services.export_service import RouteExporter
 from app.services.pmtiles_generator import PMTileGenerator
 from app.config import get_settings
-from app.services.routing import strategy_for
+from app.services.routing import strategy_for, compose_headland_with_pattern, find_best_heading
 from app.services.routing.base import PatternConfig
 from app.services.routing.dem_correction import apply_dem_correction
 
@@ -455,8 +455,20 @@ async def generate_routing_plan(request: Request, body: GenerateRequest):
     wgs84_poly = shape(body.parcel_geometry)
 
     pc = body.pattern_config
+    interior_pattern = body.pattern if body.pattern != "headland-only" else "ab-line"
+
+    # Auto-detect best heading when heading=0 (user chose "Auto")
+    base_heading = pc.heading_deg
+    if base_heading == 0:
+        probe_config = PatternConfig(
+            heading_deg=0.0, width_m=pc.width_m,
+            overlap_pct=pc.overlap_pct, headland_passes=pc.headland_passes,
+            skip_rows=pc.skip_rows, direction=pc.direction,
+        )
+        base_heading = find_best_heading(wgs84_poly, probe_config, interior_pattern)
+
     pattern_config = PatternConfig(
-        heading_deg=pc.heading_deg,
+        heading_deg=base_heading,
         width_m=pc.width_m,
         overlap_pct=pc.overlap_pct,
         headland_passes=pc.headland_passes,
@@ -465,21 +477,27 @@ async def generate_routing_plan(request: Request, body: GenerateRequest):
     )
 
     # Generate alternatives
-    strategy = strategy_for(body.pattern)
     alternatives = []
     for offset_deg in [0.0, 45.0, 90.0]:
+        alt_heading = (base_heading + offset_deg) % 360
         alt_config = PatternConfig(
-            heading_deg=(pattern_config.heading_deg + offset_deg) % 360,
+            heading_deg=alt_heading,
             width_m=pattern_config.width_m,
             overlap_pct=pattern_config.overlap_pct,
             headland_passes=pattern_config.headland_passes,
             skip_rows=pattern_config.skip_rows,
             direction=pattern_config.direction,
         )
-        result = strategy.generate(wgs84_poly, alt_config)
+
+        if pattern_config.headland_passes > 0 and body.pattern != "headland-only":
+            result = compose_headland_with_pattern(wgs84_poly, alt_config, interior_pattern)
+        else:
+            strategy = strategy_for(body.pattern)
+            result = strategy.generate(wgs84_poly, alt_config)
+
         alternatives.append({
             "id": f"alt-{len(alternatives)}",
-            "heading_deg": alt_config.heading_deg,
+            "heading_deg": alt_heading,
             "swath_count": result.swath_count,
             "total_distance_m": result.total_distance_m,
             "result": result,
@@ -494,7 +512,7 @@ async def generate_routing_plan(request: Request, body: GenerateRequest):
                 break
     if chosen is None:
         for a in alternatives:
-            if abs(a["heading_deg"] - pattern_config.heading_deg) < 0.01:
+            if abs(a["heading_deg"] - base_heading) < 0.01:
                 chosen = a
                 break
     if chosen is None:

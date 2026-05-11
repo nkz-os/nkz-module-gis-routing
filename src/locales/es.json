@@ -37,6 +37,9 @@
   },
   "parameters": {
     "heading": "Rumbo (°)",
+    "headingAuto": "Auto",
+    "headingAutoTooltip": "El sistema seleccionará el rumbo con menos maniobras",
+    "headingTooltip": "0°=Norte, 90°=Este. Define la dirección de avance de la maquinaria. En Auto (0°) el sistema elige la orientación con menos giros.",
     "width": "Ancho de trabajo (m)",
     "swaths": "Franjas",
     "operationType": "Tipo de operación",
@@ -45,7 +48,10 @@
     "couplingModelRigid": "Conjunto rígido (tractor + apero)",
     "couplingModelArticulated": "Conjunto articulado (tractor + apero)",
     "couplingModelRigidHelp": "El cálculo actual está validado para conjunto rígido.",
-    "couplingModelArticulatedNotSupported": "El modo articulado aún no está soportado en el cálculo. Selecciona conjunto rígido."
+    "couplingModelArticulatedNotSupported": "El modo articulado aún no está soportado en el cálculo. Selecciona conjunto rígido.",
+    "headlandFirst": "Perímetro primero",
+    "headlandPassesUnit": "pasadas",
+    "headlandTooltip": "Primero se realiza el perímetro de la parcela y después el patrón interior. Evita compactar las cabeceras."
   },
   "operationType": {
     "spraying": "Pulverización",
