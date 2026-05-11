@@ -42,6 +42,7 @@ export const PathfindingTab: React.FC = () => {
 
   const openMapPicker = () => {
     localStorage.removeItem(STORAGE_KEY);
+    sessionStorage.setItem('nkz-pathfinding-pick', 'true');
     window.open('/entities?pick=pathfinding', '_blank', 'noopener');
   };
 
