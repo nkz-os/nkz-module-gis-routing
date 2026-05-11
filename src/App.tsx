@@ -33,6 +33,7 @@ export interface WizardState {
   };
   operationType: string;
   demCorrection: boolean;
+  slopePerpendicular: boolean;
   vraEnabled: boolean;
   vraSource: 'vegetation-health' | 'orion' | 'external';
   vraBaseRate: number;
@@ -65,6 +66,7 @@ const App: React.FC = () => {
     },
     operationType: 'spraying',
     demCorrection: false,
+    slopePerpendicular: false,
     vraEnabled: false,
     vraSource: 'vegetation-health',
     vraBaseRate: 100,
@@ -98,6 +100,7 @@ const App: React.FC = () => {
         },
         operation_type: wizard.operationType,
         dem_correction: wizard.demCorrection,
+        slope_perpendicular: wizard.slopePerpendicular,
         persist: true,
         base_pattern_id: wizard.basePatternId || undefined,
         vra: wizard.vraEnabled ? {
@@ -176,6 +179,8 @@ const App: React.FC = () => {
                 onConfigChange={c => updateWizard({ patternConfig: { ...wizard.patternConfig, ...c } })}
                 onDemCorrectionChange={d => updateWizard({ demCorrection: d })}
                 demCorrection={wizard.demCorrection}
+                slopePerpendicular={wizard.slopePerpendicular}
+                onSlopePerpendicularChange={d => updateWizard({ slopePerpendicular: d })}
                 basePatternId={wizard.basePatternId}
                 onBasePatternChange={id => updateWizard({ basePatternId: id })}
                 parcelId={wizard.parcelId}

@@ -439,6 +439,7 @@ class GenerateRequest(BaseModel):
     operation_type: str = "spraying"
     coupling_model: str = "rigid"
     dem_correction: bool = False
+    slope_perpendicular: bool = False
     persist: bool = True
     selected_alternative_id: Optional[str] = None
     base_pattern_id: Optional[str] = None
@@ -457,9 +458,15 @@ async def generate_routing_plan(request: Request, body: GenerateRequest):
     pc = body.pattern_config
     interior_pattern = body.pattern if body.pattern != "headland-only" else "ab-line"
 
-    # Auto-detect best heading when heading=0 (user chose "Auto")
+    # Slope-perpendicular: override heading to be perpendicular to dominant slope
     base_heading = pc.heading_deg
-    if base_heading == 0:
+    if body.slope_perpendicular:
+        slope_heading = await _compute_slope_perpendicular_heading(wgs84_poly)
+        if slope_heading is not None:
+            base_heading = slope_heading
+
+    # Auto-detect best heading when heading=0 (user chose "Auto")
+    if base_heading == 0 and not body.slope_perpendicular:
         probe_config = PatternConfig(
             heading_deg=0.0, width_m=pc.width_m,
             overlap_pct=pc.overlap_pct, headland_passes=pc.headland_passes,
@@ -665,6 +672,75 @@ def _zones_from_orion(zones: list[dict], parcel_id: str, zone_ids: list[str] | N
                 },
             })
     return matched
+
+
+async def _compute_slope_perpendicular_heading(wgs84_poly) -> float | None:
+    """Sample parcel elevation via eu-elevation, compute dominant slope
+    direction, and return the perpendicular heading for contour work."""
+    import math
+
+    settings = get_settings()
+    dem_url = settings.eu_elevation_url
+    if not dem_url:
+        return None
+
+    # Sample points: centroid + 4 corners + midpoints of bounds
+    minx, miny, maxx, maxy = wgs84_poly.bounds
+    cx, cy = (minx + maxx) / 2, (miny + maxy) / 2
+    points = [
+        (cx, cy),
+        (minx, miny), (maxx, miny), (maxx, maxy), (minx, maxy),
+        (cx, miny), (maxx, cy), (cx, maxy), (minx, cy),
+    ]
+
+    elevations = []
+    async with httpx.AsyncClient(timeout=10.0) as client:
+        for lon, lat in points:
+            try:
+                resp = await client.get(
+                    f"{dem_url}/point",
+                    params={"lat": lat, "lon": lon, "source": "auto"},
+                )
+                if resp.status_code == 200:
+                    data = resp.json()
+                    elevations.append((lon, lat, data.get("elevation_m", 0)))
+            except Exception:
+                pass
+
+    if len(elevations) < 3:
+        return None
+
+    # Compute plane fit: z = ax + by + c via least squares
+    n = len(elevations)
+    sum_x = sum(p[0] for p in elevations)
+    sum_y = sum(p[1] for p in elevations)
+    sum_z = sum(p[2] for p in elevations)
+    sum_xx = sum(p[0] * p[0] for p in elevations)
+    sum_yy = sum(p[1] * p[1] for p in elevations)
+    sum_xy = sum(p[0] * p[1] for p in elevations)
+    sum_xz = sum(p[0] * p[2] for p in elevations)
+    sum_yz = sum(p[1] * p[2] for p in elevations)
+
+    det = n * (sum_xx * sum_yy - sum_xy * sum_xy) \
+        - sum_x * (sum_x * sum_yy - sum_y * sum_xy) \
+        + sum_y * (sum_x * sum_xy - sum_y * sum_xx)
+
+    if abs(det) < 1e-12:
+        return None
+
+    a = (n * (sum_xz * sum_yy - sum_yz * sum_xy)
+         - sum_x * (sum_x * sum_yz - sum_y * sum_xz)
+         + sum_y * (sum_x * sum_yz - sum_y * sum_xy)) / det
+    b = (n * (sum_xx * sum_yz - sum_xy * sum_xz)
+         - sum_x * (sum_x * sum_yz - sum_y * sum_xz)
+         + sum_z * (sum_x * sum_xy - sum_y * sum_xx)) / det  # simplified
+
+    # Slope direction = atan2(b, a) → azimuth where gradient points uphill
+    # Perpendicular = slope_direction + 90° for contour work (across slope)
+    slope_azimuth = math.degrees(math.atan2(b, a)) % 360
+    perp_heading = (slope_azimuth + 90) % 360
+
+    return round(perp_heading, 1)
 
 
 async def _persist_operation(

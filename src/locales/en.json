@@ -44,6 +44,8 @@
     "swaths": "Swaths",
     "operationType": "Operation Type",
     "demCorrection": "DEM correction (pending)",
+    "slopePerpendicular": "Perpendicular to slope",
+    "slopePerpendicularTooltip": "Aligns passes perpendicular to the dominant slope. Reduces erosion and prevents working parallel to the fall line.",
     "couplingModel": "Coupling model",
     "couplingModelRigid": "Rigid set (tractor + implement)",
     "couplingModelArticulated": "Articulated set (tractor + implement)",

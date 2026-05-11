@@ -21,6 +21,8 @@ interface Props {
   onConfigChange: (c: Partial<PatternConfig>) => void;
   onDemCorrectionChange: (d: boolean) => void;
   demCorrection: boolean;
+  slopePerpendicular: boolean;
+  onSlopePerpendicularChange: (d: boolean) => void;
   basePatternId: string | null;
   onBasePatternChange: (id: string | null) => void;
   parcelId: string | null;
@@ -37,6 +39,7 @@ const PATTERNS = [
 export const StepPattern: React.FC<Props> = ({
   config, pattern, operationType: _operationType,
   onPatternChange, onConfigChange, onDemCorrectionChange, demCorrection,
+  slopePerpendicular, onSlopePerpendicularChange,
 }) => {
   const { t } = useTranslation(NS);
   const [expanded, setExpanded] = useState(true);
@@ -152,6 +155,16 @@ export const StepPattern: React.FC<Props> = ({
               className="rounded-nkz-md border-nkz-default text-nkz-text-accent" />
             <span className="text-nkz-xs text-nkz-text-primary">{t('parameters.demCorrection')}</span>
           </label>
+
+          {/* Slope-perpendicular toggle */}
+          <label className="flex items-center gap-2 cursor-pointer">
+            <input type="checkbox" checked={slopePerpendicular} onChange={e => { onSlopePerpendicularChange(e.target.checked); if (e.target.checked) onDemCorrectionChange(true); }}
+              className="rounded-nkz-md border-nkz-default text-nkz-text-accent" />
+            <span className="text-nkz-xs text-nkz-text-primary">{t('parameters.slopePerpendicular')}</span>
+          </label>
+          {slopePerpendicular && (
+            <p className="text-[11px] text-nkz-text-secondary ml-6">{t('parameters.slopePerpendicularTooltip')}</p>
+          )}
         </div>
       )}
     </div>

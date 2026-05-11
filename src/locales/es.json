@@ -44,6 +44,8 @@
     "swaths": "Franjas",
     "operationType": "Tipo de operación",
     "demCorrection": "Corrección DEM (pendiente)",
+    "slopePerpendicular": "Perpendicular a la pendiente",
+    "slopePerpendicularTooltip": "Orienta las pasadas en perpendicular a la pendiente dominante. Reduce erosión y evita trabajar en paralelo a la caída del terreno.",
     "couplingModel": "Modelo de acople",
     "couplingModelRigid": "Conjunto rígido (tractor + apero)",
     "couplingModelArticulated": "Conjunto articulado (tractor + apero)",
