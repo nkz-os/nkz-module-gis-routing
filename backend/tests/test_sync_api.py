@@ -126,35 +126,32 @@ class TestGenerate:
             "/api/routing/generate",
             json={
                 "parcel_geometry": {"type": "Point", "coordinates": [0, 0]},
-                "start_point": [0, 0],
-                "heading_deg": 45,
-                "width_m": 10,
+                "pattern": "ab-line",
+                "pattern_config": {"heading_deg": 45, "width_m": 10},
             },
         )
         assert resp.status_code in [400, 404]
 
     def test_generate_heading_out_of_range_returns_422(self, client):
-        """heading_deg outside [0, 360) -> 422."""
+        """heading_deg outside [0, 360) via pattern_config -> 422."""
         resp = client.post(
             "/api/routing/generate",
             json={
                 "parcel_geometry": {"type": "Polygon", "coordinates": [[[0, 0], [1, 0], [1, 1], [0, 1], [0, 0]]]},
-                "start_point": [0, 0],
-                "heading_deg": 361,
-                "width_m": 10,
+                "pattern": "ab-line",
+                "pattern_config": {"heading_deg": 361, "width_m": 10},
             },
         )
         assert resp.status_code == 422
 
     def test_generate_negative_width_returns_422(self, client):
-        """width_m <= 0 -> 422."""
+        """width_m <= 0 via pattern_config -> 422."""
         resp = client.post(
             "/api/routing/generate",
             json={
                 "parcel_geometry": {"type": "Polygon", "coordinates": [[[0, 0], [1, 0], [1, 1], [0, 1], [0, 0]]]},
-                "start_point": [0, 0],
-                "heading_deg": 45,
-                "width_m": -1,
+                "pattern": "ab-line",
+                "pattern_config": {"heading_deg": 45, "width_m": -1},
             },
         )
         assert resp.status_code == 422

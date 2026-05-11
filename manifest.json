@@ -2,7 +2,7 @@
   "id": "nkz-module-gis-routing",
   "name": "nkz-module-gis-routing",
   "display_name": "GIS Routing & VRA",
-  "version": "2.0.0",
+  "version": "3.0.0",
   "description": "Professional AB-line routing guidance with VRA prescription maps, ISOBUS (ISOXML) export, offline maps (PMTiles), and WatermelonDB mobile sync.",
   "short_description": "Precision guidance lines, VRA prescriptions, and ISOBUS export for autonomous tractors",
   "icon": "navigation",
@@ -65,15 +65,13 @@
     "icon": "navigation",
     "color": "#F59E0B",
     "features": [
-      "AB-line routing generation with configurable heading and width",
-      "VRA (Variable Rate Application) zone intersection",
-      "ISOBUS (ISOXML) export for tractor terminals",
-      "GeoJSON and GPX export for GIS tools",
-      "Offline PMTiles basemap generation with MinIO cache",
-      "WatermelonDB mobile sync (pull/push delta sync)",
-      "Equipment kinematics (tractor + implement offset)",
-      "GPS offset handling for implement tracking",
-      "Multi-swath pattern generation with configurable overlap"
+      "Multi-strategy routing: AB-line, AB-skip (seeding), spiral (harvesting), headland",
+      "VRA prescription maps with vegetation-health auto-fetch and rate smoothing",
+      "A-B least-cost pathfinding with DEM elevation routing (3 alternatives)",
+      "Field pattern persistence for Controlled Traffic Farming (CTF)",
+      "3-column wizard UI with live Cesium 3D preview",
+      "ISOXML, GeoJSON, and GPX export",
+      "Mobile handoff with WatermelonDB sync"
     ],
     "screenshots": []
   }

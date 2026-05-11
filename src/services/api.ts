@@ -1,10 +1,3 @@
-/**
- * API Client for GIS Routing module.
- *
- * Provides access to the module's own backend (sync, generate, export)
- * via the Nekazari authentication context and tenant-aware headers.
- */
-
 const BASE_URL = (() => {
   const env = (window as any).__ENV__;
   return (env?.VITE_API_URL || 'https://nkz.robotika.cloud') + '/api/routing';
@@ -12,15 +5,7 @@ const BASE_URL = (() => {
 
 function getTenantId(): string | undefined {
   const ctx = (window as any).__nekazariAuthContext;
-  const fromCtx = ctx?.tenantId;
-  const fromProfile = ctx?.tenantProfile?.id || ctx?.tenantProfile?.tenant_id;
-  const fromUser =
-    ctx?.user?.tenant_id
-    || ctx?.user?.tenantId
-    || ctx?.user?.attributes?.tenant_id
-    || ctx?.user?.attributes?.tenant;
-  const tenant = fromCtx || fromProfile || fromUser;
-  return typeof tenant === 'string' && tenant.trim() ? tenant.trim() : undefined;
+  return ctx?.tenantId || ctx?.tenantProfile?.id || undefined;
 }
 
 async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
@@ -30,11 +15,7 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   };
   const tid = getTenantId();
   if (tid) headers['X-Tenant-ID'] = tid;
-  const resp = await fetch(`${BASE_URL}${path}`, {
-    ...options,
-    headers,
-    credentials: 'include',
-  });
+  const resp = await fetch(`${BASE_URL}${path}`, { ...options, headers, credentials: 'include' });
   if (!resp.ok) {
     const error = await resp.json().catch(() => ({ detail: resp.statusText }));
     throw new ApiError(resp.status, error);
@@ -45,238 +26,101 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
 export class ApiError extends Error {
   status: number;
   body: any;
-
   constructor(status: number, body: any) {
     const detail = body?.detail;
-    const message: string =
-      typeof detail === 'string' ? detail
-      : Array.isArray(detail) ? detail.map((d: any) => d.msg || JSON.stringify(d)).join('; ')
-      : typeof detail === 'object' && detail?.error?.message ? detail.error.message
-      : typeof detail === 'object' ? JSON.stringify(detail)
-      : body?.error?.message
-      || `HTTP ${status}`;
-    super(message);
+    const msg = typeof detail === 'string' ? detail
+      : detail?.error?.message || `HTTP ${status}`;
+    super(msg);
     this.status = status;
     this.body = body;
   }
 }
 
-export interface SyncPullResponse {
-  changes: {
-    parcels: any;
-    equipment: any;
-    operations: any;
-  };
-  timestamp: number;
+export interface GenerateResult {
+  success: boolean;
+  alternatives: Array<{ id: string; heading_deg: number; swath_count: number; total_distance_m: number }>;
+  data: { type: string; geometry: any; properties: Record<string, any> };
+  prescription_map: any;
 }
 
-export interface CollectionChanges {
-  created: any[];
-  updated: any[];
-  deleted: string[];
-}
-
-export interface ZoneData {
-  id: string;
-  zone_id: number | string;
-  zone_class: string;
-  prescription_rate: number;
-  mean_value: number;
-  area_ha: number;
-  geometry: any;
-}
-
-export interface EquipmentSummary {
+export interface PatternSummary {
   id: string;
   name: string;
-  category?: string;
-  machine_role?: 'tractor' | 'implement' | 'unknown';
-  implementWidth?: number;
-  trackWidth?: number;
-  wheelbase?: number;
-  gpsOffsetX?: number;
-  gpsOffsetY?: number;
-  gpsOffsetZ?: number;
-  hitchType?: string;
-  hitchOffsetX?: number;
-  implementLength?: number;
-  implementOffsetX?: number;
-  steeringType?: string;
-  steeringAxles?: string;
-}
-
-export interface ZonesResponse {
-  success: boolean;
-  data: {
-    parcel_id: string;
-    zones: ZoneData[];
-    count: number;
-  };
-}
-
-export interface ExternalZonesIngestResponse {
-  success: boolean;
-  data: {
-    count: number;
-    zones: Array<{
-      type: 'Feature';
-      geometry: any;
-      properties: {
-        zone_id: string | number;
-        zone_class: string;
-        prescription_rate: number;
-      };
-    }>;
-  };
-}
-
-export interface OperationSummary {
-  id: string;
-  parcel_id: string;
-  operation_type: string;
-  implement_width: number;
-  vra_enabled: boolean;
-  status: string;
-  started_at?: string | null;
-  completed_at?: string | null;
-  updated_at?: string | null;
-}
-
-export interface CoverageResponse {
-  success: boolean;
-  data: {
-    type: 'Feature';
-    geometry: any;
-    properties: {
-      operation_id: string;
-      layer_type: string;
-    };
-  };
-}
-
-export interface TrajectoryAlternative {
-  id: string;
-  heading_deg: number;
-  swath_count: number;
-}
-
-export interface ActiveOperationInfo {
-  id: string;
-  parcel_id: string;
-  operation_type: string;
-  status: string;
-  started_at?: string | null;
-  name?: string;
-}
-
-export interface ActiveOperationResponse {
-  success: boolean;
-  data: { operation: ActiveOperationInfo | null };
+  pattern_type: string;
+  pattern_config: any;
+  created_at: number;
 }
 
 export const api = {
-  pull(
-    collections: string[],
-    lastPulledAt: number,
-    schemaVersion = 3,
-  ): Promise<SyncPullResponse> {
-    return request(
-      `/sync?collections=${collections.join(',')}&last_pulled_at=${lastPulledAt}&schema_version=${schemaVersion}`,
-    );
+  // Generation
+  generate(body: any): Promise<GenerateResult> {
+    return request('/generate', { method: 'POST', body: JSON.stringify(body) });
   },
 
-  push(
-    collections: string[],
-    body: { changes: any; last_pulled_at: number },
-  ): Promise<SyncPullResponse> {
-    return request(`/sync?collections=${collections.join(',')}`, {
+  // Parcels
+  listParcels() { return request<any[]>('/parcels'); },
+  getParcelGeometry(parcelId: string) {
+    return request<{ id: string; name: string; geometry: any }>(`/parcels/${encodeURIComponent(parcelId)}/geometry`);
+  },
+
+  // Equipment
+  listEquipment() { return request<any[]>('/equipment'); },
+
+  // VRA Zones
+  getVRAZones(parcelId: string) {
+    return request<any>(`/zones/${encodeURIComponent(parcelId)}`);
+  },
+
+  // Operations
+  listOperations(limit = 20) { return request<any[]>(`/operations?limit=${limit}`); },
+  startOperation(operationId: string) {
+    return request('/operations/session/start', {
       method: 'POST',
-      body: JSON.stringify(body),
+      body: JSON.stringify({ operation_id: operationId, start_date: new Date().toISOString(), status: 'in_progress' }),
     });
   },
-
-  generate(body: any) {
-    return request('/generate', {
+  closeOperation(operationId: string) {
+    return request('/operations/session/close', {
       method: 'POST',
-      body: JSON.stringify(body),
+      body: JSON.stringify({ operation_id: operationId, end_date: new Date().toISOString(), status: 'ended' }),
     });
   },
-
-  generateWithVRA(body: any) {
-    return request('/generate/with-vra', {
-      method: 'POST',
-      body: JSON.stringify(body),
-    });
+  getActiveOperation() { return request<any>('/operations/active'); },
+  getOperationCoverage(operationId: string) {
+    return request<any>(`/operations/coverage/${encodeURIComponent(operationId)}`);
   },
 
+  // Export
   getExportUrl(operationId: string, format: 'isoxml' | 'geojson' | 'gpx'): string {
     return `${BASE_URL}/export/${encodeURIComponent(operationId)}?format=${format}`;
   },
 
-  // Zoning — fetched from Orion-LD via our backend
-  getZones(parcelId: string) {
-    return request<ZonesResponse>(`/zones/${encodeURIComponent(parcelId)}`);
+  // Patterns
+  listPatterns(parcelId: string) {
+    return request<any>(`/patterns?parcel_id=${encodeURIComponent(parcelId)}`);
+  },
+  getPattern(patternId: string) {
+    return request<any>(`/patterns/${encodeURIComponent(patternId)}`);
+  },
+  savePattern(body: any) {
+    return request('/patterns', { method: 'POST', body: JSON.stringify(body) });
+  },
+  deletePattern(patternId: string) {
+    return request(`/patterns/${encodeURIComponent(patternId)}`, { method: 'DELETE' });
   },
 
-  generateZones(parcelId: string, nZones: number) {
-    return request(`/zones/${encodeURIComponent(parcelId)}/generate`, {
-      method: 'POST',
-      body: JSON.stringify({ n_zones: nZones }),
-    });
+  // Pathfinding
+  startPathCalculation(body: any) {
+    return request<any>('/path/calculate', { method: 'POST', body: JSON.stringify(body) });
+  },
+  getPathResult(jobId: string) {
+    return request<any>(`/path/${encodeURIComponent(jobId)}`);
   },
 
+  // External zones
   ingestExternalZones(format: 'geojson' | 'csv', content: string) {
-    return request<ExternalZonesIngestResponse>('/zones/external/ingest', {
-      method: 'POST',
-      body: JSON.stringify({ format, content }),
+    return request<any>('/zones/external/ingest', {
+      method: 'POST', body: JSON.stringify({ format, content }),
     });
-  },
-
-  listParcels() {
-    return request<any[]>('/parcels');
-  },
-
-  getParcelGeometry(parcelId: string) {
-    return request<{ id: string; name: string; geometry: any }>(
-      `/parcels/${encodeURIComponent(parcelId)}/geometry`,
-    );
-  },
-
-  listEquipment() {
-    return request<EquipmentSummary[]>('/equipment');
-  },
-
-  listOperations(limit = 20) {
-    return request<OperationSummary[]>(`/operations?limit=${limit}`);
-  },
-
-  closeOperationSession(operationId: string, endDate: string, status = 'ended') {
-    return request<{ success: boolean; message: string }>('/operations/session/close', {
-      method: 'POST',
-      body: JSON.stringify({
-        operation_id: operationId,
-        end_date: endDate,
-        status,
-      }),
-    });
-  },
-
-  startOperationSession(operationId: string, startDate: string, status = 'in_progress') {
-    return request<{ success: boolean; message: string }>('/operations/session/start', {
-      method: 'POST',
-      body: JSON.stringify({
-        operation_id: operationId,
-        start_date: startDate,
-        status,
-      }),
-    });
-  },
-
-  getOperationCoverage(operationId: string) {
-    return request<CoverageResponse>(`/operations/coverage/${encodeURIComponent(operationId)}`);
-  },
-
-  getActiveOperation() {
-    return request<ActiveOperationResponse>('/operations/active');
   },
 };
