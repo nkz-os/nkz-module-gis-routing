@@ -34,11 +34,11 @@ importers:
         version: 6.30.3(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
     devDependencies:
       '@nekazari/module-builder':
-        specifier: ^2.0.3
-        version: 2.0.3(@nekazari/module-kit@0.6.0)(@vitejs/plugin-react@4.7.0(vite@5.4.21))(node-fetch@2.7.0)(typescript@5.9.3)(vite@5.4.21)
+        specifier: ^2.0.4
+        version: 2.0.4(@nekazari/module-kit@0.6.0)(@vitejs/plugin-react@4.7.0(vite@5.4.21))(node-fetch@2.7.0)(typescript@5.9.3)(vite@5.4.21)
       '@nekazari/module-kit':
         specifier: ^0.6.0
-        version: 0.6.0(@nekazari/module-builder@2.0.3)(@nekazari/sdk@1.0.5(react-dom@18.3.1(react@18.3.1))(react@18.3.1))(@tanstack/react-query@5.100.10(react@18.3.1))(react@18.3.1)
+        version: 0.6.0(@nekazari/module-builder@2.0.4)(@nekazari/sdk@1.0.5(react-dom@18.3.1(react@18.3.1))(react@18.3.1))(@tanstack/react-query@5.100.10(react@18.3.1))(react@18.3.1)
       '@types/react':
         specifier: ^18.3.3
         version: 18.3.28
@@ -51,9 +51,15 @@ importers:
       autoprefixer:
         specifier: ^10.4.19
         version: 10.5.0(postcss@8.5.14)
+      i18next:
+        specifier: ^26.2.0
+        version: 26.2.0(typescript@5.9.3)
       postcss:
         specifier: ^8.4.39
         version: 8.5.14
+      react-i18next:
+        specifier: ^17.0.8
+        version: 17.0.8(i18next@26.2.0(typescript@5.9.3))(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(typescript@5.9.3)
       tailwindcss:
         specifier: ^3.4.4
         version: 3.4.19
@@ -369,8 +375,8 @@ packages:
       react: ^18.3.1
       react-dom: ^18.3.1
 
-  '@nekazari/module-builder@2.0.3':
-    resolution: {integrity: sha512-dcwPdrOChLOCprnB34T0DteryTInK0+Ix818F0WbFYkVdGNulsiToXDbKlABuojsCmICfGHMn9T6g+HR7TzAgg==}
+  '@nekazari/module-builder@2.0.4':
+    resolution: {integrity: sha512-lM2WVvolKI4NWLr1FEdTsTt6SNaslHbANDpjd7umEOcjQwituKS+OefNS46myRCsYJzxSs3sQCuRW4rl6SMKWw==}
     peerDependencies:
       '@nekazari/module-kit': '>=0.6.0'
       '@vitejs/plugin-react': ^4.0.0
@@ -1432,6 +1438,14 @@ packages:
   i18next@23.16.8:
     resolution: {integrity: sha512-06r/TitrM88Mg5FdUXAKL96dJMzgqLE5dv3ryBAra4KCwD9mJ4ndOTS95ZuymIGoE+2hzfdaMak2X11/es7ZWg==}
 
+  i18next@26.2.0:
+    resolution: {integrity: sha512-zwBHldHdTmwN7r6UNc7lC6GWNN+YYg3DrRSeHR5PRRBf5QnJZcYHrQc0uaU26qZeYxR7iFZD+Y315dPnKP47wA==}
+    peerDependencies:
+      typescript: ^5 || ^6
+    peerDependenciesMeta:
+      typescript:
+        optional: true
+
   ini@1.3.8:
     resolution: {integrity: sha512-JV/yugV2uzW5iMRSiZAyDtQd+nxtUnjeLt0acNdw98kKLrvuRVyB80tsREOE7yvGVgalhZ6RNXCmEHkUKBKxew==}
 
@@ -1654,6 +1668,22 @@ packages:
       react-native:
         optional: true
 
+  react-i18next@17.0.8:
+    resolution: {integrity: sha512-0ooKbGLU8JXhe1zwpQUWIeXSgLPOfwJmgheWRIUpcoA0CpyabpGhayjdG+/eA5esC1AQ8h2jWpXjJfzQzeDOCw==}
+    peerDependencies:
+      i18next: '>= 26.2.0'
+      react: '>= 16.8.0'
+      react-dom: '*'
+      react-native: '*'
+      typescript: ^5 || ^6
+    peerDependenciesMeta:
+      react-dom:
+        optional: true
+      react-native:
+        optional: true
+      typescript:
+        optional: true
+
   react-refresh@0.17.0:
     resolution: {integrity: sha512-z6F7K9bV85EfseRCp2bzrpyQ0Gkw1uLoCel9XBVWPg/TjRj94SkJzUTGfOa4bs7iJvBWtQG0Wq7wnI0syw3EBQ==}
     engines: {node: '>=0.10.0'}
@@ -1833,6 +1863,11 @@ packages:
     peerDependenciesMeta:
       '@types/react':
         optional: true
+
+  use-sync-external-store@1.6.0:
+    resolution: {integrity: sha512-Pp6GSwGP/NrPIrxVFAIkOQeyw8lFenOHijQWkUTrDvrF4ALqylP2C/KCkeS9dpUM3KvYRQhna5vt7IL95+ZQ9w==}
+    peerDependencies:
+      react: ^16.8.0 || ^17.0.0 || ^18.0.0 || ^19.0.0
 
   util-deprecate@1.0.2:
     resolution: {integrity: sha512-EPD5q1uXyFxJpCrLnCc1nHnq3gOa6DZBocAIiI2TaSCA7VCJ1UJDMagCzIkXNsUYfD1daK//LTEQ8xiIbrHtcw==}
@@ -2195,10 +2230,10 @@ snapshots:
       react: 18.3.1
       react-dom: 18.3.1(react@18.3.1)
 
-  '@nekazari/module-builder@2.0.3(@nekazari/module-kit@0.6.0)(@vitejs/plugin-react@4.7.0(vite@5.4.21))(node-fetch@2.7.0)(typescript@5.9.3)(vite@5.4.21)':
+  '@nekazari/module-builder@2.0.4(@nekazari/module-kit@0.6.0)(@vitejs/plugin-react@4.7.0(vite@5.4.21))(node-fetch@2.7.0)(typescript@5.9.3)(vite@5.4.21)':
     dependencies:
       '@module-federation/vite': 1.15.5(node-fetch@2.7.0)(typescript@5.9.3)(vite@5.4.21)
-      '@nekazari/module-kit': 0.6.0(@nekazari/module-builder@2.0.3)(@nekazari/sdk@1.0.5(react-dom@18.3.1(react@18.3.1))(react@18.3.1))(@tanstack/react-query@5.100.10(react@18.3.1))(react@18.3.1)
+      '@nekazari/module-kit': 0.6.0(@nekazari/module-builder@2.0.4)(@nekazari/sdk@1.0.5(react-dom@18.3.1(react@18.3.1))(react@18.3.1))(@tanstack/react-query@5.100.10(react@18.3.1))(react@18.3.1)
       '@vitejs/plugin-react': 4.7.0(vite@5.4.21)
       esbuild: 0.21.5
       vite: 5.4.21
@@ -2209,9 +2244,9 @@ snapshots:
       - utf-8-validate
       - vue-tsc
 
-  '@nekazari/module-kit@0.6.0(@nekazari/module-builder@2.0.3)(@nekazari/sdk@1.0.5(react-dom@18.3.1(react@18.3.1))(react@18.3.1))(@tanstack/react-query@5.100.10(react@18.3.1))(react@18.3.1)':
+  '@nekazari/module-kit@0.6.0(@nekazari/module-builder@2.0.4)(@nekazari/sdk@1.0.5(react-dom@18.3.1(react@18.3.1))(react@18.3.1))(@tanstack/react-query@5.100.10(react@18.3.1))(react@18.3.1)':
     dependencies:
-      '@nekazari/module-builder': 2.0.3(@nekazari/module-kit@0.6.0)(@vitejs/plugin-react@4.7.0(vite@5.4.21))(node-fetch@2.7.0)(typescript@5.9.3)(vite@5.4.21)
+      '@nekazari/module-builder': 2.0.4(@nekazari/module-kit@0.6.0)(@vitejs/plugin-react@4.7.0(vite@5.4.21))(node-fetch@2.7.0)(typescript@5.9.3)(vite@5.4.21)
       '@nekazari/sdk': 1.0.5(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
       '@tanstack/react-query': 5.100.10(react@18.3.1)
       react: 18.3.1
@@ -3224,6 +3259,10 @@ snapshots:
     dependencies:
       '@babel/runtime': 7.29.2
 
+  i18next@26.2.0(typescript@5.9.3):
+    optionalDependencies:
+      typescript: 5.9.3
+
   ini@1.3.8: {}
 
   is-binary-path@2.1.0:
@@ -3382,6 +3421,17 @@ snapshots:
       react: 18.3.1
     optionalDependencies:
       react-dom: 18.3.1(react@18.3.1)
+
+  react-i18next@17.0.8(i18next@26.2.0(typescript@5.9.3))(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(typescript@5.9.3):
+    dependencies:
+      '@babel/runtime': 7.29.2
+      html-parse-stringify: 3.0.1
+      i18next: 26.2.0(typescript@5.9.3)
+      react: 18.3.1
+      use-sync-external-store: 1.6.0(react@18.3.1)
+    optionalDependencies:
+      react-dom: 18.3.1(react@18.3.1)
+      typescript: 5.9.3
 
   react-refresh@0.17.0: {}
 
@@ -3599,6 +3649,10 @@ snapshots:
       tslib: 2.8.1
     optionalDependencies:
       '@types/react': 18.3.28
+
+  use-sync-external-store@1.6.0(react@18.3.1):
+    dependencies:
+      react: 18.3.1
 
   util-deprecate@1.0.2: {}
 
