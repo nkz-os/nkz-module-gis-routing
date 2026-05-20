@@ -42,11 +42,11 @@ export const StepGenerate: React.FC<Props> = ({
     <div className="space-y-nkz-stack">
       {/* Granular validation checklist */}
       <div className="rounded-nkz-lg border border-nkz-default p-nkz-md bg-nkz-surface-alt space-y-1.5">
-        <h3 className="text-nkz-xs font-semibold text-nkz-text-secondary uppercase tracking-wider mb-2">
+        <h3 className="text-nkz-sm font-semibold text-nkz-text-secondary uppercase tracking-wider mb-2">
           {t('workflow.validate')}
         </h3>
         {items.map(item => (
-          <div key={item.key} className="flex items-center gap-2 text-nkz-xs">
+          <div key={item.key} className="flex items-center gap-2 text-nkz-sm">
             {item.pass ? (
               <CheckCircle2 className="w-3.5 h-3.5 text-nkz-text-success flex-shrink-0" />
             ) : (
@@ -60,7 +60,7 @@ export const StepGenerate: React.FC<Props> = ({
       </div>
 
       {error && (
-        <div className="flex items-start gap-2 bg-nkz-surface border border-nkz-accent rounded-nkz-md p-3 text-nkz-xs text-nkz-text-error">
+        <div className="flex items-start gap-2 bg-nkz-surface border border-nkz-accent rounded-nkz-md p-3 text-nkz-sm text-nkz-text-error">
           <AlertCircle className="w-3.5 h-3.5 mt-0.5 flex-shrink-0" />
           <span>{error}</span>
         </div>
@@ -73,9 +73,9 @@ export const StepGenerate: React.FC<Props> = ({
         style={{ backgroundColor: accent.base }}
       >
         {generating ? (
-          <><Loader2 className="w-4 h-4 animate-spin" />{t('actions.generating')}</>
+          <><Loader2 className="w-4 h-4 animate-spin" />{t('actions.saving')}</>
         ) : (
-          <><Play className="w-4 h-4" />{t('actions.generate')}</>
+          <><Play className="w-4 h-4" />{t('actions.save')}</>
         )}
       </button>
     </div>

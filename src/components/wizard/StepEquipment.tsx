@@ -38,7 +38,7 @@ export const StepEquipment: React.FC<Props> = ({
       <button onClick={() => setExpanded(!expanded)}
         className="w-full flex items-center justify-between px-nkz-md py-3 text-nkz-sm font-semibold">
         <span className="flex items-center gap-nkz-sm">
-          <span className="w-6 h-6 rounded-full bg-nkz-text-accent text-white text-nkz-xs flex items-center justify-center">2</span>
+          <span className="w-6 h-6 rounded-full bg-nkz-text-accent text-white text-nkz-sm flex items-center justify-center">2</span>
           <Tractor className="w-4 h-4 text-nkz-text-accent" />
           {t('equipment.label')}
         </span>
@@ -49,7 +49,7 @@ export const StepEquipment: React.FC<Props> = ({
           {loading ? <Loader2 className="w-4 h-4 animate-spin text-nkz-text-secondary" /> : (
             <>
               <div>
-                <label className="text-nkz-xs text-nkz-text-secondary">{t('parameters.operationType')}</label>
+                <label className="text-nkz-sm text-nkz-text-secondary">{t('parameters.operationType')}</label>
                 <select value={operationType} onChange={e => onOperationTypeChange(e.target.value)}
                   className="w-full border border-nkz-default rounded-nkz-md px-3 py-2 text-nkz-sm bg-nkz-surface">
                   <option value="spraying">{t('operationType.spraying')}</option>
@@ -59,7 +59,7 @@ export const StepEquipment: React.FC<Props> = ({
                 </select>
               </div>
               <div>
-                <label className="text-nkz-xs text-nkz-text-secondary">{t('equipment.tractorLabel')}</label>
+                <label className="text-nkz-sm text-nkz-text-secondary">{t('equipment.tractorLabel')}</label>
                 <select value={tractorId || ''} onChange={e => onTractorChange(e.target.value || null)}
                   className="w-full border border-nkz-default rounded-nkz-md px-3 py-2 text-nkz-sm bg-nkz-surface">
                   <option value="">{t('equipment.selectTractor')}</option>
@@ -69,7 +69,7 @@ export const StepEquipment: React.FC<Props> = ({
                 </select>
               </div>
               <div>
-                <label className="text-nkz-xs text-nkz-text-secondary">{t('equipment.implementLabel')}</label>
+                <label className="text-nkz-sm text-nkz-text-secondary">{t('equipment.implementLabel')}</label>
                 <select value={implementId || ''} onChange={e => onImplementChange(e.target.value || null)}
                   className="w-full border border-nkz-default rounded-nkz-md px-3 py-2 text-nkz-sm bg-nkz-surface">
                   <option value="">{t('equipment.selectImplement')}</option>

@@ -50,7 +50,7 @@ export const StepVRA: React.FC<Props> = ({
       <button onClick={() => setExpanded(!expanded)}
         className="w-full flex items-center justify-between px-nkz-md py-3 text-nkz-sm font-semibold">
         <span className="flex items-center gap-nkz-sm">
-          <span className="w-6 h-6 rounded-full bg-nkz-text-accent text-white text-nkz-xs flex items-center justify-center">4</span>
+          <span className="w-6 h-6 rounded-full bg-nkz-text-accent text-white text-nkz-sm flex items-center justify-center">4</span>
           <Layers className="w-4 h-4 text-nkz-text-accent" />
           {t('vra.enabled')}
         </span>
@@ -61,7 +61,7 @@ export const StepVRA: React.FC<Props> = ({
           <label className="flex items-center gap-2 cursor-pointer">
             <input type="checkbox" checked={enabled} onChange={e => onEnabledChange(e.target.checked)}
               className="rounded-nkz-md border-nkz-default text-nkz-text-accent" />
-            <span className="text-nkz-xs text-nkz-text-primary">{t('vra.enabled')}</span>
+            <span className="text-nkz-sm text-nkz-text-primary">{t('vra.enabled')}</span>
           </label>
 
           {enabled && (
@@ -74,7 +74,7 @@ export const StepVRA: React.FC<Props> = ({
               </select>
 
               <div>
-                <label className="text-nkz-xs text-nkz-text-secondary">{t('vra.baseRate')}</label>
+                <label className="text-nkz-sm text-nkz-text-secondary">{t('vra.baseRate')}</label>
                 <input type="number" min={0} value={baseRate}
                   onChange={e => onBaseRateChange(Number(e.target.value))}
                   className="w-full border border-nkz-default rounded-nkz-md px-3 py-1.5 text-nkz-sm bg-nkz-surface" />
@@ -83,7 +83,7 @@ export const StepVRA: React.FC<Props> = ({
               {loading ? <Loader2 className="w-3 h-3 animate-spin" /> : zones.length > 0 ? (
                 <div className="space-y-1 max-h-32 overflow-auto">
                   {zones.map(z => (
-                    <label key={z.id} className="flex items-center gap-2 text-nkz-xs">
+                    <label key={z.id} className="flex items-center gap-2 text-nkz-sm">
                       <input type="checkbox" checked={zoneIds.includes(z.id)}
                         onChange={e => {
                           onZoneIdsChange(e.target.checked ? [...zoneIds, z.id] : zoneIds.filter(id => id !== z.id));
@@ -94,7 +94,7 @@ export const StepVRA: React.FC<Props> = ({
                     </label>
                   ))}
                 </div>
-              ) : <p className="text-nkz-xs text-nkz-text-secondary">{t('vra.noZonesForParcel')}</p>}
+              ) : <p className="text-nkz-sm text-nkz-text-secondary">{t('vra.noZonesForParcel')}</p>}
             </>
           )}
         </div>
