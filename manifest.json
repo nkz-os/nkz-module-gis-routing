@@ -2,7 +2,7 @@
   "id": "nkz-module-gis-routing",
   "name": "nkz-module-gis-routing",
   "display_name": "GIS Routing & VRA",
-  "version": "3.1.0",
+  "version": "3.2.0",
   "description": "Interactive routing wizard with real-time SVG preview, multi-strategy A-B guidance lines, VRA prescription maps, A-B least-cost pathfinding on Cesium, pattern persistence, and ISOBUS export for autonomous tractors. Includes mobile handoff with WatermelonDB offline sync.",
   "short_description": "Interactive routing wizard, VRA prescriptions, pathfinding on Cesium, and ISOBUS export",
   "icon": "navigation",
