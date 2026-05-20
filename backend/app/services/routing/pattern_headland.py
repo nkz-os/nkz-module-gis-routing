@@ -8,12 +8,38 @@ from app.services.routing.base import (
 )
 
 
+def erode_polygon_for_headland(polygon: Polygon, config: PatternConfig) -> Polygon | None:
+    """Erode polygon inward by headland passes. Returns the remaining inner polygon,
+    or None if the polygon is completely consumed."""
+    utm_poly, _, _to_utm, _to_wgs84 = project_polygon_to_utm(polygon)
+    ew = config.effective_width_m
+    passes = max(config.headland_passes, 1)
+
+    current = utm_poly
+    for i in range(passes):
+        offset = -ew * (0.5 + i)
+        eroded = current.buffer(offset)
+        if eroded.is_empty:
+            return None
+        if not eroded.is_valid:
+            eroded = eroded.buffer(0)
+        if eroded.geom_type == "MultiPolygon":
+            eroded = max(eroded.geoms, key=lambda p: p.area)
+        current = eroded
+
+    # Project back to WGS84
+    eroded_wgs84 = _to_wgs84(current)
+    if isinstance(eroded_wgs84, Polygon) and not eroded_wgs84.is_empty:
+        return eroded_wgs84
+    return None
+
+
 class HeadlandStrategy(RoutingStrategy):
     def generate(self, polygon: Polygon, config: PatternConfig) -> RouteResult:
         utm_poly, _, _to_utm, to_wgs84 = project_polygon_to_utm(polygon)
 
         ew = config.effective_width_m
-        passes = max(config.headland_passes, 2)
+        passes = max(config.headland_passes, 1)
 
         headland_lines = []
         current = utm_poly

@@ -30,6 +30,7 @@ from app.config import get_settings
 from app.services.routing import strategy_for
 from app.services.routing.base import PatternConfig
 from app.services.routing.dem_correction import apply_dem_correction
+from app.services.routing.pattern_headland import HeadlandStrategy, erode_polygon_for_headland
 
 logger = logging.getLogger(__name__)
 router = APIRouter(tags=["routing"])
@@ -466,6 +467,10 @@ async def generate_routing_plan(request: Request, body: GenerateRequest):
 
     # Generate alternatives
     strategy = strategy_for(body.pattern)
+    compose_headland = (
+        pattern_config.headland_passes > 0
+        and body.pattern != "headland-only"
+    )
     alternatives = []
     for offset_deg in [0.0, 45.0, 90.0]:
         alt_config = PatternConfig(
@@ -477,6 +482,33 @@ async def generate_routing_plan(request: Request, body: GenerateRequest):
             direction=pattern_config.direction,
         )
         result = strategy.generate(wgs84_poly, alt_config)
+
+        if compose_headland:
+            headland_cfg = PatternConfig(
+                heading_deg=alt_config.heading_deg,
+                width_m=pattern_config.width_m,
+                overlap_pct=0,
+                headland_passes=pattern_config.headland_passes,
+                skip_rows=0,
+                direction=alt_config.direction,
+            )
+            headland = HeadlandStrategy()
+            headland_result = headland.generate(wgs84_poly, headland_cfg)
+            headland_lines = list(headland_result.geometry.geoms)
+            merged_coords = (
+                list(headland_result.geometry.geoms) + list(result.geometry.geoms)
+            )
+            from shapely.geometry import MultiLineString
+            merged = MultiLineString(merged_coords)
+            result = result._replace(
+                geometry=merged,
+                swath_count=result.swath_count + headland_result.swath_count,
+                headland_count=headland_result.headland_count,
+                total_distance_m=round(
+                    result.total_distance_m + headland_result.total_distance_m, 1
+                ),
+            )
+
         alternatives.append({
             "id": f"alt-{len(alternatives)}",
             "heading_deg": alt_config.heading_deg,
@@ -524,6 +556,31 @@ async def generate_routing_plan(request: Request, body: GenerateRequest):
                     direction=pattern_config.direction,
                 )
                 corrected_result = strategy.generate(wgs84_poly, alt_config)
+                if compose_headland:
+                    headland_cfg = PatternConfig(
+                        heading_deg=alt_config.heading_deg,
+                        width_m=corrected_width,
+                        overlap_pct=0,
+                        headland_passes=pattern_config.headland_passes,
+                        skip_rows=0,
+                        direction=alt_config.direction,
+                    )
+                    headland = HeadlandStrategy()
+                    headland_result = headland.generate(wgs84_poly, headland_cfg)
+                    merged_coords = (
+                        list(headland_result.geometry.geoms)
+                        + list(corrected_result.geometry.geoms)
+                    )
+                    from shapely.geometry import MultiLineString
+                    merged = MultiLineString(merged_coords)
+                    corrected_result = corrected_result._replace(
+                        geometry=merged,
+                        swath_count=corrected_result.swath_count + headland_result.swath_count,
+                        headland_count=headland_result.headland_count,
+                        total_distance_m=round(
+                            corrected_result.total_distance_m + headland_result.total_distance_m, 1
+                        ),
+                    )
                 chosen["result"] = corrected_result
 
     # Apply VRA if enabled
