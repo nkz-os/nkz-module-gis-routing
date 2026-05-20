@@ -14,6 +14,7 @@ export const StepParcel: React.FC<Props> = ({ parcelId, onParcelChange }) => {
   const { t } = useTranslation(NS);
   const [parcels, setParcels] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [geoLoading, setGeoLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [expanded, setExpanded] = useState(true);
   const selectedName = parcels.find(p => p.id === parcelId)?.name || '';
@@ -30,11 +31,16 @@ export const StepParcel: React.FC<Props> = ({ parcelId, onParcelChange }) => {
 
   const handleSelect = async (id: string) => {
     if (!id) return;
+    setGeoLoading(true);
+    setError(null);
     try {
       const data = await api.getParcelGeometry(id);
       onParcelChange(id, data?.geometry || null, data?.name || '');
-    } catch {
+    } catch (e: any) {
+      setError(e?.message || 'Failed to load parcel geometry');
       onParcelChange(id, null, '');
+    } finally {
+      setGeoLoading(false);
     }
   };
 
@@ -55,6 +61,8 @@ export const StepParcel: React.FC<Props> = ({ parcelId, onParcelChange }) => {
             <Loader2 className="w-4 h-4 animate-spin text-nkz-text-secondary" />
           ) : error ? (
             <p className="text-nkz-sm text-nkz-text-error flex items-center gap-1"><AlertCircle className="w-3 h-3" />{error}</p>
+          ) : parcels.length === 0 ? (
+            <p className="text-nkz-sm text-nkz-text-secondary">{t('parcel.empty')}</p>
           ) : (
             <select value={parcelId || ''} onChange={e => handleSelect(e.target.value)}
               className="w-full border border-nkz-default rounded-nkz-md px-3 py-2 text-nkz-sm bg-nkz-surface">
@@ -64,7 +72,10 @@ export const StepParcel: React.FC<Props> = ({ parcelId, onParcelChange }) => {
               ))}
             </select>
           )}
-          {selectedName && <p className="text-nkz-sm text-nkz-text-success">{selectedName}</p>}
+          {geoLoading && (
+            <p className="text-nkz-sm text-nkz-text-secondary flex items-center gap-1"><Loader2 className="w-3 h-3 animate-spin" />Loading geometry...</p>
+          )}
+          {selectedName && !geoLoading && <p className="text-nkz-sm text-nkz-text-success">{selectedName}</p>}
         </div>
       )}
     </div>

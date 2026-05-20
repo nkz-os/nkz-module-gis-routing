@@ -89,6 +89,18 @@ export const GisRoutingMapLayer: React.FC<Props> = ({ viewer: propViewer }) => {
       }
     };
 
+    // On mount, check for cross-tab saved route
+    try {
+      const stored = sessionStorage.getItem('nkz:gis-routing:lastSaved');
+      if (stored) {
+        const { geometry, prescriptionMap, timestamp } = JSON.parse(stored);
+        if (geometry && (Date.now() - timestamp < 60000)) {
+          handler(new CustomEvent('nekazari:gis-routing:routeGenerated', { detail: { geometry, prescriptionMap } }));
+          sessionStorage.removeItem('nkz:gis-routing:lastSaved');
+        }
+      }
+    } catch { /* ignore */ }
+
     window.addEventListener('nekazari:gis-routing:routeGenerated', handler as EventListener);
     return () => {
       window.removeEventListener('nekazari:gis-routing:routeGenerated', handler as EventListener);

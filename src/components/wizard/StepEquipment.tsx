@@ -20,8 +20,8 @@ export const StepEquipment: React.FC<Props> = ({
 }) => {
   const { t } = useTranslation(NS);
   const [equipment, setEquipment] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [expanded, setExpanded] = useState(true);
+  const [loading, setLoading] = useState(false);
+  const [expanded, setExpanded] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
