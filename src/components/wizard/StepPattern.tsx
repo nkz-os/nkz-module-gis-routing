@@ -87,26 +87,26 @@ export const StepPattern: React.FC<Props> = ({
 
           {/* Overlap % */}
           <div>
-            <label className="text-nkz-sm text-nkz-text-secondary">Overlap (%)</label>
+            <label className="text-nkz-sm text-nkz-text-secondary">{t('parameters.overlap')}</label>
             <input type="range" min={0} max={30} value={config.overlapPct}
               onChange={e => onConfigChange({ overlapPct: Number(e.target.value) })}
               className="w-full" />
             <span className="text-nkz-sm text-nkz-text-secondary">{config.overlapPct}%</span>
           </div>
 
-          {/* Headland passes */}
+          {/* {t('parameters.headlandPasses')} */}
           <div>
-            <label className="text-nkz-sm text-nkz-text-secondary">Headland passes</label>
+            <label className="text-nkz-sm text-nkz-text-secondary">{t('parameters.headlandPasses')}</label>
             <select value={config.headlandPasses} onChange={e => onConfigChange({ headlandPasses: Number(e.target.value) })}
               className="w-full border border-nkz-default rounded-nkz-md px-3 py-1.5 text-nkz-sm bg-nkz-surface">
               <option value={0}>0</option><option value={1}>1</option><option value={2}>2</option><option value={3}>3</option>
             </select>
           </div>
 
-          {/* Skip rows (only for ab-skip) */}
+          {/* {t('parameters.skipRows')} (only for ab-skip) */}
           {pattern === 'ab-skip' && (
             <div>
-              <label className="text-nkz-sm text-nkz-text-secondary">Skip rows</label>
+              <label className="text-nkz-sm text-nkz-text-secondary">{t('parameters.skipRows')}</label>
               <select value={config.skipRows} onChange={e => onConfigChange({ skipRows: Number(e.target.value) })}
                 className="w-full border border-nkz-default rounded-nkz-md px-3 py-1.5 text-nkz-sm bg-nkz-surface">
                 <option value={1}>1 (alternate)</option><option value={2}>2 (skip 2)</option>
@@ -114,10 +114,10 @@ export const StepPattern: React.FC<Props> = ({
             </div>
           )}
 
-          {/* Direction (only for spiral) */}
+          {/* {t('parameters.direction')} (only for spiral) */}
           {pattern === 'spiral' && (
             <div>
-              <label className="text-nkz-sm text-nkz-text-secondary">Direction</label>
+              <label className="text-nkz-sm text-nkz-text-secondary">{t('parameters.direction')}</label>
               <select value={config.direction} onChange={e => onConfigChange({ direction: e.target.value as 'inside-out' | 'outside-in' })}
                 className="w-full border border-nkz-default rounded-nkz-md px-3 py-1.5 text-nkz-sm bg-nkz-surface">
                 <option value="outside-in">Outside → In</option>

@@ -46,7 +46,11 @@
     "couplingModelRigid": "Rigid set (tractor + implement)",
     "couplingModelArticulated": "Articulated set (tractor + implement)",
     "couplingModelRigidHelp": "Current computation is validated for rigid coupling.",
-    "couplingModelArticulatedNotSupported": "Articulated mode is not supported yet in computation. Select rigid coupling."
+    "couplingModelArticulatedNotSupported": "Articulated mode is not supported yet in computation. Select rigid coupling.",
+    "overlap": "Overlap (%)",
+    "headlandPasses": "Headland passes",
+    "skipRows": "Skip rows",
+    "direction": "Direction"
   },
   "actions": {
     "generate": "Gerar Rota",
@@ -229,5 +233,13 @@
     "title": "Continue on mobile",
     "body": "Open NKZ Mobile → Operations, run sync if needed, then Start session for this operation ID.",
     "copyId": "Copy operation ID"
+  },
+  "preview": {
+    "selectParcelHint": "Select a parcel in the left panel to start",
+    "configureHint": "Configure the pattern to see the preview",
+    "savedHint": "Route saved. Go to the unified viewer to see it on the 3D map.",
+    "interactiveHint": "Click a line to select it. Hover to identify it.",
+    "internalPasses": "Internal passes",
+    "headlandPasses": "Headlands"
   }
 }
