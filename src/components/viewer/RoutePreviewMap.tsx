@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useCallback } from 'react';
+import React, { useState, useCallback } from 'react';
 import { useTranslation } from '@nekazari/sdk';
 import { Map, Loader2, Eye } from 'lucide-react';
 import { accent } from '../../config/accent';
@@ -10,7 +10,6 @@ interface Props {
   parcelName: string;
   previewResult: any;
   generating: boolean;
-  onSave: () => void;
   onViewInCesium: () => void;
   hasSavedResult: boolean;
 }
@@ -20,7 +19,6 @@ export const RoutePreviewMap: React.FC<Props> = ({
   parcelName,
   previewResult,
   generating,
-  onSave,
   onViewInCesium,
   hasSavedResult,
 }) => {

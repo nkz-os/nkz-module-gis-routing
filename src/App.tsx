@@ -410,7 +410,6 @@ const App: React.FC = () => {
           parcelName={wizard.parcelName}
           previewResult={previewResult}
           generating={generating}
-          onSave={handleSave}
           onViewInCesium={handleViewInCesium}
           hasSavedResult={Boolean(savedResult)}
         />
