@@ -142,6 +142,70 @@ export const GisRoutingMapLayer: React.FC<Props> = ({ viewer: propViewer }) => {
       });
     };
 
+    const submitPathfinding = async () => {
+      if (!pf.pointA || !pf.pointB) return;
+
+      const [lonA, latA] = pf.pointA;
+      const [lonB, latB] = pf.pointB;
+
+      let elevationGrid: any = null;
+
+      // Try Cesium terrain sampling first
+      try {
+        const terrainProvider = viewer.terrainProvider;
+        if (terrainProvider && !(terrainProvider instanceof Cesium.EllipsoidTerrainProvider)) {
+          const margin = 0.003;
+          const minLon = Math.min(lonA, lonB) - margin;
+          const maxLon = Math.max(lonA, lonB) + margin;
+          const minLat = Math.min(latA, latB) - margin;
+          const maxLat = Math.max(latA, latB) + margin;
+
+          const GRID = 40;
+          const positions: any[] = [];
+          for (let row = 0; row < GRID; row++) {
+            for (let col = 0; col < GRID; col++) {
+              const lon = minLon + (col / (GRID - 1)) * (maxLon - minLon);
+              const lat = minLat + (row / (GRID - 1)) * (maxLat - minLat);
+              positions.push(Cesium.Cartographic.fromDegrees(lon, lat));
+            }
+          }
+
+          const sampled = await Cesium.sampleTerrainMostDetailed(terrainProvider, positions);
+          const elevations: number[][] = [];
+          for (let row = 0; row < GRID; row++) {
+            elevations.push(sampled.slice(row * GRID, (row + 1) * GRID).map((c: any) => c.height));
+          }
+
+          elevationGrid = {
+            elevations,
+            origin_lon: minLon,
+            origin_lat: maxLat,
+            pixel_size_deg: (maxLon - minLon) / (GRID - 1),
+            cols: GRID,
+          };
+        }
+      } catch (e) {
+        console.warn('[GisRoutingMapLayer] Terrain sampling failed, falling back to eu-dem:', e);
+      }
+
+      api.startPathCalculation({
+        point_a: pf.pointA,
+        point_b: pf.pointB,
+        machine_width_m: 3,
+        max_slope_deg: 15,
+        min_turn_radius_m: 8,
+        elevation_source: elevationGrid ? 'cesium-terrain' : 'eu-dem',
+        num_alternatives: 3,
+        elevation_grid: elevationGrid,
+      }).then((res: any) => {
+        const jobId = res?.job_id;
+        if (jobId) startPolling(jobId);
+        else { pf.state = 'done'; emitPfState('done'); }
+      }).catch(() => {
+        pf.state = 'done'; emitPfState('done');
+      });
+    };
+
     const startPolling = (jobId: string) => {
       let attempts = 0;
       pf.pollTimer = setInterval(async () => {
@@ -239,22 +303,8 @@ export const GisRoutingMapLayer: React.FC<Props> = ({ viewer: propViewer }) => {
           pf.state = 'calculating';
           emitPfState('calculating');
 
-          // Call API
-          api.startPathCalculation({
-            point_a: pf.pointA,
-            point_b: pf.pointB,
-            machine_width_m: 3,
-            max_slope_deg: 15,
-            min_turn_radius_m: 8,
-            elevation_source: 'eu-dem',
-            num_alternatives: 3,
-          }).then((res: any) => {
-            const jobId = res?.job_id;
-            if (jobId) startPolling(jobId);
-            else { pf.state = 'done'; emitPfState('done'); }
-          }).catch(() => {
-            pf.state = 'done'; emitPfState('done');
-          });
+          // Sample terrain via Cesium, then call API
+          submitPathfinding();
         }
       }, Cesium.ScreenSpaceEventType.LEFT_CLICK);
     };
