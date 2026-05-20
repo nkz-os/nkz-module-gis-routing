@@ -17,7 +17,7 @@ interface Props {
 const ALT_COLORS = ['#22c55e', '#F59E0B', '#3b82f6'];
 
 export const GisRoutingMapLayer: React.FC<Props> = ({ viewer: propViewer }) => {
-  const { cesiumViewer, selectedEntityId } = useViewer();
+  const { cesiumViewer, selectedEntityId } = useViewer() as any;
   const viewer = propViewer || cesiumViewer;
   const routeEntitiesRef = useRef<string[]>([]);
   const pfRef = useRef<{

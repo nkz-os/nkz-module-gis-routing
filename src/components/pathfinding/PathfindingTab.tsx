@@ -40,7 +40,7 @@ export const PathfindingTab: React.FC<Props> = ({ parcelGeometry, machineWidthM 
       const res = await api.startPathCalculation({
         point_a: [pointA.lon, pointA.lat],
         point_b: [pointB.lon, pointB.lat],
-        machine_width_m: 3,
+        machine_width_m: machineWidthM || 3,
         max_slope_deg: 15,
         min_turn_radius_m: 8,
         num_alternatives: 3,
