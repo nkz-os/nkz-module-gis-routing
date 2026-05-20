@@ -17,7 +17,7 @@ interface Props {
 const ALT_COLORS = ['#22c55e', '#F59E0B', '#3b82f6'];
 
 export const GisRoutingMapLayer: React.FC<Props> = ({ viewer: propViewer }) => {
-  const { cesiumViewer } = useViewer();
+  const { cesiumViewer, selectedEntityId } = useViewer();
   const viewer = propViewer || cesiumViewer;
   const routeEntitiesRef = useRef<string[]>([]);
   const pfRef = useRef<{
@@ -38,6 +38,27 @@ export const GisRoutingMapLayer: React.FC<Props> = ({ viewer: propViewer }) => {
   const emitPfState = (s: string) => {
     window.dispatchEvent(new CustomEvent('nekazari:pf:stateChange', { detail: { state: s } }));
   };
+
+  // Cancel pick mode when entity selection changes
+  useEffect(() => {
+    if (pfRef.current.state !== 'idle') {
+      pfRef.current.entities.forEach(id => {
+        if (!viewer?.isDestroyed?.()) viewer?.entities.removeById(id);
+      });
+      pfRef.current.entities = [];
+      if (pfRef.current.clickHandler && !pfRef.current.clickHandler.isDestroyed?.()) {
+        pfRef.current.clickHandler.destroy();
+      }
+      pfRef.current.clickHandler = null;
+      if (pfRef.current.pollTimer) { clearInterval(pfRef.current.pollTimer); pfRef.current.pollTimer = null; }
+      pfRef.current.state = 'idle';
+      pfRef.current.pointA = null;
+      pfRef.current.pointB = null;
+      pfRef.current.alternatives = [];
+      pfRef.current.selectedAlt = null;
+      window.dispatchEvent(new CustomEvent('nekazari:pf:stateChange', { detail: { state: 'idle' } }));
+    }
+  }, [selectedEntityId, viewer]);
 
   // ---- Route visualization ----
   useEffect(() => {

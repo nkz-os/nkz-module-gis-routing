@@ -228,7 +228,8 @@
   "handoff": {
     "title": "Continuar en el móvil",
     "body": "Abre NKZ Mobile → Operaciones, sincroniza si hace falta y pulsa Iniciar sesión con este ID de operación.",
-    "copyId": "Copiar ID de operación"
+    "copyId": "Copiar ID de operación",
+    "copied": "¡Copiado!"
   },
   "preview": {
     "selectParcelHint": "Selecciona una parcela en el panel izquierdo para comenzar",

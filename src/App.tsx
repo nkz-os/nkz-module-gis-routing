@@ -400,7 +400,7 @@ const App: React.FC = () => {
               )}
             </>
           ) : (
-            <PathfindingTab />
+            <PathfindingTab parcelGeometry={wizard.parcelGeometry} machineWidthM={wizard.patternConfig.widthM} />
           )}
         </>
       }

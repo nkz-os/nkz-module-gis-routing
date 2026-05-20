@@ -41,7 +41,7 @@
     "width": "Largeur de travail (m)",
     "swaths": "Bandes",
     "operationType": "Operation Type",
-    "demCorrection": "DEM correction (pending)",
+    "demCorrection": "DEM correction",
     "couplingModel": "Coupling model",
     "couplingModelRigid": "Rigid set (tractor + implement)",
     "couplingModelArticulated": "Articulated set (tractor + implement)",
@@ -232,7 +232,8 @@
   "handoff": {
     "title": "Continue on mobile",
     "body": "Open NKZ Mobile → Operations, run sync if needed, then Start session for this operation ID.",
-    "copyId": "Copy operation ID"
+    "copyId": "Copy operation ID",
+    "copied": "¡Copiado!"
   },
   "preview": {
     "selectParcelHint": "Select a parcel in the left panel to start",
