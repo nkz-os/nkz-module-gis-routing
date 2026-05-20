@@ -54,6 +54,9 @@ export const PathfindingTab: React.FC<Props> = ({ parcelGeometry, machineWidthM 
           const result = await api.getPathResult(id);
           if (result.status === 'completed') {
             setAlternatives(result.alternatives || []);
+            if (result.alternatives?.[0]?.geometry) {
+              window.dispatchEvent(new CustomEvent('nekazari:gis-routing:pathfindingResult', { detail: result.alternatives[0] }));
+            }
             setPolling(false);
             return;
           }

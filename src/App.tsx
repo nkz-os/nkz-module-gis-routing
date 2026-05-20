@@ -87,6 +87,15 @@ const App: React.FC = () => {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [savedPatterns, setSavedPatterns] = useState<any[]>([]);
+  const [patternsLoading, setPatternsLoading] = useState(false);
+  const [saveSuccess, setSaveSuccess] = useState(false);
+  const [pfPreview, setPfPreview] = useState<any>(null);
+
+  useEffect(() => {
+    const h = (e: Event) => setPfPreview({ data: { geometry: (e as CustomEvent).detail?.geometry, properties: (e as CustomEvent).detail } });
+    window.addEventListener('nekazari:gis-routing:pathfindingResult', h);
+    return () => window.removeEventListener('nekazari:gis-routing:pathfindingResult', h);
+  }, []);
 
   const [wizard, setWizard] = useState<WizardState>({
     parcelId: null,
@@ -172,9 +181,11 @@ const App: React.FC = () => {
       setSavedPatterns([]);
       return;
     }
+    setPatternsLoading(true);
     api.listPatterns(wizard.parcelId)
-      .then((res: any) => setSavedPatterns(res?.data || []))
-      .catch(() => setSavedPatterns([]));
+      .then((res: any) => setSavedPatterns((res?.data || []).sort((a: any, b: any) => (b.created_at || 0) - (a.created_at || 0))))
+      .catch(() => setSavedPatterns([]))
+      .finally(() => setPatternsLoading(false));
   }, [wizard.parcelId]);
 
   const handleDeletePattern = useCallback(async (patternId: string, e: React.MouseEvent) => {
@@ -232,6 +243,8 @@ const App: React.FC = () => {
     try {
       const res = await api.generate(buildBody(wizard, true));
       setSavedResult(res);
+      setSaveSuccess(true);
+      setTimeout(() => setSaveSuccess(false), 3000);
       // Store for cross-tab visualization in the unified viewer
       try {
         sessionStorage.setItem('nkz:gis-routing:lastSaved', JSON.stringify({
@@ -364,7 +377,16 @@ const App: React.FC = () => {
                   patternConfig={wizard.patternConfig}
                 />
               )}
-              {savedPatterns.length > 0 && (
+              {/* Save success toast */}
+              {saveSuccess && (
+                <div className="rounded-nkz-md bg-green-50 border border-green-200 px-nkz-md py-2 text-nkz-sm text-green-700 font-medium text-center">
+                  ✓ {t('patterns.saved')}
+                </div>
+              )}
+              {patternsLoading && (
+                <div className="text-nkz-sm text-nkz-text-secondary text-center py-2">Loading...</div>
+              )}
+              {!patternsLoading && savedPatterns.length > 0 && (
                 <div className="rounded-nkz-lg border border-nkz-default bg-nkz-surface-alt">
                   <div className="px-nkz-md py-3 border-b border-nkz-default">
                     <span className="text-nkz-sm font-semibold text-nkz-text-secondary">
@@ -408,7 +430,7 @@ const App: React.FC = () => {
         <RoutePreviewMap
           parcelGeometry={wizard.parcelGeometry}
           parcelName={wizard.parcelName}
-          previewResult={previewResult}
+          previewResult={activeTab === 'pathfinding' ? pfPreview : previewResult}
           generating={generating}
           onViewInCesium={handleViewInCesium}
           hasSavedResult={Boolean(savedResult)}
