@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useTranslation } from '@nekazari/sdk';
 import { Save, Loader2 } from 'lucide-react';
+import { accent } from '../../config/accent';
 import { api } from '../../services/api';
 
 const NS = 'gis-routing';
@@ -61,7 +62,7 @@ export const PatternSaveLoad: React.FC<Props> = ({
           />
           <button onClick={handleSave} disabled={saving || !name.trim()}
             className="w-full py-2 rounded-nkz-md text-nkz-xs font-semibold text-nkz-text-on-accent disabled:opacity-50"
-            style={{ backgroundColor: '#CA8A04' }}>
+            style={{ backgroundColor: accent.base }}>
             {saving ? <Loader2 className="w-3 h-3 animate-spin inline mr-1" /> : null}
             {t('patterns.save')}
           </button>

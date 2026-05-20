@@ -1,6 +1,7 @@
 import React, { useState, useCallback } from 'react';
 import { useTranslation } from '@nekazari/sdk';
 import { Flag, Loader2 } from 'lucide-react';
+import { accent } from '../../config/accent';
 import { api } from '../../services/api';
 
 const NS = 'gis-routing';
@@ -90,7 +91,7 @@ export const PathfindingTab: React.FC = () => {
 
       <button onClick={handleCalculate} disabled={calculating || polling}
         className="w-full py-2 rounded-nkz-md text-nkz-xs font-semibold text-nkz-text-on-accent disabled:opacity-50"
-        style={{ backgroundColor: '#CA8A04' }}>
+        style={{ backgroundColor: accent.base }}>
         {calculating ? <Loader2 className="w-3 h-3 animate-spin inline mr-1" /> : null}
         {t('pathfinding.calculate')}
       </button>

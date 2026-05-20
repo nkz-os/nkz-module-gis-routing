@@ -1,9 +1,8 @@
 import React from 'react';
 import { useTranslation } from '@nekazari/sdk';
-import manifest from '../../../manifest.json';
+import { accent } from '../../config/accent';
 
 const NS = 'gis-routing';
-const { accent } = manifest;
 
 interface WizardShellProps {
   left: React.ReactNode;
@@ -15,12 +14,10 @@ export const WizardShell: React.FC<WizardShellProps> = ({ left, center, right })
   const { t } = useTranslation(NS);
 
   return (
-    <div className="flex h-full min-h-screen bg-nkz-surface-alt text-nkz-text-primary font-sans">
-      {/* Left: Configuration Panel */}
-      <div
-        className="flex-shrink-0 overflow-y-auto border-r border-nkz-default bg-nkz-surface"
-        style={{ width: '30%', minWidth: 360, maxWidth: 480 }}
-      >
+    <div className="flex flex-col lg:flex-row h-full min-h-screen bg-nkz-surface-alt text-nkz-text-primary font-sans">
+      {/* Left: Configuration Panel — full-width on mobile, 30% on desktop */}
+      <div className="w-full lg:w-[30%] lg:min-w-[360px] lg:max-w-[480px] flex-shrink-0 overflow-y-auto
+                      border-b lg:border-b-0 lg:border-r border-nkz-default bg-nkz-surface">
         <div className="p-nkz-md space-y-nkz-stack">
           <div className="flex items-center gap-nkz-sm pb-nkz-md border-b border-nkz-default">
             <div
@@ -38,16 +35,14 @@ export const WizardShell: React.FC<WizardShellProps> = ({ left, center, right })
         </div>
       </div>
 
-      {/* Center: Map Preview */}
-      <div className="flex-1 relative bg-slate-900 min-w-0">
+      {/* Center: Map Preview — proportional height on mobile, flex-1 on desktop */}
+      <div className="w-full lg:flex-1 relative bg-slate-900 min-h-[40vh] md:min-h-[50vh] lg:min-h-0 min-w-0">
         {center}
       </div>
 
-      {/* Right: Stats & Export */}
-      <div
-        className="flex-shrink-0 overflow-y-auto border-l border-nkz-default bg-nkz-surface"
-        style={{ width: '25%', minWidth: 280, maxWidth: 400 }}
-      >
+      {/* Right: Stats & Export — full-width on mobile, 25% on desktop */}
+      <div className="w-full lg:w-[25%] lg:min-w-[280px] lg:max-w-[400px] flex-shrink-0 overflow-y-auto
+                      border-t lg:border-t-0 lg:border-l border-nkz-default bg-nkz-surface">
         <div className="p-nkz-md space-y-nkz-stack">
           {right}
         </div>
