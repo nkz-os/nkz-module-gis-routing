@@ -214,14 +214,12 @@
     "headland-only": "Headland Only"
   },
   "pathfinding": {
-    "title": "Pathfinding",
-    "pointA": "Point A",
-    "pointB": "Point B",
-    "calculate": "Calculate Path",
-    "calculating": "Calculating",
-    "results": "Path alternatives",
-    "distance": "Distance",
-    "climb": "Climb"
+    "pickOnMap": "Pick A-B path on map",
+    "pickPointA": "Click point A on the map",
+    "pickPointB": "Click point B on the map",
+    "calculating": "Calculating alternatives...",
+    "selectAndSave": "Selected path:",
+    "alternatives": "Alternatives"
   },
   "panels": {
     "emptyState": "Generate a route to see results",

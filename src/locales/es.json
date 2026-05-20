@@ -211,14 +211,12 @@
     "headland-only": "Solo cabecero"
   },
   "pathfinding": {
-    "title": "Navegación",
-    "pointA": "Punto A",
-    "pointB": "Punto B",
-    "calculate": "Calcular Ruta",
-    "calculating": "Calculando",
-    "results": "Alternativas de ruta",
-    "distance": "Distancia",
-    "climb": "Desnivel"
+    "pickOnMap": "Trazar ruta A-B en el mapa",
+    "pickPointA": "Haz clic en el punto A del mapa",
+    "pickPointB": "Haz clic en el punto B del mapa",
+    "calculating": "Calculando alternativas...",
+    "selectAndSave": "Ruta seleccionada:",
+    "alternatives": "Alternativas"
   },
   "panels": {
     "emptyState": "Genera una ruta para ver resultados"
