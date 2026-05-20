@@ -197,6 +197,11 @@ const App: React.FC = () => {
             skipRows: p.pattern_config.skip_rows ?? wizard.patternConfig.skipRows,
             direction: p.pattern_config.direction ?? wizard.patternConfig.direction,
           },
+          tractorId: p.equipment_tractor_id || wizard.tractorId,
+          implementId: p.equipment_implement_id || wizard.implementId,
+          operationType: p.pattern_config.operation_type || wizard.operationType,
+          vraEnabled: p.vra_prescription_map ? true : wizard.vraEnabled,
+          demCorrection: p.pattern_config.dem_correction || wizard.demCorrection,
         });
       }
     } catch {
@@ -218,6 +223,15 @@ const App: React.FC = () => {
     try {
       const res = await api.generate(buildBody(wizard, true));
       setSavedResult(res);
+      // Store for cross-tab visualization in the unified viewer
+      try {
+        sessionStorage.setItem('nkz:gis-routing:lastSaved', JSON.stringify({
+          geometry: res.data?.geometry,
+          prescriptionMap: res.prescription_map,
+          parcelId: wizard.parcelId,
+          timestamp: Date.now(),
+        }));
+      } catch { /* sessionStorage may be full or unavailable */ }
       window.dispatchEvent(new CustomEvent('nekazari:gis-routing:routeGenerated', {
         detail: {
           geometry: res.data?.geometry,

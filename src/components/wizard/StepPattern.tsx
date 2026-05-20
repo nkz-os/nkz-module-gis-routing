@@ -39,7 +39,7 @@ export const StepPattern: React.FC<Props> = ({
   onPatternChange, onConfigChange, onDemCorrectionChange, demCorrection,
 }) => {
   const { t } = useTranslation(NS);
-  const [expanded, setExpanded] = useState(true);
+  const [expanded, setExpanded] = useState(false);
 
   return (
     <div className="rounded-nkz-lg border border-nkz-default bg-nkz-surface-alt">

@@ -1,6 +1,6 @@
 import React, { useMemo, useState, useCallback } from 'react';
 import { useTranslation } from '@nekazari/sdk';
-import { Map, Loader2, Eye, Save } from 'lucide-react';
+import { Map, Loader2, Eye } from 'lucide-react';
 import { accent } from '../../config/accent';
 
 const NS = 'gis-routing';
@@ -104,25 +104,16 @@ export const RoutePreviewMap: React.FC<Props> = ({
 
       {/* Actions */}
       <div className="flex-shrink-0 p-4 space-y-2 border-t border-nkz-default bg-nkz-surface-alt">
-        <div className="flex gap-2">
+        {hasSavedResult && (
           <button
-            onClick={onSave}
-            className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-nkz-md text-nkz-sm font-semibold text-nkz-text-on-accent hover:opacity-90 transition-opacity"
+            onClick={onViewInCesium}
+            className="w-full flex items-center justify-center gap-2 py-2.5 rounded-nkz-md text-nkz-sm font-semibold text-nkz-text-on-accent hover:opacity-90 transition-opacity"
             style={{ backgroundColor: accent.base }}
           >
-            <Save className="w-4 h-4" />
-            {t('actions.save')}
+            <Eye className="w-4 h-4" />
+            {t('actions.viewInCesium')}
           </button>
-          {hasSavedResult && (
-            <button
-              onClick={onViewInCesium}
-              className="flex items-center justify-center gap-2 py-2.5 px-4 rounded-nkz-md text-nkz-sm font-semibold border border-nkz-accent text-nkz-text-accent hover:bg-nkz-surface transition-colors"
-            >
-              <Eye className="w-4 h-4" />
-              Cesium
-            </button>
-          )}
-        </div>
+        )}
         {hasSavedResult ? (
           <p className="text-nkz-xs text-nkz-text-secondary text-center">
             Ruta guardada. Ve al visor unificado para verla en el mapa 3D.
