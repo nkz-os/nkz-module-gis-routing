@@ -6,10 +6,27 @@ import { api } from '../../services/api';
 
 const NS = 'gis-routing';
 
-export const PathfindingTab: React.FC = () => {
+function getDefaultCoords(geometry?: any) {
+  if (geometry?.coordinates?.[0]) {
+    const ring = geometry.coordinates[0];
+    let sumLon = 0, sumLat = 0;
+    ring.forEach(([lon, lat]: number[]) => { sumLon += lon; sumLat += lat; });
+    const cx = sumLon / ring.length, cy = sumLat / ring.length, d = 0.01;
+    return { lonA: cx - d, latA: cy, lonB: cx + d, latB: cy };
+  }
+  return { lonA: -1.65, latA: 42.82, lonB: -1.64, latB: 42.81 };
+}
+
+interface Props {
+  parcelGeometry?: any;
+  machineWidthM?: number;
+}
+
+export const PathfindingTab: React.FC<Props> = ({ parcelGeometry, machineWidthM }) => {
   const { t } = useTranslation(NS);
-  const [pointA, setPointA] = useState({ lon: -1.65, lat: 42.82 });
-  const [pointB, setPointB] = useState({ lon: -1.64, lat: 42.81 });
+  const defaultCoords = getDefaultCoords(parcelGeometry);
+  const [pointA, setPointA] = useState({ lon: defaultCoords.lonA, lat: defaultCoords.latA });
+  const [pointB, setPointB] = useState({ lon: defaultCoords.lonB, lat: defaultCoords.latB });
   const [calculating, setCalculating] = useState(false);
   const [polling, setPolling] = useState(false);
   const [alternatives, setAlternatives] = useState<any[]>([]);

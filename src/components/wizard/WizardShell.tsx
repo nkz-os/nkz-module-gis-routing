@@ -15,8 +15,8 @@ export const WizardShell: React.FC<WizardShellProps> = ({ left, center, right })
 
   return (
     <div className="flex flex-col lg:flex-row h-full min-h-screen bg-nkz-surface-alt text-nkz-text-primary font-sans">
-      {/* Left: Configuration Panel — full-width on mobile, 30% on desktop */}
-      <div className="w-full lg:w-[30%] lg:min-w-[360px] lg:max-w-[480px] flex-shrink-0 overflow-y-auto
+      {/* Left: Configuration — 35% on desktop, full-width on mobile */}
+      <div className="w-full lg:w-[35%] lg:min-w-[340px] lg:max-w-[480px] flex-shrink-0 overflow-y-auto
                       border-b lg:border-b-0 lg:border-r border-nkz-default bg-nkz-surface">
         <div className="p-nkz-md space-y-nkz-stack">
           <div className="flex items-center gap-nkz-sm pb-nkz-md border-b border-nkz-default">
@@ -35,16 +35,17 @@ export const WizardShell: React.FC<WizardShellProps> = ({ left, center, right })
         </div>
       </div>
 
-      {/* Center: Map Preview — proportional height on mobile, flex-1 on desktop */}
-      <div className="w-full lg:flex-1 relative bg-slate-900 min-h-[40vh] md:min-h-[50vh] lg:min-h-0 min-w-0">
-        {center}
-      </div>
-
-      {/* Right: Stats & Export — full-width on mobile, 25% on desktop */}
-      <div className="w-full lg:w-[25%] lg:min-w-[280px] lg:max-w-[400px] flex-shrink-0 overflow-y-auto
-                      border-t lg:border-t-0 lg:border-l border-nkz-default bg-nkz-surface">
-        <div className="p-nkz-md space-y-nkz-stack">
-          {right}
+      {/* Right: Preview + Results — 65% on desktop, full-width on mobile */}
+      <div className="w-full lg:flex-1 flex flex-col min-h-[40vh] md:min-h-[50vh] lg:min-h-0 min-w-0">
+        {/* SVG Preview */}
+        <div className="flex-1 relative bg-white min-h-0">
+          {center}
+        </div>
+        {/* Stats/Export/Handoff below preview (when visible) */}
+        <div className="flex-shrink-0 border-t border-nkz-default bg-nkz-surface">
+          <div className="p-nkz-md space-y-nkz-stack">
+            {right}
+          </div>
         </div>
       </div>
     </div>
