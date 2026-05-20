@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react';
 import { useTranslation } from '@nekazari/sdk';
-import { Map, ExternalLink, Loader2, Eye, Save } from 'lucide-react';
+import { Map, Loader2, Eye, Save } from 'lucide-react';
 import { accent } from '../../config/accent';
 
 const NS = 'gis-routing';

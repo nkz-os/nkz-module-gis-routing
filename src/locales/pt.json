@@ -111,7 +111,8 @@
     "jobQueued": "Generation queued, waiting for results...",
     "jobPolling": "Waiting for generated zones... attempt {{attempt}}/{{max}}",
     "jobDone": "Zones generated and loaded",
-    "jobTimeout": "No new zones were detected in time. Retry or check backend status."
+    "jobTimeout": "No new zones were detected in time. Retry or check backend status.",
+    "openModule": "Open GIS Routing"
   },
   "operationType": {
     "spraying": "Spraying",
@@ -201,7 +202,10 @@
     "saveTitle": "Save Pattern",
     "saved": "Pattern saved",
     "namePlaceholder": "Pattern name...",
-    "save": "Save"
+    "save": "Save",
+    "savedListTitle": "Saved Routes",
+    "noSaved": "No saved routes for this parcel",
+    "loadFromContext": "Show on map"
   },
   "patternLabels": {
     "ab-line": "AB Line",

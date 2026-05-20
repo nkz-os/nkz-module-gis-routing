@@ -189,7 +189,8 @@
     "jobQueued": "Generación encolada, esperando resultados...",
     "jobPolling": "Esperando zonas generadas... intento {{attempt}}/{{max}}",
     "jobDone": "Zonas generadas y cargadas",
-    "jobTimeout": "No se detectaron zonas nuevas a tiempo. Reintenta o revisa el estado del servicio."
+    "jobTimeout": "No se detectaron zonas nuevas a tiempo. Reintenta o revisa el estado del servicio.",
+    "openModule": "Abrir GIS Routing"
   },
   "trajectory": {
     "title": "Alternativas de trayectoria",

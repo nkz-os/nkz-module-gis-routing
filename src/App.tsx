@@ -86,6 +86,7 @@ const App: React.FC = () => {
   const [generating, setGenerating] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [savedPatterns, setSavedPatterns] = useState<any[]>([]);
 
   const [wizard, setWizard] = useState<WizardState>({
     parcelId: null,
@@ -164,6 +165,44 @@ const App: React.FC = () => {
       runPreview(wizard);
     }
   }, [wizard.parcelGeometry, wizard.parcelId, runPreview, wizard]);
+
+  // Load saved patterns when parcel changes
+  useEffect(() => {
+    if (!wizard.parcelId) {
+      setSavedPatterns([]);
+      return;
+    }
+    api.listPatterns(wizard.parcelId)
+      .then((res: any) => setSavedPatterns(res?.data || []))
+      .catch(() => setSavedPatterns([]));
+  }, [wizard.parcelId]);
+
+  const handleLoadPattern = useCallback(async (patternId: string) => {
+    try {
+      const res: any = await api.getPattern(patternId);
+      const p = res?.data;
+      if (!p) return;
+      const geom = typeof p.route_geojson === 'string'
+        ? JSON.parse(p.route_geojson)
+        : p.route_geojson;
+      setPreviewResult({ data: { geometry: geom, properties: p } });
+      if (p.pattern_config) {
+        updateWizard({
+          pattern: p.pattern_type || wizard.pattern,
+          patternConfig: {
+            headingDeg: p.pattern_config.heading_deg ?? wizard.patternConfig.headingDeg,
+            widthM: p.pattern_config.width_m ?? wizard.patternConfig.widthM,
+            overlapPct: p.pattern_config.overlap_pct ?? wizard.patternConfig.overlapPct,
+            headlandPasses: p.pattern_config.headland_passes ?? wizard.patternConfig.headlandPasses,
+            skipRows: p.pattern_config.skip_rows ?? wizard.patternConfig.skipRows,
+            direction: p.pattern_config.direction ?? wizard.patternConfig.direction,
+          },
+        });
+      }
+    } catch {
+      // ignore load errors
+    }
+  }, [wizard, updateWizard]);
 
   // Cleanup debounce on unmount
   useEffect(() => {
@@ -301,6 +340,34 @@ const App: React.FC = () => {
                   pattern={wizard.pattern}
                   patternConfig={wizard.patternConfig}
                 />
+              )}
+              {savedPatterns.length > 0 && (
+                <div className="rounded-nkz-lg border border-nkz-default bg-nkz-surface-alt">
+                  <div className="px-nkz-md py-3 border-b border-nkz-default">
+                    <span className="text-nkz-sm font-semibold text-nkz-text-secondary">
+                      {t('patterns.savedListTitle')} ({savedPatterns.length})
+                    </span>
+                  </div>
+                  <div className="divide-y divide-nkz-default max-h-48 overflow-y-auto">
+                    {savedPatterns.map((p: any) => (
+                      <button
+                        key={p.id}
+                        onClick={() => handleLoadPattern(p.id)}
+                        className="w-full text-left px-nkz-md py-2.5 hover:bg-nkz-surface transition-colors"
+                      >
+                        <div className="text-nkz-sm font-medium text-nkz-text-primary">
+                          {p.name}
+                        </div>
+                        <div className="text-nkz-xs text-nkz-text-secondary flex gap-2">
+                          <span>{p.pattern_type}</span>
+                          {p.created_at && (
+                            <span>· {new Date(p.created_at * 1000).toLocaleDateString()}</span>
+                          )}
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                </div>
               )}
             </>
           ) : (

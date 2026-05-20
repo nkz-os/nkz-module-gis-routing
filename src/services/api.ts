@@ -1,9 +1,11 @@
 const BASE_URL = (() => {
+  if (typeof window === 'undefined') return 'https://nkz.robotika.cloud/api/routing';
   const env = (window as any).__ENV__;
   return (env?.VITE_API_URL || 'https://nkz.robotika.cloud') + '/api/routing';
 })();
 
 function getTenantId(): string | undefined {
+  if (typeof window === 'undefined') return undefined;
   const ctx = (window as any).__nekazariAuthContext;
   return ctx?.tenantId || ctx?.tenantProfile?.id || undefined;
 }
