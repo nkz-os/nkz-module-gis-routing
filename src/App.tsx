@@ -177,6 +177,15 @@ const App: React.FC = () => {
       .catch(() => setSavedPatterns([]));
   }, [wizard.parcelId]);
 
+  const handleDeletePattern = useCallback(async (patternId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!confirm('Delete this saved route?')) return;
+    try {
+      await api.deletePattern(patternId);
+      setSavedPatterns(prev => prev.filter(p => p.id !== patternId));
+    } catch { /* ignore */ }
+  }, []);
+
   const handleLoadPattern = useCallback(async (patternId: string) => {
     try {
       const res: any = await api.getPattern(patternId);
@@ -290,9 +299,9 @@ const App: React.FC = () => {
                 tractorId={wizard.tractorId}
                 implementId={wizard.implementId}
                 operationType={wizard.operationType}
-                onTractorChange={id => updateWizard({ tractorId: id })}
-                onImplementChange={id => updateWizard({ implementId: id })}
-                onOperationTypeChange={op => updateWizard({ operationType: op })}
+                onTractorChange={id => setWizard(prev => ({ ...prev, tractorId: id }))}
+                onImplementChange={id => setWizard(prev => ({ ...prev, implementId: id }))}
+                onOperationTypeChange={op => setWizard(prev => ({ ...prev, operationType: op }))}
               />
               <StepPattern
                 config={wizard.patternConfig}
@@ -364,21 +373,27 @@ const App: React.FC = () => {
                   </div>
                   <div className="divide-y divide-nkz-default max-h-48 overflow-y-auto">
                     {savedPatterns.map((p: any) => (
-                      <button
-                        key={p.id}
-                        onClick={() => handleLoadPattern(p.id)}
-                        className="w-full text-left px-nkz-md py-2.5 hover:bg-nkz-surface transition-colors"
-                      >
-                        <div className="text-nkz-sm font-medium text-nkz-text-primary">
-                          {p.name}
-                        </div>
-                        <div className="text-nkz-xs text-nkz-text-secondary flex gap-2">
-                          <span>{p.pattern_type}</span>
-                          {p.created_at && (
-                            <span>· {new Date(p.created_at * 1000).toLocaleDateString()}</span>
-                          )}
-                        </div>
-                      </button>
+                      <div key={p.id} className="flex items-center">
+                        <button
+                          onClick={() => handleLoadPattern(p.id)}
+                          className="flex-1 text-left px-nkz-md py-2.5 hover:bg-nkz-surface transition-colors"
+                        >
+                          <div className="text-nkz-sm font-medium text-nkz-text-primary">{p.name}</div>
+                          <div className="text-nkz-xs text-nkz-text-secondary flex gap-2">
+                            <span>{p.pattern_type}</span>
+                            {p.created_at && (
+                              <span>· {new Date(p.created_at * 1000).toLocaleDateString()}</span>
+                            )}
+                          </div>
+                        </button>
+                        <button
+                          onClick={(e) => handleDeletePattern(p.id, e)}
+                          className="px-2 py-1 text-nkz-text-secondary hover:text-nkz-text-error transition-colors"
+                          title="Delete"
+                        >
+                          ×
+                        </button>
+                      </div>
                     ))}
                   </div>
                 </div>

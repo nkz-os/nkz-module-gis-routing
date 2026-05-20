@@ -38,7 +38,7 @@ export const RoutePreviewMap: React.FC<Props> = ({
           {t('parcel.select')}
         </p>
         <p className="text-nkz-sm text-nkz-text-muted mt-1">
-          Selecciona una parcela en el panel izquierdo para comenzar
+          {t('preview.selectParcelHint')}
         </p>
       </div>
     );
@@ -63,7 +63,7 @@ export const RoutePreviewMap: React.FC<Props> = ({
           {parcelName || t('parcel.select')}
         </p>
         <p className="text-nkz-sm text-nkz-text-muted mt-1">
-          Configura el patrón para ver la previsualización
+          {t('preview.configureHint')}
         </p>
       </div>
     );
@@ -97,6 +97,8 @@ export const RoutePreviewMap: React.FC<Props> = ({
               onHover={setHoveredIndex}
               onSelect={setSelectedIndex}
               onLeave={clearHighlight}
+              swathLabel={t('preview.internalPasses')}
+              headlandLabel={t('preview.headlandPasses')}
             />
           </div>
         </div>
@@ -116,11 +118,11 @@ export const RoutePreviewMap: React.FC<Props> = ({
         )}
         {hasSavedResult ? (
           <p className="text-nkz-xs text-nkz-text-secondary text-center">
-            Ruta guardada. Ve al visor unificado para verla en el mapa 3D.
+            {t('preview.savedHint')}
           </p>
         ) : (
           <p className="text-nkz-xs text-nkz-text-secondary text-center">
-            Haz clic en una línea para seleccionarla. Pasa el ratón para identificarla.
+            {t('preview.interactiveHint')}
           </p>
         )}
       </div>
@@ -208,7 +210,9 @@ const InteractiveSvg: React.FC<{
   onHover: (i: number | null) => void;
   onSelect: (i: number) => void;
   onLeave: () => void;
-}> = ({ data, hoveredIndex, selectedIndex, onHover, onSelect, onLeave }) => {
+  swathLabel: string;
+  headlandLabel: string;
+}> = ({ data, hoveredIndex, selectedIndex, onHover, onSelect, onLeave, swathLabel, headlandLabel }) => {
   return (
     <svg
       width={data.w}
@@ -267,11 +271,11 @@ const InteractiveSvg: React.FC<{
         {data.lines.some(l => l.isHeadland) && (
           <>
             <line x1="8" y1="14" x2="30" y2="14" stroke="#0891B2" strokeWidth="2" />
-            <text x="35" y="18" fontSize="9" fill="#6b7280">{data.headlandLabel}</text>
+            <text x="35" y="18" fontSize="9" fill="#6b7280">{headlandLabel}</text>
           </>
         )}
         <line x1="8" y1="26" x2="30" y2="26" stroke="#F59E0B" strokeWidth="2" />
-        <text x="35" y="30" fontSize="9" fill="#6b7280">{data.swathLabel}</text>
+        <text x="35" y="30" fontSize="9" fill="#6b7280">{swathLabel}</text>
       </g>
     </svg>
   );

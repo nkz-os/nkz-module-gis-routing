@@ -46,7 +46,11 @@
     "couplingModelRigid": "Conjunto rígido (tractor + apero)",
     "couplingModelArticulated": "Conjunto articulado (tractor + apero)",
     "couplingModelRigidHelp": "El cálculo actual está validado para conjunto rígido.",
-    "couplingModelArticulatedNotSupported": "El modo articulado aún no está soportado en el cálculo. Selecciona conjunto rígido."
+    "couplingModelArticulatedNotSupported": "El modo articulado aún no está soportado en el cálculo. Selecciona conjunto rígido.",
+    "overlap": "Solapamiento (%)",
+    "headlandPasses": "Pasadas de cabecera",
+    "skipRows": "Filas saltadas",
+    "direction": "Dirección"
   },
   "operationType": {
     "spraying": "Pulverización",
@@ -225,5 +229,13 @@
     "title": "Continuar en el móvil",
     "body": "Abre NKZ Mobile → Operaciones, sincroniza si hace falta y pulsa Iniciar sesión con este ID de operación.",
     "copyId": "Copiar ID de operación"
+  },
+  "preview": {
+    "selectParcelHint": "Selecciona una parcela en el panel izquierdo para comenzar",
+    "configureHint": "Configura el patrón para ver la previsualización",
+    "savedHint": "Ruta guardada. Ve al visor unificado para verla en el mapa 3D.",
+    "interactiveHint": "Haz clic en una línea para seleccionarla. Pasa el ratón para identificarla.",
+    "internalPasses": "Pasadas internas",
+    "headlandPasses": "Cabeceras"
   }
 }
