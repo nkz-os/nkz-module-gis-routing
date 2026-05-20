@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState, useCallback } from 'react';
 import { useTranslation } from '@nekazari/sdk';
 import { Map, Loader2, Eye, Save } from 'lucide-react';
 import { accent } from '../../config/accent';
@@ -25,11 +25,10 @@ export const RoutePreviewMap: React.FC<Props> = ({
   hasSavedResult,
 }) => {
   const { t } = useTranslation(NS);
+  const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
+  const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
 
-  const svgContent = useMemo(() => {
-    if (!previewResult?.data?.geometry) return null;
-    return renderRouteSvg(previewResult.data.geometry, parcelGeometry);
-  }, [previewResult, parcelGeometry]);
+  const clearHighlight = useCallback(() => setHoveredIndex(null), []);
 
   if (!parcelGeometry) {
     return (
@@ -71,11 +70,14 @@ export const RoutePreviewMap: React.FC<Props> = ({
   }
 
   const props = previewResult.data?.properties;
+  const geometry = previewResult.data?.geometry;
+  const headlandCount = props?.headland_count || 0;
+  const svgData = geometry ? computeSvgData(geometry, parcelGeometry, headlandCount) : null;
 
   return (
     <div className="flex flex-col h-full">
       {/* SVG preview */}
-      {svgContent && (
+      {svgData && (
         <div className="flex-1 flex flex-col min-h-0">
           <div className="px-4 py-2 border-b border-nkz-default flex items-center justify-between bg-nkz-surface-alt flex-shrink-0">
             <span className="text-nkz-sm font-semibold text-nkz-text-secondary">
@@ -88,9 +90,13 @@ export const RoutePreviewMap: React.FC<Props> = ({
             </span>
           </div>
           <div className="flex-1 flex items-center justify-center p-4 bg-white overflow-auto min-h-0">
-            <div
-              className="max-w-full max-h-full"
-              dangerouslySetInnerHTML={{ __html: svgContent }}
+            <InteractiveSvg
+              data={svgData}
+              hoveredIndex={hoveredIndex}
+              selectedIndex={selectedIndex}
+              onHover={setHoveredIndex}
+              onSelect={setSelectedIndex}
+              onLeave={clearHighlight}
             />
           </div>
         </div>
@@ -117,14 +123,13 @@ export const RoutePreviewMap: React.FC<Props> = ({
             </button>
           )}
         </div>
-        {hasSavedResult && (
+        {hasSavedResult ? (
           <p className="text-nkz-xs text-nkz-text-secondary text-center">
             Ruta guardada. Ve al visor unificado para verla en el mapa 3D.
           </p>
-        )}
-        {!hasSavedResult && (
+        ) : (
           <p className="text-nkz-xs text-nkz-text-secondary text-center">
-            La previsualización no se guarda hasta que pulses Guardar.
+            Haz clic en una línea para seleccionarla. Pasa el ratón para identificarla.
           </p>
         )}
       </div>
@@ -132,24 +137,41 @@ export const RoutePreviewMap: React.FC<Props> = ({
   );
 };
 
-function renderRouteSvg(geometry: any, parcelGeometry?: any): string | null {
+// ---- SVG data computation ----
+
+interface SvgLineData {
+  index: number;
+  points: string;
+  isHeadland: boolean;
+}
+
+interface SvgRenderData {
+  w: number;
+  h: number;
+  parcelPoints: string;
+  lines: SvgLineData[];
+  swathLabel: string;
+  headlandLabel: string;
+}
+
+function computeSvgData(
+  geometry: any,
+  parcelGeometry: any,
+  headlandCount: number,
+): SvgRenderData | null {
   if (!geometry?.coordinates) return null;
 
-  const swaths: number[][][] =
+  const allLines: number[][][] =
     geometry.type === 'MultiLineString'
       ? geometry.coordinates
       : [geometry.coordinates];
 
-  let minLon = Infinity,
-    maxLon = -Infinity,
-    minLat = Infinity,
-    maxLat = -Infinity;
-  const allCoords: number[][][] = [...swaths];
+  let minLon = Infinity, maxLon = -Infinity, minLat = Infinity, maxLat = -Infinity;
+  const coords: number[][][] = [...allLines];
   if (parcelGeometry?.coordinates?.[0]) {
-    allCoords.push(parcelGeometry.coordinates[0]);
+    coords.push(parcelGeometry.coordinates[0]);
   }
-
-  for (const line of allCoords) {
+  for (const line of coords) {
     for (const [lon, lat] of line) {
       if (lon < minLon) minLon = lon;
       if (lon > maxLon) maxLon = lon;
@@ -159,32 +181,107 @@ function renderRouteSvg(geometry: any, parcelGeometry?: any): string | null {
   }
 
   const pad = 0.0002;
-  minLon -= pad;
-  maxLon += pad;
-  minLat -= pad;
-  maxLat += pad;
-  const w = 400;
-  const h = 300;
+  minLon -= pad; maxLon += pad; minLat -= pad; maxLat += pad;
+  const w = 400, h = 300;
   const scaleX = (lon: number) => ((lon - minLon) / (maxLon - minLon)) * w;
   const scaleY = (lat: number) => h - ((lat - minLat) / (maxLat - minLat)) * h;
 
-  let svg = `<svg width="${w}" height="${h}" xmlns="http://www.w3.org/2000/svg">`;
-
+  let parcelPoints = '';
   if (parcelGeometry?.coordinates?.[0]) {
-    const points = parcelGeometry.coordinates[0]
+    parcelPoints = parcelGeometry.coordinates[0]
       .map(([lon, lat]: number[]) => `${scaleX(lon)},${scaleY(lat)}`)
       .join(' ');
-    svg += `<polygon points="${points}" fill="#e8f5e9" stroke="#4caf50" stroke-width="1.5" />`;
   }
 
-  for (const line of swaths) {
-    if (line.length < 2) continue;
-    const points = line
-      .map(([lon, lat]: number[]) => `${scaleX(lon)},${scaleY(lat)}`)
-      .join(' ');
-    svg += `<polyline points="${points}" fill="none" stroke="#F59E0B" stroke-width="1.5" />`;
-  }
+  const lines: SvgLineData[] = allLines.map((line, i) => ({
+    index: i,
+    points: line.length >= 2
+      ? line.map(([lon, lat]: number[]) => `${scaleX(lon)},${scaleY(lat)}`).join(' ')
+      : '',
+    isHeadland: i < headlandCount,
+  })).filter(l => l.points);
 
-  svg += '</svg>';
-  return svg;
+  return {
+    w, h, parcelPoints, lines,
+    swathLabel: headlandCount > 0 ? 'Pasadas internas' : 'Swaths',
+    headlandLabel: 'Cabeceras',
+  };
 }
+
+// ---- Interactive SVG React component ----
+
+const InteractiveSvg: React.FC<{
+  data: SvgRenderData;
+  hoveredIndex: number | null;
+  selectedIndex: number | null;
+  onHover: (i: number | null) => void;
+  onSelect: (i: number) => void;
+  onLeave: () => void;
+}> = ({ data, hoveredIndex, selectedIndex, onHover, onSelect, onLeave }) => {
+  return (
+    <svg
+      width={data.w}
+      height={data.h}
+      viewBox={`0 0 ${data.w} ${data.h}`}
+      xmlns="http://www.w3.org/2000/svg"
+      className="max-w-full max-h-full"
+      onMouseLeave={onLeave}
+    >
+      {/* Parcel polygon */}
+      {data.parcelPoints && (
+        <polygon
+          points={data.parcelPoints}
+          fill="#e8f5e9"
+          stroke="#4caf50"
+          strokeWidth="1.5"
+        />
+      )}
+
+      {/* Lines */}
+      {data.lines.map(line => {
+        const isHighlighted = hoveredIndex === line.index || selectedIndex === line.index;
+        const isDimmed = (hoveredIndex !== null || selectedIndex !== null) && !isHighlighted;
+
+        let stroke = line.isHeadland ? '#0891B2' : '#F59E0B';  // cyan for headland, amber for swaths
+        let strokeWidth = 1.5;
+        let opacity = 1;
+
+        if (isHighlighted) {
+          stroke = line.isHeadland ? '#06B6D4' : '#D97706';
+          strokeWidth = 3;
+        }
+        if (isDimmed) {
+          opacity = 0.2;
+        }
+
+        return (
+          <polyline
+            key={line.index}
+            points={line.points}
+            fill="none"
+            stroke={stroke}
+            strokeWidth={strokeWidth}
+            opacity={opacity}
+            style={{ cursor: 'pointer', transition: 'stroke-width 0.15s, opacity 0.15s' }}
+            onMouseEnter={() => onHover(line.index)}
+            onMouseLeave={() => onHover(null)}
+            onClick={() => onSelect(line.index)}
+          />
+        );
+      })}
+
+      {/* Legend */}
+      <g transform={`translate(${data.w - 120}, 10)`}>
+        <rect x="0" y="0" width="112" height="36" rx="4" fill="white" fillOpacity="0.85" stroke="#e5e7eb" />
+        {data.lines.some(l => l.isHeadland) && (
+          <>
+            <line x1="8" y1="14" x2="30" y2="14" stroke="#0891B2" strokeWidth="2" />
+            <text x="35" y="18" fontSize="9" fill="#6b7280">{data.headlandLabel}</text>
+          </>
+        )}
+        <line x1="8" y1="26" x2="30" y2="26" stroke="#F59E0B" strokeWidth="2" />
+        <text x="35" y="30" fontSize="9" fill="#6b7280">{data.swathLabel}</text>
+      </g>
+    </svg>
+  );
+};
