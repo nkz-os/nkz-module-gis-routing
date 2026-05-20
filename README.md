@@ -5,11 +5,12 @@ Precision agriculture guidance module for the Nekazari platform. Interactive rou
 ## Features
 
 **Routing Wizard**
-- 5-step interactive wizard: Parcel → Equipment → Pattern → VRA → Save
-- Real-time SVG preview with hover/click highlighting
-- Headland passes composition (perimeter + internal swaths)
-- Pattern persistence: save, load, and compare saved routes
-- Side-by-side alternative comparison (3 heading angles)
+- 5-step wizard with progressive disclosure (Parcel → Equipment → Pattern → VRA → Save)
+- Real-time SVG preview with hover/click line highlighting and legend
+- Headland passes composition (perimeter + internal swaths in a single plan)
+- Pattern persistence: save, load, delete, and compare saved routes (sorted by date)
+- Cross-tab "View in Cesium" via sessionStorage
+- 2-column responsive layout (config | preview + results)
 
 **Pattern Strategies**
 - **AB-Line** — parallel swaths at configurable heading
@@ -19,9 +20,15 @@ Precision agriculture guidance module for the Nekazari platform. Interactive rou
 
 **Pathfinding**
 - A-B point picker directly on the Cesium 3D map (unified viewer)
-- A* least-cost pathfinding on DEM elevation grid
-- 3 weighted alternatives: min elevation change, balanced, shortest route
-- Select and save paths as patterns
+- Cesium terrain sampling (`sampleTerrainMostDetailed`) for DEM grid — no backend dependency
+- A* least-cost pathfinding with 3 weighted alternatives
+- Auto-cancel on entity change, visual markers (green A / red B)
+- Pathfinding results visible in both module SVG and Cesium map
+
+**Viewer Integration**
+- Context panel: saved routes list with click-to-visualize on Cesium
+- Pick mode cancels automatically when changing entity selection
+- Cross-tab route visualization from module page
 
 **VRA Prescription**
 - Auto-fetch vegetation-health zones per parcel
