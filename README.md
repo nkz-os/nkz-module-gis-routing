@@ -1,71 +1,118 @@
 # GIS Routing & VRA
 
-Precision agriculture guidance module for the Nekazari platform. Generates A-B guidance lines with terrain slope correction, VRA prescription maps, and ISOBUS-compatible export for autonomous tractors.
+Precision agriculture guidance module for the Nekazari platform. Interactive route wizard with live SVG preview, multi-strategy A-B guidance lines, VRA prescription maps, least-cost A-B pathfinding on Cesium, and ISOBUS export for autonomous tractors.
 
 ## Features
 
-- **A-B Line Routing** — Dynamic UTM projection with parallel swath generation clipped to field boundaries
-- **DEM Slope Correction** — Terrain-aware swath spacing via CNIG (Spain) / Copernicus (Europe) elevation data
-- **VRA Prescription Maps** — Swath-to-zone intersection with per-segment application rates
-- **Multi-format Export** — ISOXML 11783-10 (ISOBUS), GeoJSON, GPX
-- **Offline Maps** — PMTiles generation with MinIO cache for disconnected field operation
-- **Mobile Sync** — WatermelonDB delta pull/push protocol for offline-first mobile apps
-- **Equipment Kinematics** — Full steering model: Ackermann, differential, articulated. 3D GPS offset compensation. Trailer/implement tracking
-- **6 Languages** — Catalan, English, Spanish, Basque, French, Portuguese
+**Routing Wizard**
+- 5-step interactive wizard: Parcel → Equipment → Pattern → VRA → Save
+- Real-time SVG preview with hover/click highlighting
+- Headland passes composition (perimeter + internal swaths)
+- Pattern persistence: save, load, and compare saved routes
+- Side-by-side alternative comparison (3 heading angles)
+
+**Pattern Strategies**
+- **AB-Line** — parallel swaths at configurable heading
+- **AB-Skip** — alternating skip-row pattern for seeding
+- **Spiral** — concentric inward/outward rings for harvesting
+- **Headland** — perimeter passes with configurable count
+
+**Pathfinding**
+- A-B point picker directly on the Cesium 3D map (unified viewer)
+- A* least-cost pathfinding on DEM elevation grid
+- 3 weighted alternatives: min elevation change, balanced, shortest route
+- Select and save paths as patterns
+
+**VRA Prescription**
+- Auto-fetch vegetation-health zones per parcel
+- Swath-to-zone intersection with per-segment application rates
+- External file upload (GeoJSON/CSV)
+- Prescription summary with segments, zones, total length, average rate
+
+**Export & Handoff**
+- ISOXML 11783-10 (ISOBUS), GeoJSON, GPX export
+- Mobile handoff: copy operation ID → NKZ Mobile → sync → execute
+- WatermelonDB delta pull/push for offline-first mobile apps
+
+**Internationalization**
+- 6 languages: Catalan, English, Spanish, Basque, French, Portuguese
 
 ## Architecture
 
 ```
 nkz-mobile (WatermelonDB) ←→ GET/POST /api/routing/sync
-Frontend (IIFE bundle)    ←→ /modules/nkz-module-gis-routing/nkz-module.js
+Web UI (Module Federation 2.0 remote)
+  ├── Module page (/gis-routing) — routing wizard + SVG preview
+  └── Viewer slots
+       ├── GisRoutingMapLayer — swath/VRA/pathfinding rendering on Cesium
+       └── ContextPanelSlot — saved routes + pathfinding pick mode
                               ↓
                          FastAPI Backend
                     ┌────────┼────────┐
                     ↓        ↓        ↓
                Orion-LD  TimescaleDB  MinIO
-                         (cache)
+                         (patterns)
 ```
 
 ## API Endpoints
 
 | Method | Path | Description |
 |--------|------|-------------|
-| `GET` | `/api/routing/sync` | WatermelonDB pull (delta sync) |
+| `POST` | `/api/routing/generate` | Generate routing plan (all patterns, optional VRA, headland composition) |
+| `GET`  | `/api/routing/parcels` | List available parcels |
+| `GET`  | `/api/routing/parcels/{id}/geometry` | Get parcel geometry |
+| `GET`  | `/api/routing/equipment` | List equipment (tractors/implements) |
+| `POST` | `/api/routing/path/calculate` | Submit pathfinding job (A-B, async) |
+| `GET`  | `/api/routing/path/{job_id}` | Poll pathfinding result (3 alternatives) |
+| `GET`  | `/api/routing/patterns?parcel_id=X` | List saved patterns for a parcel |
+| `GET`  | `/api/routing/patterns/{id}` | Get single pattern |
+| `POST` | `/api/routing/patterns` | Save pattern |
+| `DELETE` | `/api/routing/patterns/{id}` | Soft-delete pattern |
+| `GET`  | `/api/routing/zones/{id}` | Fetch AgriManagementZone for a parcel |
+| `POST` | `/api/routing/zones/external/ingest` | Upload external VRA zones (GeoJSON/CSV) |
+| `GET`  | `/api/routing/export/{id}` | Export operation (isoxml, geojson, gpx) |
+| `GET`  | `/api/routing/operations?limit=` | List saved operations |
+| `POST` | `/api/routing/operations/session/start` | Start field session |
+| `POST` | `/api/routing/operations/session/close` | Close field session |
+| `GET`  | `/api/routing/operations/active` | Get active operation |
+| `GET`  | `/api/routing/operations/coverage/{id}` | Get operation coverage |
+| `GET`  | `/api/routing/sync` | WatermelonDB pull (delta sync) |
 | `POST` | `/api/routing/sync` | WatermelonDB push (conflict detection) |
-| `POST` | `/api/routing/generate` | Generate A-B swaths |
-| `POST` | `/api/routing/generate/with-vra` | Generate swaths with VRA prescription intersection |
-| `GET` | `/api/routing/export/{id}` | Export operation (isoxml, geojson, gpx) |
-| `GET` | `/api/routing/tiles` | Download offline PMTiles basemap |
-| `GET` | `/api/routing/zones/{id}` | Fetch AgriManagementZone for a parcel |
-| `POST` | `/api/routing/zones/{id}/generate` | Trigger VRA zone generation |
-| `GET` | `/health` | Health check (no auth) |
+| `GET`  | `/health` | Health check (no auth) |
+
+## Development
+
+```bash
+pnpm install
+pnpm dev          # Vite dev server at localhost:5003
+pnpm build        # Module Federation 2.0 build → dist/
+pnpm typecheck    # TypeScript check
+```
 
 ## Deployment
 
 ```bash
-# Build frontend
-npm install && npm run build:module
+# Build
+pnpm build
 
-# Upload to MinIO
-mc cp dist/nkz-module.js minio/nekazari-frontend/modules/nkz-module-gis-routing/nkz-module.js
+# Upload entire dist/ to MinIO
+mc cp --recursive dist/ minio-srv/nekazari-frontend/modules/nkz-module-gis-routing/
 
-# Docker build
-cd backend && docker build -t ghcr.io/nkz-os/nkz-module-gis-routing/nkz-module-gis-routing-backend:latest .
+# Backend
+cd backend && docker build -t ghcr.io/nkz-os/nkz-module-gis-routing/backend:latest .
+docker push ghcr.io/nkz-os/nkz-module-gis-routing/backend:latest
 
 # Register in marketplace (once per environment)
 kubectl exec -n nekazari deployment/postgresql -- psql -U postgres -d nekazari -f k8s/registration.sql
-
-# Deploy
-kubectl apply -f k8s/backend-deployment.yaml -n nekazari
 ```
 
 ## Dependencies
 
-- **eu-elevation** — DEM slope correction (server-to-server, non-blocking)
-- **vegetation-health** — VRA zone generation proxy (server-to-server, non-blocking)
+- **eu-elevation** — DEM elevation data for pathfinding + slope correction
+- **vegetation-health** — VRA zone generation proxy (server-to-server)
 - Orion-LD Context Broker
 - TimescaleDB + PostGIS
-- MinIO (IIFE bundle + PMTiles cache)
+- MinIO (module artifacts)
 
 ## License
 

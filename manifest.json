@@ -2,9 +2,9 @@
   "id": "nkz-module-gis-routing",
   "name": "nkz-module-gis-routing",
   "display_name": "GIS Routing & VRA",
-  "version": "3.0.0",
-  "description": "Professional AB-line routing guidance with VRA prescription maps, ISOBUS (ISOXML) export, offline maps (PMTiles), and WatermelonDB mobile sync.",
-  "short_description": "Precision guidance lines, VRA prescriptions, and ISOBUS export for autonomous tractors",
+  "version": "3.1.0",
+  "description": "Interactive routing wizard with real-time SVG preview, multi-strategy A-B guidance lines, VRA prescription maps, A-B least-cost pathfinding on Cesium, pattern persistence, and ISOBUS export for autonomous tractors. Includes mobile handoff with WatermelonDB offline sync.",
+  "short_description": "Interactive routing wizard, VRA prescriptions, pathfinding on Cesium, and ISOBUS export",
   "icon": "navigation",
   "author": { "name": "Nekazari", "email": "", "organization": "Robotika Cloud" },
   "category": "agriculture",
@@ -26,21 +26,21 @@
     "external_requests": []
   },
   "build_config": {
-    "type": "iife",
-    "remote_entry_url": "/modules/nkz-module-gis-routing/nkz-module.js"
+    "type": "mf2",
+    "remote_entry_url": "/modules/nkz-module-gis-routing/mf-manifest.json"
   },
   "slots": {
-    "map-layer": [],
+    "map-layer": ["gis-routing-map-layer"],
     "layer-toggle": [],
-    "context-panel": ["RoutingSlot"],
+    "context-panel": ["gis-routing-context"],
     "bottom-panel": [],
     "entity-tree": [],
     "dashboard-widget": []
   },
   "accent": {
-    "base": "#CA8A04",
-    "soft": "#FEF9C3",
-    "strong": "#A16207"
+    "base": "#F59E0B",
+    "soft": "#FEF3C7",
+    "strong": "#B45309"
   },
   "surfaces": {
     "web": {
@@ -49,11 +49,18 @@
           {
             "id": "gis-routing-context",
             "moduleId": "nkz-module-gis-routing",
-            "component": "RoutingSlot",
+            "component": "ContextPanelSlot",
             "priority": 10
           }
         ],
-        "map-layer": [],
+        "map-layer": [
+          {
+            "id": "gis-routing-map-layer",
+            "moduleId": "nkz-module-gis-routing",
+            "component": "GisRoutingMapLayer",
+            "priority": 10
+          }
+        ],
         "layer-toggle": [],
         "bottom-panel": [],
         "entity-tree": [],
@@ -65,13 +72,15 @@
     "icon": "navigation",
     "color": "#F59E0B",
     "features": [
-      "Multi-strategy routing: AB-line, AB-skip (seeding), spiral (harvesting), headland",
+      "Interactive routing wizard with real-time SVG preview and hover/click line highlighting",
+      "Multi-strategy routing: AB-line, AB-skip (seeding), spiral (harvesting), headland with composition",
       "VRA prescription maps with vegetation-health auto-fetch and rate smoothing",
-      "A-B least-cost pathfinding with DEM elevation routing (3 alternatives)",
-      "Field pattern persistence for Controlled Traffic Farming (CTF)",
-      "3-column wizard UI with live Cesium 3D preview",
-      "ISOXML, GeoJSON, and GPX export",
-      "Mobile handoff with WatermelonDB sync"
+      "A-B least-cost pathfinding with point picker on Cesium 3D map (3 weighted alternatives)",
+      "Field pattern persistence: save, load, and compare saved routes per parcel",
+      "Headland passes composition (perimeter circuits + internal swaths in one plan)",
+      "ISOXML 11783-10 (ISOBUS), GeoJSON, and GPX export",
+      "Mobile handoff with WatermelonDB offline sync for field execution",
+      "6 languages: Catalan, English, Spanish, Basque, French, Portuguese"
     ],
     "screenshots": []
   }
