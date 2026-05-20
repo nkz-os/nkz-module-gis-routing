@@ -54,10 +54,16 @@ spec:
               value: "/api/routing"
             # CORS — explicit origin whitelist (never *)
             - name: CORS_ORIGINS
-              value: '["https://nekazari.robotika.cloud"]'
+              valueFrom:
+                configMapKeyRef:
+                  name: gis-routing-config
+                  key: CORS_ORIGINS
             # Keycloak Configuration
             - name: KEYCLOAK_URL
-              value: "https://auth.robotika.cloud/auth"  # Override per environment
+              valueFrom:
+                configMapKeyRef:
+                  name: gis-routing-config
+                  key: KEYCLOAK_URL
             - name: KEYCLOAK_REALM
               value: "nekazari"
             - name: JWT_AUDIENCE
