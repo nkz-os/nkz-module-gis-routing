@@ -52,7 +52,10 @@
     "generate": "Ibilbidea Sortu",
     "generating": "Sortzen...",
     "export": "Esportatu",
-    "retry": "Saiatu berriro"
+    "retry": "Saiatu berriro",
+    "save": "Save",
+    "saving": "Saving...",
+    "viewInCesium": "View in Cesium"
   },
   "export": {
     "isoxml": "ISOXML",

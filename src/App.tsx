@@ -1,12 +1,13 @@
 /**
- * GIS Routing — Main application shell.
+ * GIS Routing — Interactive preview wizard.
  *
- * Desktop: 3-column wizard (configuration | map preview | stats/export).
- * Mobile/tablet: responsive single-column via WizardShell breakpoints.
- * Two tabs: Routing (5-step wizard) and Pathfinding (A-B least-cost).
+ * Desktop: 2-column (configuration | SVG preview + actions).
+ * Mobile: single-column stacked via WizardShell breakpoints.
+ * Preview updates on parameter change (debounced, persist: false).
+ * Explicit "Save" persists the route and enables Cesium handoff.
  */
 import './i18n';
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { useTranslation } from '@nekazari/sdk';
 import { WizardShell } from './components/wizard/WizardShell';
 import { StepParcel } from './components/wizard/StepParcel';
@@ -23,6 +24,7 @@ import { RoutePreviewMap } from './components/viewer/RoutePreviewMap';
 import { api } from './services/api';
 
 const NS = 'gis-routing';
+const PREVIEW_DEBOUNCE_MS = 600;
 
 export interface WizardState {
   parcelId: string | null;
@@ -49,11 +51,40 @@ export interface WizardState {
   basePatternId: string | null;
 }
 
+const buildBody = (w: WizardState, persist: boolean) => ({
+  parcel_geometry: w.parcelGeometry,
+  parcel_id: w.parcelId,
+  tractor_id: w.tractorId,
+  implement_id: w.implementId,
+  pattern: w.pattern,
+  pattern_config: {
+    heading_deg: w.patternConfig.headingDeg,
+    width_m: w.patternConfig.widthM,
+    overlap_pct: w.patternConfig.overlapPct,
+    headland_passes: w.patternConfig.headlandPasses,
+    skip_rows: w.patternConfig.skipRows,
+    direction: w.patternConfig.direction,
+  },
+  operation_type: w.operationType,
+  dem_correction: w.demCorrection,
+  persist,
+  base_pattern_id: w.basePatternId || undefined,
+  vra: w.vraEnabled ? {
+    enabled: true,
+    source: w.vraSource,
+    base_rate: w.vraBaseRate,
+    rate_unit: w.vraRateUnit,
+    zone_ids: w.vraSource !== 'external' ? w.vraZoneIds : undefined,
+  } : undefined,
+});
+
 const App: React.FC = () => {
   const { t } = useTranslation(NS);
   const [activeTab, setActiveTab] = useState<'routing' | 'pathfinding'>('routing');
-  const [result, setResult] = useState<any>(null);
+  const [previewResult, setPreviewResult] = useState<any>(null);
+  const [savedResult, setSavedResult] = useState<any>(null);
   const [generating, setGenerating] = useState(false);
+  const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const [wizard, setWizard] = useState<WizardState>({
@@ -81,43 +112,73 @@ const App: React.FC = () => {
     basePatternId: null,
   });
 
+  const wizardRef = useRef(wizard);
+  wizardRef.current = wizard;
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const canGenerate = Boolean(
+    wizard.parcelId && wizard.parcelGeometry && wizard.patternConfig.widthM > 0,
+  );
+
+  // Debounced preview generation on parameter changes
+  const runPreview = useCallback((w: WizardState) => {
+    if (!w.parcelId || !w.parcelGeometry || !w.patternConfig.widthM) {
+      setPreviewResult(null);
+      return;
+    }
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(async () => {
+      setGenerating(true);
+      setError(null);
+      try {
+        const res = await api.generate(buildBody(w, false));
+        if (wizardRef.current.parcelId === w.parcelId) {
+          setPreviewResult(res);
+        }
+      } catch (err: any) {
+        if (wizardRef.current.parcelId === w.parcelId) {
+          setError(err?.message || t('errors.generateFailed'));
+          setPreviewResult(null);
+        }
+      } finally {
+        if (wizardRef.current.parcelId === w.parcelId) {
+          setGenerating(false);
+        }
+      }
+    }, PREVIEW_DEBOUNCE_MS);
+  }, [t]);
+
   const updateWizard = useCallback((patch: Partial<WizardState>) => {
-    setWizard(prev => ({ ...prev, ...patch }));
+    setWizard(prev => {
+      const next = { ...prev, ...patch };
+      runPreview(next);
+      return next;
+    });
+  }, [runPreview]);
+
+  // Run initial preview when parcel geometry first loads
+  const prevParcelRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (wizard.parcelGeometry && wizard.parcelId !== prevParcelRef.current) {
+      prevParcelRef.current = wizard.parcelId;
+      runPreview(wizard);
+    }
+  }, [wizard.parcelGeometry, wizard.parcelId, runPreview, wizard]);
+
+  // Cleanup debounce on unmount
+  useEffect(() => {
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+    };
   }, []);
 
-  const handleGenerate = useCallback(async () => {
-    if (!wizard.parcelId || !wizard.parcelGeometry) return;
-    setGenerating(true);
+  const handleSave = useCallback(async () => {
+    if (!canGenerate) return;
+    setSaving(true);
     setError(null);
     try {
-      const body: any = {
-        parcel_geometry: wizard.parcelGeometry,
-        parcel_id: wizard.parcelId,
-        tractor_id: wizard.tractorId,
-        implement_id: wizard.implementId,
-        pattern: wizard.pattern,
-        pattern_config: {
-          heading_deg: wizard.patternConfig.headingDeg,
-          width_m: wizard.patternConfig.widthM,
-          overlap_pct: wizard.patternConfig.overlapPct,
-          headland_passes: wizard.patternConfig.headlandPasses,
-          skip_rows: wizard.patternConfig.skipRows,
-          direction: wizard.patternConfig.direction,
-        },
-        operation_type: wizard.operationType,
-        dem_correction: wizard.demCorrection,
-        persist: true,
-        base_pattern_id: wizard.basePatternId || undefined,
-        vra: wizard.vraEnabled ? {
-          enabled: true,
-          source: wizard.vraSource,
-          base_rate: wizard.vraBaseRate,
-          rate_unit: wizard.vraRateUnit,
-          zone_ids: wizard.vraSource !== 'external' ? wizard.vraZoneIds : undefined,
-        } : undefined,
-      };
-      const res = await api.generate(body);
-      setResult(res);
+      const res = await api.generate(buildBody(wizard, true));
+      setSavedResult(res);
       window.dispatchEvent(new CustomEvent('nekazari:gis-routing:routeGenerated', {
         detail: {
           geometry: res.data?.geometry,
@@ -127,13 +188,15 @@ const App: React.FC = () => {
     } catch (err: any) {
       setError(err?.message || t('errors.generateFailed'));
     } finally {
-      setGenerating(false);
+      setSaving(false);
     }
-  }, [wizard, t]);
+  }, [wizard, canGenerate, t]);
 
-  const canGenerate = Boolean(
-    wizard.parcelId && wizard.parcelGeometry && wizard.patternConfig.widthM > 0,
-  );
+  const handleViewInCesium = useCallback(() => {
+    if (wizard.parcelId) {
+      window.open(`/entities?parcel=${encodeURIComponent(wizard.parcelId)}`, '_blank', 'noopener');
+    }
+  }, [wizard.parcelId]);
 
   return (
     <WizardShell
@@ -142,7 +205,7 @@ const App: React.FC = () => {
           <div className="flex rounded-nkz-md bg-nkz-surface-alt p-1 gap-1">
             <button
               onClick={() => setActiveTab('routing')}
-              className={`flex-1 text-nkz-xs py-2 rounded-nkz-sm font-medium transition-colors ${
+              className={`flex-1 text-nkz-sm py-2 rounded-nkz-sm font-medium transition-colors ${
                 activeTab === 'routing'
                   ? 'bg-nkz-surface text-nkz-text-accent shadow-sm'
                   : 'text-nkz-text-secondary hover:text-nkz-text-primary'
@@ -152,7 +215,7 @@ const App: React.FC = () => {
             </button>
             <button
               onClick={() => setActiveTab('pathfinding')}
-              className={`flex-1 text-nkz-xs py-2 rounded-nkz-sm font-medium transition-colors ${
+              className={`flex-1 text-nkz-sm py-2 rounded-nkz-sm font-medium transition-colors ${
                 activeTab === 'pathfinding'
                   ? 'bg-nkz-surface text-nkz-text-accent shadow-sm'
                   : 'text-nkz-text-secondary hover:text-nkz-text-primary'
@@ -221,17 +284,17 @@ const App: React.FC = () => {
                 onExternalFileChange={() => updateWizard({ vraRateUnit: 'l_ha' })}
               />
               <StepGenerate
-                onGenerate={handleGenerate}
-                generating={generating}
+                onGenerate={handleSave}
+                generating={saving}
                 canGenerate={canGenerate}
                 error={error}
                 hasParcel={Boolean(wizard.parcelId)}
                 hasGeometry={Boolean(wizard.parcelGeometry)}
                 hasValidWidth={Boolean(wizard.patternConfig.widthM > 0)}
               />
-              {result && (
+              {savedResult && (
                 <PatternSaveLoad
-                  result={result}
+                  result={savedResult}
                   parcelId={wizard.parcelId}
                   tractorId={wizard.tractorId}
                   implementId={wizard.implementId}
@@ -248,16 +311,20 @@ const App: React.FC = () => {
       center={
         <RoutePreviewMap
           parcelGeometry={wizard.parcelGeometry}
-          previewGeometry={null}
-          result={result}
+          parcelName={wizard.parcelName}
+          previewResult={previewResult}
+          generating={generating}
+          onSave={handleSave}
+          onViewInCesium={handleViewInCesium}
+          hasSavedResult={Boolean(savedResult)}
         />
       }
       right={
-        result ? (
+        savedResult ? (
           <>
-            <StatsPanel result={result} />
-            <ExportPanel operationId={result?.data?.properties?.operation_id} />
-            <HandoffPanel operationId={result?.data?.properties?.operation_id} />
+            <StatsPanel result={savedResult} />
+            <ExportPanel operationId={savedResult?.data?.properties?.operation_id} />
+            <HandoffPanel operationId={savedResult?.data?.properties?.operation_id} />
           </>
         ) : (
           <div className="flex flex-col items-center justify-center h-64 text-nkz-text-secondary text-nkz-sm">

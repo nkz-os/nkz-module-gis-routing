@@ -43,7 +43,7 @@ export const StepParcel: React.FC<Props> = ({ parcelId, onParcelChange }) => {
       <button onClick={() => setExpanded(!expanded)}
         className="w-full flex items-center justify-between px-nkz-md py-3 text-nkz-sm font-semibold">
         <span className="flex items-center gap-nkz-sm">
-          <span className="w-6 h-6 rounded-full bg-nkz-text-accent text-white text-nkz-xs flex items-center justify-center">1</span>
+          <span className="w-6 h-6 rounded-full bg-nkz-text-accent text-white text-nkz-sm flex items-center justify-center">1</span>
           <MapPin className="w-4 h-4 text-nkz-text-accent" />
           {t('parcel.label')}
         </span>
@@ -54,7 +54,7 @@ export const StepParcel: React.FC<Props> = ({ parcelId, onParcelChange }) => {
           {loading ? (
             <Loader2 className="w-4 h-4 animate-spin text-nkz-text-secondary" />
           ) : error ? (
-            <p className="text-nkz-xs text-nkz-text-error flex items-center gap-1"><AlertCircle className="w-3 h-3" />{error}</p>
+            <p className="text-nkz-sm text-nkz-text-error flex items-center gap-1"><AlertCircle className="w-3 h-3" />{error}</p>
           ) : (
             <select value={parcelId || ''} onChange={e => handleSelect(e.target.value)}
               className="w-full border border-nkz-default rounded-nkz-md px-3 py-2 text-nkz-sm bg-nkz-surface">
@@ -64,7 +64,7 @@ export const StepParcel: React.FC<Props> = ({ parcelId, onParcelChange }) => {
               ))}
             </select>
           )}
-          {selectedName && <p className="text-nkz-xs text-nkz-text-success">{selectedName}</p>}
+          {selectedName && <p className="text-nkz-sm text-nkz-text-success">{selectedName}</p>}
         </div>
       )}
     </div>

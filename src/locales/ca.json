@@ -52,7 +52,10 @@
     "generate": "Generar Ruta",
     "generating": "S'està generant...",
     "export": "Exportar",
-    "retry": "Reintentar"
+    "retry": "Reintentar",
+    "save": "Save",
+    "saving": "Saving...",
+    "viewInCesium": "View in Cesium"
   },
   "export": {
     "isoxml": "ISOXML",

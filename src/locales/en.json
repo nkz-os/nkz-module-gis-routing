@@ -129,8 +129,11 @@
   "actions": {
     "generate": "Generate Route",
     "generating": "Generating...",
+    "save": "Save",
+    "saving": "Saving...",
     "export": "Export",
-    "retry": "Retry"
+    "retry": "Retry",
+    "viewInCesium": "View in Cesium"
   },
   "export": {
     "isoxml": "ISOXML",

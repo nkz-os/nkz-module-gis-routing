@@ -52,7 +52,10 @@
     "generate": "Gerar Rota",
     "generating": "A gerar...",
     "export": "Exportar",
-    "retry": "Tentar novamente"
+    "retry": "Tentar novamente",
+    "save": "Save",
+    "saving": "Saving...",
+    "viewInCesium": "View in Cesium"
   },
   "export": {
     "isoxml": "ISOXML",
