@@ -2,6 +2,7 @@
   "loading": "Loading...",
   "tabs": {
     "routing": "Routing",
+    "pathfinding": "Pathfinding",
     "zoning": "VRA Zoning"
   },
   "title": "GIS Routing",
@@ -216,7 +217,8 @@
     "climb": "Climb"
   },
   "panels": {
-    "emptyState": "Generate a route to see results"
+    "emptyState": "Generate a route to see results",
+    "emptyStateHint": "Configure the pattern and press Generate"
   },
   "handoff": {
     "title": "Continue on mobile",

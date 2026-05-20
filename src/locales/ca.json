@@ -2,7 +2,8 @@
   "loading": "S'està carregant...",
   "tabs": {
     "routing": "Guiatge",
-    "zoning": "Zones VRA"
+    "zoning": "Zones VRA",
+    "pathfinding": "Pathfinding"
   },
   "title": "GIS Routing",
   "subtitle": "Guiatge per línies A-B per a agricultura de precisió",
@@ -15,12 +16,37 @@
   "equipment": {
     "label": "Tractor / Maquinària",
     "select": "Seleccionar equip...",
-    "mock": "Tractor Demo"
+    "mock": "Tractor Demo",
+    "tractorLabel": "Tractor",
+    "implementLabel": "Implement",
+    "selectTractor": "Select tractor...",
+    "selectImplement": "Select implement...",
+    "kinematicsTitle": "Kinematics parameters (SDM)",
+    "trackWidth": "Track width",
+    "wheelbase": "Wheelbase",
+    "gpsOffsetX": "GPS offset X",
+    "gpsOffsetY": "GPS offset Y",
+    "gpsOffsetZ": "GPS offset Z",
+    "steering": "Steering",
+    "hitchType": "Hitch type",
+    "hitchOffsetX": "Hitch offset X",
+    "implementLength": "Implement length",
+    "implementOffsetX": "Implement offset X",
+    "implementWidth": "Effective implement width",
+    "unclassifiedTitle": "Unclassified machinery",
+    "unclassifiedHelp": "These machines do not have a canonical role (tractor/implement). Review them in the Entity Wizard and assign the correct category."
   },
   "parameters": {
     "heading": "Rumb (°)",
     "width": "Amplada de treball (m)",
-    "swaths": "Franges"
+    "swaths": "Franges",
+    "operationType": "Operation Type",
+    "demCorrection": "DEM correction (pending)",
+    "couplingModel": "Coupling model",
+    "couplingModelRigid": "Rigid set (tractor + implement)",
+    "couplingModelArticulated": "Articulated set (tractor + implement)",
+    "couplingModelRigidHelp": "Current computation is validated for rigid coupling.",
+    "couplingModelArticulatedNotSupported": "Articulated mode is not supported yet in computation. Select rigid coupling."
   },
   "actions": {
     "generate": "Generar Ruta",
@@ -36,7 +62,24 @@
   "vra": {
     "enabled": "Prescripció VRA",
     "baseRate": "Dosi Base",
-    "rateUnit": "Unitat"
+    "rateUnit": "Unitat",
+    "label": "VRA",
+    "sourceLabel": "VRA source",
+    "sourceOrion": "Orion-LD zones",
+    "sourceExternal": "External upload",
+    "externalUploadLabel": "External file (GeoJSON/CSV)",
+    "externalUploadError": "Could not process external file",
+    "externalLoaded": "File loaded: {{file}} ({{count}} zones)",
+    "externalPending": "Upload an external file to use VRA prescription",
+    "zoneSelection": "Zone selection",
+    "selectAll": "Select all",
+    "clearAll": "Clear selection",
+    "noZonesForParcel": "No zones available for the selected parcel",
+    "prescriptionSummary": "Prescription summary",
+    "summarySegments": "Segments",
+    "summaryZones": "Applied zones",
+    "summaryLength": "Total length",
+    "summaryRate": "Average rate"
   },
   "errors": {
     "authRequired": "Autenticació requerida",
@@ -57,6 +100,129 @@
     "zoneLabel": "Zona {{id}}",
     "noZones": "No hi ha zones generades per a aquesta parcel·la",
     "noZonesHint": "Prem \"Generar Zones VRA\" per crear zones de maneig variable.",
-    "generateError": "Error en iniciar la generació de zones"
+    "generateError": "Error en iniciar la generació de zones",
+    "manualUrnLabel": "Manual parcel URN (optional)",
+    "manualUrnPlaceholder": "urn:ngsi-ld:AgriParcel:…",
+    "manualUrnHint": "If set, overrides the dropdown selection for fetch/generate.",
+    "loadingZones": "Loading zones...",
+    "jobQueued": "Generation queued, waiting for results...",
+    "jobPolling": "Waiting for generated zones... attempt {{attempt}}/{{max}}",
+    "jobDone": "Zones generated and loaded",
+    "jobTimeout": "No new zones were detected in time. Retry or check backend status."
+  },
+  "operationType": {
+    "spraying": "Spraying",
+    "fertilizing": "Fertilizing",
+    "seeding": "Seeding",
+    "tillage": "Tillage"
+  },
+  "operationStatus": {
+    "planned": "Planned",
+    "in_progress": "In progress",
+    "paused": "Paused",
+    "completed": "Completed",
+    "cancelled": "Cancelled",
+    "ended": "Ended",
+    "finished": "Finished"
+  },
+  "workflow": {
+    "plan": "1) Plan",
+    "validate": "2) Validate",
+    "execute": "3) Execute"
+  },
+  "validation": {
+    "parcelReady": "Parcel selected",
+    "parcelMissing": "Select a parcel",
+    "geometryReady": "Geometry loaded",
+    "geometryMissing": "Waiting for parcel geometry",
+    "widthReady": "Working width is valid",
+    "widthMissing": "Working width is not valid",
+    "equipmentReady": "Equipment selected",
+    "equipmentOptional": "Equipment optional (recommended)",
+    "equipmentMissing": "Select tractor and implement",
+    "couplingReady": "Rigid coupling selected",
+    "couplingNotSupported": "Articulated coupling not supported yet",
+    "sdmTitle": "SDM completeness (recommended)",
+    "sdmGpsOffsets": "Tractor GPS offsets (X/Y/Z) are missing in the Context Broker",
+    "sdmImplementWidth": "Implement effective width is missing (needed for spraying/fertilizing)",
+    "sdmTrackWidth": "Tractor track width is missing (recommended for tillage)",
+    "sdmWheelbase": "Tractor wheelbase is missing (recommended for tillage)",
+    "sdmHitchOffset": "Implement hitch offset X is missing (recommended for seeding)"
+  },
+  "common": {
+    "enabled": "Enabled",
+    "disabled": "Disabled"
+  },
+  "operations": {
+    "title": "4) Executed operations",
+    "refresh": "Refresh",
+    "empty": "No recent operations",
+    "coverage": "Coverage",
+    "start": "Start",
+    "starting": "Starting...",
+    "close": "Close session",
+    "closing": "Closing...",
+    "loadError": "Could not load operations",
+    "closeError": "Could not close the operation",
+    "startError": "Could not start the operation",
+    "coverageError": "Could not fetch coverage",
+    "coverageNoGeometry": "No coverage geometry",
+    "coverageSummaryLines": "Coverage: {{lines}} lines, {{points}} points",
+    "coverageSummaryLine": "Coverage: 1 line, {{points}} points",
+    "coverageSummaryType": "Coverage geometry type: {{type}}",
+    "activeBannerTitle": "Active field session",
+    "activeConflict": "Another operation is already in progress ({{id}}). Close it before starting another.",
+    "traceabilityTitle": "Planning traceability",
+    "traceOperationId": "Operation ID",
+    "traceAlternative": "Trajectory variant",
+    "traceCoupling": "Coupling model",
+    "traceVraSource": "VRA source",
+    "traceTractor": "Tractor",
+    "traceImplement": "Implement"
+  },
+  "stats": {
+    "title": "Results",
+    "swaths": "Swaths",
+    "distance": "Distance",
+    "area": "Area",
+    "pattern": "Pattern",
+    "vra": "VRA"
+  },
+  "trajectory": {
+    "title": "Trajectory alternatives",
+    "hint": "Compare swath headings. Apply selection to regenerate the stored plan with that variant.",
+    "optionLabel": "{{heading}}° heading · {{swaths}} swaths",
+    "applySelection": "Apply selected trajectory"
+  },
+  "patterns": {
+    "saveTitle": "Save Pattern",
+    "saved": "Pattern saved",
+    "namePlaceholder": "Pattern name...",
+    "save": "Save"
+  },
+  "patternLabels": {
+    "ab-line": "AB Line",
+    "ab-skip": "AB Skip Row",
+    "spiral": "Spiral",
+    "headland-only": "Headland Only"
+  },
+  "pathfinding": {
+    "title": "Pathfinding",
+    "pointA": "Point A",
+    "pointB": "Point B",
+    "calculate": "Calculate Path",
+    "calculating": "Calculating",
+    "results": "Path alternatives",
+    "distance": "Distance",
+    "climb": "Climb"
+  },
+  "panels": {
+    "emptyState": "Generate a route to see results",
+    "emptyStateHint": "Configure the pattern and press Generate"
+  },
+  "handoff": {
+    "title": "Continue on mobile",
+    "body": "Open NKZ Mobile → Operations, run sync if needed, then Start session for this operation ID.",
+    "copyId": "Copy operation ID"
   }
 }
