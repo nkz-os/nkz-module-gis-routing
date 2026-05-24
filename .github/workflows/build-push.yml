@@ -1,14 +1,12 @@
 # =============================================================================
-# MODULE_DISPLAY_NAME - GitHub Actions CI/CD
+# GIS Routing Module - GitHub Actions CI/CD
 # =============================================================================
 # On push to main or a version tag:
 #   1. Type-check frontend + run backend tests
 #   2. Build the IIFE bundle (dist/nkz-module.js) — uploaded as artifact
 #   3. Build and push the backend Docker image to GHCR (if module has a backend)
 #
-# After this workflow succeeds, manually upload dist/nkz-module.js to MinIO:
-#   mc cp nkz-module.js minio/nekazari-frontend/modules/MODULE_NAME/nkz-module.js \
-#      --attr "Content-Type=application/javascript"
+# CI deploys the frontend bundle to MinIO with immutable versioned paths.
 # =============================================================================
 
 name: Build and Push
@@ -94,6 +92,8 @@ jobs:
 
             - name: Build module bundle
               run: pnpm run build:module
+              env:
+                NKZ_VERSION_HASH: ${{ github.sha }}
 
             - name: Upload bundle artifact
               uses: actions/upload-artifact@v4
@@ -101,6 +101,40 @@ jobs:
                   name: nkz-module
                   path: dist/nkz-module.js
                   retention-days: 30
+
+            - name: Check MinIO Secrets
+              id: check_secrets
+              if: github.event_name != 'pull_request'
+              run: |
+                  if [ -n "${{ secrets.MINIO_ROOT_USER }}" ] && [ -n "${{ secrets.MINIO_ROOT_PASSWORD }}" ] && [ -n "${{ secrets.MINIO_URL }}" ]; then
+                    echo "has_secrets=true" >> $GITHUB_OUTPUT
+                  else
+                    echo "has_secrets=false" >> $GITHUB_OUTPUT
+                  fi
+
+            - name: Setup MinIO Client
+              if: steps.check_secrets.outputs.has_secrets == 'true' && github.event_name != 'pull_request'
+              run: |
+                  curl -sSL https://dl.min.io/client/mc/release/linux-amd64/mc -o /usr/local/bin/mc
+                  chmod +x /usr/local/bin/mc
+
+            - name: Upload to MinIO (versioned)
+              if: steps.check_secrets.outputs.has_secrets == 'true' && github.event_name != 'pull_request'
+              run: |
+                  SHORT_SHA=$(echo "${{ github.sha }}" | cut -c1-8)
+                  mc alias set nkz "${{ secrets.MINIO_URL }}" "${{ secrets.MINIO_ROOT_USER }}" "${{ secrets.MINIO_ROOT_PASSWORD }}"
+                  mc cp --recursive ./dist/ "nkz/nekazari-frontend/modules/gis-routing/${SHORT_SHA}/"
+                  mc anonymous set public "nkz/nekazari-frontend/modules/gis-routing/${SHORT_SHA}/"
+
+            - name: Activate version
+              if: steps.check_secrets.outputs.has_secrets == 'true' && github.event_name != 'pull_request'
+              run: |
+                  SHORT_SHA=$(echo "${{ github.sha }}" | cut -c1-8)
+                  curl -s -X POST "${{ secrets.API_URL }}/api/modules/gis-routing/deploy" \
+                    -H "Content-Type: application/json" \
+                    -H "X-Internal-Token: ${{ secrets.NKZ_INTERNAL_TOKEN }}" \
+                    -d "{\"version\": \"${SHORT_SHA}\"}" \
+                    || echo "WARNING: deploy activation failed (API may not support /deploy yet)"
 
     # ==========================================================================
     # Build and push backend Docker image
