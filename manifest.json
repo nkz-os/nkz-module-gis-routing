@@ -4,6 +4,14 @@
   "display_name": "GIS Routing & VRA",
   "version": "3.2.0",
   "description": "Interactive routing wizard with real-time SVG preview, multi-strategy A-B guidance lines, VRA prescription maps, A-B least-cost pathfinding on Cesium, pattern persistence, and ISOBUS export for autonomous tractors. Includes mobile handoff with WatermelonDB offline sync.",
+  "description_i18n": {
+    "es": "Asistente interactivo de enrutamiento con vista previa SVG en tiempo real, líneas guía A-B multi-estrategia, mapas de prescripción VRA, pathfinding A-B de mínimo coste sobre Cesium, persistencia de patrones y exportación ISOBUS para tractores autónomos. Incluye traspaso móvil con sincronización offline WatermelonDB.",
+    "en": "Interactive routing wizard with real-time SVG preview, multi-strategy A-B guidance lines, VRA prescription maps, A-B least-cost pathfinding on Cesium, pattern persistence, and ISOBUS export for autonomous tractors. Includes mobile handoff with WatermelonDB offline sync.",
+    "eu": "Bideratze-laguntzaile interaktiboa denbora errealeko SVG aurrebistarekin, A-B gida-lerro multi-estrategia, VRA preskripzio-mapak, A-B kostu minimoko bide-bilaketa Cesium-en, patroi persistentzia eta ISOBUS esportazioa traktore autonomoentzat. Mugikorrerako eskualdatzea WatermelonDB offline sinkronizazioarekin.",
+    "fr": "Assistant interactif de routage avec aperçu SVG en temps réel, lignes de guidage A-B multi-stratégies, cartes de prescription VRA, pathfinding A-B à moindre coût sur Cesium, persistance des motifs et export ISOBUS pour tracteurs autonomes. Inclut le transfert mobile avec synchronisation hors-ligne WatermelonDB.",
+    "pt": "Assistente interativo de roteamento com visualização SVG em tempo real, linhas guia A-B multi-estratégia, mapas de prescrição VRA, pathfinding A-B de menor custo no Cesium, persistência de padrões e exportação ISOBUS para tratores autônomos. Inclui transferência móvel com sincronização offline WatermelonDB.",
+    "ca": "Assistent interactiu d'enrutament amb vista prèvia SVG en temps real, línies guia A-B multi-estratègia, mapes de prescripció VRA, pathfinding A-B de mínim cost sobre Cesium, persistència de patrons i exportació ISOBUS per a tractors autònoms. Inclou traspàs mòbil amb sincronització offline WatermelonDB."
+  },
   "short_description": "Interactive routing wizard, VRA prescriptions, pathfinding on Cesium, and ISOBUS export",
   "icon": "navigation",
   "author": { "name": "Nekazari", "email": "", "organization": "Robotika Cloud" },
