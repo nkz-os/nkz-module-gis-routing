@@ -77,7 +77,7 @@ def generate_coverage(
     worked = sum(ordered.at(i).length() for i in range(ordered.size()))
     total = path.length()
     non_working = max(total - worked, 0.0)
-    covered_ha = min(worked * robot.cov_width, parcel_area_ha * 10000.0) / 10000.0
+    covered_ha = min(worked * robot.cov_width / 10000.0, parcel_area_ha)
 
     return RouteResult(
         geometry=geometry, pattern=cfg.pattern,
