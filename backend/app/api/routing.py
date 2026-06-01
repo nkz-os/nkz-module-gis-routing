@@ -26,7 +26,6 @@ from app.services.timescale_client import TimescaleDBClient
 from app.services.export_service import RouteExporter
 from app.services.pmtiles_generator import PMTileGenerator
 from app.config import get_settings
-from app.services.routing.dem_correction import apply_dem_correction
 
 logger = logging.getLogger(__name__)
 router = APIRouter(tags=["routing"])
