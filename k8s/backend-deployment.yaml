@@ -38,6 +38,10 @@ spec:
             capabilities:
               drop: ["ALL"]
             readOnlyRootFilesystem: true
+          # MUST be pinned by digest (@sha256:...) before production rollout.
+          # ":latest" + imagePullPolicy:Always is the pattern behind the
+          # 2026-05-26 outage and breaks ArgoCD rollback. Bump to the digest
+          # produced by CI on merge. See k8s/README.md.
           image: ghcr.io/nkz-os/nkz-module-gis-routing/nkz-module-gis-routing-backend:latest
           imagePullPolicy: Always
           ports:
