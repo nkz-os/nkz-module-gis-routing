@@ -51,21 +51,16 @@ jobs:
             - name: Type check
               run: pnpm run typecheck
 
-            - name: Set up Python
-              uses: actions/setup-python@v5
-              with:
-                  python-version: "3.11"
-                  cache: "pip"
-                  cache-dependency-path: backend/requirements.txt
+            # Fields2Cover is built from source inside the image (no pip wheel),
+            # so backend tests run inside the built image rather than on a bare
+            # runner. This also exercises the production F2C build on every PR.
+            - name: Build backend image (compiles Fields2Cover)
+              run: docker build --tag gis-routing-backend:ci ./backend
 
-            - name: Install system dependencies (GIS)
-              run: sudo apt-get update -qq && sudo apt-get install -y -qq libgeos-dev libproj-dev
-
-            - name: Install backend dependencies
-              run: pip install -r backend/requirements.txt
-
-            - name: Run backend tests
-              run: cd backend && python -m pytest tests/ -v
+            - name: Run backend tests in image
+              run: >-
+                docker run --rm -v "${{ github.workspace }}/backend":/app -w /app
+                gis-routing-backend:ci python -m pytest -q
 
     # ==========================================================================
     # Build IIFE bundle

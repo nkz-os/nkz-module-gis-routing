@@ -126,6 +126,7 @@ class RouteResult:
     pass_order: list[list[int]] = field(default_factory=list)
     turn_points: list = field(default_factory=list)
     metadata: dict = field(default_factory=dict)
+    metrics: dict = field(default_factory=dict)
 
 
 class RoutingStrategy(ABC):

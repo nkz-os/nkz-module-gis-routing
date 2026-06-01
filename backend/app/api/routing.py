@@ -21,19 +21,16 @@ from typing import Optional, Literal
 
 import httpx
 from app.services.sync_service import SyncService, SyncConflictError
-from app.services.geometry import generate_swaths, generate_swaths_with_dem
 from app.services.orion_client import OrionLDClient
 from app.services.timescale_client import TimescaleDBClient
 from app.services.export_service import RouteExporter
 from app.services.pmtiles_generator import PMTileGenerator
 from app.config import get_settings
-from app.services.routing import strategy_for
-from app.services.routing.base import PatternConfig
-from app.services.routing.dem_correction import apply_dem_correction
-from app.services.routing.pattern_headland import HeadlandStrategy, erode_polygon_for_headland
 
 logger = logging.getLogger(__name__)
 router = APIRouter(tags=["routing"])
+
+_PATTERN_ALIASES = {"ab-line": "boustrophedon", "ab-skip": "snake"}
 
 
 def _relationship_target(entity: dict, key: str) -> str:
@@ -129,52 +126,6 @@ def _pick_trajectory_alternative(
     return alternatives[0]
 
 
-async def _build_trajectory_alternatives(
-    *,
-    base_heading_deg: float,
-    parcel_geometry: dict,
-    start_point: list[float],
-    width_m: float,
-    dem_correction: bool,
-    dem_url: Optional[str],
-) -> list[dict]:
-    """Return 2–3 heuristic trajectory alternatives (different headings)."""
-    from shapely.geometry import mapping
-
-    offsets_deg = [0.0, 45.0, 90.0]
-    alternatives: list[dict] = []
-    seen: set[float] = set()
-    for off in offsets_deg:
-        h = (base_heading_deg + off) % 360
-        key = round(h, 4)
-        if key in seen:
-            continue
-        seen.add(key)
-        if dem_correction and dem_url:
-            multi_line_string = await generate_swaths_with_dem(
-                geojson_polygon=parcel_geometry,
-                start_point=start_point,
-                heading_deg=h,
-                width_m=width_m,
-                dem_url=dem_url,
-            )
-        else:
-            multi_line_string = generate_swaths(
-                geojson_polygon=parcel_geometry,
-                start_point=start_point,
-                heading_deg=h,
-                width_m=width_m,
-            )
-        geojson_result = mapping(multi_line_string)
-        alternatives.append(
-            {
-                "id": f"alt-{len(alternatives)}",
-                "heading_deg": h,
-                "swath_count": len(geojson_result.get("coordinates", [])),
-                "geometry": geojson_result,
-            }
-        )
-    return alternatives
 
 @router.get("/health")
 async def api_health_check():
@@ -413,12 +364,13 @@ async def push_changes(
 
 
 class PatternConfigRequest(BaseModel):
-    heading_deg: float = Field(default=0, ge=0, lt=360)
+    heading_deg: Optional[float] = Field(default=None, ge=0, lt=360)
     width_m: float = Field(default=24, gt=0)
     overlap_pct: float = Field(default=0, ge=0, le=30)
     headland_passes: int = Field(default=0, ge=0, le=3)
-    skip_rows: int = Field(default=0, ge=0, le=2)
     direction: Literal["inside-out", "outside-in"] = "outside-in"
+    heading_objective: Literal["efficiency", "contour"] = "efficiency"
+    turning_radius_m: Optional[float] = Field(default=None, gt=0)
 
 
 class VRAConfig(BaseModel):
@@ -435,7 +387,10 @@ class GenerateRequest(BaseModel):
     parcel_id: Optional[str] = None
     tractor_id: Optional[str] = None
     implement_id: Optional[str] = None
-    pattern: Literal["ab-line", "ab-skip", "spiral", "headland-only"] = "ab-line"
+    pattern: Literal[
+        "boustrophedon", "snake", "spiral", "headland-only",
+        "ab-line", "ab-skip",
+    ] = "boustrophedon"
     pattern_config: PatternConfigRequest = Field(default_factory=PatternConfigRequest)
     operation_type: str = "spraying"
     coupling_model: str = "rigid"
@@ -448,187 +403,95 @@ class GenerateRequest(BaseModel):
 
 @router.post("/generate")
 async def generate_routing_plan(request: Request, body: GenerateRequest):
-    """Unified route generation endpoint. Supports all patterns + optional VRA."""
+    """Unified route generation endpoint (Fields2Cover coverage engine)."""
     if body.parcel_geometry.get("type") != "Polygon":
         raise HTTPException(status_code=400, detail="parcel_geometry must be a GeoJSON Polygon")
 
-    from shapely.geometry import shape, mapping
+    from shapely.geometry import shape, mapping as _map
+    from app.services.coverage.robot_model import build_robot
+    from app.services.coverage.f2c_engine import generate_coverage, CoverageConfig
+
     wgs84_poly = shape(body.parcel_geometry)
-
     pc = body.pattern_config
-    pattern_config = PatternConfig(
-        heading_deg=pc.heading_deg,
-        width_m=pc.width_m,
-        overlap_pct=pc.overlap_pct,
-        headland_passes=pc.headland_passes,
-        skip_rows=pc.skip_rows,
-        direction=pc.direction,
-    )
+    pattern = _PATTERN_ALIASES.get(body.pattern, body.pattern)
 
-    # Generate alternatives
-    strategy = strategy_for(body.pattern)
-    compose_headland = (
-        pattern_config.headland_passes > 0
-        and body.pattern != "headland-only"
-    )
-    alternatives = []
-    for offset_deg in [0.0, 45.0, 90.0]:
-        alt_config = PatternConfig(
-            heading_deg=(pattern_config.heading_deg + offset_deg) % 360,
-            width_m=pattern_config.width_m,
-            overlap_pct=pattern_config.overlap_pct,
-            headland_passes=pattern_config.headland_passes,
-            skip_rows=pattern_config.skip_rows,
-            direction=pattern_config.direction,
+    machine = await _resolve_machine(body, request)
+    machine.setdefault("implementWidth", pc.width_m)
+    try:
+        robot = build_robot(
+            machine,
+            overlap_pct=pc.overlap_pct,
+            turning_radius_override=pc.turning_radius_m,
         )
-        result = strategy.generate(wgs84_poly, alt_config)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc))
 
-        if compose_headland:
-            headland_cfg = PatternConfig(
-                heading_deg=alt_config.heading_deg,
-                width_m=pattern_config.width_m,
-                overlap_pct=0,
-                headland_passes=pattern_config.headland_passes,
-                skip_rows=0,
-                direction=alt_config.direction,
-            )
-            headland = HeadlandStrategy()
-            headland_result = headland.generate(wgs84_poly, headland_cfg)
-            headland_lines = list(headland_result.geometry.geoms)
-            merged_coords = (
-                list(headland_result.geometry.geoms) + list(result.geometry.geoms)
-            )
-            from shapely.geometry import MultiLineString
-            merged = MultiLineString(merged_coords)
-            result = result._replace(
-                geometry=merged,
-                swath_count=result.swath_count + headland_result.swath_count,
-                headland_count=headland_result.headland_count,
-                total_distance_m=round(
-                    result.total_distance_m + headland_result.total_distance_m, 1
-                ),
-            )
+    cfg = CoverageConfig(
+        pattern=pattern,
+        heading_deg=pc.heading_deg,
+        headland_passes=pc.headland_passes,
+        heading_objective=pc.heading_objective,
+    )
+    try:
+        result = generate_coverage(wgs84_poly, robot, cfg)
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=f"route generation failed: {exc}")
 
-        alternatives.append({
-            "id": f"alt-{len(alternatives)}",
-            "heading_deg": alt_config.heading_deg,
-            "swath_count": result.swath_count,
-            "total_distance_m": result.total_distance_m,
-            "result": result,
-        })
-
-    # Pick selected alternative
-    chosen = None
-    if body.selected_alternative_id:
-        for a in alternatives:
-            if a["id"] == body.selected_alternative_id:
-                chosen = a
-                break
-    if chosen is None:
-        for a in alternatives:
-            if abs(a["heading_deg"] - pattern_config.heading_deg) < 0.01:
-                chosen = a
-                break
-    if chosen is None:
-        chosen = alternatives[0]
-
-    # Apply DEM correction if enabled
-    if body.dem_correction:
-        settings = get_settings()
-        dem_url = settings.eu_elevation_url
-        if dem_url:
-            centroid = wgs84_poly.centroid
-            corrected_width = await apply_dem_correction(
-                chosen["result"].geometry,
-                [centroid.x, centroid.y],
-                chosen["heading_deg"],
-                pattern_config.width_m,
-                dem_url,
-            )
-            if abs(corrected_width - pattern_config.width_m) > 0.01:
-                # Regenerate with corrected width
-                alt_config = PatternConfig(
-                    heading_deg=chosen["heading_deg"],
-                    width_m=corrected_width,
-                    overlap_pct=pattern_config.overlap_pct,
-                    headland_passes=pattern_config.headland_passes,
-                    skip_rows=pattern_config.skip_rows,
-                    direction=pattern_config.direction,
-                )
-                corrected_result = strategy.generate(wgs84_poly, alt_config)
-                if compose_headland:
-                    headland_cfg = PatternConfig(
-                        heading_deg=alt_config.heading_deg,
-                        width_m=corrected_width,
-                        overlap_pct=0,
-                        headland_passes=pattern_config.headland_passes,
-                        skip_rows=0,
-                        direction=alt_config.direction,
-                    )
-                    headland = HeadlandStrategy()
-                    headland_result = headland.generate(wgs84_poly, headland_cfg)
-                    merged_coords = (
-                        list(headland_result.geometry.geoms)
-                        + list(corrected_result.geometry.geoms)
-                    )
-                    from shapely.geometry import MultiLineString
-                    merged = MultiLineString(merged_coords)
-                    corrected_result = corrected_result._replace(
-                        geometry=merged,
-                        swath_count=corrected_result.swath_count + headland_result.swath_count,
-                        headland_count=headland_result.headland_count,
-                        total_distance_m=round(
-                            corrected_result.total_distance_m + headland_result.total_distance_m, 1
-                        ),
-                    )
-                chosen["result"] = corrected_result
-
-    # Apply VRA if enabled
     prescription_map = None
     if body.vra and body.vra.enabled:
         zone_features = await _resolve_vra_zones(body, request)
         if zone_features:
             from app.services.vra_intersector import intersect_swaths_with_zones
             prescription_map = intersect_swaths_with_zones(
-                chosen["result"].geometry, zone_features,
-                body.vra.base_rate, pattern_config.width_m,
+                result.geometry, zone_features, body.vra.base_rate, pc.width_m,
             )
 
-    # Persist to Orion-LD if requested
     operation_id = None
     if body.persist and body.parcel_id:
-        operation_id = await _persist_operation(
-            chosen["result"], body, request, prescription_map,
-        )
+        operation_id = await _persist_operation(result, body, request, prescription_map)
 
+    selected = {
+        "pattern": result.pattern,
+        "route": _map(result.geometry),
+        "swath_count": result.swath_count,
+        "headland_count": result.headland_count,
+        "total_distance_m": result.total_distance_m,
+        "pass_order": result.pass_order,
+        "metrics": result.metrics,
+        "metadata": result.metadata,
+    }
     return {
         "success": True,
-        "alternatives": [
-            {
-                "id": a["id"],
-                "heading_deg": a["heading_deg"],
-                "swath_count": a["swath_count"],
-                "total_distance_m": a["total_distance_m"],
-            }
-            for a in alternatives
-        ],
-        "data": {
-            "type": "Feature",
-            "geometry": mapping(chosen["result"].geometry),
-            "properties": {
-                "heading_deg": chosen["heading_deg"],
-                "width_m": pattern_config.width_m,
-                "swath_count": chosen["swath_count"],
-                "total_distance_m": chosen["total_distance_m"],
-                "covered_area_ha": chosen["result"].covered_area_ha,
-                "pattern": body.pattern,
-                "operation_id": operation_id,
-                "selected_alternative_id": chosen["id"],
-                "vra_enabled": prescription_map is not None,
-            },
-        },
+        "selected": selected,
         "prescription_map": prescription_map,
+        "operation_id": operation_id,
     }
+
+
+async def _resolve_machine(body: GenerateRequest, request: Request) -> dict:
+    """Fetch ManufacturingMachine kinematics for the implement (or tractor).
+
+    Returns a dict of attribute values (implementWidth, trackWidth,
+    minTurningRadius, steeringType). Empty dict when no id is provided.
+    """
+    machine_id = body.implement_id or body.tractor_id
+    if not machine_id:
+        return {}
+    tenant_id = _get_tenant_id(request)
+    settings = get_settings()
+    orion = OrionLDClient(
+        base_url=settings.context_broker_url,
+        context_url=settings.ngsi_ld_context,
+    )
+    try:
+        entity = await orion.get_entity(machine_id, tenant_id)
+    finally:
+        await orion.close()
+    if not entity:
+        return {}
+    keys = ("implementWidth", "trackWidth", "minTurningRadius", "steeringType")
+    return {k: (entity.get(k, {}) or {}).get("value") for k in keys
+            if entity.get(k) is not None}
 
 
 async def _resolve_vra_zones(body: GenerateRequest, request: Request) -> list[dict]:
