@@ -7,7 +7,7 @@ from pydantic import BaseModel, Field
 from typing import Literal
 
 from app.config import get_settings
-from app.services.pathfinding.least_cost_path import compute_least_cost_paths
+from app.services.pathfinding.least_cost_path import compute_ab_routes
 from app.services.pathfinding.dem_fetcher import fetch_dem_raster
 
 logger = logging.getLogger(__name__)
@@ -23,7 +23,6 @@ class PathRequest(BaseModel):
     max_slope_deg: float = Field(default=15.0, gt=0, le=45)
     min_turn_radius_m: float = Field(default=8.0, gt=0)
     elevation_source: Literal["eu-dem", "external", "cesium-terrain", "lidar"] = "eu-dem"
-    num_alternatives: int = Field(default=3, ge=1, le=5)
     elevation_grid: dict | None = None
 
 
@@ -79,11 +78,10 @@ async def _run_pathfinding(job_id: str, body: PathRequest):
         end_col = max(0, min(int((lon_b - origin_lon) / pixel_size), cols - 1))
         end_row = max(0, min(int((lat_b - origin_lat) / pixel_size), rows - 1))
 
-        alternatives = compute_least_cost_paths(
+        alternatives = compute_ab_routes(
             elevations, origin_lon, origin_lat, pixel_size,
             start_col, start_row, end_col, end_row,
             max_slope_deg=body.max_slope_deg,
-            num_alternatives=body.num_alternatives,
         )
 
         _JOBS[job_id] = {"status": "completed", "alternatives": alternatives}
