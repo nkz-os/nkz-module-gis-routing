@@ -10,8 +10,14 @@ from dataclasses import dataclass
 
 import fields2cover as f2c
 
-# steeringType values that imply reverse-capable curves.
-_REEDS_SHEPP_STEERING = {"articulated", "tracked", "crawler", "skid"}
+# steeringType values that imply reverse-capable / pivoting curves
+# (Reeds-Shepp). Canonical Entity Wizard vocabulary is articulated / skid_steer
+# / differential; the rest are robustness aliases from other sources. Ackermann
+# (and anything unrecognized) falls back to forward-only Dubins.
+_REEDS_SHEPP_STEERING = {
+    "articulated", "skid_steer", "differential",
+    "tracked", "crawler", "skid",
+}
 
 
 @dataclass(frozen=True)
