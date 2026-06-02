@@ -11,7 +11,6 @@ import csv
 import json
 import logging
 import time
-import uuid
 import io
 from fastapi import APIRouter, Request, Query, HTTPException
 from fastapi.responses import JSONResponse

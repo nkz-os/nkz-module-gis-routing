@@ -12,6 +12,8 @@ import time
 import uuid
 from typing import Optional
 
+from shapely.geometry import mapping
+
 from app.services.orion_client import OrionLDClient
 
 
@@ -66,8 +68,6 @@ def operation_to_detail(entity: dict) -> dict:
 
 
 # ----- entity builders -------------------------------------------------------
-from shapely.geometry import mapping
-
 
 def _now_iso() -> dict:
     return {"@type": "DateTime", "@value": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())}
