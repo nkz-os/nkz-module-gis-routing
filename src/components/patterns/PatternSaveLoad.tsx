@@ -34,11 +34,11 @@ export const PatternSaveLoad: React.FC<Props> = ({
         name: name.trim(),
         pattern_type: pattern,
         pattern_config: patternConfig,
-        route_geojson: JSON.stringify(result.data?.geometry),
+        route_geojson: JSON.stringify(result?.selected?.route),
         vra_prescription_map: result.prescription_map || null,
         equipment_tractor_id: tractorId,
         equipment_implement_id: implementId,
-        source_operation_id: result.data?.properties?.operation_id || null,
+        source_operation_id: result?.operation_id || null,
       });
       setSaved(true);
     } catch {} finally { setSaving(false); }
