@@ -34,14 +34,17 @@
     "implementOffsetX": "Implement offset X",
     "implementWidth": "Effective implement width",
     "unclassifiedTitle": "Unclassified machinery",
-    "unclassifiedHelp": "These machines do not have a canonical role (tractor/implement). Review them in the Entity Wizard and assign the correct category."
+    "unclassifiedHelp": "These machines do not have a canonical role (tractor/implement). Review them in the Entity Wizard and assign the correct category.",
+    "turningRadius": "Bira-erradioa",
+    "fromMachine": "makinarena",
+    "turningRadiusPlaceholder": "Bira-erradioa (m)",
+    "noTurningRadius": "Makina honek ez du bira-erradiorik; sartu bat edo konfiguratu entitateen editorean."
   },
   "parameters": {
     "heading": "Norabidea (°)",
     "width": "Lan-zabalera (m)",
     "swaths": "Zerrendak",
     "operationType": "Operation Type",
-    "demCorrection": "DEM correction",
     "couplingModel": "Coupling model",
     "couplingModelRigid": "Rigid set (tractor + implement)",
     "couplingModelArticulated": "Articulated set (tractor + implement)",
@@ -49,8 +52,8 @@
     "couplingModelArticulatedNotSupported": "Articulated mode is not supported yet in computation. Select rigid coupling.",
     "overlap": "Overlap (%)",
     "headlandPasses": "Headland passes",
-    "skipRows": "Skip rows",
-    "direction": "Direction"
+    "direction": "Direction",
+    "headingMode": "Norabidea"
   },
   "actions": {
     "generate": "Ibilbidea Sortu",
@@ -90,7 +93,8 @@
   },
   "errors": {
     "authRequired": "Autentikazioa beharrezkoa",
-    "generateFailed": "Ibilbidea sortzean errorea"
+    "generateFailed": "Ibilbidea sortzean errorea",
+    "missingTurningRadius": "Makinaren bira-erradioa falta da. Sartu bat edo konfiguratu entitateen editorean."
   },
   "zoning": {
     "title": "VRA Zonifikazioa",
@@ -194,7 +198,11 @@
     "distance": "Distance",
     "area": "Area",
     "pattern": "Pattern",
-    "vra": "VRA"
+    "vra": "VRA",
+    "fieldEfficiency": "Soroaren eraginkortasuna",
+    "workedDistance": "Landutako distantzia",
+    "nonWorkingDistance": "Distantzia ez-produktiboa",
+    "curveType": "Bira mota"
   },
   "trajectory": {
     "title": "Trajectory alternatives",
@@ -212,10 +220,10 @@
     "loadFromContext": "Show on map"
   },
   "patternLabels": {
-    "ab-line": "AB Line",
-    "ab-skip": "AB Skip Row",
     "spiral": "Spiral",
-    "headland-only": "Headland Only"
+    "headland-only": "Headland Only",
+    "boustrophedon": "Lerro paraleloak",
+    "snake": "Salto txandakatuak"
   },
   "pathfinding": {
     "pickOnMap": "Pick A-B path on map",
@@ -242,5 +250,10 @@
     "interactiveHint": "Click a line to select it. Hover to identify it.",
     "internalPasses": "Internal passes",
     "headlandPasses": "Headlands"
+  },
+  "headingMode": {
+    "auto": "Optimoa",
+    "contour": "Sestra",
+    "manual": "Eskuz"
   }
 }
