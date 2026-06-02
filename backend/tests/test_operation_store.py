@@ -162,3 +162,66 @@ def test_build_template_entity_roundtrips_to_legacy_dict():
     assert d["equipment_tractor_id"] == "urn:ngsi-ld:ManufacturingMachine:t1"
     assert d["equipment_implement_id"] is None
     assert d["source_operation_id"] == "urn:ngsi-ld:AgriParcelOperation:tenant-a:op1"
+
+
+# ---------------------------------------------------------------------------
+# Task 3: async store readers
+# ---------------------------------------------------------------------------
+import pytest
+
+
+class _FakeOrion:
+    def __init__(self, entities=None, one=None):
+        self._entities = entities or []
+        self._one = one
+        self.closed = False
+
+    async def query_entities(self, entity_type, tenant_id, **kw):
+        assert entity_type == "AgriParcelOperation"
+        return list(self._entities)
+
+    async def get_entity(self, entity_id, tenant_id):
+        return self._one
+
+    async def close(self):
+        self.closed = True
+
+
+@pytest.mark.asyncio
+async def test_list_operations_excludes_templates_and_filters_parcel():
+    ents = [
+        _op_entity(id="op-a"),  # parcel p1, not template
+        _op_entity(id="tpl", isTemplate={"type": "Property", "value": True}),  # template -> excluded
+        _op_entity(id="op-b", refAgriParcel={"type": "Relationship", "object": "urn:ngsi-ld:AgriParcel:OTHER"}),
+    ]
+    orion = _FakeOrion(entities=ents)
+    rows = await store.list_operations(orion, "tenant-a", parcel_id="urn:ngsi-ld:AgriParcel:p1")
+    ids = [r["id"] for r in rows]
+    assert ids == ["op-a"]
+    assert all("route" not in r for r in rows)
+
+
+@pytest.mark.asyncio
+async def test_list_templates_only_templates_for_parcel():
+    ents = [
+        _op_entity(id="op-a"),
+        store.build_template_entity(
+            op_id="tpl-1", parcel_id="urn:ngsi-ld:AgriParcel:p1", name="T", pattern_type="boustrophedon",
+            pattern_config={"width_m": 24}, route_geojson='{"type":"LineString","coordinates":[[0,0],[1,1]]}',
+            vra_prescription_map=None, equipment_tractor_id=None, equipment_implement_id=None,
+            source_operation_id=None,
+        ),
+    ]
+    orion = _FakeOrion(entities=ents)
+    out = await store.list_templates(orion, "tenant-a", parcel_id="urn:ngsi-ld:AgriParcel:p1")
+    assert [t["id"] for t in out] == ["tpl-1"]
+    assert out[0]["name"] == "T"
+
+
+@pytest.mark.asyncio
+async def test_get_operation_returns_detail_or_none():
+    orion = _FakeOrion(one=_op_entity(id="op-a"))
+    d = await store.get_operation(orion, "op-a", "tenant-a")
+    assert d["route"]["type"] == "LineString"
+    none_orion = _FakeOrion(one=None)
+    assert await store.get_operation(none_orion, "missing", "tenant-a") is None
