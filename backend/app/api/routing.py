@@ -395,7 +395,6 @@ class GenerateRequest(BaseModel):
     pattern_config: PatternConfigRequest = Field(default_factory=PatternConfigRequest)
     operation_type: str = "spraying"
     coupling_model: str = "rigid"
-    dem_correction: bool = False
     persist: bool = True
     selected_alternative_id: Optional[str] = None
     base_pattern_id: Optional[str] = None
