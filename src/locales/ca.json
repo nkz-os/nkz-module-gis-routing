@@ -34,14 +34,17 @@
     "implementOffsetX": "Implement offset X",
     "implementWidth": "Effective implement width",
     "unclassifiedTitle": "Unclassified machinery",
-    "unclassifiedHelp": "These machines do not have a canonical role (tractor/implement). Review them in the Entity Wizard and assign the correct category."
+    "unclassifiedHelp": "These machines do not have a canonical role (tractor/implement). Review them in the Entity Wizard and assign the correct category.",
+    "turningRadius": "Radi de gir",
+    "fromMachine": "de la màquina",
+    "turningRadiusPlaceholder": "Radi de gir (m)",
+    "noTurningRadius": "Aquesta màquina no té radi de gir; introdueix-ne un o configura'l a l'editor d'entitats."
   },
   "parameters": {
     "heading": "Rumb (°)",
     "width": "Amplada de treball (m)",
     "swaths": "Franges",
     "operationType": "Operation Type",
-    "demCorrection": "DEM correction",
     "couplingModel": "Coupling model",
     "couplingModelRigid": "Rigid set (tractor + implement)",
     "couplingModelArticulated": "Articulated set (tractor + implement)",
@@ -49,8 +52,8 @@
     "couplingModelArticulatedNotSupported": "Articulated mode is not supported yet in computation. Select rigid coupling.",
     "overlap": "Overlap (%)",
     "headlandPasses": "Headland passes",
-    "skipRows": "Skip rows",
-    "direction": "Direction"
+    "direction": "Direction",
+    "headingMode": "Rumb"
   },
   "actions": {
     "generate": "Generar Ruta",
@@ -90,7 +93,8 @@
   },
   "errors": {
     "authRequired": "Autenticació requerida",
-    "generateFailed": "Error en generar la ruta"
+    "generateFailed": "Error en generar la ruta",
+    "missingTurningRadius": "Falta el radi de gir de la màquina. Introdueix-ne un o configura'l a l'editor d'entitats."
   },
   "zoning": {
     "title": "Zonificació VRA",
@@ -194,7 +198,11 @@
     "distance": "Distance",
     "area": "Area",
     "pattern": "Pattern",
-    "vra": "VRA"
+    "vra": "VRA",
+    "fieldEfficiency": "Eficiència de camp",
+    "workedDistance": "Distància treballada",
+    "nonWorkingDistance": "Distància improductiva",
+    "curveType": "Tipus de gir"
   },
   "trajectory": {
     "title": "Trajectory alternatives",
@@ -212,10 +220,10 @@
     "loadFromContext": "Show on map"
   },
   "patternLabels": {
-    "ab-line": "AB Line",
-    "ab-skip": "AB Skip Row",
     "spiral": "Spiral",
-    "headland-only": "Headland Only"
+    "headland-only": "Headland Only",
+    "boustrophedon": "Línies paral·leles",
+    "snake": "Salts alterns"
   },
   "pathfinding": {
     "pickOnMap": "Pick A-B path on map",
@@ -242,5 +250,10 @@
     "interactiveHint": "Click a line to select it. Hover to identify it.",
     "internalPasses": "Internal passes",
     "headlandPasses": "Headlands"
+  },
+  "headingMode": {
+    "auto": "Òptim",
+    "contour": "Contorn",
+    "manual": "Manual"
   }
 }

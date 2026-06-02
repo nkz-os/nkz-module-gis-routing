@@ -34,14 +34,17 @@
     "implementOffsetX": "Implement offset X",
     "implementWidth": "Effective implement width",
     "unclassifiedTitle": "Unclassified machinery",
-    "unclassifiedHelp": "These machines do not have a canonical role (tractor/implement). Review them in the Entity Wizard and assign the correct category."
+    "unclassifiedHelp": "These machines do not have a canonical role (tractor/implement). Review them in the Entity Wizard and assign the correct category.",
+    "turningRadius": "Turning radius",
+    "fromMachine": "from machine",
+    "turningRadiusPlaceholder": "Turning radius (m)",
+    "noTurningRadius": "This machine has no turning radius — enter one or set it in the entity editor."
   },
   "parameters": {
     "heading": "Heading (°)",
     "width": "Working Width (m)",
     "swaths": "Swaths",
     "operationType": "Operation Type",
-    "demCorrection": "DEM correction",
     "couplingModel": "Coupling model",
     "couplingModelRigid": "Rigid set (tractor + implement)",
     "couplingModelArticulated": "Articulated set (tractor + implement)",
@@ -49,8 +52,8 @@
     "couplingModelArticulatedNotSupported": "Articulated mode is not supported yet in computation. Select rigid coupling.",
     "overlap": "Overlap (%)",
     "headlandPasses": "Headland passes",
-    "skipRows": "Skip rows",
-    "direction": "Direction"
+    "direction": "Direction",
+    "headingMode": "Heading"
   },
   "operationType": {
     "spraying": "Spraying",
@@ -128,7 +131,11 @@
     "distance": "Distance",
     "area": "Area",
     "pattern": "Pattern",
-    "vra": "VRA"
+    "vra": "VRA",
+    "fieldEfficiency": "Field efficiency",
+    "workedDistance": "Worked distance",
+    "nonWorkingDistance": "Non-working distance",
+    "curveType": "Turn type"
   },
   "actions": {
     "generate": "Generate Route",
@@ -168,7 +175,8 @@
   },
   "errors": {
     "authRequired": "Authentication required",
-    "generateFailed": "Route generation failed"
+    "generateFailed": "Route generation failed",
+    "missingTurningRadius": "Machine turning radius is missing. Enter one or set it in the entity editor."
   },
   "zoning": {
     "title": "VRA Zoning",
@@ -212,10 +220,10 @@
     "save": "Save"
   },
   "patternLabels": {
-    "ab-line": "AB Line",
-    "ab-skip": "AB Skip Row",
     "spiral": "Spiral",
-    "headland-only": "Headland Only"
+    "headland-only": "Headland Only",
+    "boustrophedon": "Parallel lines",
+    "snake": "Skip rows"
   },
   "pathfinding": {
     "pickOnMap": "Pick A-B path on map",
@@ -242,5 +250,10 @@
     "interactiveHint": "Click a line to select it. Hover to identify it.",
     "internalPasses": "Internal passes",
     "headlandPasses": "Headlands"
+  },
+  "headingMode": {
+    "auto": "Optimal",
+    "contour": "Contour",
+    "manual": "Manual"
   }
 }

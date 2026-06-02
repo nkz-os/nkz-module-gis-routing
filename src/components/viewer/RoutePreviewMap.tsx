@@ -67,9 +67,8 @@ export const RoutePreviewMap: React.FC<Props> = ({
     );
   }
 
-  const props = previewResult.data?.properties;
-  const geometry = previewResult.data?.geometry;
-  const headlandCount = props?.headland_count || 0;
+  const geometry = previewResult.geometry;
+  const headlandCount = previewResult.headlandCount || 0;
   const svgData = geometry ? computeSvgData(geometry, parcelGeometry, headlandCount) : null;
 
   return (
@@ -79,11 +78,11 @@ export const RoutePreviewMap: React.FC<Props> = ({
         <div className="flex-1 flex flex-col min-h-0">
           <div className="px-4 py-2 border-b border-nkz-default flex items-center justify-between bg-nkz-surface-alt flex-shrink-0">
             <span className="text-nkz-sm font-semibold text-nkz-text-secondary">
-              {parcelName || 'Parcela'} — {props?.swath_count ?? '-'} {t('stats.swaths').toLowerCase()}
+              {parcelName || 'Parcela'} — {previewResult.swathCount ?? '-'} {t('stats.swaths').toLowerCase()}
             </span>
             <span className="text-nkz-sm text-nkz-text-secondary">
-              {props?.total_distance_m
-                ? `${(props.total_distance_m / 1000).toFixed(2)} km`
+              {previewResult.totalDistanceM
+                ? `${(previewResult.totalDistanceM / 1000).toFixed(2)} km`
                 : ''}
             </span>
           </div>
