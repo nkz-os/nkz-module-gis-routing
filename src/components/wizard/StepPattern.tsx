@@ -9,7 +9,6 @@ interface PatternConfig {
   widthM: number;
   overlapPct: number;
   headlandPasses: number;
-  skipRows: number;
   direction: 'inside-out' | 'outside-in';
 }
 
@@ -19,8 +18,8 @@ interface Props {
   operationType: string;
   onPatternChange: (p: string) => void;
   onConfigChange: (c: Partial<PatternConfig>) => void;
-  onDemCorrectionChange: (d: boolean) => void;
-  demCorrection: boolean;
+  headingMode: 'auto' | 'contour' | 'manual';
+  onHeadingModeChange: (m: 'auto' | 'contour' | 'manual') => void;
   basePatternId: string | null;
   onBasePatternChange: (id: string | null) => void;
   parcelId: string | null;
@@ -28,15 +27,15 @@ interface Props {
 }
 
 const PATTERNS = [
-  { id: 'ab-line', icon: '⭬', labelKey: 'patternLabels.ab-line' },
-  { id: 'ab-skip', icon: '⭬ ⭬', labelKey: 'patternLabels.ab-skip' },
+  { id: 'boustrophedon', icon: '⭬', labelKey: 'patternLabels.boustrophedon' },
+  { id: 'snake', icon: '⭬ ⭬', labelKey: 'patternLabels.snake' },
   { id: 'spiral', icon: '◎', labelKey: 'patternLabels.spiral' },
   { id: 'headland-only', icon: '⬚', labelKey: 'patternLabels.headland-only' },
 ];
 
 export const StepPattern: React.FC<Props> = ({
-  config, pattern, operationType: _operationType,
-  onPatternChange, onConfigChange, onDemCorrectionChange, demCorrection,
+  config, pattern, onPatternChange, onConfigChange,
+  headingMode, onHeadingModeChange,
 }) => {
   const { t } = useTranslation(NS);
   const [expanded, setExpanded] = useState(false);
@@ -69,12 +68,26 @@ export const StepPattern: React.FC<Props> = ({
             ))}
           </div>
 
-          {/* Heading */}
+          {/* Heading mode */}
           <div>
-            <label className="text-nkz-sm text-nkz-text-secondary flex items-center gap-1"><Compass className="w-3 h-3" />{t('parameters.heading')}</label>
-            <input type="number" min={0} max={359} value={config.headingDeg}
-              onChange={e => onConfigChange({ headingDeg: Number(e.target.value) % 360 })}
-              className="w-full border border-nkz-default rounded-nkz-md px-3 py-1.5 text-nkz-sm bg-nkz-surface" />
+            <label className="text-nkz-sm text-nkz-text-secondary flex items-center gap-1"><Compass className="w-3 h-3" />{t('parameters.headingMode')}</label>
+            <div className="grid grid-cols-3 gap-1 mt-1">
+              {(['auto', 'contour', 'manual'] as const).map(m => (
+                <button key={m} onClick={() => onHeadingModeChange(m)}
+                  className={`py-1.5 rounded-nkz-md text-nkz-xs font-medium border transition-colors ${
+                    headingMode === m
+                      ? 'border-nkz-accent bg-nkz-surface text-nkz-text-accent'
+                      : 'border-nkz-default text-nkz-text-secondary hover:border-nkz-accent'
+                  }`}>
+                  {t(`headingMode.${m}`)}
+                </button>
+              ))}
+            </div>
+            {headingMode === 'manual' && (
+              <input type="number" min={0} max={359} value={config.headingDeg}
+                onChange={e => onConfigChange({ headingDeg: Number(e.target.value) % 360 })}
+                className="w-full border border-nkz-default rounded-nkz-md px-3 py-1.5 text-nkz-sm bg-nkz-surface mt-1" />
+            )}
           </div>
 
           {/* Width */}
@@ -103,17 +116,6 @@ export const StepPattern: React.FC<Props> = ({
             </select>
           </div>
 
-          {/* {t('parameters.skipRows')} (only for ab-skip) */}
-          {pattern === 'ab-skip' && (
-            <div>
-              <label className="text-nkz-sm text-nkz-text-secondary">{t('parameters.skipRows')}</label>
-              <select value={config.skipRows} onChange={e => onConfigChange({ skipRows: Number(e.target.value) })}
-                className="w-full border border-nkz-default rounded-nkz-md px-3 py-1.5 text-nkz-sm bg-nkz-surface">
-                <option value={1}>1 (alternate)</option><option value={2}>2 (skip 2)</option>
-              </select>
-            </div>
-          )}
-
           {/* {t('parameters.direction')} (only for spiral) */}
           {pattern === 'spiral' && (
             <div>
@@ -126,12 +128,6 @@ export const StepPattern: React.FC<Props> = ({
             </div>
           )}
 
-          {/* DEM correction toggle */}
-          <label className="flex items-center gap-2 cursor-pointer">
-            <input type="checkbox" checked={demCorrection} onChange={e => onDemCorrectionChange(e.target.checked)}
-              className="rounded-nkz-md border-nkz-default text-nkz-text-accent" />
-            <span className="text-nkz-sm text-nkz-text-primary">{t('parameters.demCorrection')}</span>
-          </label>
         </div>
       )}
     </div>

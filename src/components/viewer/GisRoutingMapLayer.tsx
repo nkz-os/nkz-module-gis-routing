@@ -228,7 +228,6 @@ export const GisRoutingMapLayer: React.FC<Props> = ({ viewer: propViewer }) => {
         max_slope_deg: 15,
         min_turn_radius_m: 8,
         elevation_source: elevationGrid ? 'cesium-terrain' : 'eu-dem',
-        num_alternatives: 3,
         elevation_grid: elevationGrid,
       }).then((res: any) => {
         const jobId = res?.job_id;

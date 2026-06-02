@@ -21,7 +21,7 @@ import { HandoffPanel } from './components/panels/HandoffPanel';
 import { PatternSaveLoad } from './components/patterns/PatternSaveLoad';
 import { PathfindingTab } from './components/pathfinding/PathfindingTab';
 import { RoutePreviewMap } from './components/viewer/RoutePreviewMap';
-import { api } from './services/api';
+import { api, routeOf, operationIdOf } from './services/api';
 
 const NS = 'gis-routing';
 const PREVIEW_DEBOUNCE_MS = 600;
@@ -38,11 +38,12 @@ export interface WizardState {
     widthM: number;
     overlapPct: number;
     headlandPasses: number;
-    skipRows: number;
     direction: 'inside-out' | 'outside-in';
   };
+  headingMode: 'auto' | 'contour' | 'manual';
+  turningRadiusM: number | null;
+  turningRadiusFromMachine: boolean;
   operationType: string;
-  demCorrection: boolean;
   vraEnabled: boolean;
   vraSource: 'vegetation-health' | 'orion' | 'external';
   vraBaseRate: number;
@@ -51,22 +52,28 @@ export interface WizardState {
   basePatternId: string | null;
 }
 
+const PATTERN_ALIASES: Record<string, string> = {
+  'ab-line': 'boustrophedon',
+  'ab-skip': 'snake',
+};
+
 const buildBody = (w: WizardState, persist: boolean) => ({
   parcel_geometry: w.parcelGeometry,
   parcel_id: w.parcelId,
   tractor_id: w.tractorId,
   implement_id: w.implementId,
-  pattern: w.pattern,
+  pattern: PATTERN_ALIASES[w.pattern] ?? w.pattern,
   pattern_config: {
-    heading_deg: w.patternConfig.headingDeg,
+    // heading_deg only in manual mode; omitted otherwise so the backend optimizes it.
+    ...(w.headingMode === 'manual' ? { heading_deg: w.patternConfig.headingDeg } : {}),
     width_m: w.patternConfig.widthM,
     overlap_pct: w.patternConfig.overlapPct,
     headland_passes: w.patternConfig.headlandPasses,
-    skip_rows: w.patternConfig.skipRows,
     direction: w.patternConfig.direction,
+    heading_objective: w.headingMode === 'contour' ? 'contour' : 'efficiency',
+    ...(w.turningRadiusM != null ? { turning_radius_m: w.turningRadiusM } : {}),
   },
   operation_type: w.operationType,
-  dem_correction: w.demCorrection,
   persist,
   base_pattern_id: w.basePatternId || undefined,
   vra: w.vraEnabled ? {
@@ -77,6 +84,13 @@ const buildBody = (w: WizardState, persist: boolean) => ({
     zone_ids: w.vraSource !== 'external' ? w.vraZoneIds : undefined,
   } : undefined,
 });
+
+const errorMessage = (err: any, t: (k: string) => string): string => {
+  if (err?.status === 422 && /turn/i.test(err?.message || '')) {
+    return t('errors.missingTurningRadius');
+  }
+  return err?.message || t('errors.generateFailed');
+};
 
 const App: React.FC = () => {
   const { t } = useTranslation(NS);
@@ -92,7 +106,7 @@ const App: React.FC = () => {
   const [pfPreview, setPfPreview] = useState<any>(null);
 
   useEffect(() => {
-    const h = (e: Event) => setPfPreview({ data: { geometry: (e as CustomEvent).detail?.geometry, properties: (e as CustomEvent).detail } });
+    const h = (e: Event) => setPfPreview({ geometry: (e as CustomEvent).detail?.geometry });
     window.addEventListener('nekazari:gis-routing:pathfindingResult', h);
     return () => window.removeEventListener('nekazari:gis-routing:pathfindingResult', h);
   }, []);
@@ -103,17 +117,18 @@ const App: React.FC = () => {
     parcelName: '',
     tractorId: null,
     implementId: null,
-    pattern: 'ab-line',
+    pattern: 'boustrophedon',
     patternConfig: {
       headingDeg: 0,
       widthM: 24,
       overlapPct: 0,
       headlandPasses: 0,
-      skipRows: 1,
       direction: 'outside-in',
     },
+    headingMode: 'auto',
+    turningRadiusM: null,
+    turningRadiusFromMachine: false,
     operationType: 'spraying',
-    demCorrection: false,
     vraEnabled: false,
     vraSource: 'vegetation-health',
     vraBaseRate: 100,
@@ -143,11 +158,16 @@ const App: React.FC = () => {
       try {
         const res = await api.generate(buildBody(w, false));
         if (wizardRef.current.parcelId === w.parcelId) {
-          setPreviewResult(res);
+          setPreviewResult({
+            geometry: routeOf(res),
+            swathCount: res.selected?.swath_count,
+            headlandCount: res.selected?.headland_count,
+            totalDistanceM: res.selected?.total_distance_m,
+          });
         }
       } catch (err: any) {
         if (wizardRef.current.parcelId === w.parcelId) {
-          setError(err?.message || t('errors.generateFailed'));
+          setError(errorMessage(err, t));
           setPreviewResult(null);
         }
       } finally {
@@ -205,23 +225,22 @@ const App: React.FC = () => {
       const geom = typeof p.route_geojson === 'string'
         ? JSON.parse(p.route_geojson)
         : p.route_geojson;
-      setPreviewResult({ data: { geometry: geom, properties: p } });
+      setPreviewResult({ geometry: geom });
       if (p.pattern_config) {
         updateWizard({
-          pattern: p.pattern_type || wizard.pattern,
+          pattern: PATTERN_ALIASES[p.pattern_type] ?? p.pattern_type ?? wizard.pattern,
           patternConfig: {
             headingDeg: p.pattern_config.heading_deg ?? wizard.patternConfig.headingDeg,
             widthM: p.pattern_config.width_m ?? wizard.patternConfig.widthM,
             overlapPct: p.pattern_config.overlap_pct ?? wizard.patternConfig.overlapPct,
             headlandPasses: p.pattern_config.headland_passes ?? wizard.patternConfig.headlandPasses,
-            skipRows: p.pattern_config.skip_rows ?? wizard.patternConfig.skipRows,
             direction: p.pattern_config.direction ?? wizard.patternConfig.direction,
           },
+          headingMode: p.pattern_config.heading_objective === 'contour' ? 'contour' : wizard.headingMode,
           tractorId: p.equipment_tractor_id || wizard.tractorId,
           implementId: p.equipment_implement_id || wizard.implementId,
           operationType: p.pattern_config.operation_type || wizard.operationType,
           vraEnabled: p.vra_prescription_map ? true : wizard.vraEnabled,
-          demCorrection: p.pattern_config.dem_correction || wizard.demCorrection,
         });
       }
     } catch {
@@ -248,7 +267,7 @@ const App: React.FC = () => {
       // Store for cross-tab visualization in the unified viewer
       try {
         sessionStorage.setItem('nkz:gis-routing:lastSaved', JSON.stringify({
-          geometry: res.data?.geometry,
+          geometry: routeOf(res),
           prescriptionMap: res.prescription_map,
           parcelId: wizard.parcelId,
           timestamp: Date.now(),
@@ -256,12 +275,12 @@ const App: React.FC = () => {
       } catch { /* sessionStorage may be full or unavailable */ }
       window.dispatchEvent(new CustomEvent('nekazari:gis-routing:routeGenerated', {
         detail: {
-          geometry: res.data?.geometry,
+          geometry: routeOf(res),
           prescriptionMap: res.prescription_map,
         },
       }));
     } catch (err: any) {
-      setError(err?.message || t('errors.generateFailed'));
+      setError(errorMessage(err, t));
     } finally {
       setSaving(false);
     }
@@ -312,9 +331,17 @@ const App: React.FC = () => {
                 tractorId={wizard.tractorId}
                 implementId={wizard.implementId}
                 operationType={wizard.operationType}
+                turningRadiusM={wizard.turningRadiusM}
+                turningRadiusFromMachine={wizard.turningRadiusFromMachine}
                 onTractorChange={id => setWizard(prev => ({ ...prev, tractorId: id }))}
                 onImplementChange={id => setWizard(prev => ({ ...prev, implementId: id }))}
                 onOperationTypeChange={op => setWizard(prev => ({ ...prev, operationType: op }))}
+                onTurningRadiusResolved={(r, fromMachine) =>
+                  setWizard(prev => ({ ...prev, turningRadiusM: r ?? (prev.turningRadiusFromMachine ? null : prev.turningRadiusM), turningRadiusFromMachine: fromMachine }))
+                }
+                onTurningRadiusOverride={r =>
+                  setWizard(prev => ({ ...prev, turningRadiusM: r, turningRadiusFromMachine: false }))
+                }
               />
               <StepPattern
                 config={wizard.patternConfig}
@@ -324,8 +351,8 @@ const App: React.FC = () => {
                 onConfigChange={c =>
                   updateWizard({ patternConfig: { ...wizard.patternConfig, ...c } })
                 }
-                onDemCorrectionChange={d => updateWizard({ demCorrection: d })}
-                demCorrection={wizard.demCorrection}
+                headingMode={wizard.headingMode}
+                onHeadingModeChange={m => updateWizard({ headingMode: m })}
                 basePatternId={wizard.basePatternId}
                 onBasePatternChange={id => updateWizard({ basePatternId: id })}
                 parcelId={wizard.parcelId}
@@ -337,10 +364,9 @@ const App: React.FC = () => {
                         widthM: config.width_m ?? wizard.patternConfig.widthM,
                         overlapPct: config.overlap_pct ?? wizard.patternConfig.overlapPct,
                         headlandPasses: config.headland_passes ?? wizard.patternConfig.headlandPasses,
-                        skipRows: config.skip_rows ?? wizard.patternConfig.skipRows,
                         direction: config.direction ?? wizard.patternConfig.direction,
                       },
-                      pattern: config.pattern_type ?? wizard.pattern,
+                      pattern: PATTERN_ALIASES[config.pattern_type] ?? config.pattern_type ?? wizard.pattern,
                     });
                   }
                 }}
@@ -422,7 +448,7 @@ const App: React.FC = () => {
               )}
             </>
           ) : (
-            <PathfindingTab parcelGeometry={wizard.parcelGeometry} machineWidthM={wizard.patternConfig.widthM} />
+            <PathfindingTab parcelGeometry={wizard.parcelGeometry} machineWidthM={wizard.patternConfig.widthM} turningRadiusM={wizard.turningRadiusM} />
           )}
         </>
       }
@@ -440,8 +466,8 @@ const App: React.FC = () => {
         savedResult ? (
           <>
             <StatsPanel result={savedResult} />
-            <ExportPanel operationId={savedResult?.data?.properties?.operation_id} />
-            <HandoffPanel operationId={savedResult?.data?.properties?.operation_id} />
+            <ExportPanel operationId={operationIdOf(savedResult) ?? undefined} />
+            <HandoffPanel operationId={operationIdOf(savedResult) ?? undefined} />
           </>
         ) : (
           <div className="flex flex-col items-center justify-center h-64 text-nkz-text-secondary text-nkz-sm">
