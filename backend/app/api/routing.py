@@ -236,48 +236,38 @@ async def list_equipment(request: Request):
         await orion.close()
 
 @router.get("/operations")
-async def list_operations(request: Request, limit: int = 20):
-    """List operations previously generated for the tenant (from TimescaleDB)."""
+async def list_operations(request: Request, limit: int = 20, parcel_id: Optional[str] = None):
+    """List route operations (history) for the tenant from Orion-LD."""
+    from app.services import operation_store
     tenant_id = _get_tenant_id(request)
-    if not tenant_id or tenant_id == "default":
-        raise HTTPException(status_code=404, detail="Tenant not found")
     settings = get_settings()
+    orion = OrionLDClient(settings.context_broker_url, settings.ngsi_ld_context)
     try:
-        ts = TimescaleDBClient(dsn=settings.database_url)
-        await ts.connect()
-        try:
-            async with ts._pool.acquire() as conn:
-                rows = await conn.fetch(
-                    """
-                    SELECT remote_id, parcel_id, operation_type, ab_line_geojson,
-                           implement_width, vra_enabled, prescription_map,
-                           status, started_at, completed_at, updated_at
-                    FROM sync_operations
-                    WHERE tenant_id = $1
-                    ORDER BY updated_at DESC
-                    LIMIT $2
-                    """,
-                    tenant_id, limit,
-                )
-                return [
-                    {
-                        "id": row["remote_id"],
-                        "parcel_id": row["parcel_id"],
-                        "operation_type": row["operation_type"],
-                        "implement_width": row["implement_width"],
-                        "vra_enabled": row["vra_enabled"],
-                        "status": row["status"],
-                        "started_at": row["started_at"],
-                        "completed_at": row["completed_at"],
-                        "updated_at": row["updated_at"],
-                    }
-                    for row in rows
-                ]
-        finally:
-            await ts.close()
+        return await operation_store.list_operations(orion, tenant_id, parcel_id=parcel_id, limit=limit)
     except Exception as e:
-        logger.error("Failed to list operations: %s", e)
-        return []
+        logger.error("Failed to list operations for tenant %s: %s", tenant_id, e)
+        raise HTTPException(status_code=502, detail="Operation store unavailable")
+    finally:
+        await orion.close()
+
+
+@router.get("/operations/{operation_id}")
+async def get_operation(request: Request, operation_id: str):
+    """Full operation detail incl. geometry and the inputs needed to re-run."""
+    from app.services import operation_store
+    tenant_id = _get_tenant_id(request)
+    settings = get_settings()
+    orion = OrionLDClient(settings.context_broker_url, settings.ngsi_ld_context)
+    try:
+        detail = await operation_store.get_operation(orion, operation_id, tenant_id)
+    except Exception as e:
+        logger.error("Failed to get operation %s: %s", operation_id, e)
+        raise HTTPException(status_code=502, detail="Operation store unavailable")
+    finally:
+        await orion.close()
+    if detail is None:
+        raise HTTPException(status_code=404, detail="Operation not found")
+    return detail
 
 VALID_COLLECTIONS = {"parcels", "equipment", "operations"}
 
