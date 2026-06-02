@@ -83,8 +83,13 @@ spec:
               valueFrom:
                 secretKeyRef:
                   name: postgresql-secret
-                  key: connection-string
-                  optional: true
+                  # The secret exposes the asyncpg-compatible DSN as `postgres-url`
+                  # (postgresql://…@postgresql-service:5432/nekazari). The old
+                  # `connection-string` key never existed, so with optional:true
+                  # DATABASE_URL was silently empty → asyncpg hit localhost and
+                  # got ECONNREFUSED, breaking sync, operations and patterns.
+                  # Not optional: a missing DSN must fail the pod loudly.
+                  key: postgres-url
             - name: MINIO_ENDPOINT
               value: "minio-service:9000"
             - name: MINIO_BUCKET
