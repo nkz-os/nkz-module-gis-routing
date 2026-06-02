@@ -23,11 +23,21 @@ def test_overlap_reduces_coverage_width():
     assert params.cov_width == pytest.approx(9.0)
 
 
-def test_articulated_steering_uses_reeds_shepp():
+@pytest.mark.parametrize("steering", ["articulated", "skid_steer", "differential"])
+def test_reverse_capable_steering_uses_reeds_shepp(steering):
+    # Entity Wizard steeringType vocabulary: ackermann | articulated |
+    # skid_steer | differential. All but ackermann can pivot/reverse.
     machine = {"implementWidth": 4.0, "trackWidth": 2.0,
-               "minTurningRadius": 3.0, "steeringType": "articulated"}
+               "minTurningRadius": 3.0, "steeringType": steering}
     params = build_robot(machine, overlap_pct=0.0)
     assert params.curve_type == "reeds_shepp"
+
+
+def test_ackermann_steering_uses_dubins():
+    machine = {"implementWidth": 4.0, "trackWidth": 2.0,
+               "minTurningRadius": 3.0, "steeringType": "ackermann"}
+    params = build_robot(machine, overlap_pct=0.0)
+    assert params.curve_type == "dubins"
 
 
 def test_missing_turning_radius_uses_override_or_raises():

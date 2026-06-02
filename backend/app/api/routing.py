@@ -202,7 +202,7 @@ async def list_equipment(request: Request):
             "ManufacturingMachine", tenant_id,
             attrs=(
                 "name,category,description,serialNumber,isobusCompatible,"
-                "implementWidth,trackWidth,wheelbase,gpsOffsetX,gpsOffsetY,gpsOffsetZ,"
+                "implementWidth,trackWidth,wheelbase,minTurningRadius,gpsOffsetX,gpsOffsetY,gpsOffsetZ,"
                 "hitchType,hitchOffsetX,implementLength,implementOffsetX,steeringType,steeringAxles,dateCreated"
             ),
             limit=100,
@@ -219,6 +219,7 @@ async def list_equipment(request: Request):
                 "implementWidth": (e.get("implementWidth", {}) or {}).get("value"),
                 "trackWidth": (e.get("trackWidth", {}) or {}).get("value"),
                 "wheelbase": (e.get("wheelbase", {}) or {}).get("value"),
+                "minTurningRadius": (e.get("minTurningRadius", {}) or {}).get("value"),
                 "gpsOffsetX": (e.get("gpsOffsetX", {}) or {}).get("value"),
                 "gpsOffsetY": (e.get("gpsOffsetY", {}) or {}).get("value"),
                 "gpsOffsetZ": (e.get("gpsOffsetZ", {}) or {}).get("value"),
