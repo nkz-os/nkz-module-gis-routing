@@ -7,6 +7,7 @@ from Orion (the source of truth); the mobile sync mirror is unrelated.
 """
 from __future__ import annotations
 
+import calendar
 import json
 import time
 import uuid
@@ -31,6 +32,18 @@ def _rel(entity: dict, name: str) -> Optional[str]:
     if isinstance(node, dict):
         return node.get("object")
     return None
+
+
+def _iso_to_epoch_s(node) -> Optional[int]:
+    """Convert a NGSI-LD DateTime value ({"@value": "YYYY-MM-DDTHH:MM:SSZ"}) to epoch seconds."""
+    if isinstance(node, dict):
+        node = node.get("@value")
+    if not isinstance(node, str):
+        return None
+    try:
+        return calendar.timegm(time.strptime(node, "%Y-%m-%dT%H:%M:%SZ"))
+    except (ValueError, TypeError):
+        return None
 
 
 def is_template_entity(entity: dict) -> bool:
@@ -169,7 +182,7 @@ def template_to_dict(entity: dict) -> dict:
         "equipment_tractor_id": _rel(entity, "refTractor"),
         "equipment_implement_id": _rel(entity, "refImplement"),
         "source_operation_id": _rel(entity, "refSourceOperation"),
-        "created_at": _prop(entity, "dateCreated"),
+        "created_at": _iso_to_epoch_s(_prop(entity, "dateCreated")),
     }
 
 
@@ -178,7 +191,7 @@ def template_to_dict(entity: dict) -> dict:
 def _matches_parcel(entity: dict, parcel_id: Optional[str]) -> bool:
     if not parcel_id:
         return True
-    return parcel_id in (_rel(entity, "refAgriParcel") or "")
+    return _rel(entity, "refAgriParcel") == parcel_id
 
 
 async def list_operations(orion: OrionLDClient, tenant_id: str,

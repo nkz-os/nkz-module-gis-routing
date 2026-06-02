@@ -225,3 +225,68 @@ async def test_get_operation_returns_detail_or_none():
     assert d["route"]["type"] == "LineString"
     none_orion = _FakeOrion(one=None)
     assert await store.get_operation(none_orion, "missing", "tenant-a") is None
+
+
+# ---------------------------------------------------------------------------
+# Fix 1: template_to_dict created_at must be epoch-seconds int
+# ---------------------------------------------------------------------------
+
+def test_template_to_dict_created_at_is_epoch_int():
+    e = store.build_template_entity(
+        op_id="urn:ngsi-ld:AgriParcelOperation:t:tplEpoch",
+        parcel_id="urn:ngsi-ld:AgriParcel:p1",
+        name="EpochTest",
+        pattern_type="boustrophedon",
+        pattern_config={"width_m": 24},
+        route_geojson='{"type":"LineString","coordinates":[[0,0],[1,1]]}',
+        vra_prescription_map=None,
+        equipment_tractor_id=None,
+        equipment_implement_id=None,
+        source_operation_id=None,
+    )
+    d = store.template_to_dict(e)
+    assert isinstance(d["created_at"], int), "created_at must be an int (epoch seconds)"
+    assert d["created_at"] > 1_700_000_000, "created_at must be a plausible recent epoch"
+
+
+def test_iso_to_epoch_s_none_on_none():
+    assert store._iso_to_epoch_s(None) is None
+
+
+def test_iso_to_epoch_s_none_on_bad_string():
+    assert store._iso_to_epoch_s("not-a-date") is None
+
+
+def test_iso_to_epoch_s_known_value():
+    # 2024-01-01T00:00:00Z => 1704067200
+    result = store._iso_to_epoch_s({"@value": "2024-01-01T00:00:00Z"})
+    assert result == 1704067200
+
+
+# ---------------------------------------------------------------------------
+# Fix 3: exact parcel match (_matches_parcel)
+# ---------------------------------------------------------------------------
+
+def test_matches_parcel_no_cross_match_suffix():
+    """urn:...:p10 must NOT match filter urn:...:p1"""
+    entity_p10 = _op_entity(
+        id="op-p10",
+        refAgriParcel={"type": "Relationship", "object": "urn:ngsi-ld:AgriParcel:p10"},
+    )
+    # Use list_operations indirectly via _FakeOrion is async; test _matches_parcel directly.
+    # We call the internal function via the module.
+    result = store._matches_parcel(entity_p10, "urn:ngsi-ld:AgriParcel:p1")
+    assert result is False, "p10 must not match filter for p1 (substring false positive)"
+
+
+def test_matches_parcel_exact_match():
+    entity_p1 = _op_entity(id="op-p1")  # refAgriParcel is urn:...:p1
+    assert store._matches_parcel(entity_p1, "urn:ngsi-ld:AgriParcel:p1") is True
+
+
+def test_matches_parcel_none_filter():
+    entity_p10 = _op_entity(
+        id="op-p10",
+        refAgriParcel={"type": "Relationship", "object": "urn:ngsi-ld:AgriParcel:p10"},
+    )
+    assert store._matches_parcel(entity_p10, None) is True
