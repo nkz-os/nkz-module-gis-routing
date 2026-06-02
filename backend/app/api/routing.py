@@ -511,8 +511,16 @@ async def _resolve_vra_zones(body: GenerateRequest, request: Request) -> list[di
                 if resp.status_code == 200:
                     data = resp.json()
                     return _zones_from_vegetation_health_response(data)
-        except Exception:
-            pass
+            logger.warning(
+                "vegetation-health zone fetch returned %s for parcel %s; "
+                "falling back to Orion-LD zones",
+                resp.status_code, body.parcel_id,
+            )
+        except Exception as exc:
+            logger.warning(
+                "vegetation-health zone fetch failed for parcel %s (%s); "
+                "falling back to Orion-LD zones", body.parcel_id, exc,
+            )
 
     # Default: Orion-LD
     settings = get_settings()
