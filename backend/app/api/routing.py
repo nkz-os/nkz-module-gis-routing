@@ -11,7 +11,6 @@ import csv
 import json
 import logging
 import time
-import uuid
 import io
 from fastapi import APIRouter, Request, Query, HTTPException
 from fastapi.responses import JSONResponse
@@ -236,48 +235,38 @@ async def list_equipment(request: Request):
         await orion.close()
 
 @router.get("/operations")
-async def list_operations(request: Request, limit: int = 20):
-    """List operations previously generated for the tenant (from TimescaleDB)."""
+async def list_operations(request: Request, limit: int = 20, parcel_id: Optional[str] = None):
+    """List route operations (history) for the tenant from Orion-LD."""
+    from app.services import operation_store
     tenant_id = _get_tenant_id(request)
-    if not tenant_id or tenant_id == "default":
-        raise HTTPException(status_code=404, detail="Tenant not found")
     settings = get_settings()
+    orion = OrionLDClient(settings.context_broker_url, settings.ngsi_ld_context)
     try:
-        ts = TimescaleDBClient(dsn=settings.database_url)
-        await ts.connect()
-        try:
-            async with ts._pool.acquire() as conn:
-                rows = await conn.fetch(
-                    """
-                    SELECT remote_id, parcel_id, operation_type, ab_line_geojson,
-                           implement_width, vra_enabled, prescription_map,
-                           status, started_at, completed_at, updated_at
-                    FROM sync_operations
-                    WHERE tenant_id = $1
-                    ORDER BY updated_at DESC
-                    LIMIT $2
-                    """,
-                    tenant_id, limit,
-                )
-                return [
-                    {
-                        "id": row["remote_id"],
-                        "parcel_id": row["parcel_id"],
-                        "operation_type": row["operation_type"],
-                        "implement_width": row["implement_width"],
-                        "vra_enabled": row["vra_enabled"],
-                        "status": row["status"],
-                        "started_at": row["started_at"],
-                        "completed_at": row["completed_at"],
-                        "updated_at": row["updated_at"],
-                    }
-                    for row in rows
-                ]
-        finally:
-            await ts.close()
+        return await operation_store.list_operations(orion, tenant_id, parcel_id=parcel_id, limit=limit)
     except Exception as e:
-        logger.error("Failed to list operations: %s", e)
-        return []
+        logger.error("Failed to list operations for tenant %s: %s", tenant_id, e)
+        raise HTTPException(status_code=502, detail="Operation store unavailable")
+    finally:
+        await orion.close()
+
+
+@router.get("/operations/{operation_id}")
+async def get_operation(request: Request, operation_id: str):
+    """Full operation detail incl. geometry and the inputs needed to re-run."""
+    from app.services import operation_store
+    tenant_id = _get_tenant_id(request)
+    settings = get_settings()
+    orion = OrionLDClient(settings.context_broker_url, settings.ngsi_ld_context)
+    try:
+        detail = await operation_store.get_operation(orion, operation_id, tenant_id)
+    except Exception as e:
+        logger.error("Failed to get operation %s: %s", operation_id, e)
+        raise HTTPException(status_code=502, detail="Operation store unavailable")
+    finally:
+        await orion.close()
+    if detail is None:
+        raise HTTPException(status_code=404, detail="Operation not found")
+    return detail
 
 VALID_COLLECTIONS = {"parcels", "equipment", "operations"}
 
@@ -542,55 +531,18 @@ async def _persist_operation(
     result, body: GenerateRequest, request: Request, prescription_map: dict | None,
 ) -> Optional[str]:
     """Persist route as AgriParcelOperation in Orion-LD. Returns operation URN."""
-    import uuid, time
+    from app.services import operation_store
     tenant_id = _get_tenant_id(request)
     settings = get_settings()
-    from shapely.geometry import mapping
-
-    op_remote_id = (
-        f"urn:ngsi-ld:AgriParcelOperation:{tenant_id}:"
-        f"{uuid.uuid4().hex[:8]}"
+    op_id = operation_store.new_operation_id(tenant_id)
+    entity = operation_store.build_operation_entity(
+        op_id=op_id, body=body, result=result,
+        prescription_map=prescription_map, is_template=False,
     )
-    geojson = mapping(result.geometry)
-
-    entity = {
-        "id": op_remote_id,
-        "type": "AgriParcelOperation",
-        "name": {
-            "type": "Property",
-            "value": f"{body.operation_type} - {body.parcel_id[:8] if body.parcel_id else 'op'}",
-        },
-        "operationType": {"type": "Property", "value": body.operation_type},
-        "couplingModel": {"type": "Property", "value": body.coupling_model},
-        "status": {"type": "Property", "value": "planned"},
-        "location": {"type": "GeoProperty", "value": geojson},
-        "implementWidth": {"type": "Property", "value": body.pattern_config.width_m},
-        "swathCount": {"type": "Property", "value": result.swath_count},
-        "dateCreated": {
-            "type": "Property",
-            "value": {
-                "@type": "DateTime",
-                "@value": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
-            },
-        },
-    }
-    entity["refAgriParcel"] = {"type": "Relationship", "object": body.parcel_id}
-    if body.tractor_id:
-        entity["refTractor"] = {"type": "Relationship", "object": body.tractor_id}
-    if body.implement_id:
-        entity["refImplement"] = {"type": "Relationship", "object": body.implement_id}
-
-    if prescription_map:
-        entity["vraEnabled"] = {"type": "Property", "value": True}
-        entity["vraSource"] = {"type": "Property", "value": body.vra.source}
-        entity["baseRate"] = {"type": "Property", "value": body.vra.base_rate}
-        entity["rateUnit"] = {"type": "Property", "value": body.vra.rate_unit}
-        entity["prescriptionMap"] = {"type": "Property", "value": prescription_map}
-
     orion = OrionLDClient(settings.context_broker_url, settings.ngsi_ld_context)
     try:
         await orion.create_entity(entity, tenant_id)
-        return op_remote_id
+        return op_id
     except Exception as e:
         logger.error("Failed to persist operation: %s", e)
         return None
