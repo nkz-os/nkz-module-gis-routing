@@ -38,7 +38,18 @@ async def list_patterns(request: Request, parcel_id: str):
     settings = get_settings()
     ts = TimescaleDBClient(dsn=settings.database_url)
     store = PatternStore(ts)
-    patterns = await store.list_for_parcel(tenant, parcel_id)
+    try:
+        patterns = await store.list_for_parcel(tenant, parcel_id)
+    except Exception as exc:
+        # Fail-open: the pattern store (direct TimescaleDB) is not reachable in
+        # this deployment. Return an empty list so the UI loads instead of 500ing.
+        # Loud log preserves the signal; permanent fix tracked as workstream C
+        # (move route templates onto Orion).
+        logger.warning(
+            "pattern store unavailable for tenant=%s parcel=%s (%s); "
+            "returning empty list", tenant, parcel_id, exc,
+        )
+        return {"success": True, "data": []}
     return {"success": True, "data": patterns}
 
 
@@ -48,7 +59,16 @@ async def get_pattern(request: Request, pattern_id: str):
     settings = get_settings()
     ts = TimescaleDBClient(dsn=settings.database_url)
     store = PatternStore(ts)
-    pattern = await store.get(tenant, pattern_id)
+    try:
+        pattern = await store.get(tenant, pattern_id)
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.warning(
+            "pattern store unavailable for tenant=%s pattern=%s (%s); "
+            "treating as not found", tenant, pattern_id, exc,
+        )
+        raise HTTPException(status_code=404, detail="Pattern not found")
     if not pattern:
         raise HTTPException(status_code=404, detail="Pattern not found")
     return {"success": True, "data": pattern}
