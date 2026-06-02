@@ -98,17 +98,20 @@ pnpm typecheck    # TypeScript check
 
 ## Deployment
 
+**Frontend (MF2 remote)** — flat MinIO overwrite with backup + post-deploy
+verification. Run against a host with a working `mc` alias to the cluster MinIO:
+
 ```bash
-# Build
-pnpm build
+# Builds dist/, backs up the live path, overwrites it, verifies remoteEntry 200
+scripts/deploy-module.sh
+```
 
-# Upload entire dist/ to MinIO
-mc cp --recursive dist/ minio-srv/nekazari-frontend/modules/nkz-module-gis-routing/
+**Backend (Docker image)** — CI builds and pushes the image to GHCR on merge to
+`main`. Deployment is GitOps: pin the new image **by digest** in
+`k8s/backend-deployment.yaml` (never `:latest`) and ArgoCD auto-syncs. Get the
+digest of the pushed image and update the manifest via PR.
 
-# Backend
-cd backend && docker build -t ghcr.io/nkz-os/nkz-module-gis-routing/backend:latest .
-docker push ghcr.io/nkz-os/nkz-module-gis-routing/backend:latest
-
+```bash
 # Register in marketplace (once per environment)
 kubectl exec -n nekazari deployment/postgresql -- psql -U postgres -d nekazari -f k8s/registration.sql
 ```
@@ -116,7 +119,8 @@ kubectl exec -n nekazari deployment/postgresql -- psql -U postgres -d nekazari -
 ## Dependencies
 
 - **eu-elevation** — DEM elevation data for pathfinding + slope correction
-- **vegetation-health** — VRA zone generation proxy (server-to-server)
+- **vegetation-prime** — VRA zone generation proxy (server-to-server); zones are
+  read from Orion-LD `AgriManagementZone`
 - Orion-LD Context Broker
 - TimescaleDB + PostGIS
 - MinIO (module artifacts)
