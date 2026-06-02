@@ -2,11 +2,13 @@
 # GIS Routing Module - GitHub Actions CI/CD
 # =============================================================================
 # On push to main or a version tag:
-#   1. Type-check frontend + run backend tests
-#   2. Build the IIFE bundle (dist/nkz-module.js) — uploaded as artifact
-#   3. Build and push the backend Docker image to GHCR (if module has a backend)
+#   1. Type-check frontend + run backend tests (inside the F2C image)
+#   2. Build the MF2 remote bundle (dist/) — uploaded as an artifact
+#   3. Build and push the backend Docker image to GHCR
 #
-# CI deploys the frontend bundle to MinIO with immutable versioned paths.
+# Frontend deployment is NOT done by CI. The canonical mechanism is a flat
+# MinIO overwrite via scripts/deploy-module.sh (see that script). ArgoCD
+# deploys the backend image once k8s/backend-deployment.yaml is digest-bumped.
 # =============================================================================
 
 name: Build and Push
@@ -94,42 +96,15 @@ jobs:
               uses: actions/upload-artifact@v4
               with:
                   name: nkz-module
-                  path: dist/nkz-module.js
+                  path: dist/
                   retention-days: 30
 
-            - name: Check MinIO Secrets
-              id: check_secrets
-              if: github.event_name != 'pull_request'
-              run: |
-                  if [ -n "${{ secrets.MINIO_ROOT_USER }}" ] && [ -n "${{ secrets.MINIO_ROOT_PASSWORD }}" ] && [ -n "${{ secrets.MINIO_URL }}" ]; then
-                    echo "has_secrets=true" >> $GITHUB_OUTPUT
-                  else
-                    echo "has_secrets=false" >> $GITHUB_OUTPUT
-                  fi
-
-            - name: Setup MinIO Client
-              if: steps.check_secrets.outputs.has_secrets == 'true' && github.event_name != 'pull_request'
-              run: |
-                  curl -sSL https://dl.min.io/client/mc/release/linux-amd64/mc -o /usr/local/bin/mc
-                  chmod +x /usr/local/bin/mc
-
-            - name: Upload to MinIO (versioned)
-              if: steps.check_secrets.outputs.has_secrets == 'true' && github.event_name != 'pull_request'
-              run: |
-                  SHORT_SHA=$(echo "${{ github.sha }}" | cut -c1-8)
-                  mc alias set nkz "${{ secrets.MINIO_URL }}" "${{ secrets.MINIO_ROOT_USER }}" "${{ secrets.MINIO_ROOT_PASSWORD }}"
-                  mc cp --recursive ./dist/ "nkz/nekazari-frontend/modules/gis-routing/${SHORT_SHA}/"
-                  mc anonymous set public "nkz/nekazari-frontend/modules/gis-routing/${SHORT_SHA}/"
-
-            - name: Activate version
-              if: steps.check_secrets.outputs.has_secrets == 'true' && github.event_name != 'pull_request'
-              run: |
-                  SHORT_SHA=$(echo "${{ github.sha }}" | cut -c1-8)
-                  curl -s -X POST "${{ secrets.API_URL }}/api/modules/gis-routing/deploy" \
-                    -H "Content-Type: application/json" \
-                    -H "X-Internal-Token: ${{ secrets.NKZ_INTERNAL_TOKEN }}" \
-                    -d "{\"version\": \"${SHORT_SHA}\"}" \
-                    || echo "WARNING: deploy activation failed (API may not support /deploy yet)"
+            # NOTE: Frontend deployment is intentionally NOT performed here.
+            # The canonical mechanism is a flat MinIO overwrite via
+            # scripts/deploy-module.sh, run against the cluster MinIO. The
+            # previous CI MinIO upload/activate steps were non-functional
+            # (secrets absent; the activate endpoint requires PlatformAdmin +
+            # upload_id, not a CI token + version) and have been removed.
 
     # ==========================================================================
     # Build and push backend Docker image
@@ -178,3 +153,7 @@ jobs:
                   labels: ${{ steps.meta.outputs.labels }}
                   cache-from: type=gha
                   cache-to: type=gha,mode=max
+                  # NOTE: After this image is pushed, prod is NOT updated until
+                  # k8s/backend-deployment.yaml is pinned to the new digest via a
+                  # PR (see README → Deployment). Auto-PR digest-bump was declined
+                  # to keep the org-wide "Actions can create PRs" policy disabled.
