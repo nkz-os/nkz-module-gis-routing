@@ -87,3 +87,28 @@ def test_delete_pattern_calls_orion(monkeypatch):
     resp = client.delete("/api/routing/patterns/tpl-1")
     assert resp.status_code == 200
     assert fake.deleted == ["tpl-1"]
+
+
+# ---------------------------------------------------------------------------
+# Fix 2: DELETE /patterns/{id} must verify isTemplate before deleting
+# ---------------------------------------------------------------------------
+
+def test_delete_pattern_404_when_not_template(monkeypatch):
+    monkeypatch.setattr(TenantStateMiddleware, "dispatch", _tenant_dispatch("tenant-a"))
+    # Entity exists but isTemplate=False
+    fake = _FakeOrion(one={"id": "op-1", "isTemplate": {"type": "Property", "value": False}})
+    monkeypatch.setattr("app.api.patterns_router.OrionLDClient", lambda *a, **k: fake)
+    client = TestClient(create_app())
+    resp = client.delete("/api/routing/patterns/op-1")
+    assert resp.status_code == 404
+    assert fake.deleted == [], "delete_entity must NOT be called for non-template entities"
+
+
+def test_delete_pattern_404_when_entity_missing(monkeypatch):
+    monkeypatch.setattr(TenantStateMiddleware, "dispatch", _tenant_dispatch("tenant-a"))
+    fake = _FakeOrion(one=None)
+    monkeypatch.setattr("app.api.patterns_router.OrionLDClient", lambda *a, **k: fake)
+    client = TestClient(create_app())
+    resp = client.delete("/api/routing/patterns/nonexistent-id")
+    assert resp.status_code == 404
+    assert fake.deleted == []
