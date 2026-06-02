@@ -9,14 +9,20 @@ interface Props {
   tractorId: string | null;
   implementId: string | null;
   operationType: string;
+  turningRadiusM: number | null;
+  turningRadiusFromMachine: boolean;
   onTractorChange: (id: string | null) => void;
   onImplementChange: (id: string | null) => void;
   onOperationTypeChange: (op: string) => void;
+  onTurningRadiusResolved: (radiusM: number | null, fromMachine: boolean) => void;
+  onTurningRadiusOverride: (radiusM: number) => void;
 }
 
 export const StepEquipment: React.FC<Props> = ({
   tractorId, implementId, operationType,
+  turningRadiusM, turningRadiusFromMachine,
   onTractorChange, onImplementChange, onOperationTypeChange,
+  onTurningRadiusResolved, onTurningRadiusOverride,
 }) => {
   const { t } = useTranslation(NS);
   const [equipment, setEquipment] = useState<any[]>([]);
@@ -29,6 +35,16 @@ export const StepEquipment: React.FC<Props> = ({
       .catch(() => {}).finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
   }, []);
+
+  // Resolve the turning radius from the selected machine (implement preferred,
+  // then tractor — matching backend _resolve_machine).
+  useEffect(() => {
+    const sel = equipment.find(e => e.id === implementId)
+      || equipment.find(e => e.id === tractorId);
+    const r = sel && sel.minTurningRadius != null ? Number(sel.minTurningRadius) : null;
+    onTurningRadiusResolved(r, r != null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [equipment, implementId, tractorId]);
 
   const tractors = equipment.filter(e => (e.category || '').toLowerCase() === 'tractor');
   const implements_ = equipment.filter(e => (e.category || '').toLowerCase() === 'implement');
@@ -77,6 +93,22 @@ export const StepEquipment: React.FC<Props> = ({
                     <option key={e.id} value={e.id}>{e.name}</option>
                   ))}
                 </select>
+              </div>
+              <div>
+                <label className="text-nkz-sm text-nkz-text-secondary">{t('equipment.turningRadius')}</label>
+                {turningRadiusFromMachine ? (
+                  <p className="text-nkz-sm text-nkz-text-primary">
+                    {turningRadiusM} m <span className="text-nkz-xs text-nkz-text-secondary">· {t('equipment.fromMachine')}</span>
+                  </p>
+                ) : (
+                  <>
+                    <input type="number" min={0.1} step={0.1} value={turningRadiusM ?? ''}
+                      placeholder={t('equipment.turningRadiusPlaceholder')}
+                      onChange={e => onTurningRadiusOverride(Number(e.target.value))}
+                      className="w-full border border-nkz-default rounded-nkz-md px-3 py-2 text-nkz-sm bg-nkz-surface" />
+                    <p className="text-nkz-xs text-nkz-text-warning mt-1">{t('equipment.noTurningRadius')}</p>
+                  </>
+                )}
               </div>
             </>
           )}

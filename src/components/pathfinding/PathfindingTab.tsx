@@ -20,9 +20,27 @@ function getDefaultCoords(geometry?: any) {
 interface Props {
   parcelGeometry?: any;
   machineWidthM?: number;
+  turningRadiusM?: number | null;
 }
 
-export const PathfindingTab: React.FC<Props> = ({ parcelGeometry, machineWidthM }) => {
+const Sparkline: React.FC<{ profile: number[][] }> = ({ profile }) => {
+  if (!profile || profile.length < 2) return null;
+  const zs = profile.map(p => p[2]);
+  const min = Math.min(...zs), max = Math.max(...zs);
+  const span = max - min || 1;
+  const pts = profile.map((p, i) => {
+    const x = (i / (profile.length - 1)) * 100;
+    const y = 20 - ((p[2] - min) / span) * 20;
+    return `${x.toFixed(1)},${y.toFixed(1)}`;
+  }).join(' ');
+  return (
+    <svg viewBox="0 0 100 20" preserveAspectRatio="none" className="w-full h-5 mt-1">
+      <polyline points={pts} fill="none" stroke="currentColor" strokeWidth={1} className="text-nkz-text-accent" />
+    </svg>
+  );
+};
+
+export const PathfindingTab: React.FC<Props> = ({ parcelGeometry, machineWidthM, turningRadiusM }) => {
   const { t } = useTranslation(NS);
   const defaultCoords = getDefaultCoords(parcelGeometry);
   const [pointA, setPointA] = useState({ lon: defaultCoords.lonA, lat: defaultCoords.latA });
@@ -42,8 +60,7 @@ export const PathfindingTab: React.FC<Props> = ({ parcelGeometry, machineWidthM 
         point_b: [pointB.lon, pointB.lat],
         machine_width_m: machineWidthM || 3,
         max_slope_deg: 15,
-        min_turn_radius_m: 8,
-        num_alternatives: 3,
+        min_turn_radius_m: turningRadiusM ?? 8,
       });
       const id = res.job_id;
       setPolling(true);
@@ -130,6 +147,7 @@ export const PathfindingTab: React.FC<Props> = ({ parcelGeometry, machineWidthM 
                 <span>{t('pathfinding.distance')}: {alt.distance_m?.toFixed(0)} m</span>
                 <span>{t('pathfinding.climb')}: {alt.cumulative_climb_m?.toFixed(1)} m</span>
               </div>
+              <Sparkline profile={alt.elevation_profile} />
             </div>
           ))}
         </div>

@@ -38,11 +38,56 @@ export class ApiError extends Error {
   }
 }
 
+export interface RouteMetrics {
+  worked_distance_m: number;
+  non_working_distance_m: number;
+  field_efficiency: number;
+  covered_area_ha: number;
+  parcel_area_ha: number;
+}
+
+export interface GenerateSelected {
+  pattern: string;
+  route: { type: string; coordinates: any };
+  swath_count: number;
+  headland_count: number;
+  total_distance_m: number;
+  pass_order: number[][];
+  metrics: RouteMetrics;
+  metadata: Record<string, any>;
+}
+
 export interface GenerateResult {
   success: boolean;
-  alternatives: Array<{ id: string; heading_deg: number; swath_count: number; total_distance_m: number }>;
-  data: { type: string; geometry: any; properties: Record<string, any> };
+  selected: GenerateSelected;
   prescription_map: any;
+  operation_id: string | null;
+}
+
+export interface PathAlternative {
+  id: 'least_slope' | 'fastest';
+  label: string;
+  distance_m: number;
+  cumulative_climb_m: number;
+  geometry: { type: 'LineString'; coordinates: number[][] };
+  elevation_profile: number[][];
+}
+
+export interface PathResult {
+  status: 'queued' | 'completed' | 'failed';
+  alternatives?: PathAlternative[];
+  error?: string;
+}
+
+// Response selectors — single source of truth for the new contract shape.
+export function routeOf(res: GenerateResult): any {
+  return res?.selected?.route ?? null;
+}
+export function operationIdOf(res: GenerateResult): string | null {
+  return res?.operation_id ?? null;
+}
+export function metricsOf(res: GenerateResult): RouteMetrics | null {
+  return res?.selected?.metrics ?? null;
 }
 
 export interface PatternSummary {
@@ -116,7 +161,7 @@ export const api = {
     return request<any>('/path/calculate', { method: 'POST', body: JSON.stringify(body) });
   },
   getPathResult(jobId: string) {
-    return request<any>(`/path/${encodeURIComponent(jobId)}`);
+    return request<PathResult>(`/path/${encodeURIComponent(jobId)}`);
   },
 
   // External zones
