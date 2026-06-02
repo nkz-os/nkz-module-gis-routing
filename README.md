@@ -98,13 +98,11 @@ pnpm typecheck    # TypeScript check
 
 ## Deployment
 
-**Frontend (MF2 remote)** — flat MinIO overwrite with backup + post-deploy
-verification. Run against a host with a working `mc` alias to the cluster MinIO:
-
-```bash
-# Builds dist/, backs up the live path, overwrites it, verifies remoteEntry 200
-scripts/deploy-module.sh
-```
+**Frontend (MF2 remote)** — published automatically by CI on merge to `main`
+(GitHub Actions calls the platform reusable workflow `_publish-module.yml`, which
+builds `dist/` and POSTs it to the entity-manager publish endpoint → immutable
+`modules/<id>/<git-sha>/` + atomic pointer). Manual break-glass:
+`ENTITY_MANAGER_URL=… INTERNAL_SERVICE_SECRET=… <nkz>/scripts/publish-module.sh nkz-module-gis-routing`
 
 **Backend (Docker image)** — CI builds and pushes the image to GHCR on merge to
 `main`. Deployment is GitOps: pin the new image **by digest** in
