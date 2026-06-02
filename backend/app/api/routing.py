@@ -495,33 +495,18 @@ async def _resolve_machine(body: GenerateRequest, request: Request) -> dict:
 
 
 async def _resolve_vra_zones(body: GenerateRequest, request: Request) -> list[dict]:
-    """Resolve VRA zone features from configured source."""
+    """Resolve VRA zone features from the configured source.
+
+    Both "orion" (default) and the legacy "vegetation-health" source resolve to
+    Orion-LD AgriManagementZone entities. vegetation-prime persists its computed
+    zones to Orion (the platform source of truth), so gis-routing reads them
+    there rather than via a redundant cross-service HTTP call. (Re)computation is
+    triggered explicitly via POST /zones/{parcel_id}/generate.
+    """
     if body.vra.source == "external":
         return _normalize_external_zone_features(body.vra.external_features or [])
 
-    if body.vra.source == "vegetation-health":
-        try:
-            async with httpx.AsyncClient(timeout=30.0) as client:
-                resp = await client.get(
-                    f"http://vegetation-health-api-service:8000/"
-                    f"api/vegetation/zones/{body.parcel_id}",
-                    headers={"X-Tenant-ID": _get_tenant_id(request)},
-                )
-                if resp.status_code == 200:
-                    data = resp.json()
-                    return _zones_from_vegetation_health_response(data)
-            logger.warning(
-                "vegetation-health zone fetch returned %s for parcel %s; "
-                "falling back to Orion-LD zones",
-                resp.status_code, body.parcel_id,
-            )
-        except Exception as exc:
-            logger.warning(
-                "vegetation-health zone fetch failed for parcel %s (%s); "
-                "falling back to Orion-LD zones", body.parcel_id, exc,
-            )
-
-    # Default: Orion-LD
+    # "orion" and legacy "vegetation-health" → Orion-LD AgriManagementZone
     settings = get_settings()
     orion = OrionLDClient(settings.context_broker_url, settings.ngsi_ld_context)
     try:
@@ -529,23 +514,6 @@ async def _resolve_vra_zones(body: GenerateRequest, request: Request) -> list[di
     finally:
         await orion.close()
     return _zones_from_orion(zones, body.parcel_id, body.vra.zone_ids if body.vra else None)
-
-
-def _zones_from_vegetation_health_response(data: dict) -> list[dict]:
-    features = []
-    for zone in data.get("data", {}).get("zones", []):
-        geom = zone.get("geometry")
-        if geom:
-            features.append({
-                "type": "Feature",
-                "geometry": geom,
-                "properties": {
-                    "zone_id": zone.get("zone_id", ""),
-                    "zone_class": zone.get("zone_class", ""),
-                    "prescription_rate": float(zone.get("prescription_rate", 1.0)),
-                },
-            })
-    return features
 
 
 def _zones_from_orion(zones: list[dict], parcel_id: str, zone_ids: list[str] | None) -> list[dict]:
@@ -689,7 +657,7 @@ async def get_offline_tiles(
     )
 
 
-# ── Zoning (AgriManagementZone via Orion-LD, generation via vegetation-health proxy) ──
+# ── Zoning (AgriManagementZone via Orion-LD, generation via vegetation-prime proxy) ──
 
 
 @router.get("/zones/{parcel_id}")
@@ -720,21 +688,36 @@ async def get_parcel_zones(request: Request, parcel_id: str):
 
 @router.post("/zones/{parcel_id}/generate")
 async def generate_vra_zones(request: Request, parcel_id: str):
-    """Trigger VRA zone generation via vegetation-health backend (server-to-server proxy)."""
+    """Trigger VRA zone generation via vegetation-prime backend (server-to-server proxy)."""
     tenant_id = _get_tenant_id(request)
     body = await request.json()
     n_zones = body.get("n_zones", 3)
 
+    # vegetation-prime performs its own JWT validation (Bearer/cookie) AND requires
+    # X-Tenant-ID, so forward the caller's auth context. ASSUMPTION: the inbound
+    # request carries a forwardable token (Authorization or nkz_token cookie) —
+    # not guaranteed on gateway-injected-header paths; confirm before relying on it.
+    fwd_headers = {"X-Tenant-ID": tenant_id}
+    auth_header = request.headers.get("Authorization")
+    if auth_header:
+        fwd_headers["Authorization"] = auth_header
+    elif request.cookies.get("nkz_token"):
+        fwd_headers["Authorization"] = f"Bearer {request.cookies['nkz_token']}"
+    user_id = request.headers.get("x-user-id")
+    if user_id:
+        fwd_headers["X-User-ID"] = user_id
+
     async with httpx.AsyncClient(timeout=30.0) as client:
         try:
             resp = await client.post(
-                f"http://vegetation-health-api-service:8000/api/vegetation/jobs/zoning/{parcel_id}",
-                json={"n_zones": n_zones, "tenant_id": tenant_id},
+                f"http://vegetation-prime-api-service:8000/api/vegetation/jobs/zoning/{parcel_id}",
+                json={"n_zones": n_zones},
+                headers=fwd_headers,
             )
             resp.raise_for_status()
             return resp.json()
         except httpx.HTTPError as e:
-            logger.error("Vegetation-health proxy failed: %s", e)
+            logger.error("vegetation-prime zoning proxy failed: %s", e)
             raise HTTPException(status_code=502, detail="Zone generation service unavailable")
 
 
