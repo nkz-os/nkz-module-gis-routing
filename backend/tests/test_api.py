@@ -75,3 +75,23 @@ class TestAPI:
             },
         )
         assert response.status_code == 400
+
+
+class TestPatternsFailOpen:
+    """Pattern listing must fail-open when the (currently unreachable) pattern
+    store cannot be contacted, so the UI loads instead of 500ing."""
+
+    def test_list_patterns_empty_when_store_unreachable(self, client, monkeypatch):
+        async def _boom(self, tenant_id, parcel_id):
+            raise ConnectionError("[Errno 111] Connection refused")
+
+        monkeypatch.setattr(
+            "app.api.patterns_router.PatternStore.list_for_parcel", _boom
+        )
+        response = client.get(
+            "/api/routing/patterns",
+            params={"parcel_id": "urn:ngsi-ld:AgriParcel:p1"},
+            headers={"X-Tenant-ID": "tenant-a"},
+        )
+        assert response.status_code == 200
+        assert response.json() == {"success": True, "data": []}
