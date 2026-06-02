@@ -34,14 +34,17 @@
     "implementOffsetX": "Offset apero X",
     "implementWidth": "Ancho efectivo apero",
     "unclassifiedTitle": "Maquinaria sin clasificar",
-    "unclassifiedHelp": "Estas máquinas no tienen rol canónico (tractor/apero). Revísalas en el Entity Wizard para asignar categoría correcta."
+    "unclassifiedHelp": "Estas máquinas no tienen rol canónico (tractor/apero). Revísalas en el Entity Wizard para asignar categoría correcta.",
+    "turningRadius": "Radio de giro",
+    "fromMachine": "de la máquina",
+    "turningRadiusPlaceholder": "Radio de giro (m)",
+    "noTurningRadius": "Esta máquina no tiene radio de giro; introduce uno o configúralo en el editor de entidades."
   },
   "parameters": {
     "heading": "Rumbo (°)",
     "width": "Ancho de trabajo (m)",
     "swaths": "Franjas",
     "operationType": "Tipo de operación",
-    "demCorrection": "Corrección DEM (pendiente)",
     "couplingModel": "Modelo de acople",
     "couplingModelRigid": "Conjunto rígido (tractor + apero)",
     "couplingModelArticulated": "Conjunto articulado (tractor + apero)",
@@ -49,8 +52,8 @@
     "couplingModelArticulatedNotSupported": "El modo articulado aún no está soportado en el cálculo. Selecciona conjunto rígido.",
     "overlap": "Solapamiento (%)",
     "headlandPasses": "Pasadas de cabecera",
-    "skipRows": "Filas saltadas",
-    "direction": "Dirección"
+    "direction": "Dirección",
+    "headingMode": "Rumbo"
   },
   "operationType": {
     "spraying": "Pulverización",
@@ -128,7 +131,11 @@
     "distance": "Distancia",
     "area": "Área",
     "pattern": "Patrón",
-    "vra": "VRA"
+    "vra": "VRA",
+    "fieldEfficiency": "Eficiencia de campo",
+    "workedDistance": "Distancia trabajada",
+    "nonWorkingDistance": "Distancia improductiva",
+    "curveType": "Tipo de giro"
   },
   "actions": {
     "generate": "Generar Ruta",
@@ -168,7 +175,8 @@
   },
   "errors": {
     "authRequired": "Autenticación requerida",
-    "generateFailed": "Error al generar la ruta"
+    "generateFailed": "Error al generar la ruta",
+    "missingTurningRadius": "Falta el radio de giro de la máquina. Introduce uno o configúralo en el editor de entidades."
   },
   "zoning": {
     "title": "Zonificación VRA",
@@ -209,10 +217,10 @@
     "save": "Guardar"
   },
   "patternLabels": {
-    "ab-line": "Linea AB",
-    "ab-skip": "AB Salteo",
     "spiral": "Espiral",
-    "headland-only": "Solo cabecero"
+    "headland-only": "Solo cabecero",
+    "boustrophedon": "Líneas paralelas",
+    "snake": "Saltos alternos"
   },
   "pathfinding": {
     "pickOnMap": "Trazar ruta A-B en el mapa",
@@ -238,5 +246,10 @@
     "interactiveHint": "Haz clic en una línea para seleccionarla. Pasa el ratón para identificarla.",
     "internalPasses": "Pasadas internas",
     "headlandPasses": "Cabeceras"
+  },
+  "headingMode": {
+    "auto": "Óptimo",
+    "contour": "Contorno",
+    "manual": "Manual"
   }
 }

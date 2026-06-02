@@ -34,14 +34,17 @@
     "implementOffsetX": "Implement offset X",
     "implementWidth": "Effective implement width",
     "unclassifiedTitle": "Unclassified machinery",
-    "unclassifiedHelp": "These machines do not have a canonical role (tractor/implement). Review them in the Entity Wizard and assign the correct category."
+    "unclassifiedHelp": "These machines do not have a canonical role (tractor/implement). Review them in the Entity Wizard and assign the correct category.",
+    "turningRadius": "Raio de viragem",
+    "fromMachine": "da máquina",
+    "turningRadiusPlaceholder": "Raio de viragem (m)",
+    "noTurningRadius": "Esta máquina não tem raio de viragem — introduza um ou configure-o no editor de entidades."
   },
   "parameters": {
     "heading": "Rumo (°)",
     "width": "Largura de trabalho (m)",
     "swaths": "Faixas",
     "operationType": "Operation Type",
-    "demCorrection": "DEM correction",
     "couplingModel": "Coupling model",
     "couplingModelRigid": "Rigid set (tractor + implement)",
     "couplingModelArticulated": "Articulated set (tractor + implement)",
@@ -49,8 +52,8 @@
     "couplingModelArticulatedNotSupported": "Articulated mode is not supported yet in computation. Select rigid coupling.",
     "overlap": "Overlap (%)",
     "headlandPasses": "Headland passes",
-    "skipRows": "Skip rows",
-    "direction": "Direction"
+    "direction": "Direction",
+    "headingMode": "Rumo"
   },
   "actions": {
     "generate": "Gerar Rota",
@@ -90,7 +93,8 @@
   },
   "errors": {
     "authRequired": "Autenticação necessária",
-    "generateFailed": "Falha ao gerar a rota"
+    "generateFailed": "Falha ao gerar a rota",
+    "missingTurningRadius": "Falta o raio de viragem da máquina. Introduza um ou configure-o no editor de entidades."
   },
   "zoning": {
     "title": "Zoneamento VRA",
@@ -194,7 +198,11 @@
     "distance": "Distance",
     "area": "Area",
     "pattern": "Pattern",
-    "vra": "VRA"
+    "vra": "VRA",
+    "fieldEfficiency": "Eficiência de campo",
+    "workedDistance": "Distância trabalhada",
+    "nonWorkingDistance": "Distância improdutiva",
+    "curveType": "Tipo de viragem"
   },
   "trajectory": {
     "title": "Trajectory alternatives",
@@ -212,10 +220,10 @@
     "loadFromContext": "Show on map"
   },
   "patternLabels": {
-    "ab-line": "AB Line",
-    "ab-skip": "AB Skip Row",
     "spiral": "Spiral",
-    "headland-only": "Headland Only"
+    "headland-only": "Headland Only",
+    "boustrophedon": "Linhas paralelas",
+    "snake": "Saltos alternados"
   },
   "pathfinding": {
     "pickOnMap": "Pick A-B path on map",
@@ -242,5 +250,10 @@
     "interactiveHint": "Click a line to select it. Hover to identify it.",
     "internalPasses": "Internal passes",
     "headlandPasses": "Headlands"
+  },
+  "headingMode": {
+    "auto": "Ótimo",
+    "contour": "Contorno",
+    "manual": "Manual"
   }
 }
