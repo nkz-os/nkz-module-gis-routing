@@ -1,4 +1,5 @@
-"""Pattern CRUD endpoints."""
+# backend/app/api/patterns_router.py
+"""Route templates as AgriParcelOperation(isTemplate=true) in Orion-LD."""
 
 import logging
 from fastapi import APIRouter, Request, HTTPException
@@ -6,8 +7,8 @@ from pydantic import BaseModel
 from typing import Optional
 
 from app.config import get_settings
-from app.services.timescale_client import TimescaleDBClient
-from app.services.pattern_store import PatternStore
+from app.services.orion_client import OrionLDClient
+from app.services import operation_store
 
 logger = logging.getLogger(__name__)
 router = APIRouter(tags=["patterns"])
@@ -18,6 +19,11 @@ def _get_tenant(request: Request) -> str:
     if not tid or tid == "default":
         raise HTTPException(status_code=404, detail="Tenant not found")
     return tid
+
+
+def _orion() -> OrionLDClient:
+    s = get_settings()
+    return OrionLDClient(s.context_broker_url, s.ngsi_ld_context)
 
 
 class SavePatternRequest(BaseModel):
@@ -35,70 +41,65 @@ class SavePatternRequest(BaseModel):
 @router.get("/patterns")
 async def list_patterns(request: Request, parcel_id: str):
     tenant = _get_tenant(request)
-    settings = get_settings()
-    ts = TimescaleDBClient(dsn=settings.database_url)
-    store = PatternStore(ts)
+    orion = _orion()
     try:
-        patterns = await store.list_for_parcel(tenant, parcel_id)
+        data = await operation_store.list_templates(orion, tenant, parcel_id)
     except Exception as exc:
-        # Fail-open: the pattern store (direct TimescaleDB) is not reachable in
-        # this deployment. Return an empty list so the UI loads instead of 500ing.
-        # Loud log preserves the signal; permanent fix tracked as workstream C
-        # (move route templates onto Orion).
-        logger.warning(
-            "pattern store unavailable for tenant=%s parcel=%s (%s); "
-            "returning empty list", tenant, parcel_id, exc,
-        )
-        return {"success": True, "data": []}
-    return {"success": True, "data": patterns}
+        logger.error("Failed to list templates for tenant %s: %s", tenant, exc)
+        raise HTTPException(status_code=502, detail="Template store unavailable")
+    finally:
+        await orion.close()
+    return {"success": True, "data": data}
 
 
 @router.get("/patterns/{pattern_id}")
 async def get_pattern(request: Request, pattern_id: str):
     tenant = _get_tenant(request)
-    settings = get_settings()
-    ts = TimescaleDBClient(dsn=settings.database_url)
-    store = PatternStore(ts)
+    orion = _orion()
     try:
-        pattern = await store.get(tenant, pattern_id)
-    except HTTPException:
-        raise
+        entity = await orion.get_entity(pattern_id, tenant)
     except Exception as exc:
-        logger.warning(
-            "pattern store unavailable for tenant=%s pattern=%s (%s); "
-            "treating as not found", tenant, pattern_id, exc,
-        )
+        logger.error("Failed to get template %s: %s", pattern_id, exc)
+        raise HTTPException(status_code=502, detail="Template store unavailable")
+    finally:
+        await orion.close()
+    if not entity or not operation_store.is_template_entity(entity):
         raise HTTPException(status_code=404, detail="Pattern not found")
-    if not pattern:
-        raise HTTPException(status_code=404, detail="Pattern not found")
-    return {"success": True, "data": pattern}
+    return {"success": True, "data": operation_store.template_to_dict(entity)}
 
 
 @router.post("/patterns")
 async def save_pattern(request: Request, body: SavePatternRequest):
     tenant = _get_tenant(request)
-    settings = get_settings()
-    ts = TimescaleDBClient(dsn=settings.database_url)
-    store = PatternStore(ts)
-    pattern_id = await store.save(
-        tenant_id=tenant, parcel_id=body.parcel_id, name=body.name,
+    op_id = operation_store.new_operation_id(tenant)
+    entity = operation_store.build_template_entity(
+        op_id=op_id, parcel_id=body.parcel_id, name=body.name,
         pattern_type=body.pattern_type, pattern_config=body.pattern_config,
-        route_geojson=body.route_geojson,
-        vra_prescription_map=body.vra_prescription_map,
+        route_geojson=body.route_geojson, vra_prescription_map=body.vra_prescription_map,
         equipment_tractor_id=body.equipment_tractor_id,
         equipment_implement_id=body.equipment_implement_id,
         source_operation_id=body.source_operation_id,
     )
-    return {"success": True, "data": {"id": pattern_id}}
+    orion = _orion()
+    try:
+        await orion.create_entity(entity, tenant)
+    except Exception as exc:
+        logger.error("Failed to save template for tenant %s: %s", tenant, exc)
+        raise HTTPException(status_code=502, detail="Template store unavailable")
+    finally:
+        await orion.close()
+    return {"success": True, "data": {"id": op_id}}
 
 
 @router.delete("/patterns/{pattern_id}")
 async def delete_pattern(request: Request, pattern_id: str):
     tenant = _get_tenant(request)
-    settings = get_settings()
-    ts = TimescaleDBClient(dsn=settings.database_url)
-    store = PatternStore(ts)
-    deleted = await store.delete(tenant, pattern_id)
-    if not deleted:
-        raise HTTPException(status_code=404, detail="Pattern not found")
+    orion = _orion()
+    try:
+        await orion.delete_entity(pattern_id, tenant)
+    except Exception as exc:
+        logger.error("Failed to delete template %s: %s", pattern_id, exc)
+        raise HTTPException(status_code=502, detail="Template store unavailable")
+    finally:
+        await orion.close()
     return {"success": True}
