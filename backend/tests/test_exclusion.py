@@ -71,3 +71,14 @@ def test_rasterize_blocked_cells_marks_covered_centres():
     assert (4, 4) in blocked      # cell centre (4,4) is inside the box
     assert (0, 0) not in blocked  # far cell free
     assert (9, 9) not in blocked
+
+
+def test_route_enters_zones_detects_crossing():
+    from shapely.geometry import LineString
+    from app.services.exclusion import route_enters_zones
+    zone = _square(40, 40, 60, 60)
+    crossing = LineString([(0, 50), (100, 50)])   # passes through the zone
+    clear = LineString([(0, 10), (100, 10)])      # below the zone
+    assert route_enters_zones(crossing, [zone]) is True
+    assert route_enters_zones(clear, [zone]) is False
+    assert route_enters_zones(crossing, []) is False

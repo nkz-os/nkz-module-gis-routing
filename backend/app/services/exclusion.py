@@ -25,6 +25,20 @@ def buffered_zones(zones: list[Polygon], buffer_m: float) -> "BaseGeometry | Non
     return unary_union(grown)
 
 
+def route_enters_zones(route: BaseGeometry, zones: list[Polygon]) -> bool:
+    """True if the route geometry intersects the (raw, unbuffered) no-go zones.
+
+    Working swaths are clipped to the buffered working polygon, so they stay
+    >= buffer_m away from the raw zones and never intersect them. Only a
+    connecting/turn segment that actually crosses a zone trips this check —
+    which is the fail-safe gate: such a route must never be emitted.
+    """
+    if not zones or route.is_empty:
+        return False
+    block = unary_union(zones)
+    return route.intersects(block)
+
+
 def build_working_polygon(parcel: Polygon, zones: list[Polygon], buffer_m: float) -> "BaseGeometry":
     """Parcel minus the buffered no-go zones. Raises if nothing drivable remains."""
     block = buffered_zones(zones, buffer_m)

@@ -12,7 +12,7 @@ from dataclasses import dataclass
 import numpy as np
 import fields2cover as f2c
 from shapely.geometry import LineString, MultiLineString, Point, Polygon
-from app.services.exclusion import build_working_polygon
+from app.services.exclusion import build_working_polygon, route_enters_zones, ExclusionError
 
 from app.services.routing.base import (
     RouteResult, project_polygon_to_utm, project_linestrings_to_wgs84,
@@ -96,6 +96,13 @@ def generate_coverage(
     # 5. Geometry (continuous route incl. turns) + honest metrics.
     geometry = _route_to_wgs84(path, to_wgs84)
     geometry = _orient_to_start(geometry, start_point_wgs84)
+
+    # Fail-safe: working swaths are clipped away from the zones, but F2C's
+    # obstacle-blind connecting/turn curves can still cross a no-go zone.
+    # Never emit a route that enters a no-go area — fail instead.
+    if exclusion_zones_wgs84 and route_enters_zones(geometry, exclusion_zones_wgs84):
+        raise ExclusionError("Generated route would cross a no-go zone")
+
     worked = sum(ordered.at(i).length() for i in range(ordered.size()))
     total = path.length()
     non_working = max(total - worked, 0.0)
