@@ -1,3 +1,4 @@
+import pytest
 from shapely.geometry import Polygon, Point
 from app.services.exclusion import (
     build_working_polygon, validate_access_point, ExclusionError,
@@ -19,3 +20,34 @@ def test_build_working_polygon_punches_buffered_hole():
     assert work.contains(Point(10, 10))              # far corner still drivable
     # Buffer applied: a point just outside the raw zone but inside the buffer is excluded.
     assert not work.contains(Point(37, 50))
+
+
+def test_zone_covering_parcel_raises():
+    parcel = _square(0, 0, 100, 100)
+    covering = _square(-10, -10, 110, 110)
+    with pytest.raises(ExclusionError):
+        build_working_polygon(parcel, [covering], buffer_m=1.0)
+
+
+def test_access_point_inside_zone_raises():
+    parcel = _square(0, 0, 100, 100)
+    zone = _square(40, 40, 60, 60)
+    with pytest.raises(ExclusionError):
+        validate_access_point(Point(50, 50), parcel, [zone], buffer_m=5.0)
+
+
+def test_access_point_outside_parcel_raises():
+    parcel = _square(0, 0, 100, 100)
+    with pytest.raises(ExclusionError):
+        validate_access_point(Point(200, 200), parcel, [], buffer_m=5.0)
+
+
+def test_access_point_on_boundary_passes():
+    parcel = _square(0, 0, 100, 100)
+    validate_access_point(Point(0, 50), parcel, [], buffer_m=5.0)  # gate on perimeter, no raise
+
+
+def test_access_point_valid_passes():
+    parcel = _square(0, 0, 100, 100)
+    zone = _square(40, 40, 60, 60)
+    validate_access_point(Point(5, 5), parcel, [zone], buffer_m=5.0)  # no raise
