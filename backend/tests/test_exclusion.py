@@ -2,6 +2,7 @@ import pytest
 from shapely.geometry import MultiPolygon, Point, Polygon
 from app.services.exclusion import (
     build_working_polygon, validate_access_point, ExclusionError,
+    rasterize_blocked_cells,
 )
 
 
@@ -59,3 +60,14 @@ def test_zone_splitting_parcel_yields_multipolygon():
     work = build_working_polygon(parcel, [wall], buffer_m=1.0)
     assert isinstance(work, MultiPolygon)
     assert len(work.geoms) == 2
+
+
+def test_rasterize_blocked_cells_marks_covered_centres():
+    # 10x10 grid, origin (0,0), 1.0 deg pixels (planar test). Block the 3..5 box.
+    block = _square(3.0, 3.0, 5.0, 5.0)
+    blocked = rasterize_blocked_cells(
+        block, origin_lon=0.0, origin_lat=0.0, pixel_size_deg=1.0, cols=10, rows=10,
+    )
+    assert (4, 4) in blocked      # cell centre (4,4) is inside the box
+    assert (0, 0) not in blocked  # far cell free
+    assert (9, 9) not in blocked
