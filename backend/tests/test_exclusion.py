@@ -1,5 +1,5 @@
 import pytest
-from shapely.geometry import Polygon, Point
+from shapely.geometry import MultiPolygon, Point, Polygon
 from app.services.exclusion import (
     build_working_polygon, validate_access_point, ExclusionError,
 )
@@ -51,3 +51,11 @@ def test_access_point_valid_passes():
     parcel = _square(0, 0, 100, 100)
     zone = _square(40, 40, 60, 60)
     validate_access_point(Point(5, 5), parcel, [zone], buffer_m=5.0)  # no raise
+
+
+def test_zone_splitting_parcel_yields_multipolygon():
+    parcel = _square(0, 0, 100, 20)
+    wall = _square(48, -5, 52, 25)  # vertical wall splitting left/right
+    work = build_working_polygon(parcel, [wall], buffer_m=1.0)
+    assert isinstance(work, MultiPolygon)
+    assert len(work.geoms) == 2
