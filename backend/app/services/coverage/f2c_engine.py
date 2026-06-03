@@ -11,7 +11,8 @@ from dataclasses import dataclass
 
 import numpy as np
 import fields2cover as f2c
-from shapely.geometry import LineString, MultiLineString
+from shapely.geometry import LineString, MultiLineString, Point, Polygon
+from app.services.exclusion import build_working_polygon
 
 from app.services.routing.base import (
     RouteResult, project_polygon_to_utm, project_linestrings_to_wgs84,
@@ -38,8 +39,28 @@ class CoverageConfig:
 
 def generate_coverage(
     wgs84_poly, robot: RobotParams, cfg: CoverageConfig,
+    exclusion_zones_wgs84: list | None = None,
+    exclusion_buffer_m: float = 0.0,
+    start_point_wgs84: tuple | None = None,
 ) -> RouteResult:
-    utm_poly, _crs, _to_utm, to_wgs84 = project_polygon_to_utm(wgs84_poly)
+    utm_poly, _crs, to_utm, to_wgs84 = project_polygon_to_utm(wgs84_poly)
+
+    if exclusion_zones_wgs84:
+        zones_utm = []
+        for z in exclusion_zones_wgs84:
+            zx, zy = to_utm(*z.exterior.coords.xy)
+            zones_utm.append(Polygon(zip(zx, zy)))
+        buffer_m = exclusion_buffer_m if exclusion_buffer_m > 0 else robot.cov_width / 2.0
+        utm_poly = build_working_polygon(utm_poly, zones_utm, buffer_m)
+
+    if utm_poly.geom_type == "MultiPolygon":
+        if start_point_wgs84 is not None:
+            sx, sy = to_utm(start_point_wgs84[0], start_point_wgs84[1])
+            sp = Point(sx, sy)
+            utm_poly = min(utm_poly.geoms, key=lambda g: g.distance(sp))
+        else:
+            utm_poly = max(utm_poly.geoms, key=lambda g: g.area)
+
     parcel_area_ha = utm_poly.area / 10000.0
 
     if cfg.pattern == "headland-only":
@@ -74,6 +95,7 @@ def generate_coverage(
 
     # 5. Geometry (continuous route incl. turns) + honest metrics.
     geometry = _route_to_wgs84(path, to_wgs84)
+    geometry = _orient_to_start(geometry, start_point_wgs84)
     worked = sum(ordered.at(i).length() for i in range(ordered.size()))
     total = path.length()
     non_working = max(total - worked, 0.0)
@@ -87,6 +109,22 @@ def generate_coverage(
         metadata={"curve_type": robot.curve_type},
         metrics=_metrics(worked, non_working, covered_ha, parcel_area_ha),
     )
+
+
+def _orient_to_start(geometry: MultiLineString, start_wgs84) -> MultiLineString:
+    """Reverse the route (lines + their order) if it ends nearer the start point."""
+    lines = list(geometry.geoms)
+    if not lines or start_wgs84 is None:
+        return geometry
+    sx, sy = start_wgs84
+    head = lines[0].coords[0]
+    tail = lines[-1].coords[-1]
+    d_head = (head[0] - sx) ** 2 + (head[1] - sy) ** 2
+    d_tail = (tail[0] - sx) ** 2 + (tail[1] - sy) ** 2
+    if d_tail < d_head:
+        rev = [LineString(list(ln.coords)[::-1]) for ln in lines[::-1]]
+        return MultiLineString(rev)
+    return geometry
 
 
 def _resolve_angle(cfg: CoverageConfig, wgs84_poly) -> float | None:
