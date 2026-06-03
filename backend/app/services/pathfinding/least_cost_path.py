@@ -56,18 +56,15 @@ def compute_ab_routes(
     """Return the least-slope and fastest A->B routes (each a dict, or omitted
     if unreachable).
 
-    Args:
-        blocked: Optional set of (col, row) cells that the pathfinder must not
-                 expand into.  When the destination is fully walled off by
-                 blocked cells, an empty list is returned (fail-safe).
+    `blocked` is an optional set of (col, row) tuples that are impassable
+    (e.g., rasterized exclusion zones).
     """
-    _blocked = blocked or set()
     routes = []
     for objective in _OBJECTIVES:
         path = _astar(
             elevations, origin_lon, origin_lat, pixel_size_deg,
             start_col, start_row, end_col, end_row, max_slope_deg, objective,
-            _blocked,
+            blocked=blocked,
         )
         if path:
             routes.append(_summarize(path, objective, elevations,
@@ -77,7 +74,7 @@ def compute_ab_routes(
 
 def _astar(elevations, origin_lon, origin_lat, pixel_size_deg,
            start_col, start_row, end_col, end_row, max_slope_deg, objective,
-           blocked: set):
+           blocked=None):
     rows = len(elevations)
     cols = len(elevations[0]) if rows else 0
     max_slope_rad = math.radians(max_slope_deg)
@@ -95,7 +92,7 @@ def _astar(elevations, origin_lon, origin_lat, pixel_size_deg,
         for dc, dr in ((1, 0), (-1, 0), (0, 1), (0, -1),
                        (1, 1), (-1, -1), (1, -1), (-1, 1)):
             nc, nr = c + dc, r + dr
-            if 0 <= nc < cols and 0 <= nr < rows and (nc, nr) not in blocked:
+            if 0 <= nc < cols and 0 <= nr < rows:
                 yield nc, nr
 
     open_set = [_Node(f=heuristic(start_col, start_row), g=0.0,
@@ -114,6 +111,8 @@ def _astar(elevations, origin_lon, origin_lat, pixel_size_deg,
 
         for nc, nr in neighbors(cur.col, cur.row):
             if (nc, nr) in closed:
+                continue
+            if blocked and (nc, nr) in blocked:
                 continue
             dist = _cell_dist_m(nc - cur.col, nr - cur.row,
                                 lat_of(cur.row), pixel_size_deg)
@@ -174,3 +173,8 @@ _LABELS = {
     "least_slope": "Least slope",
     "fastest": "Fastest route",
 }
+
+
+def terminus_blocked(start: tuple, end: tuple, blocked: set) -> bool:
+    """True if either endpoint cell is in the blocked set (A* would start/end in a no-go zone)."""
+    return start in blocked or end in blocked

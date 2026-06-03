@@ -109,6 +109,15 @@ export const api = {
   getParcelGeometry(parcelId: string) {
     return request<{ id: string; name: string; geometry: any }>(`/parcels/${encodeURIComponent(parcelId)}/geometry`);
   },
+  getParcelConfig(parcelId: string) {
+    return request<{ accessPoint: any; exclusionZones: any }>(
+      `/parcels/${encodeURIComponent(parcelId)}/config`);
+  },
+  saveParcelConfig(parcelId: string,
+                   body: { accessPoint: any; exclusionZones: any }) {
+    return request(`/parcels/${encodeURIComponent(parcelId)}/config`,
+      { method: 'PUT', body: JSON.stringify(body) });
+  },
 
   // Equipment
   listEquipment() { return request<any[]>('/equipment'); },

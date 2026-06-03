@@ -3,7 +3,8 @@
   "tabs": {
     "routing": "Guiatge",
     "zoning": "Zones VRA",
-    "pathfinding": "Pathfinding"
+    "pathfinding": "Pathfinding",
+    "parcelConfig": "Configuració de parcel·la"
   },
   "title": "GIS Routing",
   "subtitle": "Guiatge per línies A-B per a agricultura de precisió",
@@ -11,7 +12,10 @@
     "label": "Parcel·la",
     "select": "Seleccionar parcel·la...",
     "mock": "Parcel·la Demo",
-    "empty": "Sense parcel·les"
+    "empty": "Sense parcel·les",
+    "accessBadge": "Accés ✓",
+    "noAccessBadge": "Sense accés",
+    "configureHint": "Configura l'accés i les zones a \"Configuració de parcel·la\""
   },
   "equipment": {
     "label": "Tractor / Maquinària",
@@ -255,5 +259,21 @@
     "auto": "Òptim",
     "contour": "Contorn",
     "manual": "Manual"
+  },
+  "parcelConfig": {
+    "tab": "Configuració de parcel·la",
+    "selectParcel": "Selecciona una parcel·la",
+    "accessPoint": "Punt d'accés",
+    "dropAccessPoint": "Marcar punt d'accés",
+    "noGoZones": "Zones no transitables",
+    "drawZone": "Dibuixar zona",
+    "deleteZone": "Eliminar",
+    "save": "Desar configuració",
+    "saved": "Configuració desada",
+    "saveError": "No s'ha pogut desar la configuració",
+    "noAccessPoint": "Sense punt d'accés",
+    "zonesCount_one": "{{count}} zona no transitable",
+    "zonesCount_other": "{{count}} zones no transitables",
+    "instructions": "Fes clic al mapa per marcar el portal; dibuixa polígons per a les zones prohibides."
   }
 }
