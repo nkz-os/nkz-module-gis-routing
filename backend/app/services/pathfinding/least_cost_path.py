@@ -173,3 +173,8 @@ _LABELS = {
     "least_slope": "Least slope",
     "fastest": "Fastest route",
 }
+
+
+def terminus_blocked(start: tuple, end: tuple, blocked: set) -> bool:
+    """True if either endpoint cell is in the blocked set (A* would start/end in a no-go zone)."""
+    return start in blocked or end in blocked

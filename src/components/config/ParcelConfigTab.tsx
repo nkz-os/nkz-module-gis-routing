@@ -10,6 +10,8 @@ const ACTIVATE_EVENT = 'nekazari:gis-routing:parcelConfig:activate';
 const CLEAR_EVENT = 'nekazari:gis-routing:parcelConfig:clear';
 const ACCESS_PICKED_EVENT = 'nekazari:gis-routing:parcelConfig:accessPicked';
 const ZONE_DRAWN_EVENT = 'nekazari:gis-routing:parcelConfig:zoneDrawn';
+const SHOW_EVENT = 'nekazari:gis-routing:parcelConfig:show';
+const HIDE_EVENT = 'nekazari:gis-routing:parcelConfig:hide';
 
 interface Zone {
   id: string;
@@ -81,6 +83,7 @@ export const ParcelConfigTab: React.FC = () => {
       window.removeEventListener(ACCESS_PICKED_EVENT, onAccessPicked);
       window.removeEventListener(ZONE_DRAWN_EVENT, onZoneDrawn);
       dispatchActivate('off');
+      window.dispatchEvent(new CustomEvent(HIDE_EVENT));
     };
   }, []);
 
@@ -121,6 +124,8 @@ export const ParcelConfigTab: React.FC = () => {
         }));
         setZones(hydrated);
       }
+      // Notify the viewer layer so it can render the config overlay
+      window.dispatchEvent(new CustomEvent(SHOW_EVENT, { detail: { parcelId: id } }));
     } catch {
       // Config may not exist yet — that is OK, start fresh
     } finally {

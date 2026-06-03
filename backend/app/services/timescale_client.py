@@ -102,7 +102,11 @@ ON CONFLICT (remote_id) DO UPDATE SET
     name = EXCLUDED.name, geojson = EXCLUDED.geojson, area = EXCLUDED.area,
     crop_type = EXCLUDED.crop_type, status = EXCLUDED.status,
     centroid_lat = EXCLUDED.centroid_lat, centroid_lng = EXCLUDED.centroid_lng,
-    access_point = EXCLUDED.access_point, exclusion_zones = EXCLUDED.exclusion_zones,
+    -- COALESCE preserves existing values when a partial notification passes NULL.
+    -- NOTE: this means an intentional removal in Orion won't clear the mirror
+    -- until entity_sync runs a full re-sync (Orion is source-of-truth; rare case).
+    access_point = COALESCE(EXCLUDED.access_point, sync_parcels.access_point),
+    exclusion_zones = COALESCE(EXCLUDED.exclusion_zones, sync_parcels.exclusion_zones),
     updated_at = EXCLUDED.updated_at
 """
 
