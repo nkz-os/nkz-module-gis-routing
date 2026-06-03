@@ -51,14 +51,20 @@ def compute_ab_routes(
     end_col: int,
     end_row: int,
     max_slope_deg: float = 15.0,
+    blocked: set | None = None,
 ) -> list[dict]:
     """Return the least-slope and fastest A->B routes (each a dict, or omitted
-    if unreachable)."""
+    if unreachable).
+
+    `blocked` is an optional set of (col, row) tuples that are impassable
+    (e.g., rasterized exclusion zones).
+    """
     routes = []
     for objective in _OBJECTIVES:
         path = _astar(
             elevations, origin_lon, origin_lat, pixel_size_deg,
             start_col, start_row, end_col, end_row, max_slope_deg, objective,
+            blocked=blocked,
         )
         if path:
             routes.append(_summarize(path, objective, elevations,
@@ -67,7 +73,8 @@ def compute_ab_routes(
 
 
 def _astar(elevations, origin_lon, origin_lat, pixel_size_deg,
-           start_col, start_row, end_col, end_row, max_slope_deg, objective):
+           start_col, start_row, end_col, end_row, max_slope_deg, objective,
+           blocked=None):
     rows = len(elevations)
     cols = len(elevations[0]) if rows else 0
     max_slope_rad = math.radians(max_slope_deg)
@@ -104,6 +111,8 @@ def _astar(elevations, origin_lon, origin_lat, pixel_size_deg,
 
         for nc, nr in neighbors(cur.col, cur.row):
             if (nc, nr) in closed:
+                continue
+            if blocked and (nc, nr) in blocked:
                 continue
             dist = _cell_dist_m(nc - cur.col, nr - cur.row,
                                 lat_of(cur.row), pixel_size_deg)

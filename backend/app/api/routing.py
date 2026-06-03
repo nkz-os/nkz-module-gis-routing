@@ -24,6 +24,7 @@ from app.services.orion_client import OrionLDClient
 from app.services.timescale_client import TimescaleDBClient
 from app.services.export_service import RouteExporter
 from app.services.pmtiles_generator import PMTileGenerator
+from app.services.parcel_constraints import fetch_parcel_constraints
 from app.config import get_settings
 from app.api.deps import get_tenant_id
 
@@ -478,24 +479,9 @@ async def _resolve_machine(body: GenerateRequest, request: Request) -> dict:
             if entity.get(k) is not None}
 
 
-async def _fetch_parcel_constraints(parcel_id: str, tenant_id: str) -> dict:
-    """Read accessPoint + exclusionZones for a parcel from Orion. Empty if absent."""
-    from shapely.geometry import shape
-    settings = get_settings()
-    orion = OrionLDClient(base_url=settings.context_broker_url,
-                          context_url=settings.ngsi_ld_context)
-    try:
-        entity = await orion.get_entity(parcel_id, tenant_id)
-    finally:
-        await orion.close()
-    if not entity:
-        return {"access_point": None, "zones": []}
-    ap = (entity.get("accessPoint", {}) or {}).get("value")
-    access_point = tuple(ap["coordinates"]) if ap and ap.get("coordinates") else None
-    fc = (entity.get("exclusionZones", {}) or {}).get("value") or {}
-    zones = [shape(f["geometry"]) for f in fc.get("features", [])
-             if f.get("geometry", {}).get("type") == "Polygon"]
-    return {"access_point": access_point, "zones": zones}
+# Re-export from the shared service so existing monkeypatches on
+# `routing._fetch_parcel_constraints` continue to work (Task 7 tests).
+_fetch_parcel_constraints = fetch_parcel_constraints
 
 
 async def _coverage_constraints(parcel_id, tenant_id: str, cov_width: float) -> dict:
