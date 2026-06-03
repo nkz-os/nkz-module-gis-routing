@@ -413,8 +413,12 @@ async def generate_routing_plan(request: Request, body: GenerateRequest):
         heading_objective=pc.heading_objective,
     )
     from app.services.exclusion import ExclusionError
-    cov_kwargs = await _coverage_constraints(
-        body.parcel_id, _get_tenant_id(request), robot.cov_width)
+    # Resolve the tenant only when a parcel is given — otherwise an ad-hoc
+    # geometry request (no parcel_id, persist=False) must not require a tenant.
+    cov_kwargs: dict = {}
+    if body.parcel_id:
+        cov_kwargs = await _coverage_constraints(
+            body.parcel_id, _get_tenant_id(request), robot.cov_width)
     try:
         result = generate_coverage(wgs84_poly, robot, cfg, **cov_kwargs)
     except ExclusionError as exc:
