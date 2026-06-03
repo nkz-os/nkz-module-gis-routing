@@ -20,6 +20,7 @@ import { ExportPanel } from './components/panels/ExportPanel';
 import { HandoffPanel } from './components/panels/HandoffPanel';
 import { PatternSaveLoad } from './components/patterns/PatternSaveLoad';
 import { PathfindingTab } from './components/pathfinding/PathfindingTab';
+import { ParcelConfigTab } from './components/config/ParcelConfigTab';
 import { RoutePreviewMap } from './components/viewer/RoutePreviewMap';
 import { api, routeOf, operationIdOf } from './services/api';
 
@@ -94,7 +95,7 @@ const errorMessage = (err: any, t: (k: string) => string): string => {
 
 const App: React.FC = () => {
   const { t } = useTranslation(NS);
-  const [activeTab, setActiveTab] = useState<'routing' | 'pathfinding'>('routing');
+  const [activeTab, setActiveTab] = useState<'routing' | 'pathfinding' | 'parcelConfig'>('routing');
   const [previewResult, setPreviewResult] = useState<any>(null);
   const [savedResult, setSavedResult] = useState<any>(null);
   const [generating, setGenerating] = useState(false);
@@ -317,6 +318,16 @@ const App: React.FC = () => {
             >
               {t('tabs.pathfinding')}
             </button>
+            <button
+              onClick={() => setActiveTab('parcelConfig')}
+              className={`flex-1 text-nkz-sm py-2 rounded-nkz-sm font-medium transition-colors ${
+                activeTab === 'parcelConfig'
+                  ? 'bg-nkz-surface text-nkz-text-accent shadow-sm'
+                  : 'text-nkz-text-secondary hover:text-nkz-text-primary'
+              }`}
+            >
+              {t('tabs.parcelConfig')}
+            </button>
           </div>
 
           {activeTab === 'routing' ? (
@@ -447,8 +458,10 @@ const App: React.FC = () => {
                 </div>
               )}
             </>
-          ) : (
+          ) : activeTab === 'pathfinding' ? (
             <PathfindingTab parcelGeometry={wizard.parcelGeometry} machineWidthM={wizard.patternConfig.widthM} turningRadiusM={wizard.turningRadiusM} />
+          ) : (
+            <ParcelConfigTab />
           )}
         </>
       }
