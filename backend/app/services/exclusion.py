@@ -1,0 +1,43 @@
+"""Pure geometry for access-point and no-go-zone constraints.
+
+Operates on shapely geometries in a single metric CRS (UTM metres) — callers
+project WGS84 -> UTM with app.services.routing.base helpers before calling.
+No Orion / IO here so it is exhaustively unit-testable on planar coordinates.
+"""
+from __future__ import annotations
+
+from shapely.geometry import Point, Polygon
+from shapely.ops import unary_union
+
+
+class ExclusionError(ValueError):
+    """Raised when constraints make a parcel unroutable (fail-safe)."""
+
+
+def buffered_zones(zones: list[Polygon], buffer_m: float):
+    """Union of the no-go polygons, each grown by buffer_m metres. None if empty."""
+    if not zones:
+        return None
+    grown = [z.buffer(max(buffer_m, 0.0)) for z in zones if not z.is_empty]
+    if not grown:
+        return None
+    return unary_union(grown)
+
+
+def build_working_polygon(parcel: Polygon, zones: list[Polygon], buffer_m: float):
+    """Parcel minus the buffered no-go zones. Raises if nothing drivable remains."""
+    block = buffered_zones(zones, buffer_m)
+    work = parcel if block is None else parcel.difference(block)
+    if work.is_empty or work.area <= 0.0:
+        raise ExclusionError("No drivable area remains after applying no-go zones")
+    return work
+
+
+def validate_access_point(point: Point, parcel: Polygon, zones: list[Polygon],
+                          buffer_m: float) -> None:
+    """Fail-safe checks for the access point. Raises ExclusionError on violation."""
+    if not parcel.buffer(1e-6).contains(point):
+        raise ExclusionError("Access point is outside the parcel")
+    block = buffered_zones(zones, buffer_m)
+    if block is not None and block.contains(point):
+        raise ExclusionError("Access point falls inside a no-go zone")
