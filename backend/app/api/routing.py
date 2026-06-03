@@ -411,8 +411,13 @@ async def generate_routing_plan(request: Request, body: GenerateRequest):
         headland_passes=pc.headland_passes,
         heading_objective=pc.heading_objective,
     )
+    from app.services.exclusion import ExclusionError
+    cov_kwargs = await _coverage_constraints(
+        body.parcel_id, _get_tenant_id(request), robot.cov_width)
     try:
-        result = generate_coverage(wgs84_poly, robot, cfg)
+        result = generate_coverage(wgs84_poly, robot, cfg, **cov_kwargs)
+    except ExclusionError as exc:
+        raise HTTPException(status_code=422, detail=f"unroutable: {exc}")
     except Exception as exc:
         raise HTTPException(status_code=400, detail=f"route generation failed: {exc}")
 
@@ -471,6 +476,38 @@ async def _resolve_machine(body: GenerateRequest, request: Request) -> dict:
     keys = ("implementWidth", "trackWidth", "minTurningRadius", "steeringType")
     return {k: (entity.get(k, {}) or {}).get("value") for k in keys
             if entity.get(k) is not None}
+
+
+async def _fetch_parcel_constraints(parcel_id: str, tenant_id: str) -> dict:
+    """Read accessPoint + exclusionZones for a parcel from Orion. Empty if absent."""
+    from shapely.geometry import shape
+    settings = get_settings()
+    orion = OrionLDClient(base_url=settings.context_broker_url,
+                          context_url=settings.ngsi_ld_context)
+    try:
+        entity = await orion.get_entity(parcel_id, tenant_id)
+    finally:
+        await orion.close()
+    if not entity:
+        return {"access_point": None, "zones": []}
+    ap = (entity.get("accessPoint", {}) or {}).get("value")
+    access_point = tuple(ap["coordinates"]) if ap and ap.get("coordinates") else None
+    fc = (entity.get("exclusionZones", {}) or {}).get("value") or {}
+    zones = [shape(f["geometry"]) for f in fc.get("features", [])
+             if f.get("geometry", {}).get("type") == "Polygon"]
+    return {"access_point": access_point, "zones": zones}
+
+
+async def _coverage_constraints(parcel_id, tenant_id: str, cov_width: float) -> dict:
+    """Build the exclusion kwargs for generate_coverage from a parcel's config."""
+    if not parcel_id:
+        return {}
+    c = await _fetch_parcel_constraints(parcel_id, tenant_id)
+    return {
+        "start_point_wgs84": c["access_point"],
+        "exclusion_zones_wgs84": c["zones"],
+        "exclusion_buffer_m": cov_width / 2.0,
+    }
 
 
 async def _resolve_vra_zones(body: GenerateRequest, request: Request) -> list[dict]:
