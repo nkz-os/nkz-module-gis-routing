@@ -3,7 +3,8 @@
   "tabs": {
     "routing": "Gidatzea",
     "zoning": "VRA guneak",
-    "pathfinding": "Pathfinding"
+    "pathfinding": "Pathfinding",
+    "parcelConfig": "Lursailaren konfigurazioa"
   },
   "title": "GIS Routing",
   "subtitle": "A-B lerroen bidezko gidatze-sistema nekazaritza zehatzerako",

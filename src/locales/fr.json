@@ -3,7 +3,8 @@
   "tabs": {
     "routing": "Guidage",
     "zoning": "Zones VRA",
-    "pathfinding": "Pathfinding"
+    "pathfinding": "Pathfinding",
+    "parcelConfig": "Configuration de parcelle"
   },
   "title": "GIS Routing",
   "subtitle": "Guidage par lignes A-B pour l'agriculture de précision",

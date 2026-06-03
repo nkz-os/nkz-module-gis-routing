@@ -17,6 +17,7 @@ export const StepParcel: React.FC<Props> = ({ parcelId, onParcelChange }) => {
   const [geoLoading, setGeoLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [expanded, setExpanded] = useState(true);
+  const [cfg, setCfg] = useState<{ hasAccess: boolean; zoneCount: number } | null>(null);
   const selectedName = parcels.find(p => p.id === parcelId)?.name || '';
 
   useEffect(() => {
@@ -28,6 +29,17 @@ export const StepParcel: React.FC<Props> = ({ parcelId, onParcelChange }) => {
       .finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
   }, []);
+
+  useEffect(() => {
+    if (!parcelId) { setCfg(null); return; }
+    let cancelled = false;
+    api.getParcelConfig(parcelId)
+      .then(d => { if (!cancelled) setCfg({
+        hasAccess: !!d?.accessPoint,
+        zoneCount: d?.exclusionZones?.features?.length || 0 }); })
+      .catch(() => { if (!cancelled) setCfg(null); });
+    return () => { cancelled = true; };
+  }, [parcelId]);
 
   const handleSelect = async (id: string) => {
     if (!id) return;
@@ -76,6 +88,16 @@ export const StepParcel: React.FC<Props> = ({ parcelId, onParcelChange }) => {
             <p className="text-nkz-sm text-nkz-text-secondary flex items-center gap-1"><Loader2 className="w-3 h-3 animate-spin" />Loading geometry...</p>
           )}
           {selectedName && !geoLoading && <p className="text-nkz-sm text-nkz-text-success">{selectedName}</p>}
+          {cfg && (
+            <div className="flex gap-2 text-nkz-xs">
+              <span className={cfg.hasAccess ? 'text-nkz-text-success' : 'text-nkz-text-muted'}>
+                {cfg.hasAccess ? t('parcel.accessBadge') : t('parcel.noAccessBadge')}
+              </span>
+              <span className="text-nkz-text-secondary">
+                {t('parcelConfig.zonesCount', { count: cfg.zoneCount })}
+              </span>
+            </div>
+          )}
         </div>
       )}
     </div>

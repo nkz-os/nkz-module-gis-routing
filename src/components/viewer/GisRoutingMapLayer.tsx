@@ -20,6 +20,7 @@ export const GisRoutingMapLayer: React.FC<Props> = ({ viewer: propViewer }) => {
   const { cesiumViewer, selectedEntityId } = useViewer() as any;
   const viewer = propViewer || cesiumViewer;
   const routeEntitiesRef = useRef<string[]>([]);
+  const parcelCfgEntitiesRef = useRef<string[]>([]);
   const pfRef = useRef<{
     state: 'idle' | 'picking-a' | 'picking-b' | 'calculating' | 'done';
     pointA: [number, number] | null;
@@ -128,6 +129,78 @@ export const GisRoutingMapLayer: React.FC<Props> = ({ viewer: propViewer }) => {
       routeEntitiesRef.current.forEach(id => {
         if (!viewer.isDestroyed?.()) viewer.entities.removeById(id);
       });
+    };
+  }, [viewer]);
+
+  // ---- Parcel config overlay (access point + no-go zones) ----
+  useEffect(() => {
+    if (!viewer || viewer.isDestroyed?.()) return;
+    const Cesium = (window as any).Cesium;
+    if (!Cesium) return;
+
+    const clearCfgEntities = () => {
+      parcelCfgEntitiesRef.current.forEach(id => {
+        if (!viewer.isDestroyed?.()) viewer.entities.removeById(id);
+      });
+      parcelCfgEntitiesRef.current = [];
+    };
+
+    const onShow = (e: Event) => {
+      const { parcelId } = (e as CustomEvent).detail || {};
+      if (!parcelId) return;
+      clearCfgEntities();
+      api.getParcelConfig(parcelId).then((d: any) => {
+        if (viewer.isDestroyed?.()) return;
+        const coords = d?.accessPoint?.coordinates;
+        if (Array.isArray(coords) && coords.length >= 2) {
+          const [lon, lat] = coords;
+          const apId = `gis-cfg-access-${parcelId}`;
+          parcelCfgEntitiesRef.current.push(apId);
+          try {
+            viewer.entities.add({
+              id: apId,
+              position: Cesium.Cartesian3.fromDegrees(lon, lat),
+              point: {
+                pixelSize: 16,
+                color: Cesium.Color.fromCssColorString('#22c55e'),
+                outlineColor: Cesium.Color.WHITE,
+                outlineWidth: 2,
+              },
+            });
+          } catch { /* skip */ }
+        }
+        if (d?.exclusionZones?.features) {
+          (d.exclusionZones.features as any[]).forEach((feat: any, idx: number) => {
+            if (feat.geometry?.type !== 'Polygon') return;
+            const ring = feat.geometry.coordinates[0];
+            if (!Array.isArray(ring)) return;
+            const zoneId = `gis-cfg-zone-${parcelId}-${idx}`;
+            parcelCfgEntitiesRef.current.push(zoneId);
+            try {
+              viewer.entities.add({
+                id: zoneId,
+                polygon: {
+                  hierarchy: Cesium.Cartesian3.fromDegreesArray(
+                    (ring as number[][]).flatMap(([lon, lat]: number[]) => [lon, lat]),
+                  ),
+                  clampToGround: true,
+                  material: Cesium.Color.fromCssColorString('#ef4444').withAlpha(0.35),
+                },
+              });
+            } catch { /* skip */ }
+          });
+        }
+      }).catch(() => { /* ignore fetch errors */ });
+    };
+
+    const onHide = () => clearCfgEntities();
+
+    window.addEventListener('nekazari:gis-routing:parcelConfig:show', onShow);
+    window.addEventListener('nekazari:gis-routing:parcelConfig:hide', onHide);
+    return () => {
+      window.removeEventListener('nekazari:gis-routing:parcelConfig:show', onShow);
+      window.removeEventListener('nekazari:gis-routing:parcelConfig:hide', onHide);
+      clearCfgEntities();
     };
   }, [viewer]);
 
