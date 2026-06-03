@@ -11,7 +11,10 @@
     "label": "Parcela",
     "select": "Selecionar parcela...",
     "mock": "Parcela Demo",
-    "empty": "Sem parcelas"
+    "empty": "Sem parcelas",
+    "accessBadge": "Acesso ✓",
+    "noAccessBadge": "Sem acesso",
+    "configureHint": "Configure o acesso e as zonas em \"Configuração de parcela\""
   },
   "equipment": {
     "label": "Trator / Equipamento",
@@ -255,5 +258,21 @@
     "auto": "Ótimo",
     "contour": "Contorno",
     "manual": "Manual"
+  },
+  "parcelConfig": {
+    "tab": "Configuração de parcela",
+    "selectParcel": "Selecione uma parcela",
+    "accessPoint": "Ponto de acesso",
+    "dropAccessPoint": "Marcar ponto de acesso",
+    "noGoZones": "Zonas proibidas",
+    "drawZone": "Desenhar zona",
+    "deleteZone": "Eliminar",
+    "save": "Guardar configuração",
+    "saved": "Configuração guardada",
+    "saveError": "Não foi possível guardar a configuração",
+    "noAccessPoint": "Sem ponto de acesso",
+    "zonesCount_one": "{{count}} zona proibida",
+    "zonesCount_other": "{{count}} zonas proibidas",
+    "instructions": "Clique no mapa para marcar o portão; desenhe polígonos para as zonas proibidas."
   }
 }

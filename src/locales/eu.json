@@ -11,7 +11,10 @@
     "label": "Lursaila",
     "select": "Hautatu lursaila...",
     "mock": "Demo Lursaila",
-    "empty": "Ez dago lursailik"
+    "empty": "Ez dago lursailik",
+    "accessBadge": "Sarbidea ✓",
+    "noAccessBadge": "Sarbiderik ez",
+    "configureHint": "Konfiguratu sarbidea eta guneak \"Lursailaren konfigurazioa\" atalean"
   },
   "equipment": {
     "label": "Traktorea / Makineria",
@@ -255,5 +258,21 @@
     "auto": "Optimoa",
     "contour": "Sestra",
     "manual": "Eskuz"
+  },
+  "parcelConfig": {
+    "tab": "Lursailaren konfigurazioa",
+    "selectParcel": "Hautatu lursail bat",
+    "accessPoint": "Sarbide-puntua",
+    "dropAccessPoint": "Markatu sarbide-puntua",
+    "noGoZones": "Debekatutako guneak",
+    "drawZone": "Marraztu gunea",
+    "deleteZone": "Ezabatu",
+    "save": "Gorde konfigurazioa",
+    "saved": "Konfigurazioa gordeta",
+    "saveError": "Ezin izan da konfigurazioa gorde",
+    "noAccessPoint": "Sarbide-punturik ez",
+    "zonesCount_one": "{{count}} gune debekatua",
+    "zonesCount_other": "{{count}} gune debekatuak",
+    "instructions": "Egin klik mapan atea markatzeko; marraztu poligonoak debekatutako guneentzat."
   }
 }
