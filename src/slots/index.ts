@@ -12,6 +12,7 @@
 import '../i18n';
 import type { ModuleViewerSlots } from '../types/module-slots';
 import { GisRoutingMapLayer } from '../components/viewer/GisRoutingMapLayer';
+import { ParcelConfigDrawTool } from '../components/viewer/ParcelConfigDrawTool';
 import { ContextPanelSlot } from '../components/slots/ContextPanelSlot';
 
 const MODULE_ID = 'nkz-module-gis-routing';
@@ -24,6 +25,13 @@ export const moduleSlots: ModuleViewerSlots = {
       component: 'GisRoutingMapLayer',
       localComponent: GisRoutingMapLayer,
       priority: 10,
+    },
+    {
+      id: 'gis-routing-parcel-config-draw',
+      moduleId: MODULE_ID,
+      component: 'ParcelConfigDrawTool',
+      localComponent: ParcelConfigDrawTool,
+      priority: 11,
     },
   ],
   'layer-toggle': [],
