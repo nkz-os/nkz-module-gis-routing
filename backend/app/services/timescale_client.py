@@ -33,6 +33,8 @@ CREATE TABLE IF NOT EXISTS sync_parcels (
     created_at BIGINT NOT NULL,
     updated_at BIGINT NOT NULL
 );
+ALTER TABLE sync_parcels ADD COLUMN IF NOT EXISTS access_point JSONB;
+ALTER TABLE sync_parcels ADD COLUMN IF NOT EXISTS exclusion_zones JSONB;
 CREATE INDEX IF NOT EXISTS idx_sync_parcels_tenant ON sync_parcels(tenant_id);
 CREATE INDEX IF NOT EXISTS idx_sync_parcels_updated ON sync_parcels(tenant_id, updated_at);
 
@@ -94,12 +96,17 @@ CREATE INDEX IF NOT EXISTS idx_sync_operations_updated ON sync_operations(tenant
 
 UPSERT_PARCEL = """
 INSERT INTO sync_parcels (remote_id, tenant_id, name, geojson, area, crop_type, status,
-    centroid_lat, centroid_lng, created_at, updated_at)
-VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
+    centroid_lat, centroid_lng, access_point, exclusion_zones, created_at, updated_at)
+VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)
 ON CONFLICT (remote_id) DO UPDATE SET
     name = EXCLUDED.name, geojson = EXCLUDED.geojson, area = EXCLUDED.area,
     crop_type = EXCLUDED.crop_type, status = EXCLUDED.status,
     centroid_lat = EXCLUDED.centroid_lat, centroid_lng = EXCLUDED.centroid_lng,
+    -- COALESCE preserves existing values when a partial notification passes NULL.
+    -- NOTE: this means an intentional removal in Orion won't clear the mirror
+    -- until entity_sync runs a full re-sync (Orion is source-of-truth; rare case).
+    access_point = COALESCE(EXCLUDED.access_point, sync_parcels.access_point),
+    exclusion_zones = COALESCE(EXCLUDED.exclusion_zones, sync_parcels.exclusion_zones),
     updated_at = EXCLUDED.updated_at
 """
 
@@ -231,13 +238,15 @@ class TimescaleDBClient:
         centroid_lat: float | None,
         centroid_lng: float | None,
         updated_at: int,
+        access_point: str | None = None,
+        exclusion_zones: str | None = None,
     ) -> None:
         now = updated_at
         async with self._pool.acquire() as conn:
             await conn.execute(
                 UPSERT_PARCEL,
                 remote_id, tenant_id, name, geojson, area, crop_type, status,
-                centroid_lat, centroid_lng, now, now,
+                centroid_lat, centroid_lng, access_point, exclusion_zones, now, now,
             )
 
     async def materialize_equipment(

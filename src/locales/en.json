@@ -3,7 +3,8 @@
   "tabs": {
     "routing": "Routing",
     "pathfinding": "Pathfinding",
-    "zoning": "VRA Zoning"
+    "zoning": "VRA Zoning",
+    "parcelConfig": "Parcel configuration"
   },
   "title": "GIS Routing",
   "subtitle": "A-B line guidance for precision agriculture",
@@ -11,7 +12,10 @@
     "label": "Parcel",
     "select": "Select a parcel...",
     "mock": "Demo Parcel",
-    "empty": "No parcels found"
+    "empty": "No parcels found",
+    "accessBadge": "Access ✓",
+    "noAccessBadge": "No access",
+    "configureHint": "Configure access and zones in \"Parcel configuration\""
   },
   "equipment": {
     "label": "Tractor / Equipment",
@@ -255,5 +259,21 @@
     "auto": "Optimal",
     "contour": "Contour",
     "manual": "Manual"
+  },
+  "parcelConfig": {
+    "tab": "Parcel configuration",
+    "selectParcel": "Select a parcel",
+    "accessPoint": "Access point",
+    "dropAccessPoint": "Mark access point",
+    "noGoZones": "No-go zones",
+    "drawZone": "Draw zone",
+    "deleteZone": "Delete",
+    "save": "Save configuration",
+    "saved": "Configuration saved",
+    "saveError": "Could not save configuration",
+    "noAccessPoint": "No access point",
+    "zonesCount_one": "{{count}} no-go zone",
+    "zonesCount_other": "{{count}} no-go zones",
+    "instructions": "Click the map to mark the gate; draw polygons for the no-go zones."
   }
 }

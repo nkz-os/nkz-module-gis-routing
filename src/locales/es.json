@@ -3,7 +3,8 @@
   "tabs": {
     "routing": "Guiado",
     "pathfinding": "Rutas A-B",
-    "zoning": "Zonas VRA"
+    "zoning": "Zonas VRA",
+    "parcelConfig": "Configuración de parcela"
   },
   "title": "GIS Routing",
   "subtitle": "Guiado por líneas A-B para agricultura de precisión",
@@ -11,7 +12,10 @@
     "label": "Parcela",
     "select": "Seleccionar parcela...",
     "mock": "Parcela Demo",
-    "empty": "Sin parcelas"
+    "empty": "Sin parcelas",
+    "accessBadge": "Acceso ✓",
+    "noAccessBadge": "Sin acceso",
+    "configureHint": "Configura el acceso y las zonas en \"Configuración de parcela\""
   },
   "equipment": {
     "label": "Tractor / Maquinaria",
@@ -251,5 +255,21 @@
     "auto": "Óptimo",
     "contour": "Contorno",
     "manual": "Manual"
+  },
+  "parcelConfig": {
+    "tab": "Configuración de parcela",
+    "selectParcel": "Selecciona una parcela",
+    "accessPoint": "Punto de acceso",
+    "dropAccessPoint": "Marcar punto de acceso",
+    "noGoZones": "Zonas no transitables",
+    "drawZone": "Dibujar zona",
+    "deleteZone": "Eliminar",
+    "save": "Guardar configuración",
+    "saved": "Configuración guardada",
+    "saveError": "No se pudo guardar la configuración",
+    "noAccessPoint": "Sin punto de acceso",
+    "zonesCount_one": "{{count}} zona no transitable",
+    "zonesCount_other": "{{count}} zonas no transitables",
+    "instructions": "Haz clic en el mapa para marcar el portón; dibuja polígonos para las zonas prohibidas."
   }
 }

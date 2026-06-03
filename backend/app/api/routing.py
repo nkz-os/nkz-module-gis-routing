@@ -24,7 +24,9 @@ from app.services.orion_client import OrionLDClient
 from app.services.timescale_client import TimescaleDBClient
 from app.services.export_service import RouteExporter
 from app.services.pmtiles_generator import PMTileGenerator
+from app.services.parcel_constraints import fetch_parcel_constraints
 from app.config import get_settings
+from app.api.deps import get_tenant_id
 
 logger = logging.getLogger(__name__)
 router = APIRouter(tags=["routing"])
@@ -271,18 +273,7 @@ async def get_operation(request: Request, operation_id: str):
 VALID_COLLECTIONS = {"parcels", "equipment", "operations"}
 
 
-def _get_tenant_id(request: Request) -> str:
-    tid = (
-        getattr(request.state, "tenant_id", None)
-        or request.headers.get("x-tenant-id")
-        or request.headers.get("ngsild-tenant")
-        or request.headers.get("fiware-service")
-    )
-    if not tid or tid == "default":
-        raise HTTPException(status_code=404,
-            detail={"error": {"code": "TENANT_NOT_FOUND",
-                              "message": "Tenant not found or token missing tenant_id claim"}})
-    return tid
+_get_tenant_id = get_tenant_id
 
 
 def _build_sync_service(request: Request) -> SyncService:
@@ -421,8 +412,17 @@ async def generate_routing_plan(request: Request, body: GenerateRequest):
         headland_passes=pc.headland_passes,
         heading_objective=pc.heading_objective,
     )
+    from app.services.exclusion import ExclusionError
+    # Resolve the tenant only when a parcel is given — otherwise an ad-hoc
+    # geometry request (no parcel_id, persist=False) must not require a tenant.
+    cov_kwargs: dict = {}
+    if body.parcel_id:
+        cov_kwargs = await _coverage_constraints(
+            body.parcel_id, _get_tenant_id(request), robot.cov_width)
     try:
-        result = generate_coverage(wgs84_poly, robot, cfg)
+        result = generate_coverage(wgs84_poly, robot, cfg, **cov_kwargs)
+    except ExclusionError as exc:
+        raise HTTPException(status_code=422, detail=f"unroutable: {exc}")
     except Exception as exc:
         raise HTTPException(status_code=400, detail=f"route generation failed: {exc}")
 
@@ -481,6 +481,23 @@ async def _resolve_machine(body: GenerateRequest, request: Request) -> dict:
     keys = ("implementWidth", "trackWidth", "minTurningRadius", "steeringType")
     return {k: (entity.get(k, {}) or {}).get("value") for k in keys
             if entity.get(k) is not None}
+
+
+# Re-export from the shared service so existing monkeypatches on
+# `routing._fetch_parcel_constraints` continue to work (Task 7 tests).
+_fetch_parcel_constraints = fetch_parcel_constraints
+
+
+async def _coverage_constraints(parcel_id, tenant_id: str, cov_width: float) -> dict:
+    """Build the exclusion kwargs for generate_coverage from a parcel's config."""
+    if not parcel_id:
+        return {}
+    c = await _fetch_parcel_constraints(parcel_id, tenant_id)
+    return {
+        "start_point_wgs84": c["access_point"],
+        "exclusion_zones_wgs84": c["zones"],
+        "exclusion_buffer_m": cov_width / 2.0,
+    }
 
 
 async def _resolve_vra_zones(body: GenerateRequest, request: Request) -> list[dict]:
@@ -769,11 +786,17 @@ async def on_ngsild_notification(request: Request):
                 status_val = str(entity.get("cropStatus", {}).get("value", "active"))
                 status = "active" if status_val in ("growing", "active") else "fallow"
                 updated_at = int(time.time() * 1000)
+                # Extract constraints; notification may be partial so values may be None.
+                # The UPSERT uses COALESCE so None will not overwrite an existing value.
+                access_point = entity.get("accessPoint", {}).get("value")
+                exclusion_zones = entity.get("exclusionZones", {}).get("value")
                 await ts.materialize_parcel(
                     remote_id=eid, tenant_id=tenant_id, name=name,
                     geojson=geojson_str, area=area, crop_type=crop_type,
                     status=status, centroid_lat=float(centroid[1]) if len(centroid) > 1 else 0,
-                    centroid_lng=float(centroid[0]), updated_at=updated_at)
+                    centroid_lng=float(centroid[0]), updated_at=updated_at,
+                    access_point=json.dumps(access_point) if access_point else None,
+                    exclusion_zones=json.dumps(exclusion_zones) if exclusion_zones else None)
                 count += 1
 
             elif etype == "ManufacturingMachine":
