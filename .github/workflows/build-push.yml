@@ -171,5 +171,4 @@ jobs:
             module_id: nkz-module-gis-routing
             build_cmd: pnpm run build:module
         secrets:
-            ENTITY_MANAGER_URL: ${{ secrets.ENTITY_MANAGER_URL }}
             INTERNAL_SERVICE_SECRET: ${{ secrets.INTERNAL_SERVICE_SECRET }}
