@@ -11,7 +11,10 @@
     "label": "Parcelle",
     "select": "Sélectionner une parcelle...",
     "mock": "Parcelle Démo",
-    "empty": "Aucune parcelle"
+    "empty": "Aucune parcelle",
+    "accessBadge": "Accès ✓",
+    "noAccessBadge": "Sans accès",
+    "configureHint": "Configurez l'accès et les zones dans \"Configuration de parcelle\""
   },
   "equipment": {
     "label": "Tracteur / Matériel",
@@ -255,5 +258,21 @@
     "auto": "Optimal",
     "contour": "Courbe de niveau",
     "manual": "Manuel"
+  },
+  "parcelConfig": {
+    "tab": "Configuration de parcelle",
+    "selectParcel": "Sélectionner une parcelle",
+    "accessPoint": "Point d'accès",
+    "dropAccessPoint": "Marquer le point d'accès",
+    "noGoZones": "Zones non accessibles",
+    "drawZone": "Dessiner une zone",
+    "deleteZone": "Supprimer",
+    "save": "Enregistrer la configuration",
+    "saved": "Configuration enregistrée",
+    "saveError": "Impossible d'enregistrer la configuration",
+    "noAccessPoint": "Sans point d'accès",
+    "zonesCount_one": "{{count}} zone non accessible",
+    "zonesCount_other": "{{count}} zones non accessibles",
+    "instructions": "Cliquez sur la carte pour marquer le portail ; dessinez des polygones pour les zones interdites."
   }
 }
