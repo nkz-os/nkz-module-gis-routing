@@ -126,3 +126,75 @@ def test_put_parcel_config_invalid_exclusion_zones(monkeypatch):
         json={"exclusionZones": {"type": "Point", "coordinates": [1.0, 2.0]}},
     )
     assert resp.status_code == 400
+
+
+def test_get_parcel_config_orion_error_returns_502(monkeypatch):
+    monkeypatch.setattr(TenantStateMiddleware, "dispatch", _tenant_dispatch("t1"))
+
+    class _FakeOrionRaises(_FakeOrion):
+        async def get_entity(self, eid, tenant):
+            raise RuntimeError("Orion is down")
+
+    monkeypatch.setattr("app.api.parcel_config.OrionLDClient", lambda *a, **k: _FakeOrionRaises())
+    client = TestClient(create_app())
+
+    resp = client.get("/api/routing/parcels/urn:ngsi-ld:AgriParcel:t1:p1/config")
+    assert resp.status_code == 502
+    assert resp.json()["detail"] == "Orion-LD error"
+
+
+def test_put_parcel_config_orion_error_returns_502(monkeypatch):
+    monkeypatch.setattr(TenantStateMiddleware, "dispatch", _tenant_dispatch("t1"))
+
+    class _FakeOrionPatchRaises(_FakeOrion):
+        async def patch_entity(self, eid, attrs, tenant):
+            raise RuntimeError("Orion patch failed")
+
+    monkeypatch.setattr("app.api.parcel_config.OrionLDClient", lambda *a, **k: _FakeOrionPatchRaises())
+    client = TestClient(create_app())
+
+    resp = client.put(
+        "/api/routing/parcels/urn:ngsi-ld:AgriParcel:t1:p1/config",
+        json={"accessPoint": {"type": "Point", "coordinates": [1.0, 2.0]}},
+    )
+    assert resp.status_code == 502
+    assert resp.json()["detail"] == "Orion-LD error"
+
+
+def test_get_parcel_config_non_urn_returns_400(monkeypatch):
+    monkeypatch.setattr(TenantStateMiddleware, "dispatch", _tenant_dispatch("t1"))
+    fake = _FakeOrion()
+    monkeypatch.setattr("app.api.parcel_config.OrionLDClient", lambda *a, **k: fake)
+    client = TestClient(create_app())
+
+    resp = client.get("/api/routing/parcels/not-a-urn/config")
+    assert resp.status_code == 400
+    assert "NGSI-LD URN" in resp.json()["detail"]
+
+
+def test_put_parcel_config_non_urn_returns_400(monkeypatch):
+    monkeypatch.setattr(TenantStateMiddleware, "dispatch", _tenant_dispatch("t1"))
+    fake = _FakeOrion()
+    monkeypatch.setattr("app.api.parcel_config.OrionLDClient", lambda *a, **k: fake)
+    client = TestClient(create_app())
+
+    resp = client.put(
+        "/api/routing/parcels/not-a-urn/config",
+        json={"accessPoint": {"type": "Point", "coordinates": [1.0, 2.0]}},
+    )
+    assert resp.status_code == 400
+    assert "NGSI-LD URN" in resp.json()["detail"]
+
+
+def test_put_parcel_config_access_point_missing_coordinates_returns_400(monkeypatch):
+    monkeypatch.setattr(TenantStateMiddleware, "dispatch", _tenant_dispatch("t1"))
+    fake = _FakeOrion()
+    monkeypatch.setattr("app.api.parcel_config.OrionLDClient", lambda *a, **k: fake)
+    client = TestClient(create_app())
+
+    resp = client.put(
+        "/api/routing/parcels/urn:ngsi-ld:AgriParcel:t1:p1/config",
+        json={"accessPoint": {"type": "Point"}},
+    )
+    assert resp.status_code == 400
+    assert "coordinates" in resp.json()["detail"]
