@@ -26,11 +26,16 @@ async def materialize_parcels(orion: OrionLDClient, ts: TimescaleDBClient, tenan
         status_val = str(e.get("cropStatus", {}).get("value", "active"))
         status = "active" if status_val in ("growing", "active") else "fallow"
         updated_at = _parse_datetime_attr(e, "modifiedAt") or _parse_datetime_attr(e, "dateModified") or 0
+        access_point = e.get("accessPoint", {}).get("value")
+        exclusion_zones = e.get("exclusionZones", {}).get("value")
+        access_point_str = json.dumps(access_point) if access_point else None
+        exclusion_zones_str = json.dumps(exclusion_zones) if exclusion_zones else None
         await ts.materialize_parcel(
             remote_id=e["id"], tenant_id=tenant_id, name=name, geojson=geojson_str,
             area=area, crop_type=crop_type, status=status,
             centroid_lat=float(centroid[1]) if len(centroid) > 1 else 0,
-            centroid_lng=float(centroid[0]), updated_at=updated_at)
+            centroid_lng=float(centroid[0]), updated_at=updated_at,
+            access_point=access_point_str, exclusion_zones=exclusion_zones_str)
 
 
 async def materialize_equipment_entities(orion: OrionLDClient, ts: TimescaleDBClient, tenant_id: str):
