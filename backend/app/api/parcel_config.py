@@ -9,7 +9,7 @@ from pydantic import BaseModel
 
 from app.config import get_settings
 from app.services.orion_client import OrionLDClient
-from app.api.routing import _get_tenant_id
+from app.api.deps import get_tenant_id
 
 logger = logging.getLogger(__name__)
 router = APIRouter(tags=["parcel-config"])
@@ -28,10 +28,16 @@ def _orion() -> OrionLDClient:
 @router.get("/parcels/{parcel_id}/config")
 async def get_parcel_config(request: Request, parcel_id: str):
     """Get the persistent routing constraints for a parcel (accessPoint + exclusionZones)."""
-    tenant_id = _get_tenant_id(request)
+    tenant_id = get_tenant_id(request)
+    if not parcel_id.startswith("urn:ngsi-ld:"):
+        raise HTTPException(status_code=400, detail="parcel_id must be an NGSI-LD URN")
     orion = _orion()
     try:
-        entity = await orion.get_entity(parcel_id, tenant_id)
+        try:
+            entity = await orion.get_entity(parcel_id, tenant_id)
+        except Exception as exc:
+            logger.error("Orion-LD get_entity failed for %s: %s", parcel_id, exc)
+            raise HTTPException(status_code=502, detail="Orion-LD error")
         if not entity:
             raise HTTPException(status_code=404, detail="Parcel not found")
         return {
@@ -45,13 +51,20 @@ async def get_parcel_config(request: Request, parcel_id: str):
 @router.put("/parcels/{parcel_id}/config")
 async def put_parcel_config(request: Request, parcel_id: str, body: ParcelConfig):
     """Persist routing constraints for a parcel into Orion-LD (source of truth)."""
-    tenant_id = _get_tenant_id(request)
+    tenant_id = get_tenant_id(request)
+    if not parcel_id.startswith("urn:ngsi-ld:"):
+        raise HTTPException(status_code=400, detail="parcel_id must be an NGSI-LD URN")
     attrs: dict = {}
     if body.accessPoint is not None:
         if body.accessPoint.get("type") != "Point":
             raise HTTPException(
                 status_code=400,
                 detail="accessPoint must be a GeoJSON Point",
+            )
+        if "coordinates" not in body.accessPoint:
+            raise HTTPException(
+                status_code=400,
+                detail="accessPoint must include coordinates",
             )
         attrs["accessPoint"] = {"type": "GeoProperty", "value": body.accessPoint}
     if body.exclusionZones is not None:
@@ -65,7 +78,11 @@ async def put_parcel_config(request: Request, parcel_id: str, body: ParcelConfig
         raise HTTPException(status_code=400, detail="Nothing to update")
     orion = _orion()
     try:
-        await orion.patch_entity(parcel_id, attrs, tenant_id)
+        try:
+            await orion.patch_entity(parcel_id, attrs, tenant_id)
+        except Exception as exc:
+            logger.error("Orion-LD patch_entity failed for %s: %s", parcel_id, exc)
+            raise HTTPException(status_code=502, detail="Orion-LD error")
         return {"success": True, "updated": list(attrs.keys())}
     finally:
         await orion.close()

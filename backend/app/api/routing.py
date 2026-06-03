@@ -25,6 +25,7 @@ from app.services.timescale_client import TimescaleDBClient
 from app.services.export_service import RouteExporter
 from app.services.pmtiles_generator import PMTileGenerator
 from app.config import get_settings
+from app.api.deps import get_tenant_id
 
 logger = logging.getLogger(__name__)
 router = APIRouter(tags=["routing"])
@@ -271,18 +272,7 @@ async def get_operation(request: Request, operation_id: str):
 VALID_COLLECTIONS = {"parcels", "equipment", "operations"}
 
 
-def _get_tenant_id(request: Request) -> str:
-    tid = (
-        getattr(request.state, "tenant_id", None)
-        or request.headers.get("x-tenant-id")
-        or request.headers.get("ngsild-tenant")
-        or request.headers.get("fiware-service")
-    )
-    if not tid or tid == "default":
-        raise HTTPException(status_code=404,
-            detail={"error": {"code": "TENANT_NOT_FOUND",
-                              "message": "Tenant not found or token missing tenant_id claim"}})
-    return tid
+_get_tenant_id = get_tenant_id
 
 
 def _build_sync_service(request: Request) -> SyncService:
