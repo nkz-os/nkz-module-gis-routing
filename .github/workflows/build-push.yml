@@ -5,10 +5,11 @@
 #   1. Type-check frontend + run backend tests (inside the F2C image)
 #   2. Build the MF2 remote bundle (dist/) — uploaded as an artifact
 #   3. Build and push the backend Docker image to GHCR
+#   4. Publish the MF2 remote to the platform (main only) via the canonical
+#      reusable workflow (_publish-module.yml).
 #
-# Frontend deployment is NOT done by CI. The canonical mechanism is a flat
-# MinIO overwrite via scripts/deploy-module.sh (see that script). ArgoCD
-# deploys the backend image once k8s/backend-deployment.yaml is digest-bumped.
+# ArgoCD deploys the backend image once k8s/backend-deployment.yaml is
+# digest-bumped.
 # =============================================================================
 
 name: Build and Push
@@ -157,3 +158,20 @@ jobs:
                   # k8s/backend-deployment.yaml is pinned to the new digest via a
                   # PR (see README → Deployment). Auto-PR digest-bump was declined
                   # to keep the org-wide "Actions can create PRs" policy disabled.
+
+    # ==========================================================================
+    # Publish MF2 remote (main only) via platform canonical workflow
+    # ==========================================================================
+    publish-module:
+        name: Publish Module
+        needs: test
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        permissions:
+            id-token: write
+            contents: read
+        uses: nkz-os/nkz/.github/workflows/_publish-module.yml@main
+        with:
+            module_id: nkz-module-gis-routing
+            build_cmd: pnpm run build:module
+        secrets:
+            INTERNAL_SERVICE_SECRET: ${{ secrets.INTERNAL_SERVICE_SECRET }}
