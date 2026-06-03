@@ -782,11 +782,17 @@ async def on_ngsild_notification(request: Request):
                 status_val = str(entity.get("cropStatus", {}).get("value", "active"))
                 status = "active" if status_val in ("growing", "active") else "fallow"
                 updated_at = int(time.time() * 1000)
+                # Extract constraints; notification may be partial so values may be None.
+                # The UPSERT uses COALESCE so None will not overwrite an existing value.
+                access_point = entity.get("accessPoint", {}).get("value")
+                exclusion_zones = entity.get("exclusionZones", {}).get("value")
                 await ts.materialize_parcel(
                     remote_id=eid, tenant_id=tenant_id, name=name,
                     geojson=geojson_str, area=area, crop_type=crop_type,
                     status=status, centroid_lat=float(centroid[1]) if len(centroid) > 1 else 0,
-                    centroid_lng=float(centroid[0]), updated_at=updated_at)
+                    centroid_lng=float(centroid[0]), updated_at=updated_at,
+                    access_point=json.dumps(access_point) if access_point else None,
+                    exclusion_zones=json.dumps(exclusion_zones) if exclusion_zones else None)
                 count += 1
 
             elif etype == "ManufacturingMachine":

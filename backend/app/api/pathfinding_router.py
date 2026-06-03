@@ -7,7 +7,7 @@ from pydantic import BaseModel, Field
 from typing import Literal
 
 from app.config import get_settings
-from app.services.pathfinding.least_cost_path import compute_ab_routes
+from app.services.pathfinding.least_cost_path import compute_ab_routes, terminus_blocked
 from app.services.pathfinding.dem_fetcher import fetch_dem_raster
 from app.services.parcel_constraints import fetch_parcel_constraints as _fetch_parcel_constraints
 from app.services.exclusion import buffered_zones, rasterize_blocked_cells
@@ -117,6 +117,11 @@ async def _run_pathfinding(job_id: str, body: PathRequest, tenant_id: str | None
 
         default_origin, blocked = await _resolve_path_constraints(
             body.parcel_id, tenant_id, raster, cols, rows, body.machine_width_m)
+
+        if terminus_blocked((start_col, start_row), (end_col, end_row), blocked):
+            _JOBS[job_id] = {"status": "failed",
+                             "error": "Start or end point is inside a no-go zone"}
+            return
 
         alternatives = compute_ab_routes(
             elevations, origin_lon, origin_lat, pixel_size,
