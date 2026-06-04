@@ -448,7 +448,7 @@ const App: React.FC = () => {
               )}
             </>
           ) : (
-            <PathfindingTab parcelGeometry={wizard.parcelGeometry} machineWidthM={wizard.patternConfig.widthM} turningRadiusM={wizard.turningRadiusM} />
+            <PathfindingTab parcelGeometry={wizard.parcelGeometry} machineWidthM={wizard.patternConfig.widthM} turningRadiusM={wizard.turningRadiusM} parcelId={wizard.parcelId} />
           )}
         </>
       }

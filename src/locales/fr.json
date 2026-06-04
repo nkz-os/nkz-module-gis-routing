@@ -66,7 +66,8 @@
     "retry": "Réessayer",
     "save": "Save",
     "saving": "Saving...",
-    "viewInCesium": "View in Cesium"
+    "viewInCesium": "View in Cesium",
+    "cancel": "Annuler"
   },
   "export": {
     "isoxml": "ISOXML",
@@ -275,5 +276,16 @@
     "zonesCount_one": "{{count}} zone non accessible",
     "zonesCount_other": "{{count}} zones non accessibles",
     "instructions": "Cliquez sur la carte pour marquer le portail ; dessinez des polygones pour les zones interdites."
+  },
+  "cockpit": {
+    "gate": "Portail",
+    "noGo": "Interdit",
+    "workRoute": "Itinéraire",
+    "transit": "Transit",
+    "pattern": "Motif",
+    "equipment": "Équipement",
+    "noEquipment": "Sans équipement",
+    "generate": "Générer itinéraire",
+    "generateError": "Impossible de générer itinéraire"
   }
 }

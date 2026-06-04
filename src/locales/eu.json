@@ -66,7 +66,8 @@
     "retry": "Saiatu berriro",
     "save": "Save",
     "saving": "Saving...",
-    "viewInCesium": "View in Cesium"
+    "viewInCesium": "View in Cesium",
+    "cancel": "Utzi"
   },
   "export": {
     "isoxml": "ISOXML",
@@ -275,5 +276,16 @@
     "zonesCount_one": "{{count}} gune debekatua",
     "zonesCount_other": "{{count}} gune debekatuak",
     "instructions": "Egin klik mapan atea markatzeko; marraztu poligonoak debekatutako guneentzat."
+  },
+  "cockpit": {
+    "gate": "Atea",
+    "noGo": "Debekatua",
+    "workRoute": "Ibilbidea",
+    "transit": "Transit",
+    "pattern": "Patroia",
+    "equipment": "Ekipamendua",
+    "noEquipment": "Ekipamendurik gabe",
+    "generate": "Lan-ibilbidea sortu",
+    "generateError": "Ezin izan da ibilbidea sortu"
   }
 }
