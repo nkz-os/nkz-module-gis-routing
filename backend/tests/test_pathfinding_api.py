@@ -1,3 +1,4 @@
+import asyncio
 import time
 from fastapi.testclient import TestClient
 from app.main import app
@@ -44,6 +45,6 @@ def test_build_dem_registry_uses_settings_eu_url(monkeypatch):
 
     monkeypatch.setattr(pr, "get_settings", lambda: _S())
     reg = pr.build_dem_registry()
-    assert reg.fetch_best  # registry object exists
+    assert asyncio.iscoroutinefunction(reg.fetch_best)
     assert any(p.name == "eu-elevation" and p.covers((-1.7, 42.7, -1.6, 42.9))
                for p in reg._providers)
