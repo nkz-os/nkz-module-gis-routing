@@ -66,7 +66,8 @@
     "retry": "Tentar novamente",
     "save": "Save",
     "saving": "Saving...",
-    "viewInCesium": "View in Cesium"
+    "viewInCesium": "View in Cesium",
+    "cancel": "Cancelar"
   },
   "export": {
     "isoxml": "ISOXML",
@@ -275,5 +276,16 @@
     "zonesCount_one": "{{count}} zona proibida",
     "zonesCount_other": "{{count}} zonas proibidas",
     "instructions": "Clique no mapa para marcar o portão; desenhe polígonos para as zonas proibidas."
+  },
+  "cockpit": {
+    "gate": "Portão",
+    "noGo": "Proibido",
+    "workRoute": "Rota",
+    "transit": "Trânsito",
+    "pattern": "Padrão",
+    "equipment": "Equipamento",
+    "noEquipment": "Sem equipamento",
+    "generate": "Gerar rota de trabalho",
+    "generateError": "Não foi possível gerar a rota"
   }
 }
