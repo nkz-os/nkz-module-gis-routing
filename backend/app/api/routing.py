@@ -25,6 +25,8 @@ from app.services.timescale_client import TimescaleDBClient
 from app.services.export_service import RouteExporter
 from app.services.pmtiles_generator import PMTileGenerator
 from app.services.parcel_constraints import fetch_parcel_constraints
+from app.api.pathfinding_router import build_dem_registry
+from app.services.pathfinding.grid_sampler import make_grid_sampler
 from app.config import get_settings
 from app.api.deps import get_tenant_id
 
@@ -413,6 +415,12 @@ async def generate_routing_plan(request: Request, body: GenerateRequest):
         heading_objective=pc.heading_objective,
     )
     from app.services.exclusion import ExclusionError
+    # Wire DEM sampler when contour heading is requested.
+    if pc.heading_objective == "contour":
+        sampler, bbox = await _resolve_contour_dem(body.parcel_geometry)
+        if sampler:
+            cfg.dem_sampler = sampler
+            cfg.parcel_bbox = bbox
     # Resolve the tenant only when a parcel is given — otherwise an ad-hoc
     # geometry request (no parcel_id, persist=False) must not require a tenant.
     cov_kwargs: dict = {}
@@ -498,6 +506,17 @@ async def _coverage_constraints(parcel_id, tenant_id: str, cov_width: float) -> 
         "exclusion_zones_wgs84": c["zones"],
         "exclusion_buffer_m": cov_width / 2.0,
     }
+
+
+async def _resolve_contour_dem(parcel_geometry: dict):
+    """Return (sampler, bbox) for contour heading, or (None, None) if no DEM."""
+    from shapely.geometry import shape
+    poly = shape(parcel_geometry)
+    bbox = poly.bounds  # (min_lon, min_lat, max_lon, max_lat)
+    grid = await build_dem_registry().fetch_best(bbox, resolution_m=10)
+    if not grid:
+        return None, None
+    return make_grid_sampler(grid), bbox
 
 
 async def _resolve_vra_zones(body: GenerateRequest, request: Request) -> list[dict]:
