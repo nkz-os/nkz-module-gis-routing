@@ -7,9 +7,21 @@ the bbox. Returns None when nothing covers — callers must fail safe.
 """
 from __future__ import annotations
 
-from typing import Protocol, runtime_checkable
+import logging
+from typing import Protocol, TypedDict, runtime_checkable
+
+logger = logging.getLogger(__name__)
 
 Bbox = tuple[float, float, float, float]  # (min_lon, min_lat, max_lon, max_lat)
+
+
+class DemGrid(TypedDict):
+    elevations: list[list[float]]  # elevations[row][col]; row 0 = south, rows increase northward
+    origin_lon: float   # west edge (min lon)
+    origin_lat: float   # south edge (min lat)
+    pixel_size_deg: float  # square in degrees
+    cols: int
+    rows: int
 
 
 @runtime_checkable
@@ -19,17 +31,20 @@ class DemProvider(Protocol):
 
     def covers(self, bbox: Bbox) -> bool: ...
 
-    async def fetch(self, bbox: Bbox, resolution_m: float) -> dict | None: ...
+    async def fetch(self, bbox: Bbox, resolution_m: float) -> DemGrid | None: ...
 
 
 class DemRegistry:
     def __init__(self, providers: list[DemProvider]):
         self._providers = sorted(providers, key=lambda p: p.priority, reverse=True)
 
-    async def fetch_best(self, bbox: Bbox, resolution_m: float) -> dict | None:
+    async def fetch_best(self, bbox: Bbox, resolution_m: float) -> DemGrid | None:
         for provider in self._providers:
             if provider.covers(bbox):
                 grid = await provider.fetch(bbox, resolution_m)
                 if grid:
                     return grid
+                logger.warning(
+                    "DEM provider %s covers bbox %s but returned no grid; "
+                    "falling back to next provider", provider.name, bbox)
         return None
