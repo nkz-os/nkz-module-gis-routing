@@ -148,7 +148,8 @@
     "saving": "Saving...",
     "export": "Export",
     "retry": "Retry",
-    "viewInCesium": "View in Cesium"
+    "viewInCesium": "View in Cesium",
+    "cancel": "Cancel"
   },
   "export": {
     "isoxml": "ISOXML",
@@ -275,5 +276,16 @@
     "zonesCount_one": "{{count}} no-go zone",
     "zonesCount_other": "{{count}} no-go zones",
     "instructions": "Click the map to mark the gate; draw polygons for the no-go zones."
+  },
+  "cockpit": {
+    "gate": "Gate",
+    "noGo": "No-go",
+    "workRoute": "Route",
+    "transit": "Transit",
+    "pattern": "Pattern",
+    "equipment": "Equipment",
+    "noEquipment": "No equipment",
+    "generate": "Generate work route",
+    "generateError": "Could not generate route"
   }
 }

@@ -148,7 +148,8 @@
     "saving": "Guardando...",
     "export": "Exportar",
     "retry": "Reintentar",
-    "viewInCesium": "Ver en Cesium"
+    "viewInCesium": "Ver en Cesium",
+    "cancel": "Cancelar"
   },
   "export": {
     "isoxml": "ISOXML",
@@ -271,5 +272,16 @@
     "zonesCount_one": "{{count}} zona no transitable",
     "zonesCount_other": "{{count}} zonas no transitables",
     "instructions": "Haz clic en el mapa para marcar el portón; dibuja polígonos para las zonas prohibidas."
+  },
+  "cockpit": {
+    "gate": "Portón",
+    "noGo": "No-go",
+    "workRoute": "Ruta",
+    "transit": "Transit",
+    "pattern": "Patrón",
+    "equipment": "Equipo",
+    "noEquipment": "Sin equipo",
+    "generate": "Generar ruta de trabajo",
+    "generateError": "No se pudo generar la ruta"
   }
 }

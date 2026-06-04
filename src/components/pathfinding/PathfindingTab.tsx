@@ -21,6 +21,7 @@ interface Props {
   parcelGeometry?: any;
   machineWidthM?: number;
   turningRadiusM?: number | null;
+  parcelId?: string | null;
 }
 
 const Sparkline: React.FC<{ profile: number[][] }> = ({ profile }) => {
@@ -40,7 +41,7 @@ const Sparkline: React.FC<{ profile: number[][] }> = ({ profile }) => {
   );
 };
 
-export const PathfindingTab: React.FC<Props> = ({ parcelGeometry, machineWidthM, turningRadiusM }) => {
+export const PathfindingTab: React.FC<Props> = ({ parcelGeometry, machineWidthM, turningRadiusM, parcelId }) => {
   const { t } = useTranslation(NS);
   const defaultCoords = getDefaultCoords(parcelGeometry);
   const [pointA, setPointA] = useState({ lon: defaultCoords.lonA, lat: defaultCoords.latA });
@@ -61,6 +62,7 @@ export const PathfindingTab: React.FC<Props> = ({ parcelGeometry, machineWidthM,
         machine_width_m: machineWidthM || 3,
         max_slope_deg: 15,
         min_turn_radius_m: turningRadiusM ?? 8,
+        parcel_id: parcelId ?? null,
       });
       const id = res.job_id;
       setPolling(true);
