@@ -55,8 +55,8 @@ class EuElevationProvider:
         return (b[0] <= min_lon and b[1] <= min_lat
                 and max_lon <= b[2] and max_lat <= b[3])
 
-    async def fetch(self, bbox: Bbox, resolution_m: float) -> "DemGrid | None":
-        return await fetch_dem_raster(self._dem_url, bbox)
+    async def fetch(self, bbox: Bbox, resolution_m: float) -> DemGrid | None:
+        return await fetch_dem_raster(self._dem_url, bbox, resolution_m)
 
 
 class DemRegistry:

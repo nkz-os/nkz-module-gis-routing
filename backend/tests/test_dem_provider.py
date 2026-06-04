@@ -57,20 +57,22 @@ async def test_registry_falls_back_when_covering_provider_returns_none():
 
 
 @pytest.mark.asyncio
-async def test_eu_provider_covers_everywhere_and_delegates_fetch(monkeypatch):
+async def test_eu_provider_covers_in_bounds_and_delegates_fetch(monkeypatch):
     from app.services.pathfinding import dem_provider as dp
 
     captured = {}
 
-    async def fake_fetch(url, bbox):
+    async def fake_fetch(url, bbox, resolution_m):
         captured["url"] = url
-        captured["bbox"] = bbox
+        captured["res"] = resolution_m
         return _GRID
 
     monkeypatch.setattr(dp, "fetch_dem_raster", fake_fetch)
     prov = dp.EuElevationProvider(dem_url="http://eu-elev:8000")
     assert prov.priority == 10
     assert prov.covers((-1.0, 42.0, -0.99, 42.01)) is True
-    grid = await prov.fetch((-1.0, 42.0, -0.99, 42.01), 10)
+    assert prov.covers((-100.0, 42.0, -99.0, 43.0)) is False
+    grid = await prov.fetch((-1.0, 42.0, -0.99, 42.01), 30)
     assert grid is _GRID
     assert captured["url"] == "http://eu-elev:8000"
+    assert captured["res"] == 30

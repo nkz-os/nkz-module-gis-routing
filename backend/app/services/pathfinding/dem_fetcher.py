@@ -5,7 +5,7 @@ import logging
 logger = logging.getLogger(__name__)
 
 
-async def fetch_dem_raster(dem_url: str, bbox: tuple) -> dict | None:
+async def fetch_dem_raster(dem_url: str, bbox: tuple, resolution_m: float = 10) -> dict | None:
     """Fetch a DEM raster for a bounding box from eu-elevation.
     Returns dict with 'elevations' (2D list), 'origin_lon', 'origin_lat',
     'pixel_size_deg', 'cols', 'rows', or None on failure.
@@ -17,7 +17,7 @@ async def fetch_dem_raster(dem_url: str, bbox: tuple) -> dict | None:
                 params={
                     "min_lon": bbox[0], "min_lat": bbox[1],
                     "max_lon": bbox[2], "max_lat": bbox[3],
-                    "resolution_m": 10,
+                    "resolution_m": resolution_m,
                 },
             )
             if resp.status_code == 200:
