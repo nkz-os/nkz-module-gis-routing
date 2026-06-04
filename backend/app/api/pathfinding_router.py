@@ -4,7 +4,6 @@ import logging
 import uuid
 from fastapi import APIRouter, Request, HTTPException
 from pydantic import BaseModel, Field
-from typing import Literal
 
 from app.config import get_settings
 from app.services.pathfinding.least_cost_path import compute_ab_routes, terminus_blocked
@@ -34,7 +33,6 @@ class PathRequest(BaseModel):
     machine_width_m: float = Field(default=3.0, gt=0)
     max_slope_deg: float = Field(default=15.0, gt=0, le=45)
     min_turn_radius_m: float = Field(default=8.0, gt=0)
-    elevation_source: Literal["eu-dem", "external", "cesium-terrain", "lidar"] = "eu-dem"
     elevation_grid: dict | None = None
     parcel_id: str | None = None
 
