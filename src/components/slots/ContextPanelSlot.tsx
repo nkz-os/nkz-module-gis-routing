@@ -59,8 +59,10 @@ export const ContextPanelSlot: React.FC = () => {
       { detail: { parcelId: selectedEntityId } }));
     return () => {
       cancelled = true;
+      // Tear down BOTH map click tools so none survives a parcel switch.
       window.dispatchEvent(new CustomEvent('nekazari:gis-routing:parcelConfig:activate',
         { detail: { mode: 'off' } }));
+      window.dispatchEvent(new CustomEvent('nekazari:gis-routing:pickPathCancel'));
       window.dispatchEvent(new CustomEvent('nekazari:gis-routing:parcelConfig:hide'));
     };
   }, [selectedEntityId, selectedEntityType]);
@@ -93,6 +95,10 @@ export const ContextPanelSlot: React.FC = () => {
   }, []);
 
   const startPfPicking = () => {
+    // A→B picking and the parcel-config draw tool both attach Cesium
+    // LEFT_CLICK handlers; they must be mutually exclusive or a single click
+    // fires both. Turn the draw tool off before starting to pick.
+    window.dispatchEvent(new CustomEvent('nekazari:gis-routing:parcelConfig:activate', { detail: { mode: 'off' } }));
     setPfState('picking-a'); setPfAlt(null);
     window.dispatchEvent(new CustomEvent('nekazari:gis-routing:pickPathStart'));
     // Inform context panel of state change
@@ -113,10 +119,22 @@ export const ContextPanelSlot: React.FC = () => {
     setPfAlt(null);
   };
 
-  const markAccess = () => window.dispatchEvent(new CustomEvent(
-    'nekazari:gis-routing:parcelConfig:activate', { detail: { mode: 'access' } }));
-  const drawZone = () => window.dispatchEvent(new CustomEvent(
-    'nekazari:gis-routing:parcelConfig:activate', { detail: { mode: 'zone' } }));
+  // Starting a draw mode must cancel A→B picking first (mutually exclusive
+  // click handlers — see startPfPicking).
+  const stopPfPicking = () => {
+    window.dispatchEvent(new CustomEvent('nekazari:gis-routing:pickPathCancel'));
+    setPfState('idle');
+  };
+  const markAccess = () => {
+    stopPfPicking();
+    window.dispatchEvent(new CustomEvent(
+      'nekazari:gis-routing:parcelConfig:activate', { detail: { mode: 'access' } }));
+  };
+  const drawZone = () => {
+    stopPfPicking();
+    window.dispatchEvent(new CustomEvent(
+      'nekazari:gis-routing:parcelConfig:activate', { detail: { mode: 'zone' } }));
+  };
   const removeZone = (id: string) => setZones(prev => prev.filter(z => z.id !== id));
   const saveCfg = async () => {
     if (!selectedEntityId) return;
