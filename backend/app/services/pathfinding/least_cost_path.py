@@ -116,6 +116,13 @@ def _astar(elevations, origin_lon, origin_lat, pixel_size_deg,
                 continue
             if blocked and (nc, nr) in blocked:
                 continue
+            dc = nc - cur.col
+            dr = nr - cur.row
+            # No corner-cutting through a no-go pinch: a diagonal move may not
+            # pass between two blocked cells.
+            if blocked and dc != 0 and dr != 0 and \
+               (cur.col + dc, cur.row) in blocked and (cur.col, cur.row + dr) in blocked:
+                continue
             dist = _cell_dist_m(nc - cur.col, nr - cur.row,
                                 lat_of(cur.row), pixel_size_deg)
             dz = elev(nc, nr) - elev(cur.col, cur.row)
@@ -188,7 +195,15 @@ def terminus_blocked(start: tuple, end: tuple, blocked: set) -> bool:
 
 def _line_of_sight(c0: int, r0: int, c1: int, r1: int, blocked: set) -> bool:
     """True if the straight segment between two cells crosses no blocked cell.
-    Supercover Bresenham so we never tunnel through a blocked corner."""
+
+    Guarantees, for a no-go (fail-safe) context:
+      - the segment does not pass through any blocked cell, and
+      - a diagonal step does not slip between two diagonally-adjacent blocked
+        cells (a "pinch") — the corner gap is treated as crossing.
+
+    This is a Bresenham walk hardened against diagonal-pinch tunneling; it is
+    not a full supercover traversal, but it never lets a route squeeze through
+    a blocked corner gap."""
     if not blocked:
         return True
     dc = abs(c1 - c0)
@@ -196,19 +211,27 @@ def _line_of_sight(c0: int, r0: int, c1: int, r1: int, blocked: set) -> bool:
     sc = 1 if c1 > c0 else -1
     sr = 1 if r1 > r0 else -1
     c, r = c0, r0
+    if (c, r) in blocked:
+        return False
     err = dc - dr
-    while True:
-        if (c, r) in blocked:
-            return False
-        if c == c1 and r == r1:
-            return True
+    while c != c1 or r != r1:
         e2 = 2 * err
+        stepped_c = stepped_r = False
         if e2 > -dr:
             err -= dr
             c += sc
+            stepped_c = True
         if e2 < dc:
             err += dc
             r += sr
+            stepped_r = True
+        if stepped_c and stepped_r:
+            # diagonal move: reject if it slips between two blocked corner cells
+            if (c - sc, r) in blocked and (c, r - sr) in blocked:
+                return False
+        if (c, r) in blocked:
+            return False
+    return True
 
 
 def _smooth_cells(cells: list[tuple[int, int]], blocked: set) -> list[tuple[int, int]]:
