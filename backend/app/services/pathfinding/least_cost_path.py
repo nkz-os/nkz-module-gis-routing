@@ -67,8 +67,10 @@ def compute_ab_routes(
             blocked=blocked,
         )
         if path:
+            smoothed = _smooth_cells(path, blocked or set())
             routes.append(_summarize(path, objective, elevations,
-                                     origin_lon, origin_lat, pixel_size_deg))
+                                     origin_lon, origin_lat, pixel_size_deg,
+                                     smoothed=smoothed))
     return routes
 
 
@@ -143,22 +145,26 @@ def _reconstruct(node) -> list[tuple[int, int]]:
 
 
 def _summarize(cells, objective, elevations,
-               origin_lon, origin_lat, pixel_size_deg) -> dict:
-    coords, profile = [], []
+               origin_lon, origin_lat, pixel_size_deg, smoothed=None) -> dict:
+    # Metrics pass: ALWAYS over the full A* cell path (honest distance/climb).
     distance_m = 0.0
     climb_m = 0.0
     for i, (c, r) in enumerate(cells):
-        lon = round(origin_lon + c * pixel_size_deg, 7)
-        lat = round(origin_lat + r * pixel_size_deg, 7)
-        z = elevations[r][c]
-        coords.append([lon, lat])
-        profile.append([lon, lat, z])
         if i > 0:
             pc, pr = cells[i - 1]
             distance_m += _cell_dist_m(c - pc, r - pr,
                                        origin_lat + pr * pixel_size_deg,
                                        pixel_size_deg)
-            climb_m += max(0.0, z - elevations[pr][pc])
+            climb_m += max(0.0, elevations[r][c] - elevations[pr][pc])
+
+    # Geometry/profile pass: over the smoothed any-angle vertices if provided.
+    coords, profile = [], []
+    for c, r in (smoothed if smoothed is not None else cells):
+        lon = round(origin_lon + c * pixel_size_deg, 7)
+        lat = round(origin_lat + r * pixel_size_deg, 7)
+        z = elevations[r][c]
+        coords.append([lon, lat])
+        profile.append([lon, lat, z])
     return {
         "id": objective,
         "label": _LABELS[objective],
@@ -178,3 +184,48 @@ _LABELS = {
 def terminus_blocked(start: tuple, end: tuple, blocked: set) -> bool:
     """True if either endpoint cell is in the blocked set (A* would start/end in a no-go zone)."""
     return start in blocked or end in blocked
+
+
+def _line_of_sight(c0: int, r0: int, c1: int, r1: int, blocked: set) -> bool:
+    """True if the straight segment between two cells crosses no blocked cell.
+    Supercover Bresenham so we never tunnel through a blocked corner."""
+    if not blocked:
+        return True
+    dc = abs(c1 - c0)
+    dr = abs(r1 - r0)
+    sc = 1 if c1 > c0 else -1
+    sr = 1 if r1 > r0 else -1
+    c, r = c0, r0
+    err = dc - dr
+    while True:
+        if (c, r) in blocked:
+            return False
+        if c == c1 and r == r1:
+            return True
+        e2 = 2 * err
+        if e2 > -dr:
+            err -= dr
+            c += sc
+        if e2 < dc:
+            err += dc
+            r += sr
+
+
+def _smooth_cells(cells: list[tuple[int, int]], blocked: set) -> list[tuple[int, int]]:
+    """String-pull: keep a vertex only when line-of-sight to the next anchor breaks."""
+    if len(cells) <= 2:
+        return list(cells)
+    out = [cells[0]]
+    anchor = 0
+    i = 1
+    while i < len(cells):
+        if not _line_of_sight(*cells[anchor], *cells[i], blocked):
+            out.append(cells[i - 1])
+            anchor = i - 1
+        i += 1
+    out.append(cells[-1])
+    deduped = [out[0]]
+    for cell in out[1:]:
+        if cell != deduped[-1]:
+            deduped.append(cell)
+    return deduped
