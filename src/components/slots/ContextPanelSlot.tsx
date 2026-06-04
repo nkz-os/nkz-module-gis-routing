@@ -289,16 +289,6 @@ export const ContextPanelSlot: React.FC = () => {
     }
   };
 
-  const handleSavePfAlt = (alt: any) => {
-    if (!alt?.geometry) return;
-    window.dispatchEvent(new CustomEvent(EV.routeGenerated, {
-      detail: { geometry: alt.geometry, prescriptionMap: null },
-    }));
-    setPfState('idle');
-    setPfAlt(null);
-    setMode('idle');
-  };
-
   // ── Empty state (no parcel selected) ────────────────────────────────────
 
   if (!selectedEntityId || selectedEntityType !== 'AgriParcel') {
