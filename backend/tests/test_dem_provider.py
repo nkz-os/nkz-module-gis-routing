@@ -32,7 +32,7 @@ async def test_registry_prefers_highest_priority_that_covers():
 async def test_registry_skips_provider_that_does_not_cover():
     high = _Fake("lidar", 100, False, _GRID)
     low = _Fake("eu", 10, True, _GRID)
-    reg = DemRegistry([high, low])
+    reg = DemRegistry([low, high])  # non-priority order — exercises internal sort
     grid = await reg.fetch_best((0, 0, 1, 1), 10)
     assert grid is _GRID  # fell back to eu
 
@@ -41,3 +41,16 @@ async def test_registry_skips_provider_that_does_not_cover():
 async def test_registry_returns_none_when_nothing_covers():
     reg = DemRegistry([_Fake("eu", 10, False, _GRID)])
     assert await reg.fetch_best((0, 0, 1, 1), 10) is None
+
+
+@pytest.mark.asyncio
+async def test_registry_falls_back_when_covering_provider_returns_none():
+    class _NoneFetch:
+        name = "lidar"
+        priority = 100
+        def covers(self, bbox): return True
+        async def fetch(self, bbox, resolution_m): return None
+    low = _Fake("eu", 10, True, _GRID)
+    reg = DemRegistry([_NoneFetch(), low])
+    grid = await reg.fetch_best((0, 0, 1, 1), 10)
+    assert grid is _GRID
