@@ -74,20 +74,22 @@ export const GisRoutingMapLayer: React.FC<Props> = ({ viewer: propViewer }) => {
       });
       routeEntitiesRef.current = [];
 
-      if (geometry?.type === 'MultiLineString' && geometry.coordinates) {
-        geometry.coordinates.forEach((coords: number[][], idx: number) => {
-          const entityId = `gis-routing-swatch-${idx}`;
-          routeEntitiesRef.current.push(entityId);
-          try {
-            viewer.entities.add({
-              id: entityId, polyline: {
-                positions: Cesium.Cartesian3.fromDegreesArray(coords.flatMap(([lon, lat]) => [lon, lat])),
-                width: 3, material: Cesium.Color.fromCssColorString('#F59E0B'), clampToGround: true,
-              },
-            });
-          } catch { /* skip */ }
-        });
-      }
+      const lines: number[][][] =
+        geometry?.type === 'MultiLineString' ? geometry.coordinates
+        : geometry?.type === 'LineString' ? [geometry.coordinates]
+        : [];
+      lines.forEach((coords: number[][], idx: number) => {
+        const entityId = `gis-routing-swatch-${idx}`;
+        routeEntitiesRef.current.push(entityId);
+        try {
+          viewer.entities.add({
+            id: entityId, polyline: {
+              positions: Cesium.Cartesian3.fromDegreesArray(coords.flatMap(([lon, lat]) => [lon, lat])),
+              width: 3, material: Cesium.Color.fromCssColorString('#F59E0B'), clampToGround: true,
+            },
+          });
+        } catch { /* skip */ }
+      });
       if (prescriptionMap?.features) {
         prescriptionMap.features.forEach((feat: any, idx: number) => {
           if (feat.geometry?.type === 'Polygon') {
@@ -251,57 +253,13 @@ export const GisRoutingMapLayer: React.FC<Props> = ({ viewer: propViewer }) => {
     const submitPathfinding = async () => {
       if (!pf.pointA || !pf.pointB) return;
 
-      const [lonA, latA] = pf.pointA;
-      const [lonB, latB] = pf.pointB;
-
-      let elevationGrid: any = null;
-
-      // Try Cesium terrain sampling first
-      try {
-        const terrainProvider = viewer.terrainProvider;
-        if (terrainProvider && !(terrainProvider instanceof Cesium.EllipsoidTerrainProvider)) {
-          const margin = 0.003;
-          const minLon = Math.min(lonA, lonB) - margin;
-          const maxLon = Math.max(lonA, lonB) + margin;
-          const minLat = Math.min(latA, latB) - margin;
-          const maxLat = Math.max(latA, latB) + margin;
-
-          const GRID = 40;
-          const positions: any[] = [];
-          for (let row = 0; row < GRID; row++) {
-            for (let col = 0; col < GRID; col++) {
-              const lon = minLon + (col / (GRID - 1)) * (maxLon - minLon);
-              const lat = minLat + (row / (GRID - 1)) * (maxLat - minLat);
-              positions.push(Cesium.Cartographic.fromDegrees(lon, lat));
-            }
-          }
-
-          const sampled = await Cesium.sampleTerrainMostDetailed(terrainProvider, positions);
-          const elevations: number[][] = [];
-          for (let row = 0; row < GRID; row++) {
-            elevations.push(sampled.slice(row * GRID, (row + 1) * GRID).map((c: any) => c.height));
-          }
-
-          elevationGrid = {
-            elevations,
-            origin_lon: minLon,
-            origin_lat: maxLat,
-            pixel_size_deg: (maxLon - minLon) / (GRID - 1),
-            cols: GRID,
-          };
-        }
-      } catch (e) {
-        console.warn('[GisRoutingMapLayer] Terrain sampling failed, falling back to eu-dem:', e);
-      }
-
       api.startPathCalculation({
         point_a: pf.pointA,
         point_b: pf.pointB,
         machine_width_m: 3,
         max_slope_deg: 15,
         min_turn_radius_m: 8,
-        elevation_source: elevationGrid ? 'cesium-terrain' : 'eu-dem',
-        elevation_grid: elevationGrid,
+        parcel_id: selectedEntityId || null,   // respects parcel no-go when selected
       }).then((res: any) => {
         const jobId = res?.job_id;
         if (jobId) startPolling(jobId);
