@@ -34,3 +34,16 @@ def test_calculate_returns_two_objectives():
     assert body["status"] == "completed", body
     ids = {a["id"] for a in body["alternatives"]}
     assert ids == {"least_slope", "fastest"}
+
+
+def test_build_dem_registry_uses_settings_eu_url(monkeypatch):
+    from app.api import pathfinding_router as pr
+
+    class _S:
+        eu_elevation_url = "http://eu-elev:8000"
+
+    monkeypatch.setattr(pr, "get_settings", lambda: _S())
+    reg = pr.build_dem_registry()
+    assert reg.fetch_best  # registry object exists
+    assert any(p.name == "eu-elevation" and p.covers((-1.7, 42.7, -1.6, 42.9))
+               for p in reg._providers)

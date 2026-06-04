@@ -8,7 +8,7 @@ from typing import Literal
 
 from app.config import get_settings
 from app.services.pathfinding.least_cost_path import compute_ab_routes, terminus_blocked
-from app.services.pathfinding.dem_fetcher import fetch_dem_raster
+from app.services.pathfinding.dem_provider import DemRegistry, EuElevationProvider
 from app.services.parcel_constraints import fetch_parcel_constraints as _fetch_parcel_constraints
 from app.services.exclusion import buffered_zones, rasterize_blocked_cells
 from app.services.routing.base import project_polygon_to_utm
@@ -19,6 +19,13 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/path", tags=["pathfinding"])
 
 _JOBS: dict[str, dict] = {}
+
+
+def build_dem_registry() -> DemRegistry:
+    """Active providers, highest precision first. Today: eu-elevation only.
+    Follow-up providers (LiDAR/IDENA/IGN) register here with higher priority."""
+    settings = get_settings()
+    return DemRegistry([EuElevationProvider(dem_url=settings.eu_elevation_url)])
 
 
 class PathRequest(BaseModel):
@@ -85,22 +92,17 @@ async def _run_pathfinding(job_id: str, body: PathRequest, tenant_id: str | None
         lon_b, lat_b = body.point_b
 
         if body.elevation_grid:
-            raster = body.elevation_grid
+            raster = body.elevation_grid  # legacy/explicit override (tests)
         else:
-            settings = get_settings()
-            dem_url = settings.eu_elevation_url if body.elevation_source == "eu-dem" else None
-            if not dem_url:
-                _JOBS[job_id] = {"status": "failed", "error": "No DEM source configured"}
-                return
-
             margin = 0.005
             bbox = (
                 min(lon_a, lon_b) - margin, min(lat_a, lat_b) - margin,
                 max(lon_a, lon_b) + margin, max(lat_a, lat_b) + margin,
             )
-            raster = await fetch_dem_raster(dem_url, bbox)
+            raster = await build_dem_registry().fetch_best(bbox, resolution_m=10)
             if not raster:
-                _JOBS[job_id] = {"status": "failed", "error": "DEM raster fetch failed"}
+                _JOBS[job_id] = {"status": "failed",
+                                 "error": "No elevation data available for this area"}
                 return
 
         elevations = raster["elevations"]
