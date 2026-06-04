@@ -253,13 +253,57 @@ export const GisRoutingMapLayer: React.FC<Props> = ({ viewer: propViewer }) => {
     const submitPathfinding = async () => {
       if (!pf.pointA || !pf.pointB) return;
 
+      const [lonA, latA] = pf.pointA;
+      const [lonB, latB] = pf.pointB;
+
+      // Try Cesium terrain sampling as primary elevation source.
+      // Falls back to eu-elevation backend raster (backend builds its own grid).
+      let elevationGrid: any = null;
+      try {
+        const terrainProvider = viewer.terrainProvider;
+        if (terrainProvider && !(terrainProvider instanceof Cesium.EllipsoidTerrainProvider)) {
+          const margin = 0.003;
+          const minLon = Math.min(lonA, lonB) - margin;
+          const maxLon = Math.max(lonA, lonB) + margin;
+          const minLat = Math.min(latA, latB) - margin;
+          const maxLat = Math.max(latA, latB) + margin;
+
+          const GRID = 40;
+          const positions: any[] = [];
+          // Cesium terrain samples north-to-south; build grid with SW origin (row 0 = south).
+          for (let row = 0; row < GRID; row++) {
+            for (let col = 0; col < GRID; col++) {
+              const lon = minLon + (col / (GRID - 1)) * (maxLon - minLon);
+              const lat = minLat + (row / (GRID - 1)) * (maxLat - minLat);  // south-to-north
+              positions.push(Cesium.Cartographic.fromDegrees(lon, lat));
+            }
+          }
+          const sampled = await Cesium.sampleTerrainMostDetailed(terrainProvider, positions);
+          const elevations: number[][] = [];
+          for (let row = 0; row < GRID; row++) {
+            elevations.push(sampled.slice(row * GRID, (row + 1) * GRID).map((c: any) => c.height));
+          }
+          elevationGrid = {
+            elevations,
+            origin_lon: minLon,
+            origin_lat: minLat,
+            pixel_size_deg: (maxLon - minLon) / (GRID - 1),
+            cols: GRID,
+            rows: GRID,
+          };
+        }
+      } catch (e) {
+        console.warn('[GisRoutingMapLayer] Terrain sampling failed, falling back to backend DEM:', e);
+      }
+
       api.startPathCalculation({
         point_a: pf.pointA,
         point_b: pf.pointB,
         machine_width_m: 3,
         max_slope_deg: 15,
         min_turn_radius_m: 8,
-        parcel_id: selectedEntityId || null,   // respects parcel no-go when selected
+        parcel_id: selectedEntityId || null,
+        elevation_grid: elevationGrid,
       }).then((res: any) => {
         const jobId = res?.job_id;
         if (jobId) startPolling(jobId);
