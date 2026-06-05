@@ -39,7 +39,7 @@ class Settings(BaseSettings):
     ngsi_ld_context: str = Field(default="", alias="CONTEXT_URL")  # Set via CONTEXT_URL env var
 
     # EU Elevation integration (DEM slope correction)
-    eu_elevation_url: str = "http://eu-elevation-api-service:8000/api/elevation"
+    eu_elevation_url: str = "http://elevation-api-service:80/api/elevation"
 
     # TimescaleDB / PostGIS
     database_url: str = ""  # postgresql+asyncpg://user:pass@postgresql:5432/nekazari
