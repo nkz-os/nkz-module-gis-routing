@@ -133,8 +133,8 @@ def test_build_operation_entity_has_metrics_config_and_flag():
     assert e["vraConfig"]["value"]["source"] == "orion"
     assert e["vraConfig"]["value"]["zone_ids"] == ["urn:ngsi-ld:AgriManagementZone:z1"]
     assert e["hasAgriParcel"]["object"] == "urn:ngsi-ld:AgriParcel:p1"
-    assert e["refTractor"]["object"] == "urn:ngsi-ld:ManufacturingMachine:t1"
-    assert "refImplement" not in e
+    assert e["usesTractor"]["object"] == "urn:ngsi-ld:ManufacturingMachine:t1"
+    assert "usesImplement" not in e
     assert e["location"]["value"]["type"] == "LineString"
 
 
