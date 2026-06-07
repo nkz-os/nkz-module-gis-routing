@@ -39,7 +39,7 @@ async def find_in_progress_operations(tenant_id: str) -> list[dict[str, Any]]:
         entities = await orion.query_entities(
             "AgriParcelOperation",
             tenant_id,
-            attrs="status,operationType,refAgriParcel,startDate,name",
+            attrs="status,operationType,hasAgriParcel,startDate,name",
             limit=200,
         )
     finally:
@@ -72,7 +72,7 @@ def summarize_active(e: dict) -> dict[str, Any]:
     started = _property_str(e, "startDate")
     return {
         "id": e.get("id", ""),
-        "parcel_id": _relationship_target(e, "refAgriParcel"),
+        "parcel_id": _relationship_target(e, "hasAgriParcel"),
         "operation_type": _property_str(e, "operationType") or "spraying",
         "status": _property_str(e, "status") or "in_progress",
         "started_at": started or None,

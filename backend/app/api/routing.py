@@ -544,7 +544,7 @@ async def _resolve_vra_zones(body: GenerateRequest, request: Request) -> list[di
 def _zones_from_orion(zones: list[dict], parcel_id: str, zone_ids: list[str] | None) -> list[dict]:
     matched = []
     for z in zones:
-        ref = _relationship_target(z, "refAgriParcel")
+        ref = _relationship_target(z, "hasAgriParcel")
         if parcel_id not in ref:
             continue
         if zone_ids and z["id"] not in zone_ids:
@@ -659,7 +659,7 @@ async def get_parcel_zones(request: Request, parcel_id: str):
 
     matched = []
     for z in zones:
-        ref = _relationship_target(z, "refAgriParcel")
+        ref = _relationship_target(z, "hasAgriParcel")
         if parcel_id in ref:
             location = z.get("location", {}).get("value", {})
             matched.append({
@@ -853,10 +853,10 @@ async def on_ngsild_notification(request: Request):
                     prescription_map = json.dumps(pm_value) if pm_value else None
                 await ts.materialize_operation(
                     remote_id=eid, tenant_id=tenant_id,
-                    parcel_id=_relationship_target(entity, "refAgriParcel"),
+                    parcel_id=_relationship_target(entity, "hasAgriParcel"),
                     equipment_id=None,
-                    tractor_id=_relationship_target(entity, "refTractor"),
-                    implement_id=_relationship_target(entity, "refImplement"),
+                    tractor_id=_relationship_target(entity, "usesTractor"),
+                    implement_id=_relationship_target(entity, "usesImplement"),
                     operation_type=str(entity.get("operationType", {}).get("value", "")),
                     ab_line_geojson=json.dumps(entity.get("location", {}).get("value", {})),
                     implement_width=float(entity.get("implementWidth", {}).get("value", 24.0)),

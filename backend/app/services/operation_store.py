@@ -54,7 +54,7 @@ def operation_to_row(entity: dict) -> dict:
     """Lightweight history row: metadata + honest metrics, NO geometry."""
     return {
         "id": entity.get("id"),
-        "parcel_id": _rel(entity, "refAgriParcel"),
+        "parcel_id": _rel(entity, "hasAgriParcel"),
         "operation_type": _prop(entity, "operationType"),
         "status": _prop(entity, "status"),
         "swath_count": _prop(entity, "swathCount"),
@@ -74,9 +74,9 @@ def operation_to_detail(entity: dict) -> dict:
     row["generation_config"] = _prop(entity, "generationConfig")
     row["vra_config"] = _prop(entity, "vraConfig")
     row["prescription_map"] = _prop(entity, "prescriptionMap")
-    row["tractor_id"] = _rel(entity, "refTractor")
-    row["implement_id"] = _rel(entity, "refImplement")
-    row["source_operation_id"] = _rel(entity, "refSourceOperation")
+    row["tractor_id"] = _rel(entity, "usesTractor")
+    row["implement_id"] = _rel(entity, "usesImplement")
+    row["source_operation_id"] = _rel(entity, "derivedFrom")
     return row
 
 
@@ -121,12 +121,12 @@ def build_operation_entity(*, op_id, body, result, prescription_map, is_template
             "heading_objective": pc.heading_objective,
             "turning_radius_m": pc.turning_radius_m,
         }},
-        "refAgriParcel": {"type": "Relationship", "object": body.parcel_id},
+        "hasAgriParcel": {"type": "Relationship", "object": body.parcel_id},
     }
     if body.tractor_id:
-        entity["refTractor"] = {"type": "Relationship", "object": body.tractor_id}
+        entity["usesTractor"] = {"type": "Relationship", "object": body.tractor_id}
     if body.implement_id:
-        entity["refImplement"] = {"type": "Relationship", "object": body.implement_id}
+        entity["usesImplement"] = {"type": "Relationship", "object": body.implement_id}
     if body.vra is not None:
         entity["vraConfig"] = {"type": "Property", "value": {
             "enabled": body.vra.enabled,
@@ -155,16 +155,16 @@ def build_template_entity(*, op_id, parcel_id, name, pattern_type, pattern_confi
         "dateCreated": {"type": "Property", "value": _now_iso()},
         "generationConfig": {"type": "Property", "value": pattern_config},
         "location": {"type": "GeoProperty", "value": json.loads(route_geojson)},
-        "refAgriParcel": {"type": "Relationship", "object": parcel_id},
+        "hasAgriParcel": {"type": "Relationship", "object": parcel_id},
     }
     if vra_prescription_map:
         entity["prescriptionMap"] = {"type": "Property", "value": vra_prescription_map}
     if equipment_tractor_id:
-        entity["refTractor"] = {"type": "Relationship", "object": equipment_tractor_id}
+        entity["usesTractor"] = {"type": "Relationship", "object": equipment_tractor_id}
     if equipment_implement_id:
-        entity["refImplement"] = {"type": "Relationship", "object": equipment_implement_id}
+        entity["usesImplement"] = {"type": "Relationship", "object": equipment_implement_id}
     if source_operation_id:
-        entity["refSourceOperation"] = {"type": "Relationship", "object": source_operation_id}
+        entity["derivedFrom"] = {"type": "Relationship", "object": source_operation_id}
     return entity
 
 
@@ -173,15 +173,15 @@ def template_to_dict(entity: dict) -> dict:
     loc = _prop(entity, "location")
     return {
         "id": entity.get("id"),
-        "parcel_id": _rel(entity, "refAgriParcel"),
+        "parcel_id": _rel(entity, "hasAgriParcel"),
         "name": _prop(entity, "name"),
         "pattern_type": _prop(entity, "patternType"),
         "pattern_config": _prop(entity, "generationConfig"),
         "route_geojson": json.dumps(loc) if loc is not None else None,
         "vra_prescription_map": _prop(entity, "prescriptionMap"),
-        "equipment_tractor_id": _rel(entity, "refTractor"),
-        "equipment_implement_id": _rel(entity, "refImplement"),
-        "source_operation_id": _rel(entity, "refSourceOperation"),
+        "equipment_tractor_id": _rel(entity, "usesTractor"),
+        "equipment_implement_id": _rel(entity, "usesImplement"),
+        "source_operation_id": _rel(entity, "derivedFrom"),
         "created_at": _iso_to_epoch_s(_prop(entity, "dateCreated")),
     }
 
@@ -191,7 +191,7 @@ def template_to_dict(entity: dict) -> dict:
 def _matches_parcel(entity: dict, parcel_id: Optional[str]) -> bool:
     if not parcel_id:
         return True
-    return _rel(entity, "refAgriParcel") == parcel_id
+    return _rel(entity, "hasAgriParcel") == parcel_id
 
 
 async def list_operations(orion: OrionLDClient, tenant_id: str,
