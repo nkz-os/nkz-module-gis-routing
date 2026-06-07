@@ -8,7 +8,7 @@ def _op_entity(**over):
         "type": "AgriParcelOperation",
         "operationType": {"type": "Property", "value": "spraying"},
         "status": {"type": "Property", "value": "planned"},
-        "refAgriParcel": {"type": "Relationship", "object": "urn:ngsi-ld:AgriParcel:p1"},
+        "hasAgriParcel": {"type": "Relationship", "object": "urn:ngsi-ld:AgriParcel:p1"},
         "location": {"type": "GeoProperty", "value": {"type": "LineString", "coordinates": [[0, 0], [1, 1]]}},
         "swathCount": {"type": "Property", "value": 7},
         "fieldEfficiency": {"type": "Property", "value": 0.83},
@@ -132,7 +132,7 @@ def test_build_operation_entity_has_metrics_config_and_flag():
     assert e["generationConfig"]["value"]["turning_radius_m"] == 6.5
     assert e["vraConfig"]["value"]["source"] == "orion"
     assert e["vraConfig"]["value"]["zone_ids"] == ["urn:ngsi-ld:AgriManagementZone:z1"]
-    assert e["refAgriParcel"]["object"] == "urn:ngsi-ld:AgriParcel:p1"
+    assert e["hasAgriParcel"]["object"] == "urn:ngsi-ld:AgriParcel:p1"
     assert e["refTractor"]["object"] == "urn:ngsi-ld:ManufacturingMachine:t1"
     assert "refImplement" not in e
     assert e["location"]["value"]["type"] == "LineString"
@@ -192,7 +192,7 @@ async def test_list_operations_excludes_templates_and_filters_parcel():
     ents = [
         _op_entity(id="op-a"),  # parcel p1, not template
         _op_entity(id="tpl", isTemplate={"type": "Property", "value": True}),  # template -> excluded
-        _op_entity(id="op-b", refAgriParcel={"type": "Relationship", "object": "urn:ngsi-ld:AgriParcel:OTHER"}),
+        _op_entity(id="op-b", hasAgriParcel={"type": "Relationship", "object": "urn:ngsi-ld:AgriParcel:OTHER"}),
     ]
     orion = _FakeOrion(entities=ents)
     rows = await store.list_operations(orion, "tenant-a", parcel_id="urn:ngsi-ld:AgriParcel:p1")
@@ -271,7 +271,7 @@ def test_matches_parcel_no_cross_match_suffix():
     """urn:...:p10 must NOT match filter urn:...:p1"""
     entity_p10 = _op_entity(
         id="op-p10",
-        refAgriParcel={"type": "Relationship", "object": "urn:ngsi-ld:AgriParcel:p10"},
+        hasAgriParcel={"type": "Relationship", "object": "urn:ngsi-ld:AgriParcel:p10"},
     )
     # Use list_operations indirectly via _FakeOrion is async; test _matches_parcel directly.
     # We call the internal function via the module.
@@ -280,13 +280,13 @@ def test_matches_parcel_no_cross_match_suffix():
 
 
 def test_matches_parcel_exact_match():
-    entity_p1 = _op_entity(id="op-p1")  # refAgriParcel is urn:...:p1
+    entity_p1 = _op_entity(id="op-p1")  # hasAgriParcel is urn:...:p1
     assert store._matches_parcel(entity_p1, "urn:ngsi-ld:AgriParcel:p1") is True
 
 
 def test_matches_parcel_none_filter():
     entity_p10 = _op_entity(
         id="op-p10",
-        refAgriParcel={"type": "Relationship", "object": "urn:ngsi-ld:AgriParcel:p10"},
+        hasAgriParcel={"type": "Relationship", "object": "urn:ngsi-ld:AgriParcel:p10"},
     )
     assert store._matches_parcel(entity_p10, None) is True

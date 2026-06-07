@@ -67,7 +67,7 @@ def test_list_patterns_returns_only_templates(monkeypatch):
         equipment_implement_id=None, source_operation_id=None,
     )
     op = {"id": "op-1", "type": "AgriParcelOperation",
-          "refAgriParcel": {"type": "Relationship", "object": "urn:ngsi-ld:AgriParcel:p1"},
+          "hasAgriParcel": {"type": "Relationship", "object": "urn:ngsi-ld:AgriParcel:p1"},
           "isTemplate": {"type": "Property", "value": False}}
     monkeypatch.setattr("app.api.patterns_router.OrionLDClient",
                         lambda *a, **k: _FakeOrion(entities=[tpl, op]))

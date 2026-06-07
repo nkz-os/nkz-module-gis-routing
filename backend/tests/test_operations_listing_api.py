@@ -19,7 +19,7 @@ def _entity(eid, parcel="urn:ngsi-ld:AgriParcel:p1", template=False):
         "id": eid, "type": "AgriParcelOperation",
         "operationType": {"type": "Property", "value": "spraying"},
         "status": {"type": "Property", "value": "planned"},
-        "refAgriParcel": {"type": "Relationship", "object": parcel},
+        "hasAgriParcel": {"type": "Relationship", "object": parcel},
         "location": {"type": "GeoProperty", "value": {"type": "LineString", "coordinates": [[0, 0], [1, 1]]}},
         "fieldEfficiency": {"type": "Property", "value": 0.9},
         "isTemplate": {"type": "Property", "value": template},

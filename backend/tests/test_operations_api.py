@@ -110,7 +110,7 @@ async def _one_in_progress(*_args, **_kwargs):
             "type": "AgriParcelOperation",
             "status": {"type": "Property", "value": "in_progress"},
             "operationType": {"type": "Property", "value": "spraying"},
-            "refAgriParcel": {"type": "Relationship", "object": "urn:ngsi-ld:AgriParcel:tenant-a:p1"},
+            "hasAgriParcel": {"type": "Relationship", "object": "urn:ngsi-ld:AgriParcel:tenant-a:p1"},
             "startDate": {
                 "type": "Property",
                 "value": {"@type": "DateTime", "@value": "2026-05-06T10:00:00Z"},

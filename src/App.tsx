@@ -142,12 +142,12 @@ const App: React.FC = () => {
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const canGenerate = Boolean(
-    wizard.parcelId && wizard.parcelGeometry && wizard.patternConfig.widthM > 0,
+    wizard.parcelId && wizard.parcelGeometry && wizard.patternConfig.widthM > 0 && wizard.turningRadiusM != null && wizard.turningRadiusM > 0,
   );
 
   // Debounced preview generation on parameter changes
   const runPreview = useCallback((w: WizardState) => {
-    if (!w.parcelId || !w.parcelGeometry || !w.patternConfig.widthM) {
+    if (!w.parcelId || !w.parcelGeometry || !w.patternConfig.widthM || w.turningRadiusM == null || w.turningRadiusM <= 0) {
       setPreviewResult(null);
       return;
     }
