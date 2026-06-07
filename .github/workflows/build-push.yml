@@ -47,6 +47,7 @@ jobs:
               uses: pnpm/action-setup@v4
               with:
                   version: 9
+                  package_json_file: package.json
 
             - name: Install frontend dependencies
               run: pnpm install --frozen-lockfile
@@ -84,6 +85,7 @@ jobs:
               uses: pnpm/action-setup@v4
               with:
                   version: 9
+                  package_json_file: package.json
 
             - name: Install dependencies
               run: pnpm install --frozen-lockfile
