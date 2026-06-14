@@ -24,6 +24,9 @@ logger = logging.getLogger(__name__)
 
 class OrionLDError(Exception):
     """Orion-LD operation error."""
+    def __init__(self, message: str, status_code: Optional[int] = None):
+        super().__init__(message)
+        self.status_code = status_code
 
 
 class OrionLDClient:
@@ -111,7 +114,8 @@ class OrionLDClient:
                 "Orion-LD query entities failed [status=%s]: %s",
                 getattr(resp, 'status_code', '?'), body,
             )
-            raise OrionLDError(f"Query entities failed: {e}") from e
+            status = getattr(resp, 'status_code', None)
+            raise OrionLDError(f"Query entities failed: {e}", status_code=status) from e
 
     async def get_entity(
         self, entity_id: str, tenant_id: str
@@ -145,7 +149,8 @@ class OrionLDClient:
                 "Orion-LD get entity failed [status=%s]: %s",
                 getattr(resp, 'status_code', '?'), body,
             )
-            raise OrionLDError(f"Get entity failed: {e}") from e
+            status = getattr(resp, 'status_code', None)
+            raise OrionLDError(f"Get entity failed: {e}", status_code=status) from e
 
     async def create_entity(
         self, entity: dict, tenant_id: str
@@ -191,7 +196,8 @@ class OrionLDClient:
                 "Orion-LD create entity failed [status=%s]: %s",
                 getattr(resp, 'status_code', '?'), body,
             )
-            raise OrionLDError(f"Create entity failed: {e}") from e
+            status = getattr(resp, 'status_code', None)
+            raise OrionLDError(f"Create entity failed: {e}", status_code=status) from e
 
     async def patch_entity(
         self, entity_id: str, attrs: dict, tenant_id: str
@@ -222,7 +228,8 @@ class OrionLDClient:
                 "Orion-LD patch entity failed [status=%s]: %s",
                 getattr(resp, 'status_code', '?'), body,
             )
-            raise OrionLDError(f"Patch entity failed: {e}") from e
+            status = getattr(resp, 'status_code', None)
+            raise OrionLDError(f"Patch entity failed: {e}", status_code=status) from e
 
     async def delete_entity(self, entity_id: str, tenant_id: str) -> None:
         """Delete an entity by ID.
@@ -250,7 +257,8 @@ class OrionLDClient:
                 "Orion-LD delete entity failed [status=%s]: %s",
                 getattr(resp, 'status_code', '?'), body,
             )
-            raise OrionLDError(f"Delete entity failed: {e}") from e
+            status = getattr(resp, 'status_code', None)
+            raise OrionLDError(f"Delete entity failed: {e}", status_code=status) from e
 
     async def close(self):
         """Close the underlying HTTP client session."""

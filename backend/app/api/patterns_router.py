@@ -7,7 +7,7 @@ from pydantic import BaseModel
 from typing import Optional
 
 from app.config import get_settings
-from app.services.orion_client import OrionLDClient
+from app.services.orion_client import OrionLDClient, OrionLDError
 from app.services import operation_store
 
 logger = logging.getLogger(__name__)
@@ -44,6 +44,14 @@ async def list_patterns(request: Request, parcel_id: str):
     orion = _orion()
     try:
         data = await operation_store.list_templates(orion, tenant, parcel_id)
+    except OrionLDError as exc:
+        if exc.status_code == 404:
+            # Tenant has no operations yet — this is not an error
+            logger.info("No templates found for tenant %s (Orion 404)", tenant)
+            data = []
+        else:
+            logger.error("Orion-LD error for tenant %s: %s", tenant, exc)
+            raise HTTPException(status_code=502, detail="Template store unavailable")
     except Exception as exc:
         logger.error("Failed to list templates for tenant %s: %s", tenant, exc)
         raise HTTPException(status_code=502, detail="Template store unavailable")
