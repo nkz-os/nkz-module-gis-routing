@@ -40,7 +40,7 @@ spec:
             readOnlyRootFilesystem: true
           # Pinned by digest (CLAUDE.md §K8s; 2026-05-26 outage). Bump this digest
           # to the one CI produces on each merge to main. See k8s/README.md.
-          image: ghcr.io/nkz-os/nkz-module-gis-routing/nkz-module-gis-routing-backend@sha256:caffee318550eec249eff2edce7571106af53130e0b94df7f5671f5b7d50ef79
+          image: ghcr.io/nkz-os/nkz-module-gis-routing/nkz-module-gis-routing-backend@sha256:18cd831cb3367be506fa0bf909f34cbe0b4f6833c04e23d5330665e32b65f5d8
           imagePullPolicy: IfNotPresent
           ports:
             - name: http
