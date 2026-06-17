@@ -18,6 +18,7 @@ import logging
 from typing import Optional
 
 import httpx
+from app.common.tenant_utils import normalize_tenant_id
 
 logger = logging.getLogger(__name__)
 
@@ -48,9 +49,7 @@ class OrionLDClient:
         import re
         if '\n' in tenant_id or '\r' in tenant_id:
             raise ValueError("Invalid tenant_id: contains newline characters")
-        n = tenant_id.lower().strip().replace('-', '_').replace(' ', '_')
-        n = re.sub(r'[^a-z0-9_]', '', n)
-        n = n.strip('_') or tenant_id
+        n = normalize_tenant_id(tenant_id)
         return {
             "Content-Type": "application/json",
             "Link": (
