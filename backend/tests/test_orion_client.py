@@ -55,15 +55,15 @@ class TestOrionLDClientHeaders:
 
     @pytest.mark.asyncio
     async def test_query_entities_injects_fiware_service(self, orion_client):
-        """NGSILD-Tenant and FIWARE-Service must match the tenant_id."""
+        """NGSILD-Tenant and FIWARE-Service must match the tenant_id (canonical format: hyphens)."""
         with patch("httpx.AsyncClient.get", new_callable=AsyncMock) as mock_get:
             mock_get.return_value = _mock_response(json_data=[])
 
-            await orion_client.query_entities("AgriParcel", "test_tenant")
+            await orion_client.query_entities("AgriParcel", "test-tenant")
 
             headers = mock_get.call_args[1]["headers"]
-            assert headers["NGSILD-Tenant"] == "test_tenant"
-            assert headers["FIWARE-Service"] == "test_tenant"
+            assert headers["NGSILD-Tenant"] == "test-tenant"
+            assert headers["FIWARE-Service"] == "test-tenant"
 
     @pytest.mark.asyncio
     async def test_headers_rejects_newlines_in_tenant_id(self, orion_client):
@@ -76,9 +76,9 @@ class TestOrionLDClientHeaders:
 
     @pytest.mark.asyncio
     async def test_headers_accepts_valid_tenant_id(self, orion_client):
-        """Valid tenant_id must not raise."""
-        headers = orion_client._headers("valid_tenant_123")
-        assert headers["NGSILD-Tenant"] == "valid_tenant_123"
+        """Valid tenant_id must not raise (canonical format: hyphens)."""
+        headers = orion_client._headers("valid-tenant-123")
+        assert headers["NGSILD-Tenant"] == "valid-tenant-123"
 
 
 class TestOrionLDClientCRUD:
