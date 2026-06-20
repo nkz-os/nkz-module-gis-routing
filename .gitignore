@@ -35,3 +35,10 @@ yarn-error.log*
 # TypeScript
 *.tsbuildinfo
 
+
+# Security: sensitive files
+*.pem
+*.key
+apikey_*.txt
+*.apikey
+*-secret*
