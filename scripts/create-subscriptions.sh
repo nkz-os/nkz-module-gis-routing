@@ -5,17 +5,27 @@
 # Creates Orion-LD subscriptions to keep TimescaleDB materialized cache
 # in sync with the Context Broker source of truth.
 #
-# Runs once per environment (not per tenant).
-# Orion-LD sends normalized notifications to our webhook on entity changes.
+# Subscriptions are PER TENANT. A subscription created without NGSILD-Tenant
+# lands in the tenant-less store, where it can never match an entity of any
+# tenant — it looks healthy and never fires. Pass the tenants explicitly;
+# this script refuses to run without them rather than defaulting.
+#
+# Subscription ids are deterministic, so re-running is idempotent: Orion
+# answers 409 for one that already exists instead of creating a duplicate.
+#
+# The entity types below are exactly the ones the notify handler materializes
+# (see app/api/routing.py:on_ngsild_notification). Adding a type here that the
+# handler ignores creates a subscription that does nothing but deliver load.
 #
 # Usage:
-#   From within the cluster:
-#     kubectl exec -n nekazari deployment/orion-ld -- \
-#       curl ... (see below)
+#   TENANTS="tenant-a tenant-b" ./create-subscriptions.sh
+#   ./create-subscriptions.sh tenant-a tenant-b
 #
 #   With port-forward:
 #     kubectl port-forward -n nekazari svc/orion-service 1026:1026 &
-#     ORION_URL=http://localhost:1026 NOTIFY_URL=http://localhost:8000/api/routing/notify ./create-subscriptions.sh
+#     ORION_URL=http://localhost:1026 \
+#     NOTIFY_URL=http://localhost:8000/api/routing/notify \
+#     TENANTS="tenant-a" ./create-subscriptions.sh
 # =============================================================================
 set -euo pipefail
 
@@ -23,19 +33,28 @@ ORION_URL="${ORION_URL:-http://orion-service:1026}"
 NOTIFY_URL="${NOTIFY_URL:-http://nkz-module-gis-routing-api-service:8000/api/routing/notify}"
 CONTEXT_URL="${CONTEXT_URL:-http://api-gateway-service:5000/ngsi-ld-context.json}"
 
-HEADERS=(
-  -H "Content-Type: application/json"
-  -H "Link: <$CONTEXT_URL>; rel=\"http://www.w3.org/ns/json-ld#context\"; type=\"application/ld+json\""
-)
+TENANTS="${TENANTS:-$*}"
+if [ -z "${TENANTS// /}" ]; then
+  echo "ERROR: no tenants given. Pass them as arguments or in TENANTS." >&2
+  echo "       A tenant-less subscription never matches any entity." >&2
+  exit 1
+fi
+
+# Types the notify handler actually materializes. Keep this list in sync with it.
+ENTITY_TYPES="AgriParcel ManufacturingMachine AgriParcelOperation"
 
 create_sub() {
-  local desc="$1" entity_type="$2"
-  echo "Creating subscription: $desc ($entity_type)"
+  local tenant="$1" entity_type="$2"
+  local sub_id="urn:ngsi-ld:Subscription:gis-routing:${entity_type}"
+  local status
 
-  curl -sS -X POST "$ORION_URL/ngsi-ld/v1/subscriptions" \
-    "${HEADERS[@]}" \
+  status=$(curl -sS -o /dev/null -w "%{http_code}" -X POST "$ORION_URL/ngsi-ld/v1/subscriptions" \
+    -H "Content-Type: application/json" \
+    -H "NGSILD-Tenant: $tenant" \
+    -H "Link: <$CONTEXT_URL>; rel=\"http://www.w3.org/ns/json-ld#context\"; type=\"application/ld+json\"" \
     -d "{
-      \"description\": \"GIS Routing — $desc\",
+      \"id\": \"$sub_id\",
+      \"description\": \"GIS Routing — $entity_type changes\",
       \"type\": \"Subscription\",
       \"entities\": [{\"type\": \"$entity_type\"}],
       \"notification\": {
@@ -47,15 +66,29 @@ create_sub() {
       },
       \"throttling\": 15,
       \"isActive\": true
-    }" && echo "  -> OK" || echo "  -> Already exists or failed (non-critical)"
+    }")
+
+  case "$status" in
+    201) echo "  $tenant/$entity_type -> created" ;;
+    409) echo "  $tenant/$entity_type -> already present" ;;
+    *)   echo "  $tenant/$entity_type -> FAILED (HTTP $status)" >&2; return 1 ;;
+  esac
 }
 
-create_sub "AgriParcel changes" "AgriParcel"
-create_sub "AgriculturalTractor changes" "AgriculturalTractor"
-create_sub "AgriculturalImplement changes" "AgriculturalImplement"
-create_sub "AgriParcelOperation changes" "AgriParcelOperation"
-create_sub "AgriManagementZone changes" "AgriManagementZone"
+failed=0
+for tenant in $TENANTS; do
+  echo "Tenant: $tenant"
+  for entity_type in $ENTITY_TYPES; do
+    create_sub "$tenant" "$entity_type" || failed=1
+  done
+done
+
+if [ "$failed" -ne 0 ]; then
+  echo "" >&2
+  echo "One or more subscriptions failed." >&2
+  exit 1
+fi
 
 echo ""
-echo "All subscriptions created."
-echo "Verify: curl -s $ORION_URL/ngsi-ld/v1/subscriptions?type=Subscription | python -c \"import sys,json; print(f'{len(json.load(sys.stdin))} active')\""
+echo "Done. Verify one tenant with:"
+echo "  curl -sS -H 'NGSILD-Tenant: <tenant>' $ORION_URL/ngsi-ld/v1/subscriptions?limit=100"
