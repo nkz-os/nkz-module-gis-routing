@@ -13,6 +13,13 @@
 # Subscription ids are deterministic, so re-running is idempotent: Orion
 # answers 409 for one that already exists instead of creating a duplicate.
 #
+# The notify endpoint rejects any notification without the X-Orion-Secret
+# header whenever MODULE_MANAGEMENT_KEY is configured on the backend (see
+# app/api/routing.py:on_ngsild_notification). Orion only sends headers it was
+# told to, via notification.endpoint.receiverInfo, so pass the same value in
+# ORION_SECRET here or every notification is answered 403 and nothing is
+# materialised. Never hardcode it: read it from the environment.
+#
 # The entity types below are exactly the ones the notify handler materializes
 # (see app/api/routing.py:on_ngsild_notification). Adding a type here that the
 # handler ignores creates a subscription that does nothing but deliver load.
@@ -30,10 +37,17 @@
 set -euo pipefail
 
 ORION_URL="${ORION_URL:-http://orion-service:1026}"
+ORION_SECRET="${ORION_SECRET:-}"
 NOTIFY_URL="${NOTIFY_URL:-http://nkz-module-gis-routing-api-service:8000/api/routing/notify}"
 CONTEXT_URL="${CONTEXT_URL:-http://api-gateway-service:5000/ngsi-ld-context.json}"
 
 TENANTS="${TENANTS:-$*}"
+if [ -z "$ORION_SECRET" ]; then
+  echo "WARNING: ORION_SECRET is empty. If the backend has MODULE_MANAGEMENT_KEY" >&2
+  echo "         set, every notification will be answered 403 and nothing will" >&2
+  echo "         be materialised." >&2
+fi
+
 if [ -z "${TENANTS// /}" ]; then
   echo "ERROR: no tenants given. Pass them as arguments or in TENANTS." >&2
   echo "       A tenant-less subscription never matches any entity." >&2
@@ -46,7 +60,12 @@ ENTITY_TYPES="AgriParcel ManufacturingMachine AgriParcelOperation"
 create_sub() {
   local tenant="$1" entity_type="$2"
   local sub_id="urn:ngsi-ld:Subscription:gis-routing:${entity_type}"
-  local status
+  local status receiver_info=""
+
+  if [ -n "$ORION_SECRET" ]; then
+    receiver_info=",
+          \"receiverInfo\": [{\"key\": \"X-Orion-Secret\", \"value\": \"$ORION_SECRET\"}]"
+  fi
 
   status=$(curl -sS -o /dev/null -w "%{http_code}" -X POST "$ORION_URL/ngsi-ld/v1/subscriptions" \
     -H "Content-Type: application/json" \
@@ -60,7 +79,7 @@ create_sub() {
       \"notification\": {
         \"endpoint\": {
           \"uri\": \"$NOTIFY_URL\",
-          \"accept\": \"application/json\"
+          \"accept\": \"application/json\"$receiver_info
         },
         \"format\": \"normalized\"
       },
