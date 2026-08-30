@@ -29,14 +29,14 @@
 #   ./create-subscriptions.sh tenant-a tenant-b
 #
 #   With port-forward:
-#     kubectl port-forward -n nekazari svc/orion-service 1026:1026 &
+#     kubectl port-forward -n nekazari svc/orion-ld-service 1026:1026 &
 #     ORION_URL=http://localhost:1026 \
 #     NOTIFY_URL=http://localhost:8000/api/routing/notify \
 #     TENANTS="tenant-a" ./create-subscriptions.sh
 # =============================================================================
 set -euo pipefail
 
-ORION_URL="${ORION_URL:-http://orion-service:1026}"
+ORION_URL="${ORION_URL:-http://orion-ld-service:1026}"
 ORION_SECRET="${ORION_SECRET:-}"
 NOTIFY_URL="${NOTIFY_URL:-http://nkz-module-gis-routing-service:8000/api/routing/notify}"
 CONTEXT_URL="${CONTEXT_URL:-http://api-gateway-service:5000/ngsi-ld-context.json}"
