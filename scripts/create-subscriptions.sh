@@ -38,7 +38,7 @@ set -euo pipefail
 
 ORION_URL="${ORION_URL:-http://orion-service:1026}"
 ORION_SECRET="${ORION_SECRET:-}"
-NOTIFY_URL="${NOTIFY_URL:-http://nkz-module-gis-routing-api-service:8000/api/routing/notify}"
+NOTIFY_URL="${NOTIFY_URL:-http://nkz-module-gis-routing-service:8000/api/routing/notify}"
 CONTEXT_URL="${CONTEXT_URL:-http://api-gateway-service:5000/ngsi-ld-context.json}"
 
 TENANTS="${TENANTS:-$*}"
