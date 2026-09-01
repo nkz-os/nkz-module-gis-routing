@@ -763,12 +763,17 @@ async def export_operation(
         )
 
 
-@router.post("/notify")
+@router.post("/notify", status_code=204)
 async def on_ngsild_notification(request: Request):
     """Receive NGSI-LD subscription notifications from Orion-LD.
 
     Called by Orion-LD when entities matching our subscriptions change.
     No JWT required — Orion-LD sends service-to-service notifications.
+
+    Answers 204 with no body: Orion-LD looks for a capitalised "Content-Length:"
+    with a case-sensitive strstr and only skips that check on a 204. uvicorn emits
+    the header lower-cased, so any other success status is counted as a failed
+    notification and deactivates the subscription after 3 consecutive hits.
     """
     settings = get_settings()
     if settings.module_management_key:
@@ -781,7 +786,7 @@ async def on_ngsild_notification(request: Request):
     data = body.get("data", [])
 
     if not data:
-        return {"status": "ok", "materialized": 0}
+        return None
 
     settings = get_settings()
     ts = TimescaleDBClient(dsn=settings.database_url)
@@ -871,4 +876,4 @@ async def on_ngsild_notification(request: Request):
         await ts.close()
 
     logger.info("Materialized %d entities for tenant %s from notification", count, tenant_id)
-    return {"status": "ok", "materialized": count}
+    return None
