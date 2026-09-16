@@ -8,8 +8,10 @@ Orion-LD persistence.
 
 import hashlib
 import csv
+import hmac
 import json
 import logging
+import os
 import time
 import io
 from fastapi import APIRouter, Request, Query, HTTPException
@@ -763,6 +765,19 @@ async def export_operation(
         )
 
 
+def _reject_unauthenticated_notify(x_internal_secret: str | None) -> HTTPException | None:
+    """Flag-gated auth for the Orion notification receiver (two-phase rollout)."""
+    require = os.getenv("NOTIFY_REQUIRE_INTERNAL_SECRET", "").lower() in (
+        "1", "true", "yes", "on"
+    )
+    if not require:
+        return None
+    secret = os.getenv("INTERNAL_SERVICE_SECRET", "")
+    if not secret or not hmac.compare_digest(x_internal_secret or "", secret):
+        return HTTPException(status_code=401, detail="missing or invalid internal secret")
+    return None
+
+
 @router.post("/notify", status_code=204)
 async def on_ngsild_notification(request: Request):
     """Receive NGSI-LD subscription notifications from Orion-LD.
@@ -775,11 +790,11 @@ async def on_ngsild_notification(request: Request):
     the header lower-cased, so any other success status is counted as a failed
     notification and deactivates the subscription after 3 consecutive hits.
     """
-    settings = get_settings()
-    if settings.module_management_key:
-        secret = request.headers.get("X-Orion-Secret", "")
-        if secret != settings.module_management_key:
-            raise HTTPException(status_code=403, detail="Invalid shared secret")
+    reject = _reject_unauthenticated_notify(
+        request.headers.get("X-Internal-Service-Secret", "")
+    )
+    if reject:
+        raise reject
 
     body = await request.json()
     tenant_id = request.headers.get("FIWARE-Service", "default")
