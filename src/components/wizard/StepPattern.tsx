@@ -41,26 +41,26 @@ export const StepPattern: React.FC<Props> = ({
   const [expanded, setExpanded] = useState(false);
 
   return (
-    <div className="rounded-nkz-lg border border-nkz-default bg-nkz-surface-alt">
+    <div className="rounded-nkz-lg border border-nkz-border bg-nkz-surface-raised">
       <button onClick={() => setExpanded(!expanded)}
-        className="w-full flex items-center justify-between px-nkz-md py-3 text-nkz-sm font-semibold">
-        <span className="flex items-center gap-nkz-sm">
-          <span className="w-6 h-6 rounded-full bg-nkz-text-accent text-white text-nkz-sm flex items-center justify-center">3</span>
-          <Grid3X3 className="w-4 h-4 text-nkz-text-accent" />
+        className="w-full flex items-center justify-between px-nkz-stack py-3 text-nkz-sm font-semibold">
+        <span className="flex items-center gap-nkz-inline">
+          <span className="w-6 h-6 rounded-full bg-nkz-accent-base text-white text-nkz-sm flex items-center justify-center">3</span>
+          <Grid3X3 className="w-4 h-4 text-nkz-accent-base" />
           {t('parameters.heading')} &amp; {t('parameters.width')}
         </span>
         <ChevronDown className={`w-4 h-4 transition-transform ${expanded ? '' : '-rotate-90'}`} />
       </button>
       {expanded && (
-        <div className="px-nkz-md pb-3 space-y-2">
+        <div className="px-nkz-stack pb-3 space-y-2">
           {/* Pattern selector */}
           <div className="grid grid-cols-2 gap-1">
             {PATTERNS.map(p => (
               <button key={p.id} onClick={() => onPatternChange(p.id)}
                 className={`py-2 px-2 rounded-nkz-md text-nkz-sm font-medium border transition-colors ${
                   pattern === p.id
-                    ? 'border-nkz-accent bg-nkz-surface text-nkz-text-accent'
-                    : 'border-nkz-default text-nkz-text-secondary hover:border-nkz-accent'
+                    ? 'border-nkz-accent-base bg-nkz-surface text-nkz-accent-base'
+                    : 'border-nkz-border text-nkz-text-secondary hover:border-nkz-accent-base'
                 }`}>
                 <span className="text-lg block">{p.icon}</span>
                 {t(p.labelKey)}
@@ -76,8 +76,8 @@ export const StepPattern: React.FC<Props> = ({
                 <button key={m} onClick={() => onHeadingModeChange(m)}
                   className={`py-1.5 rounded-nkz-md text-nkz-xs font-medium border transition-colors ${
                     headingMode === m
-                      ? 'border-nkz-accent bg-nkz-surface text-nkz-text-accent'
-                      : 'border-nkz-default text-nkz-text-secondary hover:border-nkz-accent'
+                      ? 'border-nkz-accent-base bg-nkz-surface text-nkz-accent-base'
+                      : 'border-nkz-border text-nkz-text-secondary hover:border-nkz-accent-base'
                   }`}>
                   {t(`headingMode.${m}`)}
                 </button>
@@ -86,7 +86,7 @@ export const StepPattern: React.FC<Props> = ({
             {headingMode === 'manual' && (
               <input type="number" min={0} max={359} value={config.headingDeg}
                 onChange={e => onConfigChange({ headingDeg: Number(e.target.value) % 360 })}
-                className="w-full border border-nkz-default rounded-nkz-md px-3 py-1.5 text-nkz-sm bg-nkz-surface mt-1" />
+                className="w-full border border-nkz-border rounded-nkz-md px-3 py-1.5 text-nkz-sm bg-nkz-surface mt-1" />
             )}
           </div>
 
@@ -95,7 +95,7 @@ export const StepPattern: React.FC<Props> = ({
             <label className="text-nkz-sm text-nkz-text-secondary flex items-center gap-1"><Ruler className="w-3 h-3" />{t('parameters.width')}</label>
             <input type="number" min={1} max={120} value={config.widthM}
               onChange={e => onConfigChange({ widthM: Number(e.target.value) })}
-              className="w-full border border-nkz-default rounded-nkz-md px-3 py-1.5 text-nkz-sm bg-nkz-surface" />
+              className="w-full border border-nkz-border rounded-nkz-md px-3 py-1.5 text-nkz-sm bg-nkz-surface" />
           </div>
 
           {/* Overlap % */}
@@ -111,7 +111,7 @@ export const StepPattern: React.FC<Props> = ({
           <div>
             <label className="text-nkz-sm text-nkz-text-secondary">{t('parameters.headlandPasses')}</label>
             <select value={config.headlandPasses} onChange={e => onConfigChange({ headlandPasses: Number(e.target.value) })}
-              className="w-full border border-nkz-default rounded-nkz-md px-3 py-1.5 text-nkz-sm bg-nkz-surface">
+              className="w-full border border-nkz-border rounded-nkz-md px-3 py-1.5 text-nkz-sm bg-nkz-surface">
               <option value={0}>0</option><option value={1}>1</option><option value={2}>2</option><option value={3}>3</option>
             </select>
           </div>
@@ -121,7 +121,7 @@ export const StepPattern: React.FC<Props> = ({
             <div>
               <label className="text-nkz-sm text-nkz-text-secondary">{t('parameters.direction')}</label>
               <select value={config.direction} onChange={e => onConfigChange({ direction: e.target.value as 'inside-out' | 'outside-in' })}
-                className="w-full border border-nkz-default rounded-nkz-md px-3 py-1.5 text-nkz-sm bg-nkz-surface">
+                className="w-full border border-nkz-border rounded-nkz-md px-3 py-1.5 text-nkz-sm bg-nkz-surface">
                 <option value="outside-in">Outside → In</option>
                 <option value="inside-out">Inside → Out</option>
               </select>

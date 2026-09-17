@@ -9,7 +9,7 @@ export const ConstraintsStatus: React.FC<Props> = ({ hasGate, zoneCount }) => {
   const { t } = useTranslation(NS);
   return (
     <p className="text-nkz-xs text-nkz-text-secondary flex items-center gap-2">
-      <span className={hasGate ? 'text-nkz-text-success' : 'text-nkz-text-muted'}>
+      <span className={hasGate ? 'text-nkz-success' : 'text-nkz-text-muted'}>
         {hasGate ? t('parcel.accessBadge') : t('parcelConfig.noAccessPoint')}
       </span>
       <span>·</span>

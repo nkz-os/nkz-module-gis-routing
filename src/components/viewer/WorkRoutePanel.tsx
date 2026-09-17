@@ -61,8 +61,8 @@ export const WorkRoutePanel: React.FC<Props> = ({ parcelId }) => {
           {PATTERNS.map(p => (
             <button key={p} onClick={() => setPattern(p)}
               className={`py-1.5 rounded-nkz-md text-nkz-xs font-medium border ${
-                pattern === p ? 'border-nkz-accent bg-nkz-surface text-nkz-text-accent'
-                              : 'border-nkz-default text-nkz-text-secondary'}`}>
+                pattern === p ? 'border-nkz-accent-base bg-nkz-surface text-nkz-accent-base'
+                              : 'border-nkz-border text-nkz-text-secondary'}`}>
               {t(`patternLabels.${p}`)}
             </button>
           ))}
@@ -71,7 +71,7 @@ export const WorkRoutePanel: React.FC<Props> = ({ parcelId }) => {
       <div>
         <label className="text-nkz-xs text-nkz-text-secondary">{t('cockpit.equipment')}</label>
         <select value={implementId} onChange={e => setImplementId(e.target.value)}
-          className="w-full border border-nkz-default rounded-nkz-md px-2 py-1.5 text-nkz-xs bg-nkz-surface mt-1">
+          className="w-full border border-nkz-border rounded-nkz-md px-2 py-1.5 text-nkz-xs bg-nkz-surface mt-1">
           <option value="">{t('cockpit.noEquipment')}</option>
           {equipment.map((m: any) => <option key={m.id} value={m.id}>{m.name}</option>)}
         </select>
@@ -82,7 +82,7 @@ export const WorkRoutePanel: React.FC<Props> = ({ parcelId }) => {
         {busy ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Play className="w-3.5 h-3.5" />}
         {t('cockpit.generate')}
       </button>
-      {error && <p className="text-nkz-xs text-nkz-text-error">{error}</p>}
+      {error && <p className="text-nkz-xs text-nkz-danger">{error}</p>}
       {metrics && (
         <div className="text-nkz-xs text-nkz-text-secondary flex gap-3">
           <span>{t('stats.fieldEfficiency')}: {(metrics.field_efficiency * 100).toFixed(0)}%</span>

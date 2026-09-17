@@ -41,18 +41,18 @@ export const StepGenerate: React.FC<Props> = ({
   return (
     <div className="space-y-nkz-stack">
       {/* Granular validation checklist */}
-      <div className="rounded-nkz-lg border border-nkz-default p-nkz-md bg-nkz-surface-alt space-y-1.5">
+      <div className="rounded-nkz-lg border border-nkz-border p-nkz-stack bg-nkz-surface-raised space-y-1.5">
         <h3 className="text-nkz-sm font-semibold text-nkz-text-secondary uppercase tracking-wider mb-2">
           {t('workflow.validate')}
         </h3>
         {items.map(item => (
           <div key={item.key} className="flex items-center gap-2 text-nkz-sm">
             {item.pass ? (
-              <CheckCircle2 className="w-3.5 h-3.5 text-nkz-text-success flex-shrink-0" />
+              <CheckCircle2 className="w-3.5 h-3.5 text-nkz-success flex-shrink-0" />
             ) : (
               <Circle className="w-3.5 h-3.5 text-nkz-text-secondary flex-shrink-0" />
             )}
-            <span className={item.pass ? 'text-nkz-text-success' : 'text-nkz-text-secondary'}>
+            <span className={item.pass ? 'text-nkz-success' : 'text-nkz-text-secondary'}>
               {item.label}
             </span>
           </div>
@@ -60,7 +60,7 @@ export const StepGenerate: React.FC<Props> = ({
       </div>
 
       {error && (
-        <div className="flex items-start gap-2 bg-nkz-surface border border-nkz-accent rounded-nkz-md p-3 text-nkz-sm text-nkz-text-error">
+        <div className="flex items-start gap-2 bg-nkz-surface border border-nkz-accent-base rounded-nkz-md p-3 text-nkz-sm text-nkz-danger">
           <AlertCircle className="w-3.5 h-3.5 mt-0.5 flex-shrink-0" />
           <span>{error}</span>
         </div>

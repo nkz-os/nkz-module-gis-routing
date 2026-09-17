@@ -18,13 +18,13 @@ export const TransitPanel: React.FC<Props> = ({ pfState, alt, onSave, onCancel }
   return (
     <div className="space-y-2">
       {pfState === 'picking-a' && (
-        <div className="text-nkz-sm text-nkz-text-secondary text-center py-2 bg-nkz-surface-alt rounded-nkz-md">
+        <div className="text-nkz-sm text-nkz-text-secondary text-center py-2 bg-nkz-surface-raised rounded-nkz-md">
           <span className="w-3 h-3 rounded-full bg-green-500 inline-block mr-1" />
           {t('pathfinding.pickPointA')}
         </div>
       )}
       {pfState === 'picking-b' && (
-        <div className="text-nkz-sm text-nkz-text-secondary text-center py-2 bg-nkz-surface-alt rounded-nkz-md">
+        <div className="text-nkz-sm text-nkz-text-secondary text-center py-2 bg-nkz-surface-raised rounded-nkz-md">
           <span className="w-3 h-3 rounded-full bg-red-500 inline-block mr-1" />
           {t('pathfinding.pickPointB')}
         </div>

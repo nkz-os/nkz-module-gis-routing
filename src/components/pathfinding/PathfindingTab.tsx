@@ -36,7 +36,7 @@ const Sparkline: React.FC<{ profile: number[][] }> = ({ profile }) => {
   }).join(' ');
   return (
     <svg viewBox="0 0 100 20" preserveAspectRatio="none" className="w-full h-5 mt-1">
-      <polyline points={pts} fill="none" stroke="currentColor" strokeWidth={1} className="text-nkz-text-accent" />
+      <polyline points={pts} fill="none" stroke="currentColor" strokeWidth={1} className="text-nkz-accent-base" />
     </svg>
   );
 };
@@ -103,7 +103,7 @@ export const PathfindingTab: React.FC<Props> = ({ parcelGeometry, machineWidthM,
   return (
     <div className="space-y-nkz-stack">
       <h3 className="text-nkz-sm font-semibold text-nkz-text-primary flex items-center gap-1">
-        <Flag className="w-4 h-4 text-nkz-text-accent" />
+        <Flag className="w-4 h-4 text-nkz-accent-base" />
         {t('pathfinding.title')}
       </h3>
 
@@ -112,19 +112,19 @@ export const PathfindingTab: React.FC<Props> = ({ parcelGeometry, machineWidthM,
           <label className="text-nkz-xs text-nkz-text-secondary">{t('pathfinding.pointA')}</label>
           <input type="number" value={pointA.lat} step={0.001}
             onChange={e => setPointA({ ...pointA, lat: +e.target.value })}
-            className="w-full border border-nkz-default rounded-nkz-md px-2 py-1 text-nkz-xs" />
+            className="w-full border border-nkz-border rounded-nkz-md px-2 py-1 text-nkz-xs" />
           <input type="number" value={pointA.lon} step={0.001}
             onChange={e => setPointA({ ...pointA, lon: +e.target.value })}
-            className="w-full border border-nkz-default rounded-nkz-md px-2 py-1 text-nkz-xs mt-1" />
+            className="w-full border border-nkz-border rounded-nkz-md px-2 py-1 text-nkz-xs mt-1" />
         </div>
         <div>
           <label className="text-nkz-xs text-nkz-text-secondary">{t('pathfinding.pointB')}</label>
           <input type="number" value={pointB.lat} step={0.001}
             onChange={e => setPointB({ ...pointB, lat: +e.target.value })}
-            className="w-full border border-nkz-default rounded-nkz-md px-2 py-1 text-nkz-xs" />
+            className="w-full border border-nkz-border rounded-nkz-md px-2 py-1 text-nkz-xs" />
           <input type="number" value={pointB.lon} step={0.001}
             onChange={e => setPointB({ ...pointB, lon: +e.target.value })}
-            className="w-full border border-nkz-default rounded-nkz-md px-2 py-1 text-nkz-xs mt-1" />
+            className="w-full border border-nkz-border rounded-nkz-md px-2 py-1 text-nkz-xs mt-1" />
         </div>
       </div>
 
@@ -137,13 +137,13 @@ export const PathfindingTab: React.FC<Props> = ({ parcelGeometry, machineWidthM,
 
       {polling && <p className="text-nkz-xs text-nkz-text-secondary">{t('pathfinding.calculating')}...</p>}
 
-      {error && <p className="text-nkz-xs text-nkz-text-error">{error}</p>}
+      {error && <p className="text-nkz-xs text-nkz-danger">{error}</p>}
 
       {alternatives.length > 0 && (
         <div className="space-y-2">
           <p className="text-nkz-xs font-semibold text-nkz-text-primary">{t('pathfinding.results')}</p>
           {alternatives.map(alt => (
-            <div key={alt.id} className="rounded-nkz-md border border-nkz-default p-2 bg-nkz-surface-alt">
+            <div key={alt.id} className="rounded-nkz-md border border-nkz-border p-2 bg-nkz-surface-raised">
               <p className="text-nkz-xs font-medium text-nkz-text-primary">{alt.label}</p>
               <div className="flex gap-3 text-[11px] text-nkz-text-secondary mt-1">
                 <span>{t('pathfinding.distance')}: {alt.distance_m?.toFixed(0)} m</span>

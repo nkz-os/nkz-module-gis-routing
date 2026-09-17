@@ -296,12 +296,12 @@ const App: React.FC = () => {
     <WizardShell
       left={
         <>
-          <div className="flex rounded-nkz-md bg-nkz-surface-alt p-1 gap-1">
+          <div className="flex rounded-nkz-md bg-nkz-surface-raised p-1 gap-1">
             <button
               onClick={() => setActiveTab('routing')}
               className={`flex-1 text-nkz-sm py-2 rounded-nkz-sm font-medium transition-colors ${
                 activeTab === 'routing'
-                  ? 'bg-nkz-surface text-nkz-text-accent shadow-sm'
+                  ? 'bg-nkz-surface text-nkz-accent-base shadow-sm'
                   : 'text-nkz-text-secondary hover:text-nkz-text-primary'
               }`}
             >
@@ -311,7 +311,7 @@ const App: React.FC = () => {
               onClick={() => setActiveTab('pathfinding')}
               className={`flex-1 text-nkz-sm py-2 rounded-nkz-sm font-medium transition-colors ${
                 activeTab === 'pathfinding'
-                  ? 'bg-nkz-surface text-nkz-text-accent shadow-sm'
+                  ? 'bg-nkz-surface text-nkz-accent-base shadow-sm'
                   : 'text-nkz-text-secondary hover:text-nkz-text-primary'
               }`}
             >
@@ -405,7 +405,7 @@ const App: React.FC = () => {
               )}
               {/* Save success toast */}
               {saveSuccess && (
-                <div className="rounded-nkz-md bg-green-50 border border-green-200 px-nkz-md py-2 text-nkz-sm text-green-700 font-medium text-center">
+                <div className="rounded-nkz-md bg-green-50 border border-green-200 px-nkz-stack py-2 text-nkz-sm text-green-700 font-medium text-center">
                   ✓ {t('patterns.saved')}
                 </div>
               )}
@@ -413,18 +413,18 @@ const App: React.FC = () => {
                 <div className="text-nkz-sm text-nkz-text-secondary text-center py-2">Loading...</div>
               )}
               {!patternsLoading && savedPatterns.length > 0 && (
-                <div className="rounded-nkz-lg border border-nkz-default bg-nkz-surface-alt">
-                  <div className="px-nkz-md py-3 border-b border-nkz-default">
+                <div className="rounded-nkz-lg border border-nkz-border bg-nkz-surface-raised">
+                  <div className="px-nkz-stack py-3 border-b border-nkz-border">
                     <span className="text-nkz-sm font-semibold text-nkz-text-secondary">
                       {t('patterns.savedListTitle')} ({savedPatterns.length})
                     </span>
                   </div>
-                  <div className="divide-y divide-nkz-default max-h-48 overflow-y-auto">
+                  <div className="divide-y divide-nkz-border max-h-48 overflow-y-auto">
                     {savedPatterns.map((p: any) => (
                       <div key={p.id} className="flex items-center">
                         <button
                           onClick={() => handleLoadPattern(p.id)}
-                          className="flex-1 text-left px-nkz-md py-2.5 hover:bg-nkz-surface transition-colors"
+                          className="flex-1 text-left px-nkz-stack py-2.5 hover:bg-nkz-surface transition-colors"
                         >
                           <div className="text-nkz-sm font-medium text-nkz-text-primary">{p.name}</div>
                           <div className="text-nkz-xs text-nkz-text-secondary flex gap-2">
@@ -436,7 +436,7 @@ const App: React.FC = () => {
                         </button>
                         <button
                           onClick={(e) => handleDeletePattern(p.id, e)}
-                          className="px-2 py-1 text-nkz-text-secondary hover:text-nkz-text-error transition-colors"
+                          className="px-2 py-1 text-nkz-text-secondary hover:text-nkz-danger transition-colors"
                           title="Delete"
                         >
                           ×
