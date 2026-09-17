@@ -12,7 +12,7 @@ export const StatsPanel: React.FC<Props> = ({ result }) => {
   const m = s.metrics || {};
   const km = (v: number) => `${(v / 1000).toFixed(2)} km`;
   return (
-    <div className="rounded-nkz-lg border border-nkz-default p-nkz-md bg-nkz-surface-alt">
+    <div className="rounded-nkz-lg border border-nkz-border p-nkz-stack bg-nkz-surface-raised">
       <h3 className="text-nkz-xs font-semibold text-nkz-text-secondary uppercase flex items-center gap-1 mb-3">
         <BarChart3 className="w-3.5 h-3.5" />
         {t('stats.title')}
@@ -44,7 +44,7 @@ export const StatsPanel: React.FC<Props> = ({ result }) => {
         </div>
         <div className="flex justify-between">
           <dt className="text-nkz-text-secondary">{t('stats.pattern')}</dt>
-          <dd className="font-bold text-nkz-text-accent">{s.pattern ?? '-'}</dd>
+          <dd className="font-bold text-nkz-accent-base">{s.pattern ?? '-'}</dd>
         </div>
         {s.metadata?.curve_type && (
           <div className="flex justify-between">

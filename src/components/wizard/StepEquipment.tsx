@@ -50,24 +50,24 @@ export const StepEquipment: React.FC<Props> = ({
   const implements_ = equipment.filter(e => (e.category || '').toLowerCase() === 'implement');
 
   return (
-    <div className="rounded-nkz-lg border border-nkz-default bg-nkz-surface-alt">
+    <div className="rounded-nkz-lg border border-nkz-border bg-nkz-surface-raised">
       <button onClick={() => setExpanded(!expanded)}
-        className="w-full flex items-center justify-between px-nkz-md py-3 text-nkz-sm font-semibold">
-        <span className="flex items-center gap-nkz-sm">
-          <span className="w-6 h-6 rounded-full bg-nkz-text-accent text-white text-nkz-sm flex items-center justify-center">2</span>
-          <Tractor className="w-4 h-4 text-nkz-text-accent" />
+        className="w-full flex items-center justify-between px-nkz-stack py-3 text-nkz-sm font-semibold">
+        <span className="flex items-center gap-nkz-inline">
+          <span className="w-6 h-6 rounded-full bg-nkz-accent-base text-white text-nkz-sm flex items-center justify-center">2</span>
+          <Tractor className="w-4 h-4 text-nkz-accent-base" />
           {t('equipment.label')}
         </span>
         <ChevronDown className={`w-4 h-4 transition-transform ${expanded ? '' : '-rotate-90'}`} />
       </button>
       {expanded && (
-        <div className="px-nkz-md pb-3 space-y-2">
+        <div className="px-nkz-stack pb-3 space-y-2">
           {loading ? <Loader2 className="w-4 h-4 animate-spin text-nkz-text-secondary" /> : (
             <>
               <div>
                 <label className="text-nkz-sm text-nkz-text-secondary">{t('parameters.operationType')}</label>
                 <select value={operationType} onChange={e => onOperationTypeChange(e.target.value)}
-                  className="w-full border border-nkz-default rounded-nkz-md px-3 py-2 text-nkz-sm bg-nkz-surface">
+                  className="w-full border border-nkz-border rounded-nkz-md px-3 py-2 text-nkz-sm bg-nkz-surface">
                   <option value="spraying">{t('operationType.spraying')}</option>
                   <option value="fertilizing">{t('operationType.fertilizing')}</option>
                   <option value="seeding">{t('operationType.seeding')}</option>
@@ -77,7 +77,7 @@ export const StepEquipment: React.FC<Props> = ({
               <div>
                 <label className="text-nkz-sm text-nkz-text-secondary">{t('equipment.tractorLabel')}</label>
                 <select value={tractorId || ''} onChange={e => onTractorChange(e.target.value || null)}
-                  className="w-full border border-nkz-default rounded-nkz-md px-3 py-2 text-nkz-sm bg-nkz-surface">
+                  className="w-full border border-nkz-border rounded-nkz-md px-3 py-2 text-nkz-sm bg-nkz-surface">
                   <option value="">{t('equipment.selectTractor')}</option>
                   {tractors.map(e => (
                     <option key={e.id} value={e.id}>{e.name}</option>
@@ -87,7 +87,7 @@ export const StepEquipment: React.FC<Props> = ({
               <div>
                 <label className="text-nkz-sm text-nkz-text-secondary">{t('equipment.implementLabel')}</label>
                 <select value={implementId || ''} onChange={e => onImplementChange(e.target.value || null)}
-                  className="w-full border border-nkz-default rounded-nkz-md px-3 py-2 text-nkz-sm bg-nkz-surface">
+                  className="w-full border border-nkz-border rounded-nkz-md px-3 py-2 text-nkz-sm bg-nkz-surface">
                   <option value="">{t('equipment.selectImplement')}</option>
                   {implements_.map(e => (
                     <option key={e.id} value={e.id}>{e.name}</option>
@@ -105,8 +105,8 @@ export const StepEquipment: React.FC<Props> = ({
                     <input type="number" min={0.1} step={0.1} value={turningRadiusM ?? ''}
                       placeholder={t('equipment.turningRadiusPlaceholder')}
                       onChange={e => onTurningRadiusOverride(Number(e.target.value))}
-                      className="w-full border border-nkz-default rounded-nkz-md px-3 py-2 text-nkz-sm bg-nkz-surface" />
-                    <p className="text-nkz-xs text-nkz-text-warning mt-1">{t('equipment.noTurningRadius')}</p>
+                      className="w-full border border-nkz-border rounded-nkz-md px-3 py-2 text-nkz-sm bg-nkz-surface" />
+                    <p className="text-nkz-xs text-nkz-warning mt-1">{t('equipment.noTurningRadius')}</p>
                   </>
                 )}
               </div>

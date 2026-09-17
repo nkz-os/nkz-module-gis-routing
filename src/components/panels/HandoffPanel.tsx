@@ -33,7 +33,7 @@ export const HandoffPanel: React.FC<Props> = ({ operationId }) => {
   };
 
   return (
-    <div className="rounded-nkz-lg border border-nkz-default p-nkz-md bg-nkz-surface-alt">
+    <div className="rounded-nkz-lg border border-nkz-border p-nkz-stack bg-nkz-surface-raised">
       <h3 className="text-nkz-xs font-semibold text-nkz-text-secondary uppercase flex items-center gap-1 mb-3">
         <Smartphone className="w-3.5 h-3.5" />
         {t('handoff.title')}

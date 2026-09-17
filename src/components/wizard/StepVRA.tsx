@@ -46,28 +46,28 @@ export const StepVRA: React.FC<Props> = ({
   }, [enabled, parcelId]);
 
   return (
-    <div className="rounded-nkz-lg border border-nkz-default bg-nkz-surface-alt">
+    <div className="rounded-nkz-lg border border-nkz-border bg-nkz-surface-raised">
       <button onClick={() => setExpanded(!expanded)}
-        className="w-full flex items-center justify-between px-nkz-md py-3 text-nkz-sm font-semibold">
-        <span className="flex items-center gap-nkz-sm">
-          <span className="w-6 h-6 rounded-full bg-nkz-text-accent text-white text-nkz-sm flex items-center justify-center">4</span>
-          <Layers className="w-4 h-4 text-nkz-text-accent" />
+        className="w-full flex items-center justify-between px-nkz-stack py-3 text-nkz-sm font-semibold">
+        <span className="flex items-center gap-nkz-inline">
+          <span className="w-6 h-6 rounded-full bg-nkz-accent-base text-white text-nkz-sm flex items-center justify-center">4</span>
+          <Layers className="w-4 h-4 text-nkz-accent-base" />
           {t('vra.enabled')}
         </span>
         <ChevronDown className={`w-4 h-4 transition-transform ${expanded ? '' : '-rotate-90'}`} />
       </button>
       {expanded && (
-        <div className="px-nkz-md pb-3 space-y-2">
+        <div className="px-nkz-stack pb-3 space-y-2">
           <label className="flex items-center gap-2 cursor-pointer">
             <input type="checkbox" checked={enabled} onChange={e => onEnabledChange(e.target.checked)}
-              className="rounded-nkz-md border-nkz-default text-nkz-text-accent" />
+              className="rounded-nkz-md border-nkz-border text-nkz-accent-base" />
             <span className="text-nkz-sm text-nkz-text-primary">{t('vra.enabled')}</span>
           </label>
 
           {enabled && (
             <>
               <select value={source} onChange={e => onSourceChange(e.target.value)}
-                className="w-full border border-nkz-default rounded-nkz-md px-3 py-2 text-nkz-sm bg-nkz-surface">
+                className="w-full border border-nkz-border rounded-nkz-md px-3 py-2 text-nkz-sm bg-nkz-surface">
                 <option value="vegetation-health">Vegetation Health</option>
                 <option value="orion">Orion-LD</option>
                 <option value="external">External file</option>
@@ -77,7 +77,7 @@ export const StepVRA: React.FC<Props> = ({
                 <label className="text-nkz-sm text-nkz-text-secondary">{t('vra.baseRate')}</label>
                 <input type="number" min={0} value={baseRate}
                   onChange={e => onBaseRateChange(Number(e.target.value))}
-                  className="w-full border border-nkz-default rounded-nkz-md px-3 py-1.5 text-nkz-sm bg-nkz-surface" />
+                  className="w-full border border-nkz-border rounded-nkz-md px-3 py-1.5 text-nkz-sm bg-nkz-surface" />
               </div>
 
               {loading ? <Loader2 className="w-3 h-3 animate-spin" /> : zones.length > 0 ? (
@@ -88,7 +88,7 @@ export const StepVRA: React.FC<Props> = ({
                         onChange={e => {
                           onZoneIdsChange(e.target.checked ? [...zoneIds, z.id] : zoneIds.filter(id => id !== z.id));
                         }}
-                        className="rounded-nkz-md border-nkz-default text-nkz-text-accent" />
+                        className="rounded-nkz-md border-nkz-border text-nkz-accent-base" />
                       <span>{t('zoning.zoneLabel', { id: z.zone_id || z.id })}</span>
                       <span className="text-nkz-text-secondary ml-auto">{z.prescription_rate?.toFixed(2)}x</span>
                     </label>

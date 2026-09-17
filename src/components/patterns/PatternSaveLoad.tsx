@@ -45,20 +45,20 @@ export const PatternSaveLoad: React.FC<Props> = ({
   };
 
   return (
-    <div className="rounded-nkz-lg border border-nkz-default p-nkz-md bg-nkz-surface-alt space-y-2">
+    <div className="rounded-nkz-lg border border-nkz-border p-nkz-stack bg-nkz-surface-raised space-y-2">
       <h3 className="text-nkz-xs font-semibold text-nkz-text-secondary uppercase flex items-center gap-1">
         <Save className="w-3.5 h-3.5" />
         {t('patterns.saveTitle')}
       </h3>
       {saved ? (
-        <p className="text-nkz-xs text-nkz-text-success">{t('patterns.saved')}</p>
+        <p className="text-nkz-xs text-nkz-success">{t('patterns.saved')}</p>
       ) : (
         <>
           <input
             type="text" value={name}
             onChange={e => setName(e.target.value)}
             placeholder={t('patterns.namePlaceholder')}
-            className="w-full border border-nkz-default rounded-nkz-md px-3 py-2 text-nkz-sm bg-nkz-surface"
+            className="w-full border border-nkz-border rounded-nkz-md px-3 py-2 text-nkz-sm bg-nkz-surface"
           />
           <button onClick={handleSave} disabled={saving || !name.trim()}
             className="w-full py-2 rounded-nkz-md text-nkz-xs font-semibold text-nkz-text-on-accent disabled:opacity-50"

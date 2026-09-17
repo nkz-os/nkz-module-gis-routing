@@ -42,7 +42,7 @@ const SavedRoutes: React.FC<{
       {patterns.map((p: any) => (
         <div
           key={p.id}
-          className="flex items-center gap-2 rounded-nkz-md border border-nkz-default p-2.5 bg-nkz-surface-alt"
+          className="flex items-center gap-2 rounded-nkz-md border border-nkz-border p-2.5 bg-nkz-surface-raised"
         >
           <div className="flex-1 min-w-0">
             <p className="text-nkz-sm font-medium text-nkz-text-primary truncate">{p.name}</p>
@@ -80,14 +80,14 @@ const DrawControls: React.FC<{
       <div className="flex gap-2">
         <button
           onClick={markAccess}
-          className="flex-1 flex items-center justify-center gap-1 py-1.5 rounded-nkz-md text-nkz-xs font-semibold border border-nkz-default hover:bg-nkz-surface-alt"
+          className="flex-1 flex items-center justify-center gap-1 py-1.5 rounded-nkz-md text-nkz-xs font-semibold border border-nkz-border hover:bg-nkz-surface-raised"
         >
           <Flag className="w-3.5 h-3.5" />
           {t('parcelConfig.dropAccessPoint')}
         </button>
         <button
           onClick={drawZone}
-          className="flex-1 flex items-center justify-center gap-1 py-1.5 rounded-nkz-md text-nkz-xs font-semibold border border-nkz-default hover:bg-nkz-surface-alt"
+          className="flex-1 flex items-center justify-center gap-1 py-1.5 rounded-nkz-md text-nkz-xs font-semibold border border-nkz-border hover:bg-nkz-surface-raised"
         >
           <Ban className="w-3.5 h-3.5" />
           {t('parcelConfig.drawZone')}
@@ -98,12 +98,12 @@ const DrawControls: React.FC<{
           {zones.map((z, i) => (
             <div
               key={z.id}
-              className="flex items-center justify-between text-nkz-xs bg-nkz-surface-alt rounded-nkz-md px-2 py-1"
+              className="flex items-center justify-between text-nkz-xs bg-nkz-surface-raised rounded-nkz-md px-2 py-1"
             >
               <span>{t('parcelConfig.noGoZones')} {i + 1}</span>
               <button
                 onClick={() => onRemoveZone(z.id)}
-                className="text-nkz-text-error hover:opacity-80"
+                className="text-nkz-danger hover:opacity-80"
                 title={t('parcelConfig.deleteZone')}
               >
                 <Trash2 className="w-3.5 h-3.5" />
@@ -122,10 +122,10 @@ const DrawControls: React.FC<{
         {t('parcelConfig.save')}
       </button>
       {status === 'saved' && (
-        <p className="text-nkz-xs text-nkz-text-success text-center">{t('parcelConfig.saved')}</p>
+        <p className="text-nkz-xs text-nkz-success text-center">{t('parcelConfig.saved')}</p>
       )}
       {status === 'error' && (
-        <p className="text-nkz-xs text-nkz-text-error text-center">{t('parcelConfig.saveError')}</p>
+        <p className="text-nkz-xs text-nkz-danger text-center">{t('parcelConfig.saveError')}</p>
       )}
     </div>
   );
@@ -310,7 +310,7 @@ export const ContextPanelSlot: React.FC = () => {
         <ConstraintsStatus hasGate={!!accessPoint} zoneCount={zones.length} />
         <ModeBar mode={mode} onSelect={selectMode} />
 
-        <div className="border-t border-nkz-default pt-3">
+        <div className="border-t border-nkz-border pt-3">
           {mode === 'idle' && (
             <SavedRoutes patterns={patterns} loading={loading} onShow={handleShowOnMap} t={t} />
           )}
@@ -331,7 +331,7 @@ export const ContextPanelSlot: React.FC = () => {
           href={`/gis-routing?parcel=${encodeURIComponent(selectedEntityId)}`}
           target="_blank"
           rel="noopener noreferrer"
-          className="flex items-center justify-center gap-1.5 py-2 rounded-nkz-md text-nkz-sm font-semibold border border-nkz-accent text-nkz-text-accent"
+          className="flex items-center justify-center gap-1.5 py-2 rounded-nkz-md text-nkz-sm font-semibold border border-nkz-accent-base text-nkz-accent-base"
         >
           <ExternalLink className="w-3.5 h-3.5" />{t('zoning.openModule')}
         </a>

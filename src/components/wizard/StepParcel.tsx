@@ -57,27 +57,27 @@ export const StepParcel: React.FC<Props> = ({ parcelId, onParcelChange }) => {
   };
 
   return (
-    <div className="rounded-nkz-lg border border-nkz-default bg-nkz-surface-alt">
+    <div className="rounded-nkz-lg border border-nkz-border bg-nkz-surface-raised">
       <button onClick={() => setExpanded(!expanded)}
-        className="w-full flex items-center justify-between px-nkz-md py-3 text-nkz-sm font-semibold">
-        <span className="flex items-center gap-nkz-sm">
-          <span className="w-6 h-6 rounded-full bg-nkz-text-accent text-white text-nkz-sm flex items-center justify-center">1</span>
-          <MapPin className="w-4 h-4 text-nkz-text-accent" />
+        className="w-full flex items-center justify-between px-nkz-stack py-3 text-nkz-sm font-semibold">
+        <span className="flex items-center gap-nkz-inline">
+          <span className="w-6 h-6 rounded-full bg-nkz-accent-base text-white text-nkz-sm flex items-center justify-center">1</span>
+          <MapPin className="w-4 h-4 text-nkz-accent-base" />
           {t('parcel.label')}
         </span>
         <ChevronDown className={`w-4 h-4 transition-transform ${expanded ? '' : '-rotate-90'}`} />
       </button>
       {expanded && (
-        <div className="px-nkz-md pb-3 space-y-2">
+        <div className="px-nkz-stack pb-3 space-y-2">
           {loading ? (
             <Loader2 className="w-4 h-4 animate-spin text-nkz-text-secondary" />
           ) : error ? (
-            <p className="text-nkz-sm text-nkz-text-error flex items-center gap-1"><AlertCircle className="w-3 h-3" />{error}</p>
+            <p className="text-nkz-sm text-nkz-danger flex items-center gap-1"><AlertCircle className="w-3 h-3" />{error}</p>
           ) : parcels.length === 0 ? (
             <p className="text-nkz-sm text-nkz-text-secondary">{t('parcel.empty')}</p>
           ) : (
             <select value={parcelId || ''} onChange={e => handleSelect(e.target.value)}
-              className="w-full border border-nkz-default rounded-nkz-md px-3 py-2 text-nkz-sm bg-nkz-surface">
+              className="w-full border border-nkz-border rounded-nkz-md px-3 py-2 text-nkz-sm bg-nkz-surface">
               <option value="">{t('parcel.select')}</option>
               {parcels.map(p => (
                 <option key={p.id} value={p.id}>{p.name}{p.area ? ` (${p.area.toFixed(1)} ha)` : ''}</option>
@@ -87,10 +87,10 @@ export const StepParcel: React.FC<Props> = ({ parcelId, onParcelChange }) => {
           {geoLoading && (
             <p className="text-nkz-sm text-nkz-text-secondary flex items-center gap-1"><Loader2 className="w-3 h-3 animate-spin" />Loading geometry...</p>
           )}
-          {selectedName && !geoLoading && <p className="text-nkz-sm text-nkz-text-success">{selectedName}</p>}
+          {selectedName && !geoLoading && <p className="text-nkz-sm text-nkz-success">{selectedName}</p>}
           {cfg && (
             <div className="flex gap-2 text-nkz-xs">
-              <span className={cfg.hasAccess ? 'text-nkz-text-success' : 'text-nkz-text-muted'}>
+              <span className={cfg.hasAccess ? 'text-nkz-success' : 'text-nkz-text-muted'}>
                 {cfg.hasAccess ? t('parcel.accessBadge') : t('parcel.noAccessBadge')}
               </span>
               <span className="text-nkz-text-secondary">
