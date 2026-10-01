@@ -39,6 +39,11 @@ class Settings(BaseSettings):
     context_broker_url: str = "http://orion-ld-service:1026"
     ngsi_ld_context: str = Field(default="", alias="CONTEXT_URL")  # Set via CONTEXT_URL env var
 
+    # Orion-LD subscriptions (see app.services.subscriptions)
+    module_id: str = "nkz-module-gis-routing"  # marketplace id in tenant_installed_modules
+    notify_url: str = "http://nkz-module-gis-routing-service:8000/api/routing/notify"
+    subscription_heal_minutes: int = Field(default=60, gt=0)
+
     # EU Elevation integration (DEM slope correction)
     eu_elevation_url: str = "http://elevation-api-service:80/api/elevation"
 
