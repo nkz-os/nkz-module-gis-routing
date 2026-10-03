@@ -17,4 +17,7 @@ export default defineModule({
   main: MainPage,
   api: { basePath: '/api/routing' },
   slots: moduleSlots as never,
+  route: '/gis-routing',
+  requiredRoles: ['Farmer', 'TenantAdmin', 'PlatformAdmin'],
+  data: { entities: ['AgriParcel', 'ManufacturingMachine', 'AgriParcelOperation'], timeseries: [] },
 });

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useTranslation } from '@nekazari/sdk';
 import { Smartphone, Copy, Check } from 'lucide-react';
+import { Button } from '@nekazari/ui-kit';
 
 const NS = 'gis-routing';
 
@@ -43,14 +44,13 @@ export const HandoffPanel: React.FC<Props> = ({ operationId }) => {
         <code className="text-[11px] bg-nkz-surface px-2 py-1 rounded break-all flex-1">
           {operationId}
         </code>
-        <button
+        <Button
           onClick={handleCopy}
-          className="text-nkz-xs font-medium flex items-center gap-1 px-2 py-1 rounded-nkz-md hover:bg-nkz-surface transition-colors flex-shrink-0"
-          style={{ color: copied ? '#16a34a' : accentBase }}
+          className={`px-2 py-1 flex items-center gap-1 flex-shrink-0 ${copied ? 'text-nkz-success bg-nkz-surface' : 'text-nkz-accent-base bg-nkz-surface'}`}
         >
           {copied ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
           {copied ? t('handoff.copied') : t('handoff.copyId')}
-        </button>
+        </Button>
       </div>
       <p className="text-nkz-xs text-nkz-text-secondary mt-2">
         nkz://operations/{operationId}
@@ -59,4 +59,3 @@ export const HandoffPanel: React.FC<Props> = ({ operationId }) => {
   );
 };
 
-const accentBase = '#F59E0B';

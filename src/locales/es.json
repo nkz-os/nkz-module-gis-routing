@@ -215,11 +215,18 @@
     "optionLabel": "Rumbo {{heading}}° · {{swaths}} franjas",
     "applySelection": "Aplicar trayectoria seleccionada"
   },
+  "panels": {
+    "emptyState": "Genera una ruta para ver resultados",
+    "emptyStateHint": "Configura la maquinaria, los parámetros de ancho de trabajo y el patrón para comenzar"
+  },
   "patterns": {
     "saveTitle": "Guardar Patrón",
     "saved": "Patrón guardado",
     "namePlaceholder": "Nombre del patrón...",
-    "save": "Guardar"
+    "save": "Guardar",
+    "savedListTitle": "Patrones guardados",
+    "noSaved": "No hay patrones guardados en esta parcela",
+    "loadFromContext": "Cargar desde Orion-LD"
   },
   "patternLabels": {
     "spiral": "Espiral",
@@ -234,9 +241,6 @@
     "calculating": "Calculando alternativas...",
     "selectAndSave": "Ruta seleccionada:",
     "alternatives": "Alternativas"
-  },
-  "panels": {
-    "emptyState": "Genera una ruta para ver resultados"
   },
   "handoff": {
     "title": "Continuar en el móvil",

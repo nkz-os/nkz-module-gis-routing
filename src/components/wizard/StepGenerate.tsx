@@ -1,7 +1,7 @@
 import React from 'react';
 import { useTranslation } from '@nekazari/sdk';
 import { Play, Loader2, AlertCircle, CheckCircle2, Circle } from 'lucide-react';
-import { accent } from '../../config/accent';
+import { Button } from '@nekazari/ui-kit';
 
 const NS = 'gis-routing';
 
@@ -66,18 +66,18 @@ export const StepGenerate: React.FC<Props> = ({
         </div>
       )}
 
-      <button
+      <Button
         onClick={onGenerate}
         disabled={generating || !canGenerate}
-        className="w-full min-h-[48px] font-bold text-nkz-sm rounded-nkz-lg transition-colors flex items-center justify-center gap-2 text-nkz-text-on-accent disabled:opacity-50"
-        style={{ backgroundColor: accent.base }}
+        className="w-full min-h-[48px] flex items-center justify-center gap-2"
       >
         {generating ? (
           <><Loader2 className="w-4 h-4 animate-spin" />{t('actions.saving')}</>
         ) : (
           <><Play className="w-4 h-4" />{t('actions.save')}</>
         )}
-      </button>
+      </Button>
     </div>
   );
 };
+

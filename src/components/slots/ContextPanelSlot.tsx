@@ -13,6 +13,7 @@ import { ConstraintsStatus } from '../viewer/ConstraintsStatus';
 import { WorkRoutePanel } from '../viewer/WorkRoutePanel';
 import { TransitPanel, startTransit } from '../viewer/TransitPanel';
 import { EV, emitMode, type RoutingMode } from '../viewer/routingMode';
+import { Button, ModuleAttribution } from '@nekazari/ui-kit';
 
 const NS = 'gis-routing';
 
@@ -51,14 +52,13 @@ const SavedRoutes: React.FC<{
               {p.created_at ? ` · ${new Date(p.created_at * 1000).toLocaleDateString()}` : ''}
             </p>
           </div>
-          <button
+          <Button
             onClick={() => onShow(p)}
-            className="flex-shrink-0 flex items-center gap-1 px-2.5 py-1.5 rounded-nkz-md text-nkz-xs font-semibold text-nkz-text-on-accent hover:opacity-90 transition-opacity"
-            style={{ backgroundColor: accent.base }}
+            className="flex-shrink-0 flex items-center gap-1 px-2.5 py-1.5 rounded-nkz-md text-nkz-xs font-semibold"
             title={t('patterns.loadFromContext')}
           >
             <Eye className="w-3.5 h-3.5" />
-          </button>
+          </Button>
         </div>
       ))}
     </div>
@@ -78,20 +78,20 @@ const DrawControls: React.FC<{
     <div className="space-y-2">
       <p className="text-nkz-xs text-nkz-text-secondary">{t('parcelConfig.instructions')}</p>
       <div className="flex gap-2">
-        <button
+        <Button
           onClick={markAccess}
-          className="flex-1 flex items-center justify-center gap-1 py-1.5 rounded-nkz-md text-nkz-xs font-semibold border border-nkz-border hover:bg-nkz-surface-raised"
+          className="flex-1 flex items-center justify-center gap-1 py-1.5"
         >
           <Flag className="w-3.5 h-3.5" />
           {t('parcelConfig.dropAccessPoint')}
-        </button>
-        <button
+        </Button>
+        <Button
           onClick={drawZone}
-          className="flex-1 flex items-center justify-center gap-1 py-1.5 rounded-nkz-md text-nkz-xs font-semibold border border-nkz-border hover:bg-nkz-surface-raised"
+          className="flex-1 flex items-center justify-center gap-1 py-1.5"
         >
           <Ban className="w-3.5 h-3.5" />
           {t('parcelConfig.drawZone')}
-        </button>
+        </Button>
       </div>
       {zones.length > 0 && (
         <div className="space-y-1 max-h-32 overflow-y-auto">
@@ -101,26 +101,25 @@ const DrawControls: React.FC<{
               className="flex items-center justify-between text-nkz-xs bg-nkz-surface-raised rounded-nkz-md px-2 py-1"
             >
               <span>{t('parcelConfig.noGoZones')} {i + 1}</span>
-              <button
+              <Button
                 onClick={() => onRemoveZone(z.id)}
-                className="text-nkz-danger hover:opacity-80"
+                className="text-nkz-danger hover:opacity-80 p-1"
                 title={t('parcelConfig.deleteZone')}
               >
                 <Trash2 className="w-3.5 h-3.5" />
-              </button>
+              </Button>
             </div>
           ))}
         </div>
       )}
-      <button
+      <Button
         onClick={onSave}
         disabled={saving}
-        className="w-full flex items-center justify-center gap-1.5 py-2 rounded-nkz-md text-nkz-sm font-semibold text-nkz-text-on-accent hover:opacity-90 disabled:opacity-50"
-        style={{ backgroundColor: accent.base }}
+        className="w-full flex items-center justify-center gap-1.5 py-2"
       >
         {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
         {t('parcelConfig.save')}
-      </button>
+      </Button>
       {status === 'saved' && (
         <p className="text-nkz-xs text-nkz-success text-center">{t('parcelConfig.saved')}</p>
       )}
@@ -305,7 +304,10 @@ export const ContextPanelSlot: React.FC = () => {
 
   return (
     <SlotShell moduleId="nkz-module-gis-routing" accent={accent}>
-      <div className="p-4 space-y-3 text-nkz-sm">
+      <div className="p-4 space-y-3 text-nkz-sm relative">
+        <div className="absolute top-0 right-0 z-10 pointer-events-none p-2">
+          <ModuleAttribution />
+        </div>
         <p className="font-semibold text-nkz-text-primary">{t('title')}</p>
         <ConstraintsStatus hasGate={!!accessPoint} zoneCount={zones.length} />
         <ModeBar mode={mode} onSelect={selectMode} />
@@ -339,3 +341,4 @@ export const ContextPanelSlot: React.FC = () => {
     </SlotShell>
   );
 };
+

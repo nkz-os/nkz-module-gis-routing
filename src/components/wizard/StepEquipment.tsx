@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useTranslation } from '@nekazari/sdk';
 import { Tractor, Loader2, ChevronDown } from 'lucide-react';
 import { api } from '../../services/api';
+import { Select, Input } from '@nekazari/ui-kit';
 
 const NS = 'gis-routing';
 
@@ -54,7 +55,7 @@ export const StepEquipment: React.FC<Props> = ({
       <button onClick={() => setExpanded(!expanded)}
         className="w-full flex items-center justify-between px-nkz-stack py-3 text-nkz-sm font-semibold">
         <span className="flex items-center gap-nkz-inline">
-          <span className="w-6 h-6 rounded-full bg-nkz-accent-base text-white text-nkz-sm flex items-center justify-center">2</span>
+          <span className="w-6 h-6 rounded-full bg-nkz-accent-base text-nkz-text-on-accent text-nkz-sm flex items-center justify-center">2</span>
           <Tractor className="w-4 h-4 text-nkz-accent-base" />
           {t('equipment.label')}
         </span>
@@ -66,33 +67,33 @@ export const StepEquipment: React.FC<Props> = ({
             <>
               <div>
                 <label className="text-nkz-sm text-nkz-text-secondary">{t('parameters.operationType')}</label>
-                <select value={operationType} onChange={e => onOperationTypeChange(e.target.value)}
-                  className="w-full border border-nkz-border rounded-nkz-md px-3 py-2 text-nkz-sm bg-nkz-surface">
+                <Select value={operationType} onChange={(e: any) => onOperationTypeChange(e?.target ? e.target.value : e)}
+                  className="w-full mt-1">
                   <option value="spraying">{t('operationType.spraying')}</option>
                   <option value="fertilizing">{t('operationType.fertilizing')}</option>
                   <option value="seeding">{t('operationType.seeding')}</option>
                   <option value="tillage">{t('operationType.tillage')}</option>
-                </select>
+                </Select>
               </div>
               <div>
                 <label className="text-nkz-sm text-nkz-text-secondary">{t('equipment.tractorLabel')}</label>
-                <select value={tractorId || ''} onChange={e => onTractorChange(e.target.value || null)}
-                  className="w-full border border-nkz-border rounded-nkz-md px-3 py-2 text-nkz-sm bg-nkz-surface">
+                <Select value={tractorId || ''} onChange={(e: any) => onTractorChange(e?.target ? (e.target.value || null) : (e || null))}
+                  className="w-full mt-1">
                   <option value="">{t('equipment.selectTractor')}</option>
                   {tractors.map(e => (
                     <option key={e.id} value={e.id}>{e.name}</option>
                   ))}
-                </select>
+                </Select>
               </div>
               <div>
                 <label className="text-nkz-sm text-nkz-text-secondary">{t('equipment.implementLabel')}</label>
-                <select value={implementId || ''} onChange={e => onImplementChange(e.target.value || null)}
-                  className="w-full border border-nkz-border rounded-nkz-md px-3 py-2 text-nkz-sm bg-nkz-surface">
+                <Select value={implementId || ''} onChange={(e: any) => onImplementChange(e?.target ? (e.target.value || null) : (e || null))}
+                  className="w-full mt-1">
                   <option value="">{t('equipment.selectImplement')}</option>
                   {implements_.map(e => (
                     <option key={e.id} value={e.id}>{e.name}</option>
                   ))}
-                </select>
+                </Select>
               </div>
               <div>
                 <label className="text-nkz-sm text-nkz-text-secondary">{t('equipment.turningRadius')}</label>
@@ -102,10 +103,10 @@ export const StepEquipment: React.FC<Props> = ({
                   </p>
                 ) : (
                   <>
-                    <input type="number" min={0.1} step={0.1} value={turningRadiusM ?? ''}
+                    <Input type="number" min={0.1} step={0.1} value={turningRadiusM ?? ''}
                       placeholder={t('equipment.turningRadiusPlaceholder')}
-                      onChange={e => onTurningRadiusOverride(Number(e.target.value))}
-                      className="w-full border border-nkz-border rounded-nkz-md px-3 py-2 text-nkz-sm bg-nkz-surface" />
+                      onChange={(e: any) => onTurningRadiusOverride(Number(e?.target ? e.target.value : e))}
+                      className="w-full mt-1" />
                     <p className="text-nkz-xs text-nkz-warning mt-1">{t('equipment.noTurningRadius')}</p>
                   </>
                 )}
@@ -117,3 +118,4 @@ export const StepEquipment: React.FC<Props> = ({
     </div>
   );
 };
+

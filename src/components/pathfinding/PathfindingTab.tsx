@@ -1,8 +1,8 @@
 import React, { useState, useCallback } from 'react';
 import { useTranslation } from '@nekazari/sdk';
 import { Flag, Loader2 } from 'lucide-react';
-import { accent } from '../../config/accent';
 import { api } from '../../services/api';
+import { Button, Input } from '@nekazari/ui-kit';
 
 const NS = 'gis-routing';
 
@@ -80,7 +80,7 @@ export const PathfindingTab: React.FC<Props> = ({ parcelGeometry, machineWidthM,
             return;
           }
           if (result.status === 'failed') {
-            setError(result.error || 'Pathfinding failed');
+            setError(result.error || t('errors.pathfindingFailed', 'Pathfinding failed'));
             setPolling(false);
             return;
           }
@@ -88,17 +88,17 @@ export const PathfindingTab: React.FC<Props> = ({ parcelGeometry, machineWidthM,
         if (attempts < 30) {
           setTimeout(poll, 2000);
         } else {
-          setError('Timeout waiting for path calculation');
+          setError(t('errors.pathfindingTimeout', 'Timeout waiting for path calculation'));
           setPolling(false);
         }
       };
       setTimeout(poll, 1000);
     } catch (err: any) {
-      setError(err?.message || 'Path calculation failed');
+      setError(err?.message || t('errors.pathCalculationFailed', 'Path calculation failed'));
     } finally {
       setCalculating(false);
     }
-  }, [pointA, pointB]);
+  }, [pointA, pointB, machineWidthM, turningRadiusM, parcelId, t]);
 
   return (
     <div className="space-y-nkz-stack">
@@ -110,30 +110,28 @@ export const PathfindingTab: React.FC<Props> = ({ parcelGeometry, machineWidthM,
       <div className="grid grid-cols-2 gap-2">
         <div>
           <label className="text-nkz-xs text-nkz-text-secondary">{t('pathfinding.pointA')}</label>
-          <input type="number" value={pointA.lat} step={0.001}
-            onChange={e => setPointA({ ...pointA, lat: +e.target.value })}
-            className="w-full border border-nkz-border rounded-nkz-md px-2 py-1 text-nkz-xs" />
-          <input type="number" value={pointA.lon} step={0.001}
-            onChange={e => setPointA({ ...pointA, lon: +e.target.value })}
-            className="w-full border border-nkz-border rounded-nkz-md px-2 py-1 text-nkz-xs mt-1" />
+          <Input type="number" value={pointA.lat} step={0.001}
+            onChange={(e: any) => setPointA({ ...pointA, lat: +(e?.target ? e.target.value : e) })}
+            className="w-full text-nkz-xs" />
+          <Input type="number" value={pointA.lon} step={0.001}
+            onChange={(e: any) => setPointA({ ...pointA, lon: +(e?.target ? e.target.value : e) })}
+            className="w-full text-nkz-xs mt-1" />
         </div>
         <div>
           <label className="text-nkz-xs text-nkz-text-secondary">{t('pathfinding.pointB')}</label>
-          <input type="number" value={pointB.lat} step={0.001}
-            onChange={e => setPointB({ ...pointB, lat: +e.target.value })}
-            className="w-full border border-nkz-border rounded-nkz-md px-2 py-1 text-nkz-xs" />
-          <input type="number" value={pointB.lon} step={0.001}
-            onChange={e => setPointB({ ...pointB, lon: +e.target.value })}
-            className="w-full border border-nkz-border rounded-nkz-md px-2 py-1 text-nkz-xs mt-1" />
+          <Input type="number" value={pointB.lat} step={0.001}
+            onChange={(e: any) => setPointB({ ...pointB, lat: +(e?.target ? e.target.value : e) })}
+            className="w-full text-nkz-xs" />
+          <Input type="number" value={pointB.lon} step={0.001}
+            onChange={(e: any) => setPointB({ ...pointB, lon: +(e?.target ? e.target.value : e) })}
+            className="w-full text-nkz-xs mt-1" />
         </div>
       </div>
 
-      <button onClick={handleCalculate} disabled={calculating || polling}
-        className="w-full py-2 rounded-nkz-md text-nkz-xs font-semibold text-nkz-text-on-accent disabled:opacity-50"
-        style={{ backgroundColor: accent.base }}>
+      <Button onClick={handleCalculate} disabled={calculating || polling} className="w-full">
         {calculating ? <Loader2 className="w-3 h-3 animate-spin inline mr-1" /> : null}
         {t('pathfinding.calculate')}
-      </button>
+      </Button>
 
       {polling && <p className="text-nkz-xs text-nkz-text-secondary">{t('pathfinding.calculating')}...</p>}
 
@@ -157,3 +155,4 @@ export const PathfindingTab: React.FC<Props> = ({ parcelGeometry, machineWidthM,
     </div>
   );
 };
+

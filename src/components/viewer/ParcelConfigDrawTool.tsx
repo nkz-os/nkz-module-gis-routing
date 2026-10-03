@@ -29,7 +29,7 @@ const ACCESS_POINT_ID = 'gis-routing-parcel-config-access';
 const ZONE_TEMP_LINE_ID = 'gis-routing-parcel-config-zone-temp';
 
 export const ParcelConfigDrawTool: React.FC<Props> = ({ viewer: propViewer }) => {
-  const { cesiumViewer } = useViewer() as any;
+  const { cesiumViewer } = useViewer();
   const viewer = propViewer || cesiumViewer;
 
   const stateRef = useRef<{

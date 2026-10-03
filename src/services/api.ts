@@ -1,8 +1,5 @@
-const BASE_URL = (() => {
-  if (typeof window === 'undefined') return 'https://nkz.robotika.cloud/api/routing';
-  const env = (window as any).__ENV__;
-  return (env?.VITE_API_URL || 'https://nkz.robotika.cloud') + '/api/routing';
-})();
+const API_BASE = (import.meta as any).env?.VITE_API_URL || 'https://nkz.robotika.cloud';
+const BASE_URL = `${API_BASE}/api/routing`;
 
 function getTenantId(): string | undefined {
   if (typeof window === 'undefined') return undefined;
@@ -17,6 +14,12 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   };
   const tid = getTenantId();
   if (tid) headers['X-Tenant-ID'] = tid;
+  
+  if (typeof window !== 'undefined') {
+    const token = (window as any).keycloak?.token;
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+  }
+  
   const resp = await fetch(`${BASE_URL}${path}`, { ...options, headers, credentials: 'include' });
   if (!resp.ok) {
     const error = await resp.json().catch(() => ({ detail: resp.statusText }));

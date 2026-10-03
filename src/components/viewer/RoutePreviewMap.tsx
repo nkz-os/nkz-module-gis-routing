@@ -1,6 +1,7 @@
 import React, { useState, useCallback } from 'react';
 import { useTranslation } from '@nekazari/sdk';
 import { Map, Loader2, Eye } from 'lucide-react';
+import { Button } from '@nekazari/ui-kit';
 import { accent } from '../../config/accent';
 
 const NS = 'gis-routing';
@@ -45,7 +46,7 @@ export const RoutePreviewMap: React.FC<Props> = ({
   if (generating) {
     return (
       <div className="flex flex-col items-center justify-center h-full gap-3">
-        <Loader2 className="w-8 h-8 animate-spin" style={{ color: accent.base }} />
+        <Loader2 className="w-8 h-8 animate-spin text-nkz-accent-base" />
         <p className="text-nkz-base text-nkz-text-secondary">
           {t('actions.generating')}...
         </p>
@@ -78,7 +79,7 @@ export const RoutePreviewMap: React.FC<Props> = ({
         <div className="flex-1 flex flex-col min-h-0">
           <div className="px-4 py-2 border-b border-nkz-border flex items-center justify-between bg-nkz-surface-raised flex-shrink-0">
             <span className="text-nkz-sm font-semibold text-nkz-text-secondary">
-              {parcelName || 'Parcela'} — {previewResult.swathCount ?? '-'} {t('stats.swaths').toLowerCase()}
+              {parcelName || t('parcel.label', 'Parcela')} — {previewResult.swathCount ?? '-'} {t('stats.swaths').toLowerCase()}
             </span>
             <span className="text-nkz-sm text-nkz-text-secondary">
               {previewResult.totalDistanceM
@@ -86,7 +87,7 @@ export const RoutePreviewMap: React.FC<Props> = ({
                 : ''}
             </span>
           </div>
-          <div className="flex-1 flex items-center justify-center p-4 bg-white overflow-auto min-h-0">
+          <div className="flex-1 flex items-center justify-center p-4 bg-nkz-surface overflow-auto min-h-0">
             <InteractiveSvg
               data={svgData}
               hoveredIndex={hoveredIndex}
@@ -104,14 +105,13 @@ export const RoutePreviewMap: React.FC<Props> = ({
       {/* Actions */}
       <div className="flex-shrink-0 p-4 space-y-2 border-t border-nkz-border bg-nkz-surface-raised">
         {hasSavedResult && (
-          <button
+          <Button
             onClick={onViewInCesium}
-            className="w-full flex items-center justify-center gap-2 py-2.5 rounded-nkz-md text-nkz-sm font-semibold text-nkz-text-on-accent hover:opacity-90 transition-opacity"
-            style={{ backgroundColor: accent.base }}
+            className="w-full flex items-center justify-center gap-2 py-2.5"
           >
             <Eye className="w-4 h-4" />
             {t('actions.viewInCesium')}
-          </button>
+          </Button>
         )}
         {hasSavedResult ? (
           <p className="text-nkz-xs text-nkz-text-secondary text-center">
@@ -140,8 +140,6 @@ interface SvgRenderData {
   h: number;
   parcelPoints: string;
   lines: SvgLineData[];
-  swathLabel: string;
-  headlandLabel: string;
 }
 
 function computeSvgData(
@@ -191,11 +189,7 @@ function computeSvgData(
     isHeadland: i < headlandCount,
   })).filter(l => l.points);
 
-  return {
-    w, h, parcelPoints, lines,
-    swathLabel: headlandCount > 0 ? 'Pasadas internas' : 'Swaths',
-    headlandLabel: 'Cabeceras',
-  };
+  return { w, h, parcelPoints, lines };
 }
 
 // ---- Interactive SVG React component ----
