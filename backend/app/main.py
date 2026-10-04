@@ -13,7 +13,6 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.config import get_settings
 from app.logging_setup import configure_logging
 from app.api import router as api_router
-from app.middleware import TenantStateMiddleware
 from app.services.subscriptions import run_subscription_reconciler
 
 logger = logging.getLogger(__name__)
@@ -58,10 +57,6 @@ def create_app() -> FastAPI:
         allow_methods=["*"],
         allow_headers=["*"],
     )
-
-    # JWT TenantStateMiddleware — extracts tenant_id from JWT into request.state
-    # Must run before route handlers to populate request.state.tenant_id
-    app.add_middleware(TenantStateMiddleware)
 
     # Health check (at root for k8s probes). Must be exempt from rate limiting
     # per CLAUDE.md rule: health endpoints must use @limiter.exempt.

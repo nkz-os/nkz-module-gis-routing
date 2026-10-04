@@ -1,15 +1,16 @@
+from nkz_platform_sdk.auth import require_auth, AuthContext
 """Persistent per-parcel routing constraints (access point + no-go zones).
 
 Stored as attributes on the AgriParcel entity in Orion-LD (source of truth).
-NGSI-LD strict; writes go only through OrionLDClient (no direct DB writes).
+NGSI-LD strict; writes go only through OrionClient (no direct DB writes).
 """
 import logging
 from fastapi import APIRouter, Request, HTTPException
 from pydantic import BaseModel
 
 from app.config import get_settings
-from app.services.orion_client import OrionLDClient
-from app.api.deps import get_tenant_id
+from nkz_platform_sdk.orion import OrionClient
+
 
 logger = logging.getLogger(__name__)
 router = APIRouter(tags=["parcel-config"])
@@ -20,21 +21,21 @@ class ParcelConfig(BaseModel):
     exclusionZones: dict | None = None
 
 
-def _orion() -> OrionLDClient:
+def _orion(tenant_id: str) -> OrionClient:
     s = get_settings()
-    return OrionLDClient(base_url=s.context_broker_url, context_url=s.ngsi_ld_context)
+    return OrionClient(tenant_id=tenant_id)
 
 
 @router.get("/parcels/{parcel_id}/config")
-async def get_parcel_config(request: Request, parcel_id: str):
+async def get_parcel_config(request: Request, parcel_id: str, auth: AuthContext = require_auth()):
     """Get the persistent routing constraints for a parcel (accessPoint + exclusionZones)."""
-    tenant_id = get_tenant_id(request)
+    tenant_id = auth.tenant_id
     if not parcel_id.startswith("urn:ngsi-ld:"):
         raise HTTPException(status_code=400, detail="parcel_id must be an NGSI-LD URN")
-    orion = _orion()
+    orion = _orion(auth.tenant_id)
     try:
         try:
-            entity = await orion.get_entity(parcel_id, tenant_id)
+            entity = await orion.get_entity(parcel_id)
         except Exception as exc:
             logger.error("Orion-LD get_entity failed for %s: %s", parcel_id, exc)
             raise HTTPException(status_code=502, detail="Orion-LD error")
@@ -49,9 +50,9 @@ async def get_parcel_config(request: Request, parcel_id: str):
 
 
 @router.put("/parcels/{parcel_id}/config")
-async def put_parcel_config(request: Request, parcel_id: str, body: ParcelConfig):
+async def put_parcel_config(request: Request, parcel_id: str, body: ParcelConfig, auth: AuthContext = require_auth()):
     """Persist routing constraints for a parcel into Orion-LD (source of truth)."""
-    tenant_id = get_tenant_id(request)
+    tenant_id = auth.tenant_id
     if not parcel_id.startswith("urn:ngsi-ld:"):
         raise HTTPException(status_code=400, detail="parcel_id must be an NGSI-LD URN")
     attrs: dict = {}
@@ -76,10 +77,10 @@ async def put_parcel_config(request: Request, parcel_id: str, body: ParcelConfig
         attrs["exclusionZones"] = {"type": "Property", "value": body.exclusionZones}
     if not attrs:
         raise HTTPException(status_code=400, detail="Nothing to update")
-    orion = _orion()
+    orion = _orion(auth.tenant_id)
     try:
         try:
-            await orion.patch_entity(parcel_id, attrs, tenant_id)
+            await orion.update_entity_attrs(parcel_id, attrs)
         except Exception as exc:
             logger.error("Orion-LD patch_entity failed for %s: %s", parcel_id, exc)
             raise HTTPException(status_code=502, detail="Orion-LD error")

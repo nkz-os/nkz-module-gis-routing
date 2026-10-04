@@ -176,11 +176,11 @@ class _FakeOrion:
         self._one = one
         self.closed = False
 
-    async def query_entities(self, entity_type, tenant_id, **kw):
+    async def query_entities(self, entity_type, q="", limit=100, **kw):
         assert entity_type == "AgriParcelOperation"
         return list(self._entities)
 
-    async def get_entity(self, entity_id, tenant_id):
+    async def get_entity(self, entity_id, options=None):
         return self._one
 
     async def close(self):

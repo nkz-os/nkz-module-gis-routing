@@ -1,7 +1,6 @@
 from fastapi.testclient import TestClient
 
 from app.main import create_app
-from app.middleware import TenantStateMiddleware
 
 
 def _tenant_dispatch(_tenant_id: str):
@@ -18,7 +17,6 @@ async def _no_other_active(*_args, **_kwargs):
 
 
 def test_close_operation_session_ok(monkeypatch):
-    monkeypatch.setattr(TenantStateMiddleware, "dispatch", _tenant_dispatch("tenant-a"))
     client = TestClient(create_app())
 
     response = client.post(
@@ -37,7 +35,6 @@ def test_close_operation_session_ok(monkeypatch):
 
 
 def test_start_operation_session_ok(monkeypatch):
-    monkeypatch.setattr(TenantStateMiddleware, "dispatch", _tenant_dispatch("tenant-a"))
     monkeypatch.setattr(
         "app.api.operations.find_other_active_operation_id",
         _no_other_active,
@@ -64,7 +61,6 @@ async def _other_active(*_args, **_kwargs):
 
 
 def test_start_operation_session_conflict(monkeypatch):
-    monkeypatch.setattr(TenantStateMiddleware, "dispatch", _tenant_dispatch("tenant-a"))
     monkeypatch.setattr(
         "app.api.operations.find_other_active_operation_id",
         _other_active,
@@ -90,7 +86,6 @@ async def _empty_in_progress(*_args, **_kwargs):
 
 
 def test_get_active_operation_none(monkeypatch):
-    monkeypatch.setattr(TenantStateMiddleware, "dispatch", _tenant_dispatch("tenant-a"))
     monkeypatch.setattr(
         "app.api.operations.find_in_progress_operations",
         _empty_in_progress,
@@ -121,7 +116,6 @@ async def _one_in_progress(*_args, **_kwargs):
 
 
 def test_get_active_operation_ok(monkeypatch):
-    monkeypatch.setattr(TenantStateMiddleware, "dispatch", _tenant_dispatch("tenant-a"))
     monkeypatch.setattr(
         "app.api.operations.find_in_progress_operations",
         _one_in_progress,
@@ -139,7 +133,6 @@ def test_get_active_operation_ok(monkeypatch):
 
 def test_close_after_start_ok(monkeypatch):
     """Close remains allowed after a start ack (background patch)."""
-    monkeypatch.setattr(TenantStateMiddleware, "dispatch", _tenant_dispatch("tenant-a"))
     monkeypatch.setattr(
         "app.api.operations.find_other_active_operation_id",
         _no_other_active,
@@ -168,7 +161,6 @@ def test_close_after_start_ok(monkeypatch):
 
 
 def test_get_operation_coverage_not_found(monkeypatch):
-    monkeypatch.setattr(TenantStateMiddleware, "dispatch", _tenant_dispatch("tenant-a"))
 
     async def fake_get_coverage(self, operation_id: str, tenant_id: str):
         assert operation_id == "urn:ngsi-ld:AgriParcelOperation:tenant-a:op-2"
@@ -190,7 +182,6 @@ def test_get_operation_coverage_not_found(monkeypatch):
 
 
 def test_get_operation_coverage_ok(monkeypatch):
-    monkeypatch.setattr(TenantStateMiddleware, "dispatch", _tenant_dispatch("tenant-a"))
 
     async def fake_get_coverage(self, operation_id: str, tenant_id: str):
         assert operation_id == "urn:ngsi-ld:AgriParcelOperation:tenant-a:op-3"

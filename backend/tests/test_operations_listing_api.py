@@ -3,7 +3,6 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app.main import create_app
-from app.middleware import TenantStateMiddleware
 
 
 def _tenant_dispatch(tid):
@@ -38,9 +37,8 @@ class _FakeOrion:
 
 
 def test_list_operations_returns_lightweight_rows(monkeypatch):
-    monkeypatch.setattr(TenantStateMiddleware, "dispatch", _tenant_dispatch("tenant-a"))
     monkeypatch.setattr(
-        "app.api.routing.OrionLDClient",
+        "app.api.routing.OrionClient",
         lambda *a, **k: _FakeOrion(entities=[_entity("op-1"), _entity("tpl", template=True)]),
     )
     client = TestClient(create_app())
@@ -53,9 +51,8 @@ def test_list_operations_returns_lightweight_rows(monkeypatch):
 
 
 def test_get_operation_detail_includes_geometry(monkeypatch):
-    monkeypatch.setattr(TenantStateMiddleware, "dispatch", _tenant_dispatch("tenant-a"))
     monkeypatch.setattr(
-        "app.api.routing.OrionLDClient",
+        "app.api.routing.OrionClient",
         lambda *a, **k: _FakeOrion(one=_entity("op-1")),
     )
     client = TestClient(create_app())
@@ -65,18 +62,16 @@ def test_get_operation_detail_includes_geometry(monkeypatch):
 
 
 def test_get_operation_404_when_missing(monkeypatch):
-    monkeypatch.setattr(TenantStateMiddleware, "dispatch", _tenant_dispatch("tenant-a"))
-    monkeypatch.setattr("app.api.routing.OrionLDClient", lambda *a, **k: _FakeOrion(one=None))
+    monkeypatch.setattr("app.api.routing.OrionClient", lambda *a, **k: _FakeOrion(one=None))
     client = TestClient(create_app())
     resp = client.get("/api/routing/operations/missing")
     assert resp.status_code == 404
 
 
 def test_list_operations_502_on_orion_error(monkeypatch):
-    monkeypatch.setattr(TenantStateMiddleware, "dispatch", _tenant_dispatch("tenant-a"))
     class _Boom(_FakeOrion):
         async def query_entities(self, *a, **k): raise RuntimeError("orion down")
-    monkeypatch.setattr("app.api.routing.OrionLDClient", lambda *a, **k: _Boom())
+    monkeypatch.setattr("app.api.routing.OrionClient", lambda *a, **k: _Boom())
     client = TestClient(create_app())
     resp = client.get("/api/routing/operations")
     assert resp.status_code == 502

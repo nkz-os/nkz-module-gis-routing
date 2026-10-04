@@ -1,3 +1,4 @@
+from nkz_platform_sdk.auth import require_auth, AuthContext
 """GIS Routing Backend - API Routes"""
 from fastapi import APIRouter
 from app.api.routing import router as routing_router

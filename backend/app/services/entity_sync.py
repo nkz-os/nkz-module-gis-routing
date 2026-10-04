@@ -2,15 +2,15 @@
 import json
 import logging
 from datetime import datetime, timezone
-from app.services.orion_client import OrionLDClient
+from nkz_platform_sdk.orion import OrionClient
 from app.services.timescale_client import TimescaleDBClient
 
 logger = logging.getLogger(__name__)
 
 
-async def materialize_parcels(orion: OrionLDClient, ts: TimescaleDBClient, tenant_id: str):
+async def materialize_parcels(orion: OrionClient, ts: TimescaleDBClient, tenant_id: str):
     """Fetch AgriParcel entities from Orion-LD and upsert into sync_parcels."""
-    entities = await orion.query_entities("AgriParcel", tenant_id)
+    entities = await orion.query_entities("AgriParcel")
     for e in entities:
         location = e.get("location", {}).get("value", {})
         geojson_str = json.dumps(location) if location else "{}"
@@ -38,9 +38,9 @@ async def materialize_parcels(orion: OrionLDClient, ts: TimescaleDBClient, tenan
             access_point=access_point_str, exclusion_zones=exclusion_zones_str)
 
 
-async def materialize_equipment_entities(orion: OrionLDClient, ts: TimescaleDBClient, tenant_id: str):
+async def materialize_equipment_entities(orion: OrionClient, ts: TimescaleDBClient, tenant_id: str):
     """Fetch ManufacturingMachine entities from Orion-LD (category differentiates tractor vs implement)."""
-    entities = await orion.query_entities("ManufacturingMachine", tenant_id)
+    entities = await orion.query_entities("ManufacturingMachine")
     for e in entities:
         name = str(e.get("name", {}).get("value", e["id"]))
         category = str(e.get("category", {}).get("value", "tractor"))

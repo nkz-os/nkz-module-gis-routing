@@ -1,3 +1,4 @@
+from nkz_platform_sdk.auth import require_auth, AuthContext
 import logging
 import httpx
 from fastapi import APIRouter, HTTPException, BackgroundTasks, Request
@@ -58,13 +59,13 @@ async def patch_orion_operation(operation_id: str, payload: dict, tenant_id: str
             logger.error("Error contacting Context Broker: %s", e)
 
 @router.post("/session/close")
-async def close_operation_session(request: Request, session_req: SessionCloseRequest, background_tasks: BackgroundTasks):
+async def close_operation_session(request: Request, session_req: SessionCloseRequest, background_tasks: BackgroundTasks, auth: AuthContext = require_auth()):
     """
     Closes an AgriParcelOperation session.
     Updates metadata in Orion-LD (status = ended, endDate).
     Does NOT write geometric tracks to Orion-LD to avoid Context Broker overload.
     """
-    tenant_id = _resolve_tenant_id(request)
+    tenant_id = auth.tenant_id
     if not tenant_id or tenant_id == "default":
         raise HTTPException(
             status_code=404,
@@ -93,12 +94,12 @@ async def close_operation_session(request: Request, session_req: SessionCloseReq
     }
 
 @router.post("/session/start")
-async def start_operation_session(request: Request, session_req: SessionStartRequest, background_tasks: BackgroundTasks):
+async def start_operation_session(request: Request, session_req: SessionStartRequest, background_tasks: BackgroundTasks, auth: AuthContext = require_auth()):
     """
     Starts an AgriParcelOperation session.
     Updates metadata in Orion-LD (status = in_progress, startDate).
     """
-    tenant_id = _resolve_tenant_id(request)
+    tenant_id = auth.tenant_id
     if not tenant_id or tenant_id == "default":
         raise HTTPException(
             status_code=404,
@@ -136,11 +137,11 @@ async def start_operation_session(request: Request, session_req: SessionStartReq
     }
 
 @router.get("/active")
-async def get_active_operation(request: Request) -> Dict[str, Any]:
+async def get_active_operation(request: Request, auth: AuthContext = require_auth()) -> Dict[str, Any]:
     """
     Returns the current in-progress AgriParcelOperation for this tenant (Orion-LD), if any.
     """
-    tenant_id = _resolve_tenant_id(request)
+    tenant_id = auth.tenant_id
     if not tenant_id or tenant_id == "default":
         raise HTTPException(
             status_code=404,
@@ -161,13 +162,13 @@ async def get_active_operation(request: Request) -> Dict[str, Any]:
     return {"success": True, "data": {"operation": summarize_active(active_list[0])}}
 
 @router.get("/coverage/{operation_id}")
-async def get_operation_coverage(request: Request, operation_id: str) -> Dict[str, Any]:
+async def get_operation_coverage(request: Request, operation_id: str, auth: AuthContext = require_auth()) -> Dict[str, Any]:
     """
     Retrieves the actual executed track (MultiLineString) for a given operation.
     Queries telemetry_events via CoverageService/PostGIS.
     Returns a GeoJSON Feature that the MapLibre frontend can render immediately.
     """
-    tenant_id = _resolve_tenant_id(request)
+    tenant_id = auth.tenant_id
     if not tenant_id or tenant_id == "default":
         raise HTTPException(
             status_code=404,

@@ -1,3 +1,4 @@
+from nkz_platform_sdk.auth import require_auth, AuthContext
 """Shared FastAPI dependencies for the GIS routing API."""
 from fastapi import Request, HTTPException
 

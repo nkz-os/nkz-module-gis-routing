@@ -8,7 +8,7 @@ import logging
 from typing import Any, Optional
 
 from app.config import get_settings
-from app.services.orion_client import OrionLDClient
+from nkz_platform_sdk.orion import OrionClient
 
 logger = logging.getLogger(__name__)
 
@@ -31,7 +31,7 @@ async def find_in_progress_operations(tenant_id: str) -> list[dict[str, Any]]:
     Return AgriParcelOperation entities whose status Property is in_progress.
     """
     settings = get_settings()
-    orion = OrionLDClient(
+    orion = OrionClient(
         base_url=settings.context_broker_url,
         context_url=settings.ngsi_ld_context,
     )

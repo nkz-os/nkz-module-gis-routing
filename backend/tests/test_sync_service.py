@@ -119,7 +119,7 @@ class TestSyncServicePush:
 
     @pytest.mark.asyncio
     async def test_push_updates_entities_in_orion(self, sync_svc):
-        """push() with updated records must call orion.patch_entity."""
+        """push() with updated records must call orion.update_entity_attrs."""
         await sync_svc.push(
             ["parcels"],
             "test",
@@ -138,7 +138,7 @@ class TestSyncServicePush:
             },
             0,
         )
-        assert sync_svc._orion.patch_entity.called
+        assert sync_svc._orion.update_entity_attrs.called
 
     @pytest.mark.asyncio
     async def test_push_deletes_entities_in_orion(self, sync_svc):

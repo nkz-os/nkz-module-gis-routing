@@ -7,7 +7,7 @@ import subprocess
 import tempfile
 from io import BytesIO
 
-from app.services.orion_client import OrionLDClient
+from nkz_platform_sdk.orion import OrionClient
 from app.config import get_settings
 
 logger = logging.getLogger(__name__)
@@ -62,8 +62,8 @@ class PMTileGenerator:
     ) -> tuple[bytes, str]:
         s = get_settings()
         bbox = (-2.0, 42.5, -1.5, 43.0)  # fallback
-        orion = OrionLDClient(s.context_broker_url, s.ngsi_ld_context)
-        entity = await orion.get_entity(parcel_id, tenant_id)
+        orion = OrionClient(s.context_broker_url, s.ngsi_ld_context)
+        entity = await orion.get_entity(parcel_id)
         await orion.close()
         if entity:
             loc = entity.get("location", {}).get("value", {})

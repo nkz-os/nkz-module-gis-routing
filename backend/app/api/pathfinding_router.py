@@ -1,3 +1,4 @@
+from nkz_platform_sdk.auth import require_auth, AuthContext
 """A-B pathfinding with DEM-based least-cost routing."""
 import asyncio
 import logging
@@ -11,7 +12,7 @@ from app.services.pathfinding.dem_provider import DemRegistry, EuElevationProvid
 from app.services.parcel_constraints import fetch_parcel_constraints as _fetch_parcel_constraints
 from app.services.exclusion import buffered_zones, rasterize_blocked_cells
 from app.services.routing.base import project_polygon_to_utm
-from app.api.deps import get_tenant_id
+
 from shapely.geometry import Polygon
 
 logger = logging.getLogger(__name__)
@@ -37,8 +38,7 @@ class PathRequest(BaseModel):
     parcel_id: str | None = None
 
 
-async def _resolve_path_constraints(parcel_id, tenant_id, raster, cols, rows,
-                                    machine_width_m):
+async def _resolve_path_constraints(parcel_id, tenant_id, raster, cols, rows, machine_width_m):
     """Return (default_origin_or_None, blocked_cells_set)."""
     if not parcel_id:
         return None, set()
@@ -61,13 +61,13 @@ async def _resolve_path_constraints(parcel_id, tenant_id, raster, cols, rows,
 
 
 @router.post("/calculate")
-async def start_path_calculation(request: Request, body: PathRequest):
+async def start_path_calculation(request: Request, body: PathRequest, auth: AuthContext = require_auth()):
     job_id = uuid.uuid4().hex[:12]
     _JOBS[job_id] = {"status": "queued", "result": None}
     # Tenant is only required when parcel_id is given (to fetch constraints).
     # Without parcel_id the endpoint works without auth headers (free routing).
     try:
-        tenant_id = get_tenant_id(request)
+        tenant_id = auth.tenant_id
     except HTTPException:
         if body.parcel_id:
             raise

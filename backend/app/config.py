@@ -6,7 +6,7 @@ Environment-based configuration using pydantic-settings.
 
 from functools import lru_cache
 
-from pydantic import Field, model_validator
+from pydantic import AliasChoices, Field, model_validator
 from pydantic_settings import BaseSettings
 
 
@@ -48,7 +48,10 @@ class Settings(BaseSettings):
     eu_elevation_url: str = "http://elevation-api-service:80/api/elevation"
 
     # TimescaleDB / PostGIS
-    database_url: str = ""  # postgresql+asyncpg://user:pass@postgresql:5432/nekazari
+    database_url: str = Field(..., validation_alias=AliasChoices("POSTGRES_URL", "DATABASE_URL"))
+    
+    REQUIRE_HMAC_SIGNATURE: bool = Field(default=False)
+    HMAC_SECRET: str = Field(default="")
 
     # MinIO (for PMTiles cache)
     minio_endpoint: str = "minio-service:9000"

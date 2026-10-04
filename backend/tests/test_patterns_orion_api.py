@@ -3,7 +3,6 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app.main import create_app
-from app.middleware import TenantStateMiddleware
 
 
 def _tenant_dispatch(tid):
@@ -44,9 +43,8 @@ def _save_body():
 
 
 def test_save_pattern_creates_template_entity(monkeypatch):
-    monkeypatch.setattr(TenantStateMiddleware, "dispatch", _tenant_dispatch("tenant-a"))
     fake = _FakeOrion()
-    monkeypatch.setattr("app.api.patterns_router.OrionLDClient", lambda *a, **k: fake)
+    monkeypatch.setattr("app.api.patterns_router.OrionClient", lambda *a, **k: fake)
     client = TestClient(create_app())
     resp = client.post("/api/routing/patterns", json=_save_body())
     assert resp.status_code == 200
@@ -57,7 +55,6 @@ def test_save_pattern_creates_template_entity(monkeypatch):
 
 
 def test_list_patterns_returns_only_templates(monkeypatch):
-    monkeypatch.setattr(TenantStateMiddleware, "dispatch", _tenant_dispatch("tenant-a"))
     from app.services import operation_store
     tpl = operation_store.build_template_entity(
         op_id="tpl-1", parcel_id="urn:ngsi-ld:AgriParcel:p1", name="T",
@@ -69,7 +66,7 @@ def test_list_patterns_returns_only_templates(monkeypatch):
     op = {"id": "op-1", "type": "AgriParcelOperation",
           "hasAgriParcel": {"type": "Relationship", "object": "urn:ngsi-ld:AgriParcel:p1"},
           "isTemplate": {"type": "Property", "value": False}}
-    monkeypatch.setattr("app.api.patterns_router.OrionLDClient",
+    monkeypatch.setattr("app.api.patterns_router.OrionClient",
                         lambda *a, **k: _FakeOrion(entities=[tpl, op]))
     client = TestClient(create_app())
     resp = client.get("/api/routing/patterns?parcel_id=urn:ngsi-ld:AgriParcel:p1")
@@ -80,9 +77,8 @@ def test_list_patterns_returns_only_templates(monkeypatch):
 
 
 def test_delete_pattern_calls_orion(monkeypatch):
-    monkeypatch.setattr(TenantStateMiddleware, "dispatch", _tenant_dispatch("tenant-a"))
     fake = _FakeOrion(one={"id": "tpl-1", "isTemplate": {"type": "Property", "value": True}})
-    monkeypatch.setattr("app.api.patterns_router.OrionLDClient", lambda *a, **k: fake)
+    monkeypatch.setattr("app.api.patterns_router.OrionClient", lambda *a, **k: fake)
     client = TestClient(create_app())
     resp = client.delete("/api/routing/patterns/tpl-1")
     assert resp.status_code == 200
@@ -94,10 +90,9 @@ def test_delete_pattern_calls_orion(monkeypatch):
 # ---------------------------------------------------------------------------
 
 def test_delete_pattern_404_when_not_template(monkeypatch):
-    monkeypatch.setattr(TenantStateMiddleware, "dispatch", _tenant_dispatch("tenant-a"))
     # Entity exists but isTemplate=False
     fake = _FakeOrion(one={"id": "op-1", "isTemplate": {"type": "Property", "value": False}})
-    monkeypatch.setattr("app.api.patterns_router.OrionLDClient", lambda *a, **k: fake)
+    monkeypatch.setattr("app.api.patterns_router.OrionClient", lambda *a, **k: fake)
     client = TestClient(create_app())
     resp = client.delete("/api/routing/patterns/op-1")
     assert resp.status_code == 404
@@ -105,9 +100,8 @@ def test_delete_pattern_404_when_not_template(monkeypatch):
 
 
 def test_delete_pattern_404_when_entity_missing(monkeypatch):
-    monkeypatch.setattr(TenantStateMiddleware, "dispatch", _tenant_dispatch("tenant-a"))
     fake = _FakeOrion(one=None)
-    monkeypatch.setattr("app.api.patterns_router.OrionLDClient", lambda *a, **k: fake)
+    monkeypatch.setattr("app.api.patterns_router.OrionClient", lambda *a, **k: fake)
     client = TestClient(create_app())
     resp = client.delete("/api/routing/patterns/nonexistent-id")
     assert resp.status_code == 404

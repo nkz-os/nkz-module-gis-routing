@@ -7,7 +7,10 @@ transformers from routing.base.
 from __future__ import annotations
 
 import numpy as np
-import fields2cover as f2c
+try:
+    import fields2cover as f2c
+except ImportError:
+    f2c = None
 from shapely.geometry import LineString, MultiLineString, Polygon
 
 

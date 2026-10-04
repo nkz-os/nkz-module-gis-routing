@@ -1,3 +1,4 @@
+from nkz_platform_sdk.auth import require_auth, AuthContext
 """
 GIS Routing - Sync API with WatermelonDB protocol and route generation.
 
@@ -22,7 +23,7 @@ from typing import Optional, Literal
 
 import httpx
 from app.services.sync_service import SyncService, SyncConflictError
-from app.services.orion_client import OrionLDClient
+from nkz_platform_sdk.orion import OrionClient
 from app.services.timescale_client import TimescaleDBClient
 from app.services.export_service import RouteExporter
 from app.services.pmtiles_generator import PMTileGenerator
@@ -30,7 +31,7 @@ from app.services.parcel_constraints import fetch_parcel_constraints
 from app.api.pathfinding_router import build_dem_registry
 from app.services.pathfinding.grid_sampler import make_grid_sampler
 from app.config import get_settings
-from app.api.deps import get_tenant_id
+
 
 logger = logging.getLogger(__name__)
 router = APIRouter(tags=["routing"])
@@ -139,11 +140,11 @@ async def api_health_check():
 @router.get("/parcels")
 async def list_parcels(request: Request):
     """List AgriParcel entities for the authenticated tenant."""
-    tenant_id = _get_tenant_id(request)
+    tenant_id = auth.tenant_id
     if not tenant_id or tenant_id == "default":
         raise HTTPException(status_code=404, detail="Tenant not found")
     settings = get_settings()
-    orion = OrionLDClient(
+    orion = OrionClient(
         base_url=settings.context_broker_url,
         context_url=settings.ngsi_ld_context,
     )
@@ -166,18 +167,18 @@ async def list_parcels(request: Request):
         await orion.close()
 
 @router.get("/parcels/{parcel_id}/geometry")
-async def get_parcel_geometry(request: Request, parcel_id: str):
+async def get_parcel_geometry(request: Request, parcel_id: str, auth: AuthContext = require_auth()):
     """Get the full geometry (GeoJSON) of a specific AgriParcel."""
-    tenant_id = _get_tenant_id(request)
+    tenant_id = auth.tenant_id
     if not tenant_id or tenant_id == "default":
         raise HTTPException(status_code=404, detail="Tenant not found")
     settings = get_settings()
-    orion = OrionLDClient(
+    orion = OrionClient(
         base_url=settings.context_broker_url,
         context_url=settings.ngsi_ld_context,
     )
     try:
-        entity = await orion.get_entity(parcel_id, tenant_id)
+        entity = await orion.get_entity(parcel_id)
         if not entity:
             raise HTTPException(status_code=404, detail="Parcel not found")
         location_val = (entity.get("location", {}) or {}).get("value")
@@ -194,11 +195,11 @@ async def get_parcel_geometry(request: Request, parcel_id: str):
 @router.get("/equipment")
 async def list_equipment(request: Request):
     """List ManufacturingMachine entities (tractors/implements) for the tenant."""
-    tenant_id = _get_tenant_id(request)
+    tenant_id = auth.tenant_id
     if not tenant_id or tenant_id == "default":
         raise HTTPException(status_code=404, detail="Tenant not found")
     settings = get_settings()
-    orion = OrionLDClient(
+    orion = OrionClient(
         base_url=settings.context_broker_url,
         context_url=settings.ngsi_ld_context,
     )
@@ -241,12 +242,12 @@ async def list_equipment(request: Request):
         await orion.close()
 
 @router.get("/operations")
-async def list_operations(request: Request, limit: int = 20, parcel_id: Optional[str] = None):
+async def list_operations(request: Request, limit: int = 20, parcel_id: Optional[str] = None, auth: AuthContext = require_auth()):
     """List route operations (history) for the tenant from Orion-LD."""
     from app.services import operation_store
-    tenant_id = _get_tenant_id(request)
+    tenant_id = auth.tenant_id
     settings = get_settings()
-    orion = OrionLDClient(settings.context_broker_url, settings.ngsi_ld_context)
+    orion = OrionClient(settings.context_broker_url, settings.ngsi_ld_context)
     try:
         return await operation_store.list_operations(orion, tenant_id, parcel_id=parcel_id, limit=limit)
     except Exception as e:
@@ -257,12 +258,12 @@ async def list_operations(request: Request, limit: int = 20, parcel_id: Optional
 
 
 @router.get("/operations/{operation_id}")
-async def get_operation(request: Request, operation_id: str):
+async def get_operation(request: Request, operation_id: str, auth: AuthContext = require_auth()):
     """Full operation detail incl. geometry and the inputs needed to re-run."""
     from app.services import operation_store
-    tenant_id = _get_tenant_id(request)
+    tenant_id = auth.tenant_id
     settings = get_settings()
-    orion = OrionLDClient(settings.context_broker_url, settings.ngsi_ld_context)
+    orion = OrionClient(settings.context_broker_url, settings.ngsi_ld_context)
     try:
         detail = await operation_store.get_operation(orion, operation_id, tenant_id)
     except Exception as e:
@@ -277,23 +278,22 @@ async def get_operation(request: Request, operation_id: str):
 VALID_COLLECTIONS = {"parcels", "equipment", "operations"}
 
 
-_get_tenant_id = get_tenant_id
 
 
-def _build_sync_service(request: Request) -> SyncService:
+
+def _build_sync_service(tenant_id: str) -> SyncService:
     settings = get_settings()
-    orion = OrionLDClient(base_url=settings.context_broker_url,
+    orion = OrionClient(tenant_id=tenant_id, base_url=settings.context_broker_url,
                           context_url=settings.ngsi_ld_context)
     ts = TimescaleDBClient(dsn=settings.database_url)
     return SyncService(timescale=ts, orion=orion)
 
 
 @router.get("/sync")
-async def pull_changes(
-    request: Request,
-    collections: str = Query(..., description="Comma-separated collection names"),
+async def pull_changes(request: Request, collections: str = Query(..., description="Comma-separated collection names"),
     last_pulled_at: int = Query(..., description="Last sync timestamp epoch millis"),
     schema_version: int = Query(..., description="WatermelonDB schema version"),
+        auth: AuthContext = require_auth()
 ):
     col_list = [c.strip() for c in collections.split(",") if c.strip()]
     invalid = set(col_list) - VALID_COLLECTIONS
@@ -301,8 +301,8 @@ async def pull_changes(
         raise HTTPException(status_code=400,
             detail={"error": {"code": "INVALID_COLLECTION",
                               "message": f"Unknown collection(s): {', '.join(sorted(invalid))}"}})
-    tenant_id = _get_tenant_id(request)
-    sync_svc = _build_sync_service(request)
+    tenant_id = auth.tenant_id
+    sync_svc = _build_sync_service(tenant_id)
     try:
         result = await sync_svc.pull(collections=col_list, tenant_id=tenant_id,
                                       last_pulled_at=last_pulled_at,
@@ -316,9 +316,8 @@ async def pull_changes(
 
 
 @router.post("/sync")
-async def push_changes(
-    request: Request,
-    collections: str = Query(..., description="Comma-separated collection names"),
+async def push_changes(request: Request, collections: str = Query(..., description="Comma-separated collection names"),
+    auth: AuthContext = require_auth()
 ):
     col_list = [c.strip() for c in collections.split(",") if c.strip()]
     invalid = set(col_list) - VALID_COLLECTIONS
@@ -326,14 +325,17 @@ async def push_changes(
         raise HTTPException(status_code=400,
             detail={"error": {"code": "INVALID_COLLECTION",
                               "message": f"Unknown collection(s): {', '.join(sorted(invalid))}"}})
-    tenant_id = _get_tenant_id(request)
+    tenant_id = auth.tenant_id
     # Read raw body
-    body = await request.json()
+    try:
+        body = await request.json()
+    except Exception:
+        raise HTTPException(status_code=422, detail="Invalid JSON body")
     if not body or "changes" not in body:
         raise HTTPException(status_code=400,
             detail={"error": {"code": "INVALID_BODY",
                               "message": "Missing 'changes' in request body"}})
-    sync_svc = _build_sync_service(request)
+    sync_svc = _build_sync_service(tenant_id)
     try:
         result = await sync_svc.push(collections=col_list, tenant_id=tenant_id,
                                       changes=body["changes"],
@@ -386,7 +388,7 @@ class GenerateRequest(BaseModel):
 
 
 @router.post("/generate")
-async def generate_routing_plan(request: Request, body: GenerateRequest):
+async def generate_routing_plan(request: Request, body: GenerateRequest, auth: AuthContext = require_auth()):
     """Unified route generation endpoint (Fields2Cover coverage engine)."""
     if body.parcel_geometry.get("type") != "Polygon":
         raise HTTPException(status_code=400, detail="parcel_geometry must be a GeoJSON Polygon")
@@ -399,7 +401,7 @@ async def generate_routing_plan(request: Request, body: GenerateRequest):
     pc = body.pattern_config
     pattern = _PATTERN_ALIASES.get(body.pattern, body.pattern)
 
-    machine = await _resolve_machine(body, request)
+    machine = await _resolve_machine(body, auth)
     machine.setdefault("implementWidth", pc.width_m)
     try:
         robot = build_robot(
@@ -438,7 +440,7 @@ async def generate_routing_plan(request: Request, body: GenerateRequest):
 
     prescription_map = None
     if body.vra and body.vra.enabled:
-        zone_features = await _resolve_vra_zones(body, request)
+        zone_features = await _resolve_vra_zones(body, auth)
         if zone_features:
             from app.services.vra_intersector import intersect_swaths_with_zones
             prescription_map = intersect_swaths_with_zones(
@@ -447,7 +449,7 @@ async def generate_routing_plan(request: Request, body: GenerateRequest):
 
     operation_id = None
     if body.persist and body.parcel_id:
-        operation_id = await _persist_operation(result, body, request, prescription_map)
+        operation_id = await _persist_operation(result, body, auth, prescription_map)
 
     selected = {
         "pattern": result.pattern,
@@ -467,7 +469,7 @@ async def generate_routing_plan(request: Request, body: GenerateRequest):
     }
 
 
-async def _resolve_machine(body: GenerateRequest, request: Request) -> dict:
+async def _resolve_machine(body: GenerateRequest, auth: AuthContext) -> dict:
     """Fetch ManufacturingMachine kinematics for the implement (or tractor).
 
     Returns a dict of attribute values (implementWidth, trackWidth,
@@ -476,14 +478,14 @@ async def _resolve_machine(body: GenerateRequest, request: Request) -> dict:
     machine_id = body.implement_id or body.tractor_id
     if not machine_id:
         return {}
-    tenant_id = _get_tenant_id(request)
+    tenant_id = auth.tenant_id
     settings = get_settings()
-    orion = OrionLDClient(
+    orion = OrionClient(
         base_url=settings.context_broker_url,
         context_url=settings.ngsi_ld_context,
     )
     try:
-        entity = await orion.get_entity(machine_id, tenant_id)
+        entity = await orion.get_entity(machine_id)
     finally:
         await orion.close()
     if not entity:
@@ -521,7 +523,7 @@ async def _resolve_contour_dem(parcel_geometry: dict):
     return make_grid_sampler(grid), bbox
 
 
-async def _resolve_vra_zones(body: GenerateRequest, request: Request) -> list[dict]:
+async def _resolve_vra_zones(body: GenerateRequest, auth: AuthContext) -> list[dict]:
     """Resolve VRA zone features from the configured source.
 
     Both "orion" (default) and the legacy "vegetation-health" source resolve to
@@ -535,9 +537,9 @@ async def _resolve_vra_zones(body: GenerateRequest, request: Request) -> list[di
 
     # "orion" and legacy "vegetation-health" → Orion-LD AgriManagementZone
     settings = get_settings()
-    orion = OrionLDClient(settings.context_broker_url, settings.ngsi_ld_context)
+    orion = OrionClient(settings.context_broker_url, settings.ngsi_ld_context)
     try:
-        zones = await orion.query_entities("AgriManagementZone", _get_tenant_id(request))
+        zones = await orion.query_entities("AgriManagementZone")
     finally:
         await orion.close()
     return _zones_from_orion(zones, body.parcel_id, body.vra.zone_ids if body.vra else None)
@@ -565,19 +567,17 @@ def _zones_from_orion(zones: list[dict], parcel_id: str, zone_ids: list[str] | N
     return matched
 
 
-async def _persist_operation(
-    result, body: GenerateRequest, request: Request, prescription_map: dict | None,
-) -> Optional[str]:
+async def _persist_operation(result, body: GenerateRequest, auth: AuthContext, prescription_map: dict | None) -> Optional[str]:
     """Persist route as AgriParcelOperation in Orion-LD. Returns operation URN."""
     from app.services import operation_store
-    tenant_id = _get_tenant_id(request)
+    tenant_id = auth.tenant_id
     settings = get_settings()
     op_id = operation_store.new_operation_id(tenant_id)
     entity = operation_store.build_operation_entity(
         op_id=op_id, body=body, result=result,
         prescription_map=prescription_map, is_template=False,
     )
-    orion = OrionLDClient(settings.context_broker_url, settings.ngsi_ld_context)
+    orion = OrionClient(settings.context_broker_url, settings.ngsi_ld_context)
     try:
         await orion.create_entity(entity, tenant_id)
         return op_id
@@ -619,10 +619,10 @@ async def ingest_external_zones(body: ExternalZonesIngestRequest):
 
 
 @router.get("/tiles")
-async def get_offline_tiles(
-    request: Request, parcel_id: str = Query(..., description="Parcel entity ID")
+async def get_offline_tiles(request: Request, parcel_id: str = Query(..., description="Parcel entity ID"),
+    auth: AuthContext = require_auth()
 ):
-    tenant_id = _get_tenant_id(request)
+    tenant_id = auth.tenant_id
     generator = PMTileGenerator()
     cached = generator.get_from_cache(tenant_id, parcel_id)
     if cached is not None:
@@ -651,12 +651,12 @@ async def get_offline_tiles(
 
 
 @router.get("/zones/{parcel_id}")
-async def get_parcel_zones(request: Request, parcel_id: str):
+async def get_parcel_zones(request: Request, parcel_id: str, auth: AuthContext = require_auth()):
     """Fetch AgriManagementZone entities for a parcel from Orion-LD."""
-    tenant_id = _get_tenant_id(request)
+    tenant_id = auth.tenant_id
     settings = get_settings()
-    orion = OrionLDClient(base_url=settings.context_broker_url, context_url=settings.ngsi_ld_context)
-    zones = await orion.query_entities("AgriManagementZone", tenant_id)
+    orion = OrionClient(tenant_id=tenant_id, base_url=settings.context_broker_url, context_url=settings.ngsi_ld_context)
+    zones = await orion.query_entities("AgriManagementZone")
     await orion.close()
 
     matched = []
@@ -677,10 +677,13 @@ async def get_parcel_zones(request: Request, parcel_id: str):
 
 
 @router.post("/zones/{parcel_id}/generate")
-async def generate_vra_zones(request: Request, parcel_id: str):
+async def generate_vra_zones(request: Request, parcel_id: str, auth: AuthContext = require_auth()):
     """Trigger VRA zone generation via vegetation-prime backend (server-to-server proxy)."""
-    tenant_id = _get_tenant_id(request)
-    body = await request.json()
+    tenant_id = auth.tenant_id
+    try:
+        body = await request.json()
+    except Exception:
+        raise HTTPException(status_code=422, detail="Invalid JSON body")
     n_zones = body.get("n_zones", 3)
 
     # vegetation-prime performs its own JWT validation (Bearer/cookie) AND requires
@@ -712,17 +715,15 @@ async def generate_vra_zones(request: Request, parcel_id: str):
 
 
 @router.get("/export/{operation_id}")
-async def export_operation(
-    request: Request,
-    operation_id: str,
-    format: str = Query("geojson", description="Export format: isoxml, geojson, gpx"),
+async def export_operation(request: Request, operation_id: str, format: str = Query("geojson", description="Export format: isoxml, geojson, gpx"),
+    auth: AuthContext = require_auth()
 ):
-    tenant_id = _get_tenant_id(request)
+    tenant_id = auth.tenant_id
     settings = get_settings()
-    orion = OrionLDClient(
+    orion = OrionClient(
         base_url=settings.context_broker_url, context_url=settings.ngsi_ld_context
     )
-    entity = await orion.get_entity(operation_id, tenant_id)
+    entity = await orion.get_entity(operation_id)
     await orion.close()
     if not entity:
         raise HTTPException(status_code=404, detail="Operation not found")
@@ -796,7 +797,10 @@ async def on_ngsild_notification(request: Request):
     if reject:
         raise reject
 
-    body = await request.json()
+    try:
+        body = await request.json()
+    except Exception:
+        raise HTTPException(status_code=422, detail="Invalid JSON body")
     tenant_id = request.headers.get("FIWARE-Service", "default")
     data = body.get("data", [])
 

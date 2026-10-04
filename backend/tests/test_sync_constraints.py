@@ -17,7 +17,7 @@ class _FakeTS:
 
 
 class _FakeOrion:
-    async def query_entities(self, etype, tenant_id):
+    async def query_entities(self, etype, q="", limit=100):
         return [{
             "id": "urn:ngsi-ld:AgriParcel:t1:p1", "type": "AgriParcel",
             "name": {"value": "P1"}, "area": {"value": 1.0},
@@ -40,7 +40,7 @@ async def test_materialize_carries_constraints():
 
 
 class _FakeOrionNoConstraints:
-    async def query_entities(self, etype, tenant_id):
+    async def query_entities(self, etype, q="", limit=100):
         return [{
             "id": "urn:ngsi-ld:AgriParcel:t1:p2", "type": "AgriParcel",
             "name": {"value": "P2"}, "area": {"value": 2.0},

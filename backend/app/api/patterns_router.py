@@ -1,3 +1,4 @@
+from nkz_platform_sdk.auth import require_auth, AuthContext
 # backend/app/api/patterns_router.py
 """Route templates as AgriParcelOperation(isTemplate=true) in Orion-LD."""
 
@@ -7,23 +8,24 @@ from pydantic import BaseModel
 from typing import Optional
 
 from app.config import get_settings
-from app.services.orion_client import OrionLDClient, OrionLDError
+from nkz_platform_sdk.orion import OrionClient
+import httpx
 from app.services import operation_store
 
 logger = logging.getLogger(__name__)
 router = APIRouter(tags=["patterns"])
 
 
-def _get_tenant(request: Request) -> str:
+def _get_tenant(request: Request, auth: AuthContext = require_auth()) -> str:
     tid = getattr(request.state, "tenant_id", None) or request.headers.get("x-tenant-id")
     if not tid or tid == "default":
         raise HTTPException(status_code=404, detail="Tenant not found")
     return tid
 
 
-def _orion() -> OrionLDClient:
+def _orion(tenant_id: str) -> OrionClient:
     s = get_settings()
-    return OrionLDClient(s.context_broker_url, s.ngsi_ld_context)
+    return OrionClient(tenant_id=tenant_id)
 
 
 class SavePatternRequest(BaseModel):
@@ -39,12 +41,12 @@ class SavePatternRequest(BaseModel):
 
 
 @router.get("/patterns")
-async def list_patterns(request: Request, parcel_id: str):
+async def list_patterns(request: Request, parcel_id: str, auth: AuthContext = require_auth()):
     tenant = _get_tenant(request)
-    orion = _orion()
+    orion = _orion(auth.tenant_id)
     try:
         data = await operation_store.list_templates(orion, tenant, parcel_id)
-    except OrionLDError as exc:
+    except httpx.HTTPStatusError as exc:
         if exc.status_code == 404:
             # Tenant has no operations yet — this is not an error
             logger.info("No templates found for tenant %s (Orion 404)", tenant)
@@ -61,9 +63,9 @@ async def list_patterns(request: Request, parcel_id: str):
 
 
 @router.get("/patterns/{pattern_id}")
-async def get_pattern(request: Request, pattern_id: str):
+async def get_pattern(request: Request, pattern_id: str, auth: AuthContext = require_auth()):
     tenant = _get_tenant(request)
-    orion = _orion()
+    orion = _orion(auth.tenant_id)
     try:
         entity = await orion.get_entity(pattern_id, tenant)
     except Exception as exc:
@@ -77,7 +79,7 @@ async def get_pattern(request: Request, pattern_id: str):
 
 
 @router.post("/patterns")
-async def save_pattern(request: Request, body: SavePatternRequest):
+async def save_pattern(request: Request, body: SavePatternRequest, auth: AuthContext = require_auth()):
     tenant = _get_tenant(request)
     op_id = operation_store.new_operation_id(tenant)
     entity = operation_store.build_template_entity(
@@ -88,7 +90,7 @@ async def save_pattern(request: Request, body: SavePatternRequest):
         equipment_implement_id=body.equipment_implement_id,
         source_operation_id=body.source_operation_id,
     )
-    orion = _orion()
+    orion = _orion(auth.tenant_id)
     try:
         await orion.create_entity(entity, tenant)
     except Exception as exc:
@@ -100,9 +102,9 @@ async def save_pattern(request: Request, body: SavePatternRequest):
 
 
 @router.delete("/patterns/{pattern_id}")
-async def delete_pattern(request: Request, pattern_id: str):
+async def delete_pattern(request: Request, pattern_id: str, auth: AuthContext = require_auth()):
     tenant = _get_tenant(request)
-    orion = _orion()
+    orion = _orion(auth.tenant_id)
     try:
         entity = await orion.get_entity(pattern_id, tenant)
         if not entity or not operation_store.is_template_entity(entity):

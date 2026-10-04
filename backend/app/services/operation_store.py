@@ -15,7 +15,7 @@ from typing import Optional
 
 from shapely.geometry import mapping
 
-from app.services.orion_client import OrionLDClient
+from nkz_platform_sdk.orion import OrionClient
 
 
 # ----- pure helpers ---------------------------------------------------------
@@ -194,20 +194,20 @@ def _matches_parcel(entity: dict, parcel_id: Optional[str]) -> bool:
     return _rel(entity, "hasAgriParcel") == parcel_id
 
 
-async def list_operations(orion: OrionLDClient, tenant_id: str,
+async def list_operations(orion: OrionClient, tenant_id: str,
                           parcel_id: Optional[str] = None, limit: int = 20) -> list[dict]:
-    entities = await orion.query_entities("AgriParcelOperation", tenant_id)
+    entities = await orion.query_entities("AgriParcelOperation")
     rows = [operation_to_row(e) for e in entities
             if not is_template_entity(e) and _matches_parcel(e, parcel_id)]
     return rows[:limit]
 
 
-async def list_templates(orion: OrionLDClient, tenant_id: str, parcel_id: str) -> list[dict]:
-    entities = await orion.query_entities("AgriParcelOperation", tenant_id)
+async def list_templates(orion: OrionClient, tenant_id: str, parcel_id: str) -> list[dict]:
+    entities = await orion.query_entities("AgriParcelOperation")
     return [template_to_dict(e) for e in entities
             if is_template_entity(e) and _matches_parcel(e, parcel_id)]
 
 
-async def get_operation(orion: OrionLDClient, operation_id: str, tenant_id: str) -> Optional[dict]:
-    entity = await orion.get_entity(operation_id, tenant_id)
+async def get_operation(orion: OrionClient, operation_id: str, tenant_id: str) -> Optional[dict]:
+    entity = await orion.get_entity(operation_id)
     return operation_to_detail(entity) if entity else None

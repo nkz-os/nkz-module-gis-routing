@@ -9,7 +9,7 @@ NGSI-LD entities via Orion-LD and TimescaleDB materialized sync tables.
 import time
 import logging
 from app.services.timescale_client import TimescaleDBClient
-from app.services.orion_client import OrionLDClient
+from nkz_platform_sdk.orion import OrionClient
 
 logger = logging.getLogger(__name__)
 
@@ -39,7 +39,7 @@ class SyncService:
            and the client must pull again before pushing.
     """
 
-    def __init__(self, timescale: TimescaleDBClient, orion: OrionLDClient):
+    def __init__(self, timescale: TimescaleDBClient, orion: OrionClient):
         self._ts = timescale
         self._orion = orion
         self._server_timestamps: dict[str, int] = {}
@@ -166,7 +166,7 @@ class SyncService:
         if not remote_id:
             return
         attrs = self._to_ngsild_attrs(collection, record)
-        await self._orion.patch_entity(remote_id, attrs, tenant_id)
+        await self._orion.update_entity_attrs(remote_id, attrs)
 
     async def _delete_in_orion(self, collection: str, record_id: str, tenant_id: str):
         """Delete an NGSI-LD entity."""

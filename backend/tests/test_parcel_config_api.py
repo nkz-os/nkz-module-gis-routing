@@ -2,7 +2,6 @@
 from fastapi.testclient import TestClient
 
 from app.main import create_app
-from app.middleware import TenantStateMiddleware
 
 
 def _tenant_dispatch(tid):
@@ -29,20 +28,19 @@ class _FakeOrion:
             },
         }
 
-    async def get_entity(self, eid, tenant):
+    async def get_entity(self, eid, options=None):
         return self.entity
 
-    async def patch_entity(self, eid, attrs, tenant):
-        self.patched = (eid, attrs, tenant)
+    async def update_entity_attrs(self, eid, attrs):
+        self.patched = (eid, attrs)
 
     async def close(self):
         pass
 
 
 def test_get_parcel_config_returns_attrs(monkeypatch):
-    monkeypatch.setattr(TenantStateMiddleware, "dispatch", _tenant_dispatch("t1"))
     fake = _FakeOrion()
-    monkeypatch.setattr("app.api.parcel_config.OrionLDClient", lambda *a, **k: fake)
+    monkeypatch.setattr("app.api.parcel_config.OrionClient", lambda *a, **k: fake)
     client = TestClient(create_app())
 
     resp = client.get(
@@ -56,9 +54,8 @@ def test_get_parcel_config_returns_attrs(monkeypatch):
 
 
 def test_put_parcel_config_patches_orion(monkeypatch):
-    monkeypatch.setattr(TenantStateMiddleware, "dispatch", _tenant_dispatch("t1"))
     fake = _FakeOrion()
-    monkeypatch.setattr("app.api.parcel_config.OrionLDClient", lambda *a, **k: fake)
+    monkeypatch.setattr("app.api.parcel_config.OrionClient", lambda *a, **k: fake)
     client = TestClient(create_app())
 
     payload = {
@@ -75,9 +72,8 @@ def test_put_parcel_config_patches_orion(monkeypatch):
 
     # Verify Orion was called with NGSI-LD-wrapped attrs
     assert fake.patched is not None
-    eid, attrs, tenant = fake.patched
+    eid, attrs = fake.patched
     assert eid == "urn:ngsi-ld:AgriParcel:t1:p1"
-    assert tenant == "t1"
     assert attrs["accessPoint"] == {
         "type": "GeoProperty",
         "value": {"type": "Point", "coordinates": [3.0, 4.0]},
@@ -89,13 +85,12 @@ def test_put_parcel_config_patches_orion(monkeypatch):
 
 
 def test_get_parcel_config_missing_entity(monkeypatch):
-    monkeypatch.setattr(TenantStateMiddleware, "dispatch", _tenant_dispatch("t1"))
 
     class _FakeOrionNone(_FakeOrion):
-        async def get_entity(self, eid, tenant):
+        async def get_entity(self, eid, options=None):
             return None
 
-    monkeypatch.setattr("app.api.parcel_config.OrionLDClient", lambda *a, **k: _FakeOrionNone())
+    monkeypatch.setattr("app.api.parcel_config.OrionClient", lambda *a, **k: _FakeOrionNone())
     client = TestClient(create_app())
 
     resp = client.get("/api/routing/parcels/urn:ngsi-ld:AgriParcel:t1:missing/config")
@@ -103,9 +98,8 @@ def test_get_parcel_config_missing_entity(monkeypatch):
 
 
 def test_put_parcel_config_invalid_access_point(monkeypatch):
-    monkeypatch.setattr(TenantStateMiddleware, "dispatch", _tenant_dispatch("t1"))
     fake = _FakeOrion()
-    monkeypatch.setattr("app.api.parcel_config.OrionLDClient", lambda *a, **k: fake)
+    monkeypatch.setattr("app.api.parcel_config.OrionClient", lambda *a, **k: fake)
     client = TestClient(create_app())
 
     resp = client.put(
@@ -116,9 +110,8 @@ def test_put_parcel_config_invalid_access_point(monkeypatch):
 
 
 def test_put_parcel_config_invalid_exclusion_zones(monkeypatch):
-    monkeypatch.setattr(TenantStateMiddleware, "dispatch", _tenant_dispatch("t1"))
     fake = _FakeOrion()
-    monkeypatch.setattr("app.api.parcel_config.OrionLDClient", lambda *a, **k: fake)
+    monkeypatch.setattr("app.api.parcel_config.OrionClient", lambda *a, **k: fake)
     client = TestClient(create_app())
 
     resp = client.put(
@@ -129,13 +122,12 @@ def test_put_parcel_config_invalid_exclusion_zones(monkeypatch):
 
 
 def test_get_parcel_config_orion_error_returns_502(monkeypatch):
-    monkeypatch.setattr(TenantStateMiddleware, "dispatch", _tenant_dispatch("t1"))
 
     class _FakeOrionRaises(_FakeOrion):
-        async def get_entity(self, eid, tenant):
+        async def get_entity(self, eid, options=None):
             raise RuntimeError("Orion is down")
 
-    monkeypatch.setattr("app.api.parcel_config.OrionLDClient", lambda *a, **k: _FakeOrionRaises())
+    monkeypatch.setattr("app.api.parcel_config.OrionClient", lambda *a, **k: _FakeOrionRaises())
     client = TestClient(create_app())
 
     resp = client.get("/api/routing/parcels/urn:ngsi-ld:AgriParcel:t1:p1/config")
@@ -144,13 +136,12 @@ def test_get_parcel_config_orion_error_returns_502(monkeypatch):
 
 
 def test_put_parcel_config_orion_error_returns_502(monkeypatch):
-    monkeypatch.setattr(TenantStateMiddleware, "dispatch", _tenant_dispatch("t1"))
 
     class _FakeOrionPatchRaises(_FakeOrion):
-        async def patch_entity(self, eid, attrs, tenant):
+        async def update_entity_attrs(self, eid, attrs):
             raise RuntimeError("Orion patch failed")
 
-    monkeypatch.setattr("app.api.parcel_config.OrionLDClient", lambda *a, **k: _FakeOrionPatchRaises())
+    monkeypatch.setattr("app.api.parcel_config.OrionClient", lambda *a, **k: _FakeOrionPatchRaises())
     client = TestClient(create_app())
 
     resp = client.put(
@@ -162,9 +153,8 @@ def test_put_parcel_config_orion_error_returns_502(monkeypatch):
 
 
 def test_get_parcel_config_non_urn_returns_400(monkeypatch):
-    monkeypatch.setattr(TenantStateMiddleware, "dispatch", _tenant_dispatch("t1"))
     fake = _FakeOrion()
-    monkeypatch.setattr("app.api.parcel_config.OrionLDClient", lambda *a, **k: fake)
+    monkeypatch.setattr("app.api.parcel_config.OrionClient", lambda *a, **k: fake)
     client = TestClient(create_app())
 
     resp = client.get("/api/routing/parcels/not-a-urn/config")
@@ -173,9 +163,8 @@ def test_get_parcel_config_non_urn_returns_400(monkeypatch):
 
 
 def test_put_parcel_config_non_urn_returns_400(monkeypatch):
-    monkeypatch.setattr(TenantStateMiddleware, "dispatch", _tenant_dispatch("t1"))
     fake = _FakeOrion()
-    monkeypatch.setattr("app.api.parcel_config.OrionLDClient", lambda *a, **k: fake)
+    monkeypatch.setattr("app.api.parcel_config.OrionClient", lambda *a, **k: fake)
     client = TestClient(create_app())
 
     resp = client.put(
@@ -187,9 +176,8 @@ def test_put_parcel_config_non_urn_returns_400(monkeypatch):
 
 
 def test_put_parcel_config_access_point_missing_coordinates_returns_400(monkeypatch):
-    monkeypatch.setattr(TenantStateMiddleware, "dispatch", _tenant_dispatch("t1"))
     fake = _FakeOrion()
-    monkeypatch.setattr("app.api.parcel_config.OrionLDClient", lambda *a, **k: fake)
+    monkeypatch.setattr("app.api.parcel_config.OrionClient", lambda *a, **k: fake)
     client = TestClient(create_app())
 
     resp = client.put(

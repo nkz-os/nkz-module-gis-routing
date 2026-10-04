@@ -1,7 +1,7 @@
 """Shared: read a parcel's routing constraints (access point + no-go zones) from Orion."""
 from shapely.geometry import shape
 from app.config import get_settings
-from app.services.orion_client import OrionLDClient
+from nkz_platform_sdk.orion import OrionClient
 
 
 async def fetch_parcel_constraints(parcel_id: str, tenant_id: str) -> dict:
@@ -11,10 +11,10 @@ async def fetch_parcel_constraints(parcel_id: str, tenant_id: str) -> dict:
     exclusionZones (Property holding a GeoJSON FeatureCollection) from Orion-LD.
     """
     settings = get_settings()
-    orion = OrionLDClient(base_url=settings.context_broker_url,
+    orion = OrionClient(base_url=settings.context_broker_url,
                           context_url=settings.ngsi_ld_context)
     try:
-        entity = await orion.get_entity(parcel_id, tenant_id)
+        entity = await orion.get_entity(parcel_id)
     finally:
         await orion.close()
     if not entity:
