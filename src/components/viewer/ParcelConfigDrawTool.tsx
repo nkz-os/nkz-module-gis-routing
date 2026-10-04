@@ -38,12 +38,14 @@ export const ParcelConfigDrawTool: React.FC<Props> = ({ viewer: propViewer }) =>
     entityIds: string[];
     zoneVerts: number[][];
     zoneIndex: number;
+    currentMousePos: [number, number] | null;
   }>({
     mode: 'off',
     handler: null,
     entityIds: [],
     zoneVerts: [],
     zoneIndex: 0,
+    currentMousePos: null,
   });
 
   useEffect(() => {
@@ -98,16 +100,21 @@ export const ParcelConfigDrawTool: React.FC<Props> = ({ viewer: propViewer }) =>
 
     const renderTempLine = () => {
       clearTempLine();
-      if (st.zoneVerts.length < 2) return;
+      if (st.zoneVerts.length < 1) return;
       try {
         st.entityIds.push(ZONE_TEMP_LINE_ID);
         viewer.entities.add({
           id: ZONE_TEMP_LINE_ID,
           polyline: {
-            positions: Cesium.Cartesian3.fromDegreesArray(
-              st.zoneVerts.flatMap(([lon, lat]) => [lon, lat]),
-            ),
-            width: 2,
+            positions: new Cesium.CallbackProperty(() => {
+              const pts = [...st.zoneVerts];
+              if (st.currentMousePos) pts.push(st.currentMousePos);
+              if (pts.length < 2) return [];
+              return Cesium.Cartesian3.fromDegreesArray(
+                pts.flatMap(([lon, lat]) => [lon, lat])
+              );
+            }, false),
+            width: 4,
             material: Cesium.Color.fromCssColorString(accent.base),
             clampToGround: true,
           },
@@ -161,9 +168,16 @@ export const ParcelConfigDrawTool: React.FC<Props> = ({ viewer: propViewer }) =>
             hierarchy,
             clampToGround: true,
             material: Cesium.Color.RED.withAlpha(0.3),
-            outline: true,
-            outlineColor: Cesium.Color.RED,
+            outline: false,
           },
+          polyline: {
+            positions: Cesium.Cartesian3.fromDegreesArray(
+              ring.flatMap(([lon, lat]) => [lon, lat])
+            ),
+            width: 4,
+            material: Cesium.Color.RED,
+            clampToGround: true,
+          }
         });
       } catch {
         /* skip */
@@ -174,6 +188,7 @@ export const ParcelConfigDrawTool: React.FC<Props> = ({ viewer: propViewer }) =>
         }),
       );
       st.zoneVerts = [];
+      st.currentMousePos = null;
       clearTempLine();
     };
 
@@ -198,9 +213,14 @@ export const ParcelConfigDrawTool: React.FC<Props> = ({ viewer: propViewer }) =>
           );
         } else if (st.mode === 'zone') {
           st.zoneVerts.push([lon, lat]);
-          renderTempLine();
+          if (st.zoneVerts.length === 1) renderTempLine();
         }
       }, Cesium.ScreenSpaceEventType.LEFT_CLICK);
+
+      st.handler.setInputAction((move: any) => {
+        if (st.mode !== 'zone' || st.zoneVerts.length === 0) return;
+        st.currentMousePos = pickLonLat(move.endPosition);
+      }, Cesium.ScreenSpaceEventType.MOUSE_MOVE);
 
       st.handler.setInputAction(() => {
         if (st.mode === 'zone') closeZone();
@@ -215,6 +235,7 @@ export const ParcelConfigDrawTool: React.FC<Props> = ({ viewer: propViewer }) =>
       st.mode = mode;
       // Switching modes abandons any in-progress zone vertices.
       st.zoneVerts = [];
+      st.currentMousePos = null;
       clearTempLine();
       if (mode === 'off') {
         destroyHandler();
@@ -227,6 +248,7 @@ export const ParcelConfigDrawTool: React.FC<Props> = ({ viewer: propViewer }) =>
       st.mode = 'off';
       st.zoneVerts = [];
       st.zoneIndex = 0;
+      st.currentMousePos = null;
       destroyHandler();
       removeAllEntities();
     };
@@ -241,6 +263,7 @@ export const ParcelConfigDrawTool: React.FC<Props> = ({ viewer: propViewer }) =>
       removeAllEntities();
       st.mode = 'off';
       st.zoneVerts = [];
+      st.currentMousePos = null;
     };
   }, [viewer]);
 
