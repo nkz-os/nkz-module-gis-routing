@@ -17,7 +17,11 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   
   if (typeof window !== 'undefined') {
     const ctx = (window as any).__nekazariAuthContext;
-    const token = ctx?.getToken?.() || ctx?.token || (window as any).keycloak?.token;
+    let token = ctx?.token || (window as any).keycloak?.token;
+    if (ctx?.getToken) {
+      const maybePromise = ctx.getToken();
+      token = maybePromise instanceof Promise ? await maybePromise : maybePromise;
+    }
     if (token) headers['Authorization'] = `Bearer ${token}`;
   }
   
