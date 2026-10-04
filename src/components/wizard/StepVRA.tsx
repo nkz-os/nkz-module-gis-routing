@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useTranslation } from '@nekazari/sdk';
 import { Layers, Loader2, ChevronDown } from 'lucide-react';
 import { api } from '../../services/api';
+import { Select, Input, Checkbox } from '@nekazari/ui-kit';
 
 const NS = 'gis-routing';
 
@@ -50,7 +51,7 @@ export const StepVRA: React.FC<Props> = ({
       <button onClick={() => setExpanded(!expanded)}
         className="w-full flex items-center justify-between px-nkz-stack py-3 text-nkz-sm font-semibold">
         <span className="flex items-center gap-nkz-inline">
-          <span className="w-6 h-6 rounded-full bg-nkz-accent-base text-white text-nkz-sm flex items-center justify-center">4</span>
+          <span className="w-6 h-6 rounded-full bg-nkz-accent-base text-nkz-text-on-accent text-nkz-sm flex items-center justify-center">4</span>
           <Layers className="w-4 h-4 text-nkz-accent-base" />
           {t('vra.enabled')}
         </span>
@@ -59,36 +60,39 @@ export const StepVRA: React.FC<Props> = ({
       {expanded && (
         <div className="px-nkz-stack pb-3 space-y-2">
           <label className="flex items-center gap-2 cursor-pointer">
-            <input type="checkbox" checked={enabled} onChange={e => onEnabledChange(e.target.checked)}
-              className="rounded-nkz-md border-nkz-border text-nkz-accent-base" />
+            <Checkbox checked={enabled} onChange={(e: any) => onEnabledChange(e?.target ? e.target.checked : e)} />
             <span className="text-nkz-sm text-nkz-text-primary">{t('vra.enabled')}</span>
           </label>
 
           {enabled && (
             <>
-              <select value={source} onChange={e => onSourceChange(e.target.value)}
-                className="w-full border border-nkz-border rounded-nkz-md px-3 py-2 text-nkz-sm bg-nkz-surface">
-                <option value="vegetation-health">Vegetation Health</option>
-                <option value="orion">Orion-LD</option>
-                <option value="external">External file</option>
-              </select>
+              <Select 
+                value={source} 
+                onValueChange={onSourceChange}
+                options={[
+                  { value: 'vegetation-health', label: t('vra.sourceHealth', 'Vegetation Health') },
+                  { value: 'orion', label: t('vra.sourceOrion', 'Orion-LD') },
+                  { value: 'external', label: t('vra.sourceExternal', 'External file') }
+                ]}
+                className="w-full" 
+              />
 
               <div>
                 <label className="text-nkz-sm text-nkz-text-secondary">{t('vra.baseRate')}</label>
-                <input type="number" min={0} value={baseRate}
-                  onChange={e => onBaseRateChange(Number(e.target.value))}
-                  className="w-full border border-nkz-border rounded-nkz-md px-3 py-1.5 text-nkz-sm bg-nkz-surface" />
+                <Input type="number" min={0} value={baseRate}
+                  onChange={(e: any) => onBaseRateChange(Number(e?.target ? e.target.value : e))}
+                  className="w-full" />
               </div>
 
               {loading ? <Loader2 className="w-3 h-3 animate-spin" /> : zones.length > 0 ? (
                 <div className="space-y-1 max-h-32 overflow-auto">
                   {zones.map(z => (
                     <label key={z.id} className="flex items-center gap-2 text-nkz-sm">
-                      <input type="checkbox" checked={zoneIds.includes(z.id)}
-                        onChange={e => {
-                          onZoneIdsChange(e.target.checked ? [...zoneIds, z.id] : zoneIds.filter(id => id !== z.id));
-                        }}
-                        className="rounded-nkz-md border-nkz-border text-nkz-accent-base" />
+                      <Checkbox checked={zoneIds.includes(z.id)}
+                        onChange={(e: any) => {
+                          const checked = e?.target ? e.target.checked : e;
+                          onZoneIdsChange(checked ? [...zoneIds, z.id] : zoneIds.filter(id => id !== z.id));
+                        }} />
                       <span>{t('zoning.zoneLabel', { id: z.zone_id || z.id })}</span>
                       <span className="text-nkz-text-secondary ml-auto">{z.prescription_rate?.toFixed(2)}x</span>
                     </label>
@@ -102,3 +106,4 @@ export const StepVRA: React.FC<Props> = ({
     </div>
   );
 };
+

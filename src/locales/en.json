@@ -9,13 +9,14 @@
   "title": "GIS Routing",
   "subtitle": "A-B line guidance for precision agriculture",
   "parcel": {
-    "label": "Parcel",
-    "select": "Select a parcel...",
-    "mock": "Demo Parcel",
-    "empty": "No parcels found",
-    "accessBadge": "Access ✓",
-    "noAccessBadge": "No access",
-    "configureHint": "Configure access and zones in \"Parcel configuration\""
+    "loadingGeo": "Loading geometry...",
+    "label": "Parcela",
+    "select": "Seleccionar parcela...",
+    "mock": "Parcela Demo",
+    "empty": "Sin parcelas",
+    "accessBadge": "Acceso ✓",
+    "noAccessBadge": "Sin acceso",
+    "configureHint": "Configura el acceso y las zonas en \"Configuración de parcela\""
   },
   "equipment": {
     "label": "Tractor / Equipment",
@@ -157,31 +158,39 @@
     "gpx": "GPX"
   },
   "vra": {
+    "sourceHealth": "Vegetation Health",
     "label": "VRA",
-    "enabled": "VRA Prescription",
-    "sourceLabel": "VRA source",
-    "sourceOrion": "Orion-LD zones",
-    "sourceExternal": "External upload",
-    "externalUploadLabel": "External file (GeoJSON/CSV)",
-    "externalUploadError": "Could not process external file",
-    "externalLoaded": "File loaded: {{file}} ({{count}} zones)",
-    "externalPending": "Upload an external file to use VRA prescription",
-    "baseRate": "Base Rate",
-    "rateUnit": "Rate Unit",
-    "zoneSelection": "Zone selection",
-    "selectAll": "Select all",
-    "clearAll": "Clear selection",
-    "noZonesForParcel": "No zones available for the selected parcel",
-    "prescriptionSummary": "Prescription summary",
-    "summarySegments": "Segments",
-    "summaryZones": "Applied zones",
-    "summaryLength": "Total length",
-    "summaryRate": "Average rate"
+    "enabled": "Prescripción VRA",
+    "sourceLabel": "Fuente VRA",
+    "sourceOrion": "Zonas en Orion-LD",
+    "sourceExternal": "Subida externa",
+    "externalUploadLabel": "Archivo externo (GeoJSON/CSV)",
+    "externalUploadError": "No se pudo procesar el archivo externo",
+    "externalLoaded": "Archivo cargado: {{file}} ({{count}} zonas)",
+    "externalPending": "Sube un archivo externo para usar prescripción VRA",
+    "baseRate": "Dosis Base",
+    "rateUnit": "Unidad",
+    "zoneSelection": "Selección de zonas",
+    "selectAll": "Seleccionar todas",
+    "clearAll": "Limpiar selección",
+    "noZonesForParcel": "Sin zonas disponibles para la parcela seleccionada",
+    "prescriptionSummary": "Resumen de prescripción",
+    "summarySegments": "Segmentos",
+    "summaryZones": "Zonas aplicadas",
+    "summaryLength": "Longitud total",
+    "summaryRate": "Dosis media"
   },
   "errors": {
-    "authRequired": "Authentication required",
-    "generateFailed": "Route generation failed",
-    "missingTurningRadius": "Machine turning radius is missing. Enter one or set it in the entity editor."
+    "title": "Error",
+    "unexpected": "An unexpected error occurred",
+    "retry": "Retry",
+    "pathfindingFailed": "Pathfinding failed",
+    "pathfindingTimeout": "Pathfinding timed out",
+    "pathCalculationFailed": "Path calculation failed",
+    "geoFailed": "Geometry loading failed",
+    "authRequired": "Autenticación requerida",
+    "generateFailed": "Error al generar la ruta",
+    "missingTurningRadius": "Falta el radio de giro de la máquina. Introduce uno o configúralo en el editor de entidades."
   },
   "zoning": {
     "title": "VRA Zoning",
@@ -216,13 +225,16 @@
     "applySelection": "Apply selected trajectory"
   },
   "patterns": {
-    "saveTitle": "Save Pattern",
-    "saved": "Pattern saved",
-    "savedListTitle": "Saved Routes",
-    "noSaved": "No saved routes for this parcel",
-    "loadFromContext": "Show on map",
-    "namePlaceholder": "Pattern name...",
-    "save": "Save"
+    "deleteConfirm": "Confirm delete",
+    "loading": "Loading patterns",
+    "delete": "Delete pattern",
+    "saveTitle": "Guardar Patrón",
+    "saved": "Patrón guardado",
+    "namePlaceholder": "Nombre del patrón...",
+    "save": "Guardar",
+    "savedListTitle": "Patrones guardados",
+    "noSaved": "No hay patrones guardados en esta parcela",
+    "loadFromContext": "Cargar desde Orion-LD"
   },
   "patternLabels": {
     "spiral": "Spiral",
@@ -287,5 +299,9 @@
     "noEquipment": "No equipment",
     "generate": "Generate work route",
     "generateError": "Could not generate route"
+  },
+  "direction": {
+    "outsideIn": "Outside → In",
+    "insideOut": "Inside → Out"
   }
 }

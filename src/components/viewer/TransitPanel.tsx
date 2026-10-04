@@ -1,8 +1,8 @@
 import React from 'react';
 import { useTranslation } from '@nekazari/sdk';
 import { Loader2 } from 'lucide-react';
-import { accent } from '../../config/accent';
 import { EV } from './routingMode';
+import { Button } from '@nekazari/ui-kit';
 
 const NS = 'gis-routing';
 
@@ -41,21 +41,21 @@ export const TransitPanel: React.FC<Props> = ({ pfState, alt, onSave, onCancel }
             <span>{(alt.distance_m / 1000).toFixed(2)} km</span>
             <span>· {alt.cumulative_climb_m?.toFixed(0)} m</span>
           </div>
-          <button onClick={() => onSave(alt)}
-            className="w-full py-1.5 rounded-nkz-md text-nkz-xs font-semibold text-nkz-text-on-accent"
-            style={{ backgroundColor: accent.base }}>
+          <Button onClick={() => onSave(alt)}
+            className="w-full py-1.5">
             {t('actions.save')}
-          </button>
+          </Button>
         </div>
       )}
       {(pfState === 'picking-a' || pfState === 'picking-b') && (
-        <button onClick={onCancel}
-          className="w-full py-1.5 text-nkz-xs text-nkz-text-secondary hover:text-nkz-text-primary">
+        <Button onClick={onCancel} variant="ghost"
+          className="w-full py-1.5 text-nkz-xs">
           {t('actions.cancel')}
-        </button>
+        </Button>
       )}
     </div>
   );
 };
 
 export const startTransit = () => window.dispatchEvent(new CustomEvent(EV.transitStart));
+

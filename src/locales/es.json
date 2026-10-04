@@ -9,6 +9,7 @@
   "title": "GIS Routing",
   "subtitle": "Guiado por líneas A-B para agricultura de precisión",
   "parcel": {
+    "loadingGeo": "Loading geometry...",
     "label": "Parcela",
     "select": "Seleccionar parcela...",
     "mock": "Parcela Demo",
@@ -157,6 +158,7 @@
     "gpx": "GPX"
   },
   "vra": {
+    "sourceHealth": "Vegetation Health",
     "label": "VRA",
     "enabled": "Prescripción VRA",
     "sourceLabel": "Fuente VRA",
@@ -179,6 +181,13 @@
     "summaryRate": "Dosis media"
   },
   "errors": {
+    "title": "Error",
+    "unexpected": "An unexpected error occurred",
+    "retry": "Retry",
+    "pathfindingFailed": "Pathfinding failed",
+    "pathfindingTimeout": "Pathfinding timed out",
+    "pathCalculationFailed": "Path calculation failed",
+    "geoFailed": "Geometry loading failed",
     "authRequired": "Autenticación requerida",
     "generateFailed": "Error al generar la ruta",
     "missingTurningRadius": "Falta el radio de giro de la máquina. Introduce uno o configúralo en el editor de entidades."
@@ -215,11 +224,21 @@
     "optionLabel": "Rumbo {{heading}}° · {{swaths}} franjas",
     "applySelection": "Aplicar trayectoria seleccionada"
   },
+  "panels": {
+    "emptyState": "Genera una ruta para ver resultados",
+    "emptyStateHint": "Configura la maquinaria, los parámetros de ancho de trabajo y el patrón para comenzar"
+  },
   "patterns": {
+    "deleteConfirm": "Confirm delete",
+    "loading": "Loading patterns",
+    "delete": "Delete pattern",
     "saveTitle": "Guardar Patrón",
     "saved": "Patrón guardado",
     "namePlaceholder": "Nombre del patrón...",
-    "save": "Guardar"
+    "save": "Guardar",
+    "savedListTitle": "Patrones guardados",
+    "noSaved": "No hay patrones guardados en esta parcela",
+    "loadFromContext": "Cargar desde Orion-LD"
   },
   "patternLabels": {
     "spiral": "Espiral",
@@ -234,9 +253,6 @@
     "calculating": "Calculando alternativas...",
     "selectAndSave": "Ruta seleccionada:",
     "alternatives": "Alternativas"
-  },
-  "panels": {
-    "emptyState": "Genera una ruta para ver resultados"
   },
   "handoff": {
     "title": "Continuar en el móvil",
@@ -283,5 +299,9 @@
     "noEquipment": "Sin equipo",
     "generate": "Generar ruta de trabajo",
     "generateError": "No se pudo generar la ruta"
+  },
+  "direction": {
+    "outsideIn": "Outside → In",
+    "insideOut": "Inside → Out"
   }
 }

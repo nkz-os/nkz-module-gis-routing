@@ -1,7 +1,8 @@
 import React, { Component, ErrorInfo, ReactNode } from 'react';
-import { accent } from '../config/accent';
+import { withTranslation, WithTranslation } from 'react-i18next';
+import { Button } from '@nekazari/ui-kit';
 
-interface Props {
+interface Props extends WithTranslation {
   children: ReactNode;
   fallback?: ReactNode;
 }
@@ -11,7 +12,7 @@ interface State {
   error: Error | null;
 }
 
-export class ErrorBoundary extends Component<Props, State> {
+class ErrorBoundaryComponent extends Component<Props, State> {
   constructor(props: Props) {
     super(props);
     this.state = { hasError: false, error: null };
@@ -26,27 +27,23 @@ export class ErrorBoundary extends Component<Props, State> {
   }
 
   render() {
+    const { t } = this.props;
     if (this.state.hasError) {
       if (this.props.fallback) return this.props.fallback;
       return (
         <div className="p-nkz-stack flex flex-col items-center justify-center min-h-[200px] text-center">
-          <div className="w-12 h-12 rounded-full flex items-center justify-center mb-3"
-            style={{ backgroundColor: accent.soft }}>
-            <span className="text-lg font-bold" style={{ color: accent.strong }}>!</span>
+          <div className="w-12 h-12 rounded-full flex items-center justify-center mb-3 bg-nkz-accent-soft">
+            <span className="text-lg font-bold text-nkz-accent-strong">!</span>
           </div>
           <p className="text-nkz-sm font-semibold text-nkz-text-primary mb-1">
-            Something went wrong
+            {t('errors.title', 'Something went wrong')}
           </p>
           <p className="text-nkz-xs text-nkz-text-secondary mb-3 max-w-xs">
-            {this.state.error?.message || 'An unexpected error occurred'}
+            {this.state.error?.message || t('errors.unexpected', 'An unexpected error occurred')}
           </p>
-          <button
-            onClick={() => this.setState({ hasError: false, error: null })}
-            className="px-4 py-2 rounded-nkz-md text-nkz-xs font-semibold text-nkz-text-on-accent"
-            style={{ backgroundColor: accent.base }}
-          >
-            Retry
-          </button>
+          <Button onClick={() => this.setState({ hasError: false, error: null })}>
+            {t('errors.retry', 'Retry')}
+          </Button>
         </div>
       );
     }
@@ -54,3 +51,6 @@ export class ErrorBoundary extends Component<Props, State> {
     return this.props.children;
   }
 }
+
+export const ErrorBoundary = withTranslation('gis-routing')(ErrorBoundaryComponent);
+

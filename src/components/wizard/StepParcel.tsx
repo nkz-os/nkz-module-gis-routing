@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useTranslation } from '@nekazari/sdk';
 import { MapPin, Loader2, AlertCircle, ChevronDown } from 'lucide-react';
 import { api } from '../../services/api';
+import { Select } from '@nekazari/ui-kit';
 
 const NS = 'gis-routing';
 
@@ -49,7 +50,7 @@ export const StepParcel: React.FC<Props> = ({ parcelId, onParcelChange }) => {
       const data = await api.getParcelGeometry(id);
       onParcelChange(id, data?.geometry || null, data?.name || '');
     } catch (e: any) {
-      setError(e?.message || 'Failed to load parcel geometry');
+      setError(e?.message || t('errors.geoFailed', 'Failed to load parcel geometry'));
       onParcelChange(id, null, '');
     } finally {
       setGeoLoading(false);
@@ -61,7 +62,7 @@ export const StepParcel: React.FC<Props> = ({ parcelId, onParcelChange }) => {
       <button onClick={() => setExpanded(!expanded)}
         className="w-full flex items-center justify-between px-nkz-stack py-3 text-nkz-sm font-semibold">
         <span className="flex items-center gap-nkz-inline">
-          <span className="w-6 h-6 rounded-full bg-nkz-accent-base text-white text-nkz-sm flex items-center justify-center">1</span>
+          <span className="w-6 h-6 rounded-full bg-nkz-accent-base text-nkz-text-on-accent text-nkz-sm flex items-center justify-center">1</span>
           <MapPin className="w-4 h-4 text-nkz-accent-base" />
           {t('parcel.label')}
         </span>
@@ -76,16 +77,18 @@ export const StepParcel: React.FC<Props> = ({ parcelId, onParcelChange }) => {
           ) : parcels.length === 0 ? (
             <p className="text-nkz-sm text-nkz-text-secondary">{t('parcel.empty')}</p>
           ) : (
-            <select value={parcelId || ''} onChange={e => handleSelect(e.target.value)}
-              className="w-full border border-nkz-border rounded-nkz-md px-3 py-2 text-nkz-sm bg-nkz-surface">
-              <option value="">{t('parcel.select')}</option>
-              {parcels.map(p => (
-                <option key={p.id} value={p.id}>{p.name}{p.area ? ` (${p.area.toFixed(1)} ha)` : ''}</option>
-              ))}
-            </select>
+            <Select 
+              value={parcelId || ''} 
+              onValueChange={handleSelect}
+              options={[
+                { value: '', label: t('parcel.select') },
+                ...parcels.map(p => ({ value: p.id, label: p.name + (p.area ? ` (${p.area.toFixed(1)} ha)` : '') }))
+              ]}
+              className="w-full" 
+            />
           )}
           {geoLoading && (
-            <p className="text-nkz-sm text-nkz-text-secondary flex items-center gap-1"><Loader2 className="w-3 h-3 animate-spin" />Loading geometry...</p>
+            <p className="text-nkz-sm text-nkz-text-secondary flex items-center gap-1"><Loader2 className="w-3 h-3 animate-spin" />{t('parcel.loadingGeo', 'Loading geometry...')}</p>
           )}
           {selectedName && !geoLoading && <p className="text-nkz-sm text-nkz-success">{selectedName}</p>}
           {cfg && (
@@ -103,3 +106,4 @@ export const StepParcel: React.FC<Props> = ({ parcelId, onParcelChange }) => {
     </div>
   );
 };
+

@@ -1,8 +1,8 @@
 import React from 'react';
 import { useTranslation } from '@nekazari/sdk';
 import { Flag, Ban, Tractor, ArrowLeftRight } from 'lucide-react';
-import { accent } from '../../config/accent';
 import type { RoutingMode } from './routingMode';
+import { Button } from '@nekazari/ui-kit';
 
 const NS = 'gis-routing';
 
@@ -25,19 +25,22 @@ export const ModeBar: React.FC<Props> = ({ mode, onSelect }) => {
       {BUTTONS.map(b => {
         const active = isActive(b.mode);
         return (
-          <button
+          <Button
             key={b.key}
+            variant={active ? undefined : 'ghost'}
             onClick={() => onSelect(active ? 'idle' : b.mode)}
-            className="flex flex-col items-center gap-1 py-2 rounded-nkz-md text-[10px] font-semibold border transition-colors"
-            style={active
-              ? { backgroundColor: accent.base, color: 'var(--nkz-text-on-accent)', borderColor: accent.base }
-              : { borderColor: 'var(--nkz-border-default)' }}
+            className={`flex flex-col items-center gap-1 py-2 text-[10px] border transition-colors ${
+              active
+                ? 'bg-nkz-accent-base text-nkz-text-on-accent border-nkz-accent-base'
+                : 'border-nkz-border text-nkz-text-secondary bg-transparent'
+            }`}
           >
             {b.icon}
             {t(b.key)}
-          </button>
+          </Button>
         );
       })}
     </div>
   );
 };
+

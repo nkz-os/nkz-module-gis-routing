@@ -210,7 +210,7 @@ const App: React.FC = () => {
 
   const handleDeletePattern = useCallback(async (patternId: string, e: React.MouseEvent) => {
     e.stopPropagation();
-    if (!confirm('Delete this saved route?')) return;
+    if (!confirm(t('patterns.deleteConfirm'))) return;
     try {
       await api.deletePattern(patternId);
       setSavedPatterns(prev => prev.filter(p => p.id !== patternId));
@@ -410,7 +410,7 @@ const App: React.FC = () => {
                 </div>
               )}
               {patternsLoading && (
-                <div className="text-nkz-sm text-nkz-text-secondary text-center py-2">Loading...</div>
+                <div className="text-nkz-sm text-nkz-text-secondary text-center py-2">{t('patterns.loading')}</div>
               )}
               {!patternsLoading && savedPatterns.length > 0 && (
                 <div className="rounded-nkz-lg border border-nkz-border bg-nkz-surface-raised">
@@ -437,7 +437,7 @@ const App: React.FC = () => {
                         <button
                           onClick={(e) => handleDeletePattern(p.id, e)}
                           className="px-2 py-1 text-nkz-text-secondary hover:text-nkz-danger transition-colors"
-                          title="Delete"
+                          title={t('patterns.delete')}
                         >
                           ×
                         </button>

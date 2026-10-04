@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 import { useTranslation } from '@nekazari/sdk';
 import { Save, Loader2 } from 'lucide-react';
-import { accent } from '../../config/accent';
 import { api } from '../../services/api';
+import { Input, Button } from '@nekazari/ui-kit';
 
 const NS = 'gis-routing';
 
@@ -54,20 +54,20 @@ export const PatternSaveLoad: React.FC<Props> = ({
         <p className="text-nkz-xs text-nkz-success">{t('patterns.saved')}</p>
       ) : (
         <>
-          <input
+          <Input
             type="text" value={name}
-            onChange={e => setName(e.target.value)}
+            onChange={(e: any) => setName(e?.target ? e.target.value : e)}
             placeholder={t('patterns.namePlaceholder')}
-            className="w-full border border-nkz-border rounded-nkz-md px-3 py-2 text-nkz-sm bg-nkz-surface"
+            className="w-full"
           />
-          <button onClick={handleSave} disabled={saving || !name.trim()}
-            className="w-full py-2 rounded-nkz-md text-nkz-xs font-semibold text-nkz-text-on-accent disabled:opacity-50"
-            style={{ backgroundColor: accent.base }}>
+          <Button onClick={handleSave} disabled={saving || !name.trim()}
+            className="w-full py-2 flex justify-center items-center">
             {saving ? <Loader2 className="w-3 h-3 animate-spin inline mr-1" /> : null}
             {t('patterns.save')}
-          </button>
+          </Button>
         </>
       )}
     </div>
   );
 };
+
