@@ -66,12 +66,16 @@ export const StepVRA: React.FC<Props> = ({
 
           {enabled && (
             <>
-              <Select value={source} onChange={(e: any) => onSourceChange(e?.target ? e.target.value : e)}
-                className="w-full">
-                <option value="vegetation-health">{t('vra.sourceHealth', 'Vegetation Health')}</option>
-                <option value="orion">{t('vra.sourceOrion', 'Orion-LD')}</option>
-                <option value="external">{t('vra.sourceExternal', 'External file')}</option>
-              </Select>
+              <Select 
+                value={source} 
+                onValueChange={onSourceChange}
+                options={[
+                  { value: 'vegetation-health', label: t('vra.sourceHealth', 'Vegetation Health') },
+                  { value: 'orion', label: t('vra.sourceOrion', 'Orion-LD') },
+                  { value: 'external', label: t('vra.sourceExternal', 'External file') }
+                ]}
+                className="w-full" 
+              />
 
               <div>
                 <label className="text-nkz-sm text-nkz-text-secondary">{t('vra.baseRate')}</label>

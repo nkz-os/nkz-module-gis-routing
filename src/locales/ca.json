@@ -9,13 +9,14 @@
   "title": "GIS Routing",
   "subtitle": "Guiatge per línies A-B per a agricultura de precisió",
   "parcel": {
-    "label": "Parcel·la",
-    "select": "Seleccionar parcel·la...",
-    "mock": "Parcel·la Demo",
-    "empty": "Sense parcel·les",
-    "accessBadge": "Accés ✓",
-    "noAccessBadge": "Sense accés",
-    "configureHint": "Configura l'accés i les zones a \"Configuració de parcel·la\""
+    "loadingGeo": "Loading geometry...",
+    "label": "Parcela",
+    "select": "Seleccionar parcela...",
+    "mock": "Parcela Demo",
+    "empty": "Sin parcelas",
+    "accessBadge": "Acceso ✓",
+    "noAccessBadge": "Sin acceso",
+    "configureHint": "Configura el acceso y las zonas en \"Configuración de parcela\""
   },
   "equipment": {
     "label": "Tractor / Maquinària",
@@ -75,31 +76,39 @@
     "gpx": "GPX"
   },
   "vra": {
-    "enabled": "Prescripció VRA",
-    "baseRate": "Dosi Base",
-    "rateUnit": "Unitat",
+    "sourceHealth": "Vegetation Health",
     "label": "VRA",
-    "sourceLabel": "VRA source",
-    "sourceOrion": "Orion-LD zones",
-    "sourceExternal": "External upload",
-    "externalUploadLabel": "External file (GeoJSON/CSV)",
-    "externalUploadError": "Could not process external file",
-    "externalLoaded": "File loaded: {{file}} ({{count}} zones)",
-    "externalPending": "Upload an external file to use VRA prescription",
-    "zoneSelection": "Zone selection",
-    "selectAll": "Select all",
-    "clearAll": "Clear selection",
-    "noZonesForParcel": "No zones available for the selected parcel",
-    "prescriptionSummary": "Prescription summary",
-    "summarySegments": "Segments",
-    "summaryZones": "Applied zones",
-    "summaryLength": "Total length",
-    "summaryRate": "Average rate"
+    "enabled": "Prescripción VRA",
+    "sourceLabel": "Fuente VRA",
+    "sourceOrion": "Zonas en Orion-LD",
+    "sourceExternal": "Subida externa",
+    "externalUploadLabel": "Archivo externo (GeoJSON/CSV)",
+    "externalUploadError": "No se pudo procesar el archivo externo",
+    "externalLoaded": "Archivo cargado: {{file}} ({{count}} zonas)",
+    "externalPending": "Sube un archivo externo para usar prescripción VRA",
+    "baseRate": "Dosis Base",
+    "rateUnit": "Unidad",
+    "zoneSelection": "Selección de zonas",
+    "selectAll": "Seleccionar todas",
+    "clearAll": "Limpiar selección",
+    "noZonesForParcel": "Sin zonas disponibles para la parcela seleccionada",
+    "prescriptionSummary": "Resumen de prescripción",
+    "summarySegments": "Segmentos",
+    "summaryZones": "Zonas aplicadas",
+    "summaryLength": "Longitud total",
+    "summaryRate": "Dosis media"
   },
   "errors": {
-    "authRequired": "Autenticació requerida",
-    "generateFailed": "Error en generar la ruta",
-    "missingTurningRadius": "Falta el radi de gir de la màquina. Introdueix-ne un o configura'l a l'editor d'entitats."
+    "title": "Error",
+    "unexpected": "An unexpected error occurred",
+    "retry": "Retry",
+    "pathfindingFailed": "Pathfinding failed",
+    "pathfindingTimeout": "Pathfinding timed out",
+    "pathCalculationFailed": "Path calculation failed",
+    "geoFailed": "Geometry loading failed",
+    "authRequired": "Autenticación requerida",
+    "generateFailed": "Error al generar la ruta",
+    "missingTurningRadius": "Falta el radio de giro de la máquina. Introduce uno o configúralo en el editor de entidades."
   },
   "zoning": {
     "title": "Zonificació VRA",
@@ -216,13 +225,16 @@
     "applySelection": "Apply selected trajectory"
   },
   "patterns": {
-    "saveTitle": "Save Pattern",
-    "saved": "Pattern saved",
-    "namePlaceholder": "Pattern name...",
-    "save": "Save",
-    "savedListTitle": "Saved Routes",
-    "noSaved": "No saved routes for this parcel",
-    "loadFromContext": "Show on map"
+    "deleteConfirm": "Confirm delete",
+    "loading": "Loading patterns",
+    "delete": "Delete pattern",
+    "saveTitle": "Guardar Patrón",
+    "saved": "Patrón guardado",
+    "namePlaceholder": "Nombre del patrón...",
+    "save": "Guardar",
+    "savedListTitle": "Patrones guardados",
+    "noSaved": "No hay patrones guardados en esta parcela",
+    "loadFromContext": "Cargar desde Orion-LD"
   },
   "patternLabels": {
     "spiral": "Spiral",
@@ -287,5 +299,9 @@
     "noEquipment": "Sense equip",
     "generate": "Generar ruta de treball",
     "generateError": "No s'ha pogut generar la ruta"
+  },
+  "direction": {
+    "outsideIn": "Outside → In",
+    "insideOut": "Inside → Out"
   }
 }

@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useTranslation } from '@nekazari/sdk';
 import { Grid3X3, ChevronDown, Compass, Ruler } from 'lucide-react';
-import { Button, Select, Input } from '@nekazari/ui-kit';
+import { Button, Select, Input, Slider } from '@nekazari/ui-kit';
 
 const NS = 'gis-routing';
 
@@ -102,8 +102,8 @@ export const StepPattern: React.FC<Props> = ({
           {/* Overlap % */}
           <div>
             <label className="text-nkz-sm text-nkz-text-secondary">{t('parameters.overlap')}</label>
-            <Input type="range" min={0} max={30} value={config.overlapPct}
-              onChange={(e: any) => onConfigChange({ overlapPct: Number(e?.target ? e.target.value : e) })}
+            <Slider min={0} max={30} value={config.overlapPct}
+              onChange={(val: number) => onConfigChange({ overlapPct: val })}
               className="w-full" />
             <span className="text-nkz-sm text-nkz-text-secondary">{config.overlapPct}%</span>
           </div>
@@ -111,21 +111,32 @@ export const StepPattern: React.FC<Props> = ({
           {/* {t('parameters.headlandPasses')} */}
           <div>
             <label className="text-nkz-sm text-nkz-text-secondary">{t('parameters.headlandPasses')}</label>
-            <Select value={config.headlandPasses} onChange={(e: any) => onConfigChange({ headlandPasses: Number(e?.target ? e.target.value : e) })}
-              className="w-full mt-1">
-              <option value={0}>0</option><option value={1}>1</option><option value={2}>2</option><option value={3}>3</option>
-            </Select>
+            <Select 
+              value={String(config.headlandPasses)} 
+              onValueChange={(v: string) => onConfigChange({ headlandPasses: Number(v) })}
+              options={[
+                { value: '0', label: '0' },
+                { value: '1', label: '1' },
+                { value: '2', label: '2' },
+                { value: '3', label: '3' }
+              ]}
+              className="w-full mt-1" 
+            />
           </div>
 
           {/* {t('parameters.direction')} (only for spiral) */}
           {pattern === 'spiral' && (
             <div>
               <label className="text-nkz-sm text-nkz-text-secondary">{t('parameters.direction')}</label>
-              <Select value={config.direction} onChange={(e: any) => onConfigChange({ direction: (e?.target ? e.target.value : e) as 'inside-out' | 'outside-in' })}
-                className="w-full mt-1">
-                <option value="outside-in">{t('direction.outsideIn', 'Outside → In')}</option>
-                <option value="inside-out">{t('direction.insideOut', 'Inside → Out')}</option>
-              </Select>
+              <Select 
+                value={config.direction} 
+                onValueChange={(v: string) => onConfigChange({ direction: v as 'inside-out' | 'outside-in' })}
+                options={[
+                  { value: 'outside-in', label: t('direction.outsideIn', 'Outside → In') },
+                  { value: 'inside-out', label: t('direction.insideOut', 'Inside → Out') }
+                ]}
+                className="w-full mt-1" 
+              />
             </div>
           )}
 

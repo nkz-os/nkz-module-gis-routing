@@ -45,6 +45,7 @@ export const HandoffPanel: React.FC<Props> = ({ operationId }) => {
           {operationId}
         </code>
         <Button
+          variant="ghost"
           onClick={handleCopy}
           className={`px-2 py-1 flex items-center gap-1 flex-shrink-0 ${copied ? 'text-nkz-success bg-nkz-surface' : 'text-nkz-accent-base bg-nkz-surface'}`}
         >

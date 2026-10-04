@@ -77,13 +77,15 @@ export const StepParcel: React.FC<Props> = ({ parcelId, onParcelChange }) => {
           ) : parcels.length === 0 ? (
             <p className="text-nkz-sm text-nkz-text-secondary">{t('parcel.empty')}</p>
           ) : (
-            <Select value={parcelId || ''} onChange={(e: any) => handleSelect(e?.target ? e.target.value : e)}
-              className="w-full">
-              <option value="">{t('parcel.select')}</option>
-              {parcels.map(p => (
-                <option key={p.id} value={p.id}>{p.name}{p.area ? ` (${p.area.toFixed(1)} ha)` : ''}</option>
-              ))}
-            </Select>
+            <Select 
+              value={parcelId || ''} 
+              onValueChange={handleSelect}
+              options={[
+                { value: '', label: t('parcel.select') },
+                ...parcels.map(p => ({ value: p.id, label: p.name + (p.area ? ` (${p.area.toFixed(1)} ha)` : '') }))
+              ]}
+              className="w-full" 
+            />
           )}
           {geoLoading && (
             <p className="text-nkz-sm text-nkz-text-secondary flex items-center gap-1"><Loader2 className="w-3 h-3 animate-spin" />{t('parcel.loadingGeo', 'Loading geometry...')}</p>

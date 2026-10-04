@@ -9,13 +9,14 @@
   "title": "GIS Routing",
   "subtitle": "A-B lerroen bidezko gidatze-sistema nekazaritza zehatzerako",
   "parcel": {
-    "label": "Lursaila",
-    "select": "Hautatu lursaila...",
-    "mock": "Demo Lursaila",
-    "empty": "Ez dago lursailik",
-    "accessBadge": "Sarbidea ✓",
-    "noAccessBadge": "Sarbiderik ez",
-    "configureHint": "Konfiguratu sarbidea eta guneak \"Lursailaren konfigurazioa\" atalean"
+    "loadingGeo": "Loading geometry...",
+    "label": "Parcela",
+    "select": "Seleccionar parcela...",
+    "mock": "Parcela Demo",
+    "empty": "Sin parcelas",
+    "accessBadge": "Acceso ✓",
+    "noAccessBadge": "Sin acceso",
+    "configureHint": "Configura el acceso y las zonas en \"Configuración de parcela\""
   },
   "equipment": {
     "label": "Traktorea / Makineria",
@@ -75,31 +76,39 @@
     "gpx": "GPX"
   },
   "vra": {
-    "enabled": "VRA Preskripzioa",
-    "baseRate": "Oinarrizko Dosia",
-    "rateUnit": "Unitatea",
+    "sourceHealth": "Vegetation Health",
     "label": "VRA",
-    "sourceLabel": "VRA source",
-    "sourceOrion": "Orion-LD zones",
-    "sourceExternal": "External upload",
-    "externalUploadLabel": "External file (GeoJSON/CSV)",
-    "externalUploadError": "Could not process external file",
-    "externalLoaded": "File loaded: {{file}} ({{count}} zones)",
-    "externalPending": "Upload an external file to use VRA prescription",
-    "zoneSelection": "Zone selection",
-    "selectAll": "Select all",
-    "clearAll": "Clear selection",
-    "noZonesForParcel": "No zones available for the selected parcel",
-    "prescriptionSummary": "Prescription summary",
-    "summarySegments": "Segments",
-    "summaryZones": "Applied zones",
-    "summaryLength": "Total length",
-    "summaryRate": "Average rate"
+    "enabled": "Prescripción VRA",
+    "sourceLabel": "Fuente VRA",
+    "sourceOrion": "Zonas en Orion-LD",
+    "sourceExternal": "Subida externa",
+    "externalUploadLabel": "Archivo externo (GeoJSON/CSV)",
+    "externalUploadError": "No se pudo procesar el archivo externo",
+    "externalLoaded": "Archivo cargado: {{file}} ({{count}} zonas)",
+    "externalPending": "Sube un archivo externo para usar prescripción VRA",
+    "baseRate": "Dosis Base",
+    "rateUnit": "Unidad",
+    "zoneSelection": "Selección de zonas",
+    "selectAll": "Seleccionar todas",
+    "clearAll": "Limpiar selección",
+    "noZonesForParcel": "Sin zonas disponibles para la parcela seleccionada",
+    "prescriptionSummary": "Resumen de prescripción",
+    "summarySegments": "Segmentos",
+    "summaryZones": "Zonas aplicadas",
+    "summaryLength": "Longitud total",
+    "summaryRate": "Dosis media"
   },
   "errors": {
-    "authRequired": "Autentikazioa beharrezkoa",
-    "generateFailed": "Ibilbidea sortzean errorea",
-    "missingTurningRadius": "Makinaren bira-erradioa falta da. Sartu bat edo konfiguratu entitateen editorean."
+    "title": "Error",
+    "unexpected": "An unexpected error occurred",
+    "retry": "Retry",
+    "pathfindingFailed": "Pathfinding failed",
+    "pathfindingTimeout": "Pathfinding timed out",
+    "pathCalculationFailed": "Path calculation failed",
+    "geoFailed": "Geometry loading failed",
+    "authRequired": "Autenticación requerida",
+    "generateFailed": "Error al generar la ruta",
+    "missingTurningRadius": "Falta el radio de giro de la máquina. Introduce uno o configúralo en el editor de entidades."
   },
   "zoning": {
     "title": "VRA Zonifikazioa",
@@ -216,13 +225,16 @@
     "applySelection": "Apply selected trajectory"
   },
   "patterns": {
-    "saveTitle": "Save Pattern",
-    "saved": "Pattern saved",
-    "namePlaceholder": "Pattern name...",
-    "save": "Save",
-    "savedListTitle": "Saved Routes",
-    "noSaved": "No saved routes for this parcel",
-    "loadFromContext": "Show on map"
+    "deleteConfirm": "Confirm delete",
+    "loading": "Loading patterns",
+    "delete": "Delete pattern",
+    "saveTitle": "Guardar Patrón",
+    "saved": "Patrón guardado",
+    "namePlaceholder": "Nombre del patrón...",
+    "save": "Guardar",
+    "savedListTitle": "Patrones guardados",
+    "noSaved": "No hay patrones guardados en esta parcela",
+    "loadFromContext": "Cargar desde Orion-LD"
   },
   "patternLabels": {
     "spiral": "Spiral",
@@ -287,5 +299,9 @@
     "noEquipment": "Ekipamendurik gabe",
     "generate": "Lan-ibilbidea sortu",
     "generateError": "Ezin izan da ibilbidea sortu"
+  },
+  "direction": {
+    "outsideIn": "Outside → In",
+    "insideOut": "Inside → Out"
   }
 }

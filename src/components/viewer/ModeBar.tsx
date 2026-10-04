@@ -27,6 +27,7 @@ export const ModeBar: React.FC<Props> = ({ mode, onSelect }) => {
         return (
           <Button
             key={b.key}
+            variant={active ? undefined : 'ghost'}
             onClick={() => onSelect(active ? 'idle' : b.mode)}
             className={`flex flex-col items-center gap-1 py-2 text-[10px] border transition-colors ${
               active

@@ -16,7 +16,8 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   if (tid) headers['X-Tenant-ID'] = tid;
   
   if (typeof window !== 'undefined') {
-    const token = (window as any).keycloak?.token;
+    const ctx = (window as any).__nekazariAuthContext;
+    const token = ctx?.getToken?.() || ctx?.token || (window as any).keycloak?.token;
     if (token) headers['Authorization'] = `Bearer ${token}`;
   }
   

@@ -13,7 +13,7 @@ import { ConstraintsStatus } from '../viewer/ConstraintsStatus';
 import { WorkRoutePanel } from '../viewer/WorkRoutePanel';
 import { TransitPanel, startTransit } from '../viewer/TransitPanel';
 import { EV, emitMode, type RoutingMode } from '../viewer/routingMode';
-import { Button, ModuleAttribution } from '@nekazari/ui-kit';
+import { Button } from '@nekazari/ui-kit';
 
 const NS = 'gis-routing';
 
@@ -53,6 +53,7 @@ const SavedRoutes: React.FC<{
             </p>
           </div>
           <Button
+            variant="ghost"
             onClick={() => onShow(p)}
             className="flex-shrink-0 flex items-center gap-1 px-2.5 py-1.5 rounded-nkz-md text-nkz-xs font-semibold"
             title={t('patterns.loadFromContext')}
@@ -102,8 +103,9 @@ const DrawControls: React.FC<{
             >
               <span>{t('parcelConfig.noGoZones')} {i + 1}</span>
               <Button
+                variant="danger"
                 onClick={() => onRemoveZone(z.id)}
-                className="text-nkz-danger hover:opacity-80 p-1"
+                className="hover:opacity-80 p-1"
                 title={t('parcelConfig.deleteZone')}
               >
                 <Trash2 className="w-3.5 h-3.5" />
@@ -305,9 +307,6 @@ export const ContextPanelSlot: React.FC = () => {
   return (
     <SlotShell moduleId="nkz-module-gis-routing" accent={accent}>
       <div className="p-4 space-y-3 text-nkz-sm relative">
-        <div className="absolute top-0 right-0 z-10 pointer-events-none p-2">
-          <ModuleAttribution />
-        </div>
         <p className="font-semibold text-nkz-text-primary">{t('title')}</p>
         <ConstraintsStatus hasGate={!!accessPoint} zoneCount={zones.length} />
         <ModeBar mode={mode} onSelect={selectMode} />

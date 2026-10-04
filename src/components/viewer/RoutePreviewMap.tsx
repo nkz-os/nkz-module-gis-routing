@@ -2,8 +2,6 @@ import React, { useState, useCallback } from 'react';
 import { useTranslation } from '@nekazari/sdk';
 import { Map, Loader2, Eye } from 'lucide-react';
 import { Button } from '@nekazari/ui-kit';
-import { accent } from '../../config/accent';
-
 const NS = 'gis-routing';
 
 interface Props {

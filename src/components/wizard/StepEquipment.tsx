@@ -67,33 +67,41 @@ export const StepEquipment: React.FC<Props> = ({
             <>
               <div>
                 <label className="text-nkz-sm text-nkz-text-secondary">{t('parameters.operationType')}</label>
-                <Select value={operationType} onChange={(e: any) => onOperationTypeChange(e?.target ? e.target.value : e)}
-                  className="w-full mt-1">
-                  <option value="spraying">{t('operationType.spraying')}</option>
-                  <option value="fertilizing">{t('operationType.fertilizing')}</option>
-                  <option value="seeding">{t('operationType.seeding')}</option>
-                  <option value="tillage">{t('operationType.tillage')}</option>
-                </Select>
+                <Select 
+                  value={operationType} 
+                  onValueChange={onOperationTypeChange}
+                  options={[
+                    { value: 'spraying', label: t('operationType.spraying') },
+                    { value: 'fertilizing', label: t('operationType.fertilizing') },
+                    { value: 'seeding', label: t('operationType.seeding') },
+                    { value: 'tillage', label: t('operationType.tillage') }
+                  ]}
+                  className="w-full mt-1" 
+                />
               </div>
               <div>
                 <label className="text-nkz-sm text-nkz-text-secondary">{t('equipment.tractorLabel')}</label>
-                <Select value={tractorId || ''} onChange={(e: any) => onTractorChange(e?.target ? (e.target.value || null) : (e || null))}
-                  className="w-full mt-1">
-                  <option value="">{t('equipment.selectTractor')}</option>
-                  {tractors.map(e => (
-                    <option key={e.id} value={e.id}>{e.name}</option>
-                  ))}
-                </Select>
+                <Select 
+                  value={tractorId || ''} 
+                  onValueChange={(val: string) => onTractorChange(val || null)}
+                  options={[
+                    { value: '', label: t('equipment.selectTractor') },
+                    ...tractors.map(e => ({ value: e.id, label: e.name }))
+                  ]}
+                  className="w-full mt-1" 
+                />
               </div>
               <div>
                 <label className="text-nkz-sm text-nkz-text-secondary">{t('equipment.implementLabel')}</label>
-                <Select value={implementId || ''} onChange={(e: any) => onImplementChange(e?.target ? (e.target.value || null) : (e || null))}
-                  className="w-full mt-1">
-                  <option value="">{t('equipment.selectImplement')}</option>
-                  {implements_.map(e => (
-                    <option key={e.id} value={e.id}>{e.name}</option>
-                  ))}
-                </Select>
+                <Select 
+                  value={implementId || ''} 
+                  onValueChange={(val: string) => onImplementChange(val || null)}
+                  options={[
+                    { value: '', label: t('equipment.selectImplement') },
+                    ...implements_.map(e => ({ value: e.id, label: e.name }))
+                  ]}
+                  className="w-full mt-1" 
+                />
               </div>
               <div>
                 <label className="text-nkz-sm text-nkz-text-secondary">{t('equipment.turningRadius')}</label>

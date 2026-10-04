@@ -70,11 +70,15 @@ export const WorkRoutePanel: React.FC<Props> = ({ parcelId }) => {
       </div>
       <div>
         <label className="text-nkz-xs text-nkz-text-secondary">{t('cockpit.equipment')}</label>
-        <Select value={implementId} onChange={(e: any) => setImplementId(e?.target ? e.target.value : e)}
-          className="w-full mt-1">
-          <option value="">{t('cockpit.noEquipment')}</option>
-          {equipment.map((m: any) => <option key={m.id} value={m.id}>{m.name}</option>)}
-        </Select>
+        <Select 
+          value={implementId} 
+          onValueChange={setImplementId}
+          options={[
+            { value: '', label: t('cockpit.noEquipment') },
+            ...equipment.map((m: any) => ({ value: m.id, label: m.name }))
+          ]}
+          className="w-full mt-1"
+        />
       </div>
       <Button onClick={generate} disabled={busy}
         className="w-full flex items-center justify-center gap-1.5 py-2">

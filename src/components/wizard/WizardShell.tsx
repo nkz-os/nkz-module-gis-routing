@@ -1,6 +1,5 @@
 import React from 'react';
 import { useTranslation } from '@nekazari/sdk';
-import { ModuleAttribution } from '@nekazari/ui-kit';
 
 const NS = 'gis-routing';
 
@@ -15,9 +14,6 @@ export const WizardShell: React.FC<WizardShellProps> = ({ left, center, right })
 
   return (
     <div className="flex flex-col lg:flex-row h-full min-h-screen bg-nkz-surface-raised text-nkz-text-primary font-sans relative">
-      <div className="absolute top-4 right-4 z-50 pointer-events-none">
-        <ModuleAttribution />
-      </div>
       {/* Left: Configuration — 35% on desktop, full-width on mobile */}
       <div className="w-full lg:w-[35%] lg:min-w-[340px] lg:max-w-[480px] flex-shrink-0 overflow-y-auto
                       border-b lg:border-b-0 lg:border-r border-nkz-border bg-nkz-surface">
