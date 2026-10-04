@@ -73,8 +73,18 @@ export const ParcelConfigDrawTool: React.FC<Props> = ({ viewer: propViewer }) =>
 
     // Screen click -> [lon, lat] using the same pick technique as GisRoutingMapLayer.
     const pickLonLat = (screenPos: any): [number, number] | null => {
-      const cartesian = viewer.scene.pickPosition(screenPos);
-      if (!Cesium.defined(cartesian)) return null; // clicked sky / nothing
+      let cartesian;
+      if (viewer.scene.pickPositionSupported) {
+        cartesian = viewer.scene.pickPosition(screenPos);
+      }
+      if (!Cesium.defined(cartesian)) {
+        const ray = viewer.camera.getPickRay(screenPos);
+        cartesian = viewer.scene.globe.pick(ray, viewer.scene);
+      }
+      if (!Cesium.defined(cartesian)) {
+        cartesian = viewer.camera.pickEllipsoid(screenPos, viewer.scene.globe.ellipsoid);
+      }
+      if (!Cesium.defined(cartesian)) return null;
       const carto = Cesium.Cartographic.fromCartesian(cartesian);
       const lon = Cesium.Math.toDegrees(carto.longitude);
       const lat = Cesium.Math.toDegrees(carto.latitude);
