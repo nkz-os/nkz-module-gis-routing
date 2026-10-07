@@ -34,6 +34,15 @@ def _rel(entity: dict, name: str) -> Optional[str]:
     return None
 
 
+def _parcel_rel(entity: dict) -> Optional[str]:
+    """Parcel relationship: SDM name first, legacy refAgriParcel fallback.
+
+    Platform convention for the ref<Type> → has<Type> migration window:
+    reads must check both names so pre-migration entities keep resolving.
+    """
+    return _rel(entity, "hasAgriParcel") or _rel(entity, "refAgriParcel")
+
+
 def _iso_to_epoch_s(node) -> Optional[int]:
     """Convert a NGSI-LD DateTime value ({"@value": "YYYY-MM-DDTHH:MM:SSZ"}) to epoch seconds."""
     if isinstance(node, dict):
@@ -54,7 +63,7 @@ def operation_to_row(entity: dict) -> dict:
     """Lightweight history row: metadata + honest metrics, NO geometry."""
     return {
         "id": entity.get("id"),
-        "parcel_id": _rel(entity, "hasAgriParcel"),
+        "parcel_id": _parcel_rel(entity),
         "operation_type": _prop(entity, "operationType"),
         "status": _prop(entity, "status"),
         "swath_count": _prop(entity, "swathCount"),
@@ -173,7 +182,7 @@ def template_to_dict(entity: dict) -> dict:
     loc = _prop(entity, "location")
     return {
         "id": entity.get("id"),
-        "parcel_id": _rel(entity, "hasAgriParcel"),
+        "parcel_id": _parcel_rel(entity),
         "name": _prop(entity, "name"),
         "pattern_type": _prop(entity, "patternType"),
         "pattern_config": _prop(entity, "generationConfig"),
@@ -191,7 +200,7 @@ def template_to_dict(entity: dict) -> dict:
 def _matches_parcel(entity: dict, parcel_id: Optional[str]) -> bool:
     if not parcel_id:
         return True
-    return _rel(entity, "hasAgriParcel") == parcel_id
+    return _parcel_rel(entity) == parcel_id
 
 
 async def list_operations(orion: OrionClient, tenant_id: str,

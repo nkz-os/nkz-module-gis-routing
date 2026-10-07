@@ -801,7 +801,15 @@ async def on_ngsild_notification(request: Request):
         body = await request.json()
     except Exception:
         raise HTTPException(status_code=422, detail="Invalid JSON body")
-    tenant_id = request.headers.get("FIWARE-Service", "default")
+    # Orion-LD conveys the tenant of a notification via NGSILD-Tenant
+    # (verified in production: telemetry-worker attributes rows to real tenants
+    # from this header alone). Fiware-Service is kept only as a legacy fallback.
+    tenant_id = (request.headers.get("NGSILD-Tenant")
+                 or request.headers.get("FIWARE-Service"))
+    if not tenant_id:
+        # Fail closed: an anonymous notification cannot be attributed to a
+        # tenant, and a silent "default" would mix tenants in the sync tables.
+        raise HTTPException(status_code=400, detail="Missing NGSILD-Tenant header")
     data = body.get("data", [])
 
     if not data:
@@ -877,7 +885,8 @@ async def on_ngsild_notification(request: Request):
                     prescription_map = json.dumps(pm_value) if pm_value else None
                 await ts.materialize_operation(
                     remote_id=eid, tenant_id=tenant_id,
-                    parcel_id=_relationship_target(entity, "hasAgriParcel"),
+                    parcel_id=(_relationship_target(entity, "hasAgriParcel")
+                               or _relationship_target(entity, "refAgriParcel")),
                     equipment_id=None,
                     tractor_id=_relationship_target(entity, "usesTractor"),
                     implement_id=_relationship_target(entity, "usesImplement"),

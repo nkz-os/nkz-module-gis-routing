@@ -290,3 +290,32 @@ def test_matches_parcel_none_filter():
         hasAgriParcel={"type": "Relationship", "object": "urn:ngsi-ld:AgriParcel:p10"},
     )
     assert store._matches_parcel(entity_p10, None) is True
+
+
+# ---------------------------------------------------------------------------
+# Legacy relationship migration: refAgriParcel fallback on reads
+# ---------------------------------------------------------------------------
+
+def _legacy_op_entity(**over):
+    """Pre-migration AgriParcelOperation carrying only refAgriParcel."""
+    e = _op_entity(**over)
+    del e["hasAgriParcel"]
+    e["refAgriParcel"] = {"type": "Relationship", "object": "urn:ngsi-ld:AgriParcel:legacy1"}
+    return e
+
+
+def test_operation_to_row_falls_back_to_ref_agri_parcel():
+    row = store.operation_to_row(_legacy_op_entity())
+    assert row["parcel_id"] == "urn:ngsi-ld:AgriParcel:legacy1"
+
+
+def test_matches_parcel_falls_back_to_ref_agri_parcel():
+    assert store._matches_parcel(_legacy_op_entity(), "urn:ngsi-ld:AgriParcel:legacy1") is True
+    assert store._matches_parcel(_legacy_op_entity(), "urn:ngsi-ld:AgriParcel:other") is False
+
+
+def test_sdm_name_wins_over_legacy_when_both_present():
+    both = _op_entity()
+    both["refAgriParcel"] = {"type": "Relationship", "object": "urn:ngsi-ld:AgriParcel:legacy1"}
+    row = store.operation_to_row(both)
+    assert row["parcel_id"] == "urn:ngsi-ld:AgriParcel:p1"
