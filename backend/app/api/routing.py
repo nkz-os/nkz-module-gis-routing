@@ -145,12 +145,13 @@ async def list_parcels(request: Request, auth: AuthContext = require_auth()):
         raise HTTPException(status_code=404, detail="Tenant not found")
     settings = get_settings()
     orion = OrionClient(
+        tenant_id,
         base_url=settings.context_broker_url,
         context_url=settings.ngsi_ld_context,
     )
     try:
         entities = await orion.query_entities(
-            "AgriParcel", tenant_id, attrs="name,location,area,ownedBy,dateCreated",
+            "AgriParcel", attrs="name,location,area,ownedBy,dateCreated",
             limit=200,
         )
         return [
@@ -174,6 +175,7 @@ async def get_parcel_geometry(request: Request, parcel_id: str, auth: AuthContex
         raise HTTPException(status_code=404, detail="Tenant not found")
     settings = get_settings()
     orion = OrionClient(
+        tenant_id,
         base_url=settings.context_broker_url,
         context_url=settings.ngsi_ld_context,
     )
@@ -200,12 +202,13 @@ async def list_equipment(request: Request, auth: AuthContext = require_auth()):
         raise HTTPException(status_code=404, detail="Tenant not found")
     settings = get_settings()
     orion = OrionClient(
+        tenant_id,
         base_url=settings.context_broker_url,
         context_url=settings.ngsi_ld_context,
     )
     try:
         entities = await orion.query_entities(
-            "ManufacturingMachine", tenant_id,
+            "ManufacturingMachine",
             attrs=(
                 "name,category,description,serialNumber,isobusCompatible,"
                 "implementWidth,trackWidth,wheelbase,minTurningRadius,gpsOffsetX,gpsOffsetY,gpsOffsetZ,"
@@ -247,7 +250,8 @@ async def list_operations(request: Request, limit: int = 20, parcel_id: Optional
     from app.services import operation_store
     tenant_id = auth.tenant_id
     settings = get_settings()
-    orion = OrionClient(settings.context_broker_url, settings.ngsi_ld_context)
+    orion = OrionClient(tenant_id, base_url=settings.context_broker_url,
+                       context_url=settings.ngsi_ld_context)
     try:
         return await operation_store.list_operations(orion, tenant_id, parcel_id=parcel_id, limit=limit)
     except Exception as e:
@@ -263,7 +267,8 @@ async def get_operation(request: Request, operation_id: str, auth: AuthContext =
     from app.services import operation_store
     tenant_id = auth.tenant_id
     settings = get_settings()
-    orion = OrionClient(settings.context_broker_url, settings.ngsi_ld_context)
+    orion = OrionClient(tenant_id, base_url=settings.context_broker_url,
+                       context_url=settings.ngsi_ld_context)
     try:
         detail = await operation_store.get_operation(orion, operation_id, tenant_id)
     except Exception as e:
@@ -481,6 +486,7 @@ async def _resolve_machine(body: GenerateRequest, auth: AuthContext) -> dict:
     tenant_id = auth.tenant_id
     settings = get_settings()
     orion = OrionClient(
+        tenant_id,
         base_url=settings.context_broker_url,
         context_url=settings.ngsi_ld_context,
     )
@@ -537,7 +543,8 @@ async def _resolve_vra_zones(body: GenerateRequest, auth: AuthContext) -> list[d
 
     # "orion" and legacy "vegetation-health" → Orion-LD AgriManagementZone
     settings = get_settings()
-    orion = OrionClient(settings.context_broker_url, settings.ngsi_ld_context)
+    orion = OrionClient(auth.tenant_id, base_url=settings.context_broker_url,
+                       context_url=settings.ngsi_ld_context)
     try:
         zones = await orion.query_entities("AgriManagementZone")
     finally:
@@ -577,9 +584,10 @@ async def _persist_operation(result, body: GenerateRequest, auth: AuthContext, p
         op_id=op_id, body=body, result=result,
         prescription_map=prescription_map, is_template=False,
     )
-    orion = OrionClient(settings.context_broker_url, settings.ngsi_ld_context)
+    orion = OrionClient(tenant_id, base_url=settings.context_broker_url,
+                       context_url=settings.ngsi_ld_context)
     try:
-        await orion.create_entity(entity, tenant_id)
+        await orion.create_entity(entity)
         return op_id
     except Exception as e:
         logger.error("Failed to persist operation: %s", e)
@@ -721,6 +729,7 @@ async def export_operation(request: Request, operation_id: str, format: str = Qu
     tenant_id = auth.tenant_id
     settings = get_settings()
     orion = OrionClient(
+        tenant_id,
         base_url=settings.context_broker_url, context_url=settings.ngsi_ld_context
     )
     entity = await orion.get_entity(operation_id)

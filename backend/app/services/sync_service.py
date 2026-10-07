@@ -157,7 +157,7 @@ class SyncService:
     async def _create_in_orion(self, collection: str, record: dict, tenant_id: str) -> str:
         """Create a new NGSI-LD entity from a client record and return its ID."""
         entity = self._to_ngsild(collection, record, tenant_id)
-        entity_id = await self._orion.create_entity(entity, tenant_id)
+        entity_id = await self._orion.create_entity(entity)
         return entity_id
 
     async def _update_in_orion(self, collection: str, record: dict, tenant_id: str):
@@ -170,7 +170,7 @@ class SyncService:
 
     async def _delete_in_orion(self, collection: str, record_id: str, tenant_id: str):
         """Delete an NGSI-LD entity."""
-        await self._orion.delete_entity(record_id, tenant_id)
+        await self._orion.delete_entity(record_id)
 
     # ------------------------------------------------------------------
     # NGSI-LD payload builders

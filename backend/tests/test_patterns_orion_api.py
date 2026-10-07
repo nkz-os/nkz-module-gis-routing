@@ -21,9 +21,9 @@ class _FakeOrion:
         self.deleted = []
     async def query_entities(self, *a, **k): return list(self._entities)
     async def get_entity(self, *a, **k): return self._one
-    async def create_entity(self, entity, tenant_id):
+    async def create_entity(self, entity):
         self.created.append(entity); return entity["id"]
-    async def delete_entity(self, entity_id, tenant_id):
+    async def delete_entity(self, entity_id):
         self.deleted.append(entity_id)
     async def close(self): pass
 

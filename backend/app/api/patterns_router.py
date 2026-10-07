@@ -67,7 +67,7 @@ async def get_pattern(request: Request, pattern_id: str, auth: AuthContext = req
     tenant = _get_tenant(request)
     orion = _orion(auth.tenant_id)
     try:
-        entity = await orion.get_entity(pattern_id, tenant)
+        entity = await orion.get_entity(pattern_id)
     except Exception as exc:
         logger.error("Failed to get template %s: %s", pattern_id, exc)
         raise HTTPException(status_code=502, detail="Template store unavailable")
@@ -92,7 +92,7 @@ async def save_pattern(request: Request, body: SavePatternRequest, auth: AuthCon
     )
     orion = _orion(auth.tenant_id)
     try:
-        await orion.create_entity(entity, tenant)
+        await orion.create_entity(entity)
     except Exception as exc:
         logger.error("Failed to save template for tenant %s: %s", tenant, exc)
         raise HTTPException(status_code=502, detail="Template store unavailable")
@@ -106,10 +106,10 @@ async def delete_pattern(request: Request, pattern_id: str, auth: AuthContext = 
     tenant = _get_tenant(request)
     orion = _orion(auth.tenant_id)
     try:
-        entity = await orion.get_entity(pattern_id, tenant)
+        entity = await orion.get_entity(pattern_id)
         if not entity or not operation_store.is_template_entity(entity):
             raise HTTPException(status_code=404, detail="Pattern not found")
-        await orion.delete_entity(pattern_id, tenant)
+        await orion.delete_entity(pattern_id)
     except HTTPException:
         raise
     except Exception as exc:

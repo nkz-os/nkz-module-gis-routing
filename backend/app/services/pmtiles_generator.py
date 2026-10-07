@@ -62,7 +62,9 @@ class PMTileGenerator:
     ) -> tuple[bytes, str]:
         s = get_settings()
         bbox = (-2.0, 42.5, -1.5, 43.0)  # fallback
-        orion = OrionClient(s.context_broker_url, s.ngsi_ld_context)
+        orion = OrionClient(tenant_id,
+                            base_url=s.context_broker_url,
+                            context_url=s.ngsi_ld_context)
         entity = await orion.get_entity(parcel_id)
         await orion.close()
         if entity:

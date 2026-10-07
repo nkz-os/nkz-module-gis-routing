@@ -32,13 +32,13 @@ async def find_in_progress_operations(tenant_id: str) -> list[dict[str, Any]]:
     """
     settings = get_settings()
     orion = OrionClient(
+        tenant_id,
         base_url=settings.context_broker_url,
         context_url=settings.ngsi_ld_context,
     )
     try:
         entities = await orion.query_entities(
             "AgriParcelOperation",
-            tenant_id,
             attrs="status,operationType,hasAgriParcel,startDate,name",
             limit=200,
         )

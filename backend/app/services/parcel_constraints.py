@@ -11,8 +11,8 @@ async def fetch_parcel_constraints(parcel_id: str, tenant_id: str) -> dict:
     exclusionZones (Property holding a GeoJSON FeatureCollection) from Orion-LD.
     """
     settings = get_settings()
-    orion = OrionClient(base_url=settings.context_broker_url,
-                          context_url=settings.ngsi_ld_context)
+    orion = OrionClient(tenant_id, base_url=settings.context_broker_url,
+                       context_url=settings.ngsi_ld_context)
     try:
         entity = await orion.get_entity(parcel_id)
     finally:
