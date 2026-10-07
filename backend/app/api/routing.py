@@ -138,7 +138,7 @@ async def api_health_check():
     return {"status": "healthy", "service": "gis-routing", "version": get_settings().app_version}
 
 @router.get("/parcels")
-async def list_parcels(request: Request):
+async def list_parcels(request: Request, auth: AuthContext = require_auth()):
     """List AgriParcel entities for the authenticated tenant."""
     tenant_id = auth.tenant_id
     if not tenant_id or tenant_id == "default":
@@ -193,7 +193,7 @@ async def get_parcel_geometry(request: Request, parcel_id: str, auth: AuthContex
         await orion.close()
 
 @router.get("/equipment")
-async def list_equipment(request: Request):
+async def list_equipment(request: Request, auth: AuthContext = require_auth()):
     """List ManufacturingMachine entities (tractors/implements) for the tenant."""
     tenant_id = auth.tenant_id
     if not tenant_id or tenant_id == "default":
