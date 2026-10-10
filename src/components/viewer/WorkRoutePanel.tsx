@@ -59,7 +59,7 @@ export const WorkRoutePanel: React.FC<Props> = ({ parcelId }) => {
         <label className="text-nkz-xs text-nkz-text-secondary">{t('cockpit.pattern')}</label>
         <div className="grid grid-cols-2 gap-1 mt-1">
           {PATTERNS.map(p => (
-            <Button key={p} onClick={() => setPattern(p)}
+            <Button variant="ghost" key={p} onClick={() => setPattern(p)}
               className={`py-1.5 rounded-nkz-md text-nkz-xs font-medium border ${
                 pattern === p ? 'border-nkz-accent-base bg-nkz-surface text-nkz-accent-base'
                               : 'border-nkz-border text-nkz-text-secondary'}`}>

@@ -57,7 +57,7 @@ export const StepPattern: React.FC<Props> = ({
           {/* Pattern selector */}
           <div className="grid grid-cols-2 gap-1">
             {PATTERNS.map(p => (
-              <Button key={p.id} onClick={() => onPatternChange(p.id)}
+              <Button variant="ghost" key={p.id} onClick={() => onPatternChange(p.id)}
                 className={`py-2 px-2 border transition-colors ${
                   pattern === p.id
                     ? 'border-nkz-accent-base bg-nkz-surface text-nkz-accent-base'
@@ -74,7 +74,7 @@ export const StepPattern: React.FC<Props> = ({
             <label className="text-nkz-sm text-nkz-text-secondary flex items-center gap-1"><Compass className="w-3 h-3" />{t('parameters.headingMode')}</label>
             <div className="grid grid-cols-3 gap-1 mt-1">
               {(['auto', 'contour', 'manual'] as const).map(m => (
-                <Button key={m} onClick={() => onHeadingModeChange(m)}
+                <Button variant="ghost" key={m} onClick={() => onHeadingModeChange(m)}
                   className={`py-1.5 border transition-colors ${
                     headingMode === m
                       ? 'border-nkz-accent-base bg-nkz-surface text-nkz-accent-base'
