@@ -124,3 +124,13 @@ async def test_installed_tenants_only_enabled_installs_of_this_module(monkeypatc
     assert "is_enabled" in seen["sql"]
     assert seen["args"] == ("nkz-module-gis-routing",)
     assert seen["closed"]
+
+
+def test_subscriptions_carry_derived_tokens_when_flag_on(monkeypatch):
+    """With NKZ_NOTIFY_DERIVED_TOKENS on, the broker stores a per-tenant token, not the master."""
+    monkeypatch.setenv("NKZ_NOTIFY_DERIVED_TOKENS", "true")
+    registrar = subscriptions.build_registrar()
+    for sub in registrar._subs:
+        info = registrar._body(sub, "tenant-a")["notification"]["endpoint"]["receiverInfo"]
+        assert [i["key"] for i in info] == ["X-Notification-Token"]
+        assert info[0]["value"] != SECRET

@@ -13,6 +13,7 @@ import logging
 import os
 
 import asyncpg
+from nkz_platform_sdk.notify_auth import derived_tokens_from_env
 from nkz_platform_sdk.subscriptions import SubscriptionRegistrar
 
 from app.config import get_settings
@@ -75,7 +76,11 @@ def build_registrar() -> SubscriptionRegistrar | None:
         ],
         module_name=MODULE_NAME,
         context_url=settings.ngsi_ld_context or None,
-        notification_headers={"X-Internal-Service-Secret": secret},
+        # The registrar owns the receiver auth header: the master secret (legacy) or,
+        # with NKZ_NOTIFY_DERIVED_TOKENS on, a token bound to the tenant and this
+        # receiver so the broker never stores the master.
+        internal_secret=secret,
+        derived_tokens=derived_tokens_from_env(),
     )
 
 

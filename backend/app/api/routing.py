@@ -9,7 +9,6 @@ Orion-LD persistence.
 
 import hashlib
 import csv
-import hmac
 import json
 import logging
 import os
@@ -23,6 +22,7 @@ from typing import Optional, Literal
 
 import httpx
 from app.services.sync_service import SyncService, SyncConflictError
+from nkz_platform_sdk.notify_auth import accept_master_from_env, verify_notification
 from nkz_platform_sdk.orion import OrionClient
 from app.services.timescale_client import TimescaleDBClient
 from app.services.export_service import RouteExporter
@@ -775,16 +775,23 @@ async def export_operation(request: Request, operation_id: str, format: str = Qu
         )
 
 
-def _reject_unauthenticated_notify(x_internal_secret: str | None) -> HTTPException | None:
-    """Flag-gated auth for the Orion notification receiver (two-phase rollout)."""
+def _reject_unauthenticated_notify(headers) -> HTTPException | None:
+    """Flag-gated auth for the Orion notification receiver (two-phase rollout).
+
+    Accepts the token bound to this tenant and host (nkz_platform_sdk.notify_auth)
+    and, until NKZ_NOTIFY_ACCEPT_MASTER is false, the master secret itself.
+    """
     require = os.getenv("NOTIFY_REQUIRE_INTERNAL_SECRET", "").lower() in (
         "1", "true", "yes", "on"
     )
     if not require:
         return None
-    secret = os.getenv("INTERNAL_SERVICE_SECRET", "")
-    if not secret or not hmac.compare_digest(x_internal_secret or "", secret):
-        return HTTPException(status_code=401, detail="missing or invalid internal secret")
+    if not verify_notification(
+        headers,
+        secret=os.getenv("INTERNAL_SERVICE_SECRET", ""),
+        accept_master=accept_master_from_env(),
+    ):
+        return HTTPException(status_code=401, detail="missing or invalid notification credentials")
     return None
 
 
@@ -800,9 +807,7 @@ async def on_ngsild_notification(request: Request):
     the header lower-cased, so any other success status is counted as a failed
     notification and deactivates the subscription after 3 consecutive hits.
     """
-    reject = _reject_unauthenticated_notify(
-        request.headers.get("X-Internal-Service-Secret", "")
-    )
+    reject = _reject_unauthenticated_notify(request.headers)
     if reject:
         raise reject
 

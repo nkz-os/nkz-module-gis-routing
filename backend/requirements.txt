@@ -7,7 +7,7 @@ python-jose[cryptography]>=3.3.0
 httpx>=0.26.0
 python-multipart>=0.0.6
 # >=0.8.5: converges existing subscriptions (auth header, paused) on 409
-nkz-platform-sdk>=0.8.5
+nkz-platform-sdk>=0.10.0
 
 # Database
 asyncpg>=0.29.0

@@ -79,3 +79,27 @@ def test_notification_with_legacy_fiware_service_still_accepted(client):
     )
 
     assert response.status_code == 204
+
+
+def test_derived_token_is_accepted_once_master_is_refused(client, monkeypatch):
+    """The token bound to this tenant and host passes after the master is contracted;
+    the master and a token of another tenant do not."""
+    from nkz_platform_sdk.notify_auth import TOKEN_HEADER, notification_token
+
+    monkeypatch.setenv("NOTIFY_REQUIRE_INTERNAL_SECRET", "true")
+    monkeypatch.setenv("INTERNAL_SERVICE_SECRET", "test-secret")
+    monkeypatch.setenv("NKZ_NOTIFY_ACCEPT_MASTER", "false")
+    url = "/api/routing/notify"
+    # Starlette's TestClient sends Host: testserver; the token binds to that host.
+    token = notification_token("test-secret", "tenant-a", "testserver")
+
+    assert client.post(
+        url, json=EMPTY_NOTIFICATION, headers={"NGSILD-Tenant": "tenant-a", TOKEN_HEADER: token}
+    ).status_code == 204
+    assert client.post(
+        url, json=EMPTY_NOTIFICATION, headers={"NGSILD-Tenant": "tenant-b", TOKEN_HEADER: token}
+    ).status_code == 401
+    assert client.post(
+        url, json=EMPTY_NOTIFICATION,
+        headers={"NGSILD-Tenant": "tenant-a", "X-Internal-Service-Secret": "test-secret"},
+    ).status_code == 401
