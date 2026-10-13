@@ -13,7 +13,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.config import get_settings
 from app.logging_setup import configure_logging
 from app.api import router as api_router
-from app.services.subscriptions import run_subscription_reconciler
+from app.services.subscriptions import reconcile_once, run_subscription_reconciler
+from nkz_platform_sdk.lifecycle import lifecycle_hint_router
 
 logger = logging.getLogger(__name__)
 
@@ -32,6 +33,10 @@ async def lifespan(app: FastAPI):
     yield
     reconciler.cancel()
     logger.info("%s shutting down", settings.app_name)
+
+
+async def _hint_reconcile() -> None:
+    await reconcile_once()
 
 
 def create_app() -> FastAPI:
@@ -71,6 +76,12 @@ def create_app() -> FastAPI:
     
     # Include API routes
     app.include_router(api_router, prefix=settings.api_prefix)
+
+    # Install/uninstall hint from entity-manager: verified by the derived
+    # notification token, it only triggers a reconcile (SDK).
+    app.include_router(
+        lifecycle_hint_router(f"{settings.api_prefix}/internal/lifecycle", _hint_reconcile)
+    )
     
     return app
 

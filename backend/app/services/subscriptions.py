@@ -4,15 +4,17 @@ Orion-LD subscriptions feeding the notify materializer, registered by the module
 Registration used to be a manual script. When the notify auth header changed,
 nobody re-ran it: the live subscriptions kept sending the old header, every
 notification was rejected, and Orion paused them. The declaration now lives
-here and the SDK registrar converges the broker onto it — at startup and on
-every heal cycle — only for tenants that have the module installed and enabled.
+here and the SDK registrar converges the broker onto it — at startup, on every
+heal cycle and on the install hint (/internal/lifecycle). Where the module is
+installed comes from the platform (SDK reconcile_installations), not from a
+query of our own: create where enabled, remove ours where not, and touch
+nothing when the platform cannot answer.
 """
 
 import asyncio
 import logging
 import os
 
-import asyncpg
 from nkz_platform_sdk.notify_auth import derived_tokens_from_env
 from nkz_platform_sdk.subscriptions import SubscriptionRegistrar
 
@@ -28,29 +30,6 @@ THROTTLING_SECONDS = 15
 # Part of the subscription id (urn:ngsi-ld:Subscription:gis-routing:<Type>).
 # Changing it orphans every existing subscription instead of converging it.
 MODULE_NAME = "gis-routing"
-
-
-async def installed_tenants() -> list[str]:
-    """Tenants with this module installed and enabled.
-
-    Never registers anywhere else: a subscription in a tenant without the
-    module is notification load for nobody.
-    """
-    settings = get_settings()
-    if not settings.database_url:
-        logger.error("DATABASE_URL not set — cannot resolve tenants for subscriptions")
-        return []
-    conn = await asyncpg.connect(settings.database_url)
-    try:
-        rows = await conn.fetch(
-            "SELECT DISTINCT tenant_id FROM tenant_installed_modules "
-            "WHERE module_id = $1 AND is_enabled "
-            "AND tenant_id IS NOT NULL AND tenant_id <> ''",
-            settings.module_id,
-        )
-    finally:
-        await conn.close()
-    return sorted(r["tenant_id"] for r in rows)
 
 
 def build_registrar() -> SubscriptionRegistrar | None:
@@ -84,26 +63,40 @@ def build_registrar() -> SubscriptionRegistrar | None:
     )
 
 
-async def reconcile_once(registrar: SubscriptionRegistrar) -> dict | None:
-    """One reconciliation pass. Never raises; None when tenants could not be read."""
-    try:
-        tenants = await installed_tenants()
-    except Exception as exc:  # noqa: BLE001 — a DB outage must not kill the service
-        logger.warning("Subscription reconcile skipped, tenant lookup failed: %s", exc)
+_registrar: SubscriptionRegistrar | None = None
+
+
+def get_registrar() -> SubscriptionRegistrar | None:
+    """One registrar per process: its lock serializes heal and lifecycle hints."""
+    global _registrar
+    if _registrar is None:
+        _registrar = build_registrar()
+    return _registrar
+
+
+async def reconcile_once(registrar: SubscriptionRegistrar | None = None) -> dict | None:
+    """One reconciliation pass. Never raises; None without a registrar."""
+    registrar = registrar or get_registrar()
+    if registrar is None:
         return None
-    result = await registrar.ensure_all(tenants)
+    result = await registrar.reconcile_installations(get_settings().module_id)
+    if "skipped" in result:
+        logger.warning("Subscription reconcile skipped: %s", result.get("reason"))
+        return result
+    ensured, removed = result["ensured"], result["removed"]
     logger.info(
-        "Subscriptions reconciled for %s: created=%d converged=%d errors=%d",
-        tenants, result["created"], result.get("converged", 0), len(result["errors"]),
+        "Subscriptions reconciled: created=%d converged=%d removed=%d errors=%d",
+        ensured["created"], ensured.get("converged", 0), removed["removed"],
+        len(ensured["errors"]) + len(removed["errors"]),
     )
-    for error in result["errors"]:
+    for error in ensured["errors"] + removed["errors"]:
         logger.warning("Subscription reconcile error: %s", error)
     return result
 
 
 async def run_subscription_reconciler(interval_minutes: int) -> None:
     """Reconcile now, then every `interval_minutes`. Never raises."""
-    registrar = build_registrar()
+    registrar = get_registrar()
     if registrar is None:
         return
     try:
@@ -112,4 +105,4 @@ async def run_subscription_reconciler(interval_minutes: int) -> None:
         raise
     except Exception as exc:  # noqa: BLE001
         logger.warning("Initial subscription reconcile failed: %s", exc)
-    await registrar.periodic_heal(installed_tenants, interval_minutes=interval_minutes)
+    await registrar.periodic_reconcile(get_settings().module_id, interval_minutes)
