@@ -58,13 +58,18 @@ def test_no_registration_without_the_secret(monkeypatch):
     assert subscriptions.build_registrar() is None
 
 
-async def _tenants():
-    return ["tenant-a"]
+EM = "http://entity-manager-service:5000"
+EM_TENANTS = f"{EM}/api/internal/modules/nkz-module-gis-routing/tenants"
+
+
+def _installs(states, status=200):
+    return respx.get(EM_TENANTS).mock(return_value=Response(
+        status, json={"module_id": "nkz-module-gis-routing", "tenants": states}))
 
 
 @respx.mock
 async def test_existing_stale_subscriptions_are_patched_and_rearmed(monkeypatch):
-    monkeypatch.setattr(subscriptions, "installed_tenants", _tenants)
+    _installs({"tenant-a": "enabled"})
     post = respx.post(f"{ORION}/ngsi-ld/v1/subscriptions").mock(
         return_value=Response(409, json={"title": "AlreadyExists"})
     )
@@ -74,7 +79,7 @@ async def test_existing_stale_subscriptions_are_patched_and_rearmed(monkeypatch)
 
     result = await subscriptions.reconcile_once(subscriptions.build_registrar())
 
-    assert result["converged"] == 3 and result["errors"] == []
+    assert result["ensured"]["converged"] == 3 and result["ensured"]["errors"] == []
     assert len(post.calls) == 3
     patched = {}
     for call in patch.calls:
@@ -90,40 +95,49 @@ async def test_existing_stale_subscriptions_are_patched_and_rearmed(monkeypatch)
 
 
 @respx.mock
-async def test_tenant_lookup_failure_touches_nothing(monkeypatch):
-    async def boom():
-        raise OSError("db down")
-
-    monkeypatch.setattr(subscriptions, "installed_tenants", boom)
+async def test_platform_unavailable_touches_nothing():
+    _installs({}, status=503)
     route = respx.route(url__startswith=ORION)
 
-    assert await subscriptions.reconcile_once(subscriptions.build_registrar()) is None
+    result = await subscriptions.reconcile_once(subscriptions.build_registrar())
+
+    assert result["skipped"] == "unavailable"
     assert not route.calls
 
 
-async def test_installed_tenants_only_enabled_installs_of_this_module(monkeypatch):
-    seen = {}
+@respx.mock
+async def test_uninstalled_tenant_loses_only_these_subscriptions():
+    _installs({"tenant-b": "disabled"})
+    respx.get(f"{ORION}/ngsi-ld/v1/subscriptions").mock(return_value=Response(200, json=[]))
+    delete = respx.delete(url__startswith=f"{ORION}/ngsi-ld/v1/subscriptions/").mock(
+        return_value=Response(204)
+    )
 
-    class FakeConn:
-        async def fetch(self, sql, *args):
-            seen["sql"], seen["args"] = sql, args
-            return [{"tenant_id": "tenant-b"}, {"tenant_id": "tenant-a"}]
+    result = await subscriptions.reconcile_once(subscriptions.build_registrar())
 
-        async def close(self):
-            seen["closed"] = True
+    assert {c.request.url.path.rsplit("/", 1)[-1] for c in delete.calls} == SUB_IDS
+    assert result["removed"]["removed"] == 3
 
-    async def fake_connect(dsn):
-        return FakeConn()
 
-    monkeypatch.setenv("DATABASE_URL", "postgresql://u@db/x")
-    get_settings.cache_clear()
-    monkeypatch.setattr(subscriptions.asyncpg, "connect", fake_connect)
+def test_tenants_come_from_the_platform_not_the_database():
+    assert not hasattr(subscriptions, "installed_tenants")
+    assert "tenant_installed_modules" not in inspect.getsource(subscriptions)
 
-    assert await subscriptions.installed_tenants() == ["tenant-a", "tenant-b"]
-    assert "tenant_installed_modules" in seen["sql"]
-    assert "is_enabled" in seen["sql"]
-    assert seen["args"] == ("nkz-module-gis-routing",)
-    assert seen["closed"]
+
+def test_registrar_is_one_per_process(monkeypatch):
+    monkeypatch.setattr(subscriptions, "_registrar", None)
+    assert subscriptions.get_registrar() is subscriptions.get_registrar()
+
+
+def test_lifecycle_hint_route_requires_auth():
+    from fastapi.testclient import TestClient
+
+    from app.main import app
+
+    client = TestClient(app)
+    assert client.post("/api/routing/internal/lifecycle").status_code == 401
+    r = client.post("/api/routing/internal/lifecycle", headers={"X-Internal-Service-Secret": SECRET})
+    assert r.status_code == 202
 
 
 def test_subscriptions_carry_derived_tokens_when_flag_on(monkeypatch):
