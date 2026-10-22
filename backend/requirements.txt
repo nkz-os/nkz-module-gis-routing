@@ -1,0 +1,28 @@
+# MODULE_DISPLAY_NAME Backend
+fastapi>=0.109.0
+uvicorn[standard]>=0.27.0
+pydantic>=2.5.0
+pydantic-settings>=2.1.0
+python-jose[cryptography]>=3.3.0
+httpx>=0.26.0
+python-multipart>=0.0.6
+# >=0.8.5: converges existing subscriptions (auth header, paused) on 409
+nkz-platform-sdk>=0.11.1
+
+# Database
+asyncpg>=0.29.0
+
+# GIS Routing Engine
+shapely>=2.0.0
+pyproj>=3.6.0
+numpy>=1.24.0
+
+# Testing
+pytest>=7.4.0
+pytest-asyncio>=0.23.0
+respx>=0.20.0
+httpx>=0.26.0
+
+# Development
+black>=24.1.0
+ruff>=0.1.0

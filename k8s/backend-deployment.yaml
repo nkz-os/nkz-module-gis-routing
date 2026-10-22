@@ -1,0 +1,145 @@
+# =============================================================================
+# GIS Routing Backend Deployment
+# =============================================================================
+# Backend API service for GIS Routing module
+# =============================================================================
+
+---
+# Deployment: GIS Routing Backend Service
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nkz-module-gis-routing-backend
+  namespace: nekazari
+  labels:
+    app: nkz-module-gis-routing-backend
+    component: backend
+    module: nkz-module-gis-routing
+    nkz-os.org/profile: addon
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: nkz-module-gis-routing-backend
+  template:
+    metadata:
+      labels:
+        app: nkz-module-gis-routing-backend
+        component: backend
+        module: nkz-module-gis-routing
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+      containers:
+        - name: backend
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+            readOnlyRootFilesystem: true
+          # Pinned by digest (CLAUDE.md §K8s; 2026-05-26 outage). Bump this digest
+          # to the one CI produces on each merge to main. See k8s/README.md.
+          image: ghcr.io/nkz-os/nkz-module-gis-routing/nkz-module-gis-routing-backend:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 8000
+          env:
+            - name: APP_NAME
+              value: "GIS Routing"
+            - name: APP_VERSION
+              value: "3.0.0"
+            - name: DEBUG
+              value: "false"
+            - name: API_PREFIX
+              value: "/api/routing"
+            # CORS — explicit origin whitelist (never *)
+            - name: CORS_ORIGINS
+              valueFrom:
+                configMapKeyRef:
+                  name: gis-routing-config
+                  key: CORS_ORIGINS
+            # Keycloak Configuration
+            - name: KEYCLOAK_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: gis-routing-config
+                  key: KEYCLOAK_URL
+            - name: KEYCLOAK_REALM
+              value: "nekazari"
+            - name: JWT_AUDIENCE
+              value: "account"
+            # Service-to-service auth (optional)
+            - name: MODULE_MANAGEMENT_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: module-secrets
+                  key: management-key
+                  optional: true
+            - name: CONTEXT_URL
+              value: "http://api-gateway-service:5000/ngsi-ld-context.json"
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: postgresql-secret
+                  # The secret exposes the asyncpg-compatible DSN as `postgres-url`
+                  # (postgresql://…@postgresql-service:5432/nekazari). The old
+                  # `connection-string` key never existed, so with optional:true
+                  # DATABASE_URL was silently empty → asyncpg hit localhost and
+                  # got ECONNREFUSED, breaking sync, operations and patterns.
+                  # Not optional: a missing DSN must fail the pod loudly.
+                  key: postgres-url
+            - name: MINIO_ENDPOINT
+              value: "minio-service:9000"
+            - name: MINIO_BUCKET
+              value: "nekazari-gis-routing"
+            - name: MINIO_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: minio-secret
+                  key: access-key
+                  optional: true
+            - name: MINIO_SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: minio-secret
+                  key: secret-key
+                  optional: true
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "200m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
+          startupProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            initialDelaySeconds: 10
+            periodSeconds: 5
+            failureThreshold: 30
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            initialDelaySeconds: 15
+            periodSeconds: 30
+            timeoutSeconds: 5
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            timeoutSeconds: 3
+          # Writable scratch for tempfile.TemporaryDirectory() (PMTiles generation),
+          # required because readOnlyRootFilesystem:true makes the image /tmp read-only.
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: tmp
+          emptyDir:
+            sizeLimit: 1Gi
