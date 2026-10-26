@@ -23,7 +23,11 @@ class ParcelConfig(BaseModel):
 
 def _orion(tenant_id: str) -> OrionClient:
     s = get_settings()
-    return OrionClient(tenant_id=tenant_id)
+    return OrionClient(
+        tenant_id=tenant_id,
+        base_url=s.context_broker_url,
+        context_url=s.ngsi_ld_context,
+    )
 
 
 @router.get("/parcels/{parcel_id}/config")
@@ -80,9 +84,9 @@ async def put_parcel_config(request: Request, parcel_id: str, body: ParcelConfig
     orion = _orion(auth.tenant_id)
     try:
         try:
-            await orion.update_entity_attrs(parcel_id, attrs)
+            await orion.append_entity_attrs(parcel_id, attrs)
         except Exception as exc:
-            logger.error("Orion-LD patch_entity failed for %s: %s", parcel_id, exc)
+            logger.error("Orion-LD append_entity_attrs failed for %s: %s", parcel_id, exc)
             raise HTTPException(status_code=502, detail="Orion-LD error")
         return {"success": True, "updated": list(attrs.keys())}
     finally:

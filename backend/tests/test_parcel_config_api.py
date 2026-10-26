@@ -1,4 +1,5 @@
 # backend/tests/test_parcel_config_api.py
+import httpx
 from fastapi.testclient import TestClient
 
 from app.main import create_app
@@ -31,7 +32,7 @@ class _FakeOrion:
     async def get_entity(self, eid, options=None):
         return self.entity
 
-    async def update_entity_attrs(self, eid, attrs):
+    async def append_entity_attrs(self, eid, attrs):
         self.patched = (eid, attrs)
 
     async def close(self):
@@ -53,7 +54,7 @@ def test_get_parcel_config_returns_attrs(monkeypatch):
     assert body["exclusionZones"] == {"type": "FeatureCollection", "features": []}
 
 
-def test_put_parcel_config_patches_orion(monkeypatch):
+def test_put_parcel_config_appends_to_orion(monkeypatch):
     fake = _FakeOrion()
     monkeypatch.setattr("app.api.parcel_config.OrionClient", lambda *a, **k: fake)
     client = TestClient(create_app())
@@ -138,7 +139,7 @@ def test_get_parcel_config_orion_error_returns_502(monkeypatch):
 def test_put_parcel_config_orion_error_returns_502(monkeypatch):
 
     class _FakeOrionPatchRaises(_FakeOrion):
-        async def update_entity_attrs(self, eid, attrs):
+        async def append_entity_attrs(self, eid, attrs):
             raise RuntimeError("Orion patch failed")
 
     monkeypatch.setattr("app.api.parcel_config.OrionClient", lambda *a, **k: _FakeOrionPatchRaises())
@@ -186,3 +187,23 @@ def test_put_parcel_config_access_point_missing_coordinates_returns_400(monkeypa
     )
     assert resp.status_code == 400
     assert "coordinates" in resp.json()["detail"]
+
+
+def test_put_parcel_config_multi_status_returns_502(monkeypatch):
+
+    class _FakeOrion207(_FakeOrion):
+        async def append_entity_attrs(self, eid, attrs):
+            req = httpx.Request("POST", "http://orion/ngsi-ld/v1/entities/x/attrs")
+            raise httpx.HTTPStatusError(
+                "207", request=req, response=httpx.Response(207, request=req)
+            )
+
+    monkeypatch.setattr("app.api.parcel_config.OrionClient", lambda *a, **k: _FakeOrion207())
+    client = TestClient(create_app())
+
+    resp = client.put(
+        "/api/routing/parcels/urn:ngsi-ld:AgriParcel:t1:p1/config",
+        json={"accessPoint": {"type": "Point", "coordinates": [1.0, 2.0]}},
+    )
+    assert resp.status_code == 502
+    assert resp.json()["detail"] == "Orion-LD error"

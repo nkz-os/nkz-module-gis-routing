@@ -435,7 +435,7 @@ async def generate_routing_plan(request: Request, body: GenerateRequest, auth: A
     cov_kwargs: dict = {}
     if body.parcel_id:
         cov_kwargs = await _coverage_constraints(
-            body.parcel_id, _get_tenant_id(request), robot.cov_width)
+            body.parcel_id, auth.tenant_id, robot.cov_width)
     try:
         result = generate_coverage(wgs84_poly, robot, cfg, **cov_kwargs)
     except ExclusionError as exc:
