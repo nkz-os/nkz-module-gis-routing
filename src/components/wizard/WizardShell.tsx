@@ -36,7 +36,7 @@ export const WizardShell: React.FC<WizardShellProps> = ({ left, center, right })
       {/* Right: Preview + Results — 3/4 on desktop, full-width on mobile */}
       <div className="lg:col-span-3 flex flex-col min-h-0 min-w-0">
         {/* SVG Preview */}
-        <div className="flex-1 relative bg-nkz-surface min-h-screen">
+        <div className="flex-1 relative bg-nkz-surface min-h-0">
           {center}
         </div>
         {/* Stats/Export/Handoff below preview (when visible) */}
