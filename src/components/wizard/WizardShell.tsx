@@ -13,10 +13,10 @@ export const WizardShell: React.FC<WizardShellProps> = ({ left, center, right })
   const { t } = useTranslation(NS);
 
   return (
-    <div className="flex flex-col lg:flex-row h-full min-h-screen bg-nkz-surface-raised text-nkz-text-primary font-sans relative">
-      {/* Left: Configuration — 35% on desktop, full-width on mobile */}
-      <div className="w-full lg:w-[35%] lg:min-w-[340px] lg:max-w-[480px] flex-shrink-0 overflow-y-auto
-                      border-b lg:border-b-0 lg:border-r border-nkz-border bg-nkz-surface">
+    <div className="grid grid-cols-1 lg:grid-cols-4 h-full min-h-screen bg-nkz-surface-raised text-nkz-text-primary relative">
+      {/* Left: Configuration — 1/4 on desktop, full-width on mobile */}
+      <div className="lg:col-span-1 min-w-0 overflow-y-auto
+                      border-b border-nkz-border bg-nkz-surface">
         <div className="p-nkz-stack space-y-nkz-stack">
           <div className="flex items-center gap-nkz-inline pb-nkz-stack border-b border-nkz-border">
             <div
@@ -33,10 +33,10 @@ export const WizardShell: React.FC<WizardShellProps> = ({ left, center, right })
         </div>
       </div>
 
-      {/* Right: Preview + Results — 65% on desktop, full-width on mobile */}
-      <div className="w-full lg:flex-1 flex flex-col min-h-[40vh] md:min-h-[50vh] lg:min-h-0 min-w-0">
+      {/* Right: Preview + Results — 3/4 on desktop, full-width on mobile */}
+      <div className="lg:col-span-3 flex flex-col min-h-0 min-w-0">
         {/* SVG Preview */}
-        <div className="flex-1 relative bg-nkz-surface min-h-0">
+        <div className="flex-1 relative bg-nkz-surface min-h-screen">
           {center}
         </div>
         {/* Stats/Export/Handoff below preview (when visible) */}

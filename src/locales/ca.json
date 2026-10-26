@@ -9,7 +9,7 @@
   "title": "GIS Routing",
   "subtitle": "Guiatge per línies A-B per a agricultura de precisió",
   "parcel": {
-    "loadingGeo": "Loading geometry...",
+    "loadingGeo": "Carregant la geometria…",
     "label": "Parcela",
     "select": "Seleccionar parcela...",
     "mock": "Parcela Demo",
@@ -248,7 +248,14 @@
     "pickPointB": "Click point B on the map",
     "calculating": "Calculating alternatives...",
     "selectAndSave": "Selected path:",
-    "alternatives": "Alternatives"
+    "alternatives": "Alternatives",
+    "title": "Rutes A-B",
+    "calculate": "Calcula la ruta",
+    "pointA": "Punt A",
+    "pointB": "Punt B",
+    "distance": "Distància",
+    "climb": "Desnivell acumulat",
+    "results": "Resultats"
   },
   "panels": {
     "emptyState": "Generate a route to see results",

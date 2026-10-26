@@ -248,7 +248,14 @@
     "pickPointB": "Click point B on the map",
     "calculating": "Calculating alternatives...",
     "selectAndSave": "Selected path:",
-    "alternatives": "Alternatives"
+    "alternatives": "Alternatives",
+    "title": "A-B Routes",
+    "calculate": "Calculate route",
+    "pointA": "Point A",
+    "pointB": "Point B",
+    "distance": "Distance",
+    "climb": "Cumulative climb",
+    "results": "Results"
   },
   "panels": {
     "emptyState": "Generate a route to see results",

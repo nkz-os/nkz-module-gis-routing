@@ -41,7 +41,7 @@ export const HandoffPanel: React.FC<Props> = ({ operationId }) => {
       </h3>
       <p className="text-nkz-xs text-nkz-text-secondary mb-2">{t('handoff.body')}</p>
       <div className="flex items-center gap-2">
-        <code className="text-[11px] bg-nkz-surface px-2 py-1 rounded break-all flex-1">
+        <code className="text-nkz-xs bg-nkz-surface px-2 py-1 rounded break-all flex-1">
           {operationId}
         </code>
         <Button

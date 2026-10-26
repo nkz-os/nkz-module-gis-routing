@@ -88,6 +88,7 @@ export const StepEquipment: React.FC<Props> = ({
                     { value: '', label: t('equipment.selectTractor') },
                     ...tractors.map(e => ({ value: e.id, label: e.name }))
                   ]}
+                  placeholder={t('equipment.selectTractor')}
                   className="w-full mt-1" 
                 />
               </div>
@@ -100,6 +101,7 @@ export const StepEquipment: React.FC<Props> = ({
                     { value: '', label: t('equipment.selectImplement') },
                     ...implements_.map(e => ({ value: e.id, label: e.name }))
                   ]}
+                  placeholder={t('equipment.selectImplement')}
                   className="w-full mt-1" 
                 />
               </div>

@@ -69,7 +69,7 @@ export const StepGenerate: React.FC<Props> = ({
       <Button
         onClick={onGenerate}
         disabled={generating || !canGenerate}
-        className="w-full min-h-[48px] flex items-center justify-center gap-2"
+        className="w-full py-3 flex items-center justify-center gap-2"
       >
         {generating ? (
           <><Loader2 className="w-4 h-4 animate-spin" />{t('actions.saving')}</>

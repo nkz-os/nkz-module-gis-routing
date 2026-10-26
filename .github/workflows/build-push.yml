@@ -52,6 +52,12 @@ jobs:
             - name: Type check
               run: pnpm run typecheck
 
+            - name: Check host utility classes
+              if: ${{ vars.NKZ_HOST_CSS_URL != '' }}
+              env:
+                  HOST_CSS_URL: ${{ vars.NKZ_HOST_CSS_URL }}
+              run: pnpm run check:host-classes
+
             # Fields2Cover is built from source inside the image (no pip wheel),
             # so backend tests run inside the built image rather than on a bare
             # runner. This also exercises the production F2C build on every PR.

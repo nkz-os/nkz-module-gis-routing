@@ -15,6 +15,7 @@
     "build:module": "vite build",
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
+    "check:host-classes": "node scripts/check-host-classes.mjs --allow routing,pathfinding $(find src -name '*.tsx')",
     "lint": "tsc --noEmit"
   },
   "dependencies": {

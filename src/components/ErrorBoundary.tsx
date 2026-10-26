@@ -31,7 +31,7 @@ class ErrorBoundaryComponent extends Component<Props, State> {
     if (this.state.hasError) {
       if (this.props.fallback) return this.props.fallback;
       return (
-        <div className="p-nkz-stack flex flex-col items-center justify-center min-h-[200px] text-center">
+        <div className="p-nkz-stack flex flex-col items-center justify-center h-48 text-center">
           <div className="w-12 h-12 rounded-full flex items-center justify-center mb-3 bg-nkz-accent-soft">
             <span className="text-lg font-bold text-nkz-accent-strong">!</span>
           </div>
