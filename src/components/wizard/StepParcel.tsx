@@ -84,6 +84,7 @@ export const StepParcel: React.FC<Props> = ({ parcelId, onParcelChange }) => {
                 { value: '', label: t('parcel.select') },
                 ...parcels.map(p => ({ value: p.id, label: p.name + (p.area ? ` (${p.area.toFixed(1)} ha)` : '') }))
               ]}
+              placeholder={t('parcel.select')}
               className="w-full" 
             />
           )}

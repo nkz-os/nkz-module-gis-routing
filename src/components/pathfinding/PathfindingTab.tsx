@@ -143,7 +143,7 @@ export const PathfindingTab: React.FC<Props> = ({ parcelGeometry, machineWidthM,
           {alternatives.map(alt => (
             <div key={alt.id} className="rounded-nkz-md border border-nkz-border p-2 bg-nkz-surface-raised">
               <p className="text-nkz-xs font-medium text-nkz-text-primary">{alt.label}</p>
-              <div className="flex gap-3 text-[11px] text-nkz-text-secondary mt-1">
+              <div className="flex gap-3 text-nkz-xs text-nkz-text-secondary mt-1">
                 <span>{t('pathfinding.distance')}: {alt.distance_m?.toFixed(0)} m</span>
                 <span>{t('pathfinding.climb')}: {alt.cumulative_climb_m?.toFixed(1)} m</span>
               </div>

@@ -43,7 +43,7 @@ const SavedRoutes: React.FC<{
       {patterns.map((p: any) => (
         <div
           key={p.id}
-          className="flex items-center gap-2 rounded-nkz-md border border-nkz-border p-2.5 bg-nkz-surface-raised"
+          className="flex items-center gap-2 rounded-nkz-md border border-nkz-border p-2 bg-nkz-surface-raised"
         >
           <div className="flex-1 min-w-0">
             <p className="text-nkz-sm font-medium text-nkz-text-primary truncate">{p.name}</p>

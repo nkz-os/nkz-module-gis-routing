@@ -405,7 +405,7 @@ const App: React.FC = () => {
               )}
               {/* Save success toast */}
               {saveSuccess && (
-                <div className="rounded-nkz-md bg-green-50 border border-green-200 px-nkz-stack py-2 text-nkz-sm text-green-700 font-medium text-center">
+                <div className="rounded-nkz-md bg-nkz-success-soft border border-nkz-success px-nkz-stack py-2 text-nkz-sm text-nkz-success font-medium text-center">
                   ✓ {t('patterns.saved')}
                 </div>
               )}
@@ -470,7 +470,7 @@ const App: React.FC = () => {
             <HandoffPanel operationId={operationIdOf(savedResult) ?? undefined} />
           </>
         ) : (
-          <div className="flex flex-col items-center justify-center h-64 text-nkz-text-secondary text-nkz-sm">
+          <div className="flex flex-col items-center justify-center max-h-64 py-nkz-stack text-nkz-text-secondary text-nkz-sm">
             <p>{t('panels.emptyState')}</p>
             <p className="text-nkz-xs mt-1">{t('panels.emptyStateHint')}</p>
           </div>

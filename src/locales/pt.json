@@ -9,7 +9,7 @@
   "title": "GIS Routing",
   "subtitle": "Orientação por linhas A-B para agricultura de precisão",
   "parcel": {
-    "loadingGeo": "Loading geometry...",
+    "loadingGeo": "A carregar geometria…",
     "label": "Parcela",
     "select": "Seleccionar parcela...",
     "mock": "Parcela Demo",
@@ -248,7 +248,14 @@
     "pickPointB": "Click point B on the map",
     "calculating": "Calculating alternatives...",
     "selectAndSave": "Selected path:",
-    "alternatives": "Alternatives"
+    "alternatives": "Alternatives",
+    "title": "Rotas A-B",
+    "calculate": "Calcular rota",
+    "pointA": "Ponto A",
+    "pointB": "Ponto B",
+    "distance": "Distância",
+    "climb": "Desnível acumulado",
+    "results": "Resultados"
   },
   "panels": {
     "emptyState": "Generate a route to see results",
