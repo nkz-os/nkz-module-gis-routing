@@ -83,9 +83,9 @@ return paths against the eroded parcel and the zones (`...:access_path`,
 geometry that fails a parcel or zone check is never returned: it is dropped and
 `ACCESS_PATH_UNAVAILABLE` is reported.
 
-Pattern `auto` has a wall-time budget (`LADDER_TIME_BUDGET_S`, default 60 s): once
+Pattern `auto` has a wall-time budget (`LADDER_TIME_BUDGET_S`, default 30 s): once
 a valid plan exists and the budget is spent, the best plan so far is returned and
-`time_budget` is added to `fallbacks_applied`.
+`time_budget` is added to `fallbacks_applied` (the attempt in progress finishes first).
 
 No-go zones stored on the parcel must be a GeoJSON FeatureCollection whose features
 have a geometry; otherwise `/generate` answers `INVALID_GEOMETRY`. Self-intersecting
@@ -129,5 +129,5 @@ Persisted `AgriParcelOperation` attributes added: `accessPoint`, `accessPath`,
 ## Tests
 
 The default run excludes the `slow` marker. The full guarantee matrix (480 cases,
-with and without a gate) and a large-parcel time guard run nightly
+with and without a gate) and a large-parcel regression time guard (< 120 s) run nightly
 (`.github/workflows/nightly-slow.yml`) or on demand with `-m slow`.

@@ -198,6 +198,7 @@ def plan_with_fallbacks(inp: LadderInput, time_budget_s: float | None = None) ->
     last_error: ExclusionError | None = None
     swath_cache: dict = {}
     budget_hit = False
+    # TODO: skip curve/passes rungs when the failure comes from straight swath connectors.
     for pattern in patterns:
         done = False
         for curve in curves:

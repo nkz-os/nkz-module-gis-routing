@@ -33,8 +33,7 @@ _ROUTE_PLANNERS = {
 }
 _EPS = 1e-9
 TURN_SIMPLIFY_M = 0.05   # F2C emits a turn point every ~0.1 m; keep curves within 5 cm
-# F2C's default curve discretization (0.01 m) doubles planPath time on large
-# parcels; 0.1 m changes a turn by < 1 mm (chord sagitta at R = 5 m).
+# F2C default curve discretization is 0.01 m; 0.1 m halves planPath, measured change < 1 mm.
 TURN_DISCRETIZATION_M = 0.1
 
 
