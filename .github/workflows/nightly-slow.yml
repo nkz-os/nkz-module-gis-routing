@@ -1,0 +1,20 @@
+name: Nightly slow matrix
+
+on:
+    schedule:
+        - cron: "30 2 * * *"
+    workflow_dispatch:
+
+jobs:
+    slow-matrix:
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@v4
+
+            - name: Build backend image
+              run: docker build --tag gis-routing-backend:ci ./backend
+
+            - name: Run full plan matrix
+              run: >-
+                docker run --rm -v "${{ github.workspace }}/backend":/app -w /app
+                gis-routing-backend:ci python -m pytest -q -m slow tests/test_plan_matrix.py
