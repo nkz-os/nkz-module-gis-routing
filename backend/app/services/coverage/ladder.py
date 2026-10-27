@@ -65,23 +65,33 @@ def _turn_violates(turn: Turn, parcel: Polygon, zones: list[Polygon], w: float) 
             or not check_outside_zones(turn.geometry, zones, w).ok)
 
 
-def remove_violating_turns(plan: CoveragePlan, parcel_utm: Polygon,
-                           zones_utm: list[Polygon], cov_width: float) -> CoveragePlan:
+def remove_violating_turns(plan: CoveragePlan, parcel_utm: Polygon, zones_utm: list[Polygon],
+                           cov_width: float) -> tuple[CoveragePlan, list[Warning]]:
     """Drop violating turns (manual turns); route becomes the continuous runs left.
 
-    The removed turns are kept on `plan.manual_turns` (a private side channel read
-    by plan_with_fallbacks to build the MANUAL_TURN warnings).
+    Returns the new plan and one MANUAL_TURN warning per removed turn.
     """
     kept, removed = [], []
     for t in plan.turns:
         (removed if _turn_violates(t, parcel_utm, zones_utm, cov_width) else kept).append(t)
     if not removed:
-        return plan
+        return plan, []
     route = _rebuild_route(plan.swaths, kept)
     fallbacks = list(plan.fallbacks) + [f"manual_turns:{len(removed)}"]
-    new_plan = replace(plan, turns=kept, route=route, fallbacks=fallbacks)
-    new_plan.manual_turns = removed  # type: ignore[attr-defined]
-    return new_plan
+    return replace(plan, turns=kept, route=route, fallbacks=fallbacks), _manual_warnings(plan, removed)
+
+
+def ensure_swaths_clear(plan: CoveragePlan, parcel_utm: Polygon, zones_utm: list[Polygon],
+                        cov_width: float, to_wgs84) -> None:
+    """Raise NO_DRIVABLE_AREA with the first swath that violates a hard check."""
+    for s in plan.swaths:
+        if (not check_inside_parcel(s.geometry, parcel_utm, cov_width).ok
+                or not check_outside_zones(s.geometry, zones_utm, cov_width).ok):
+            gj = mapping(transform(to_wgs84, s.geometry))
+            raise ExclusionError(
+                "a swath cannot avoid a no-go zone or the parcel boundary",
+                code="NO_DRIVABLE_AREA",
+                params={"geometry": {"type": gj["type"], "coordinates": _to_lists(gj["coordinates"])}})
 
 
 def _rebuild_route(swaths: list[Swath], turns: list[Turn]):
@@ -191,19 +201,10 @@ def plan_with_fallbacks(inp: LadderInput) -> CoveragePlan:
         assert last_error is not None
         raise last_error
     worst = min(attempts, key=lambda a: a.hard_score)
-    fixed = remove_violating_turns(worst.plan, inp.parcel_utm, inp.zones_utm, w)
-    removed = list(getattr(fixed, "manual_turns", []))
+    fixed, manual = remove_violating_turns(worst.plan, inp.parcel_utm, inp.zones_utm, w)
     report = validate_plan(fixed, inp.parcel_utm, inp.zones_utm, w)
-    to_wgs84 = project_polygon_to_utm(inp.wgs84_poly)[3]
-    for s in fixed.swaths:
-        if (not check_inside_parcel(s.geometry, inp.parcel_utm, w).ok
-                or not check_outside_zones(s.geometry, inp.zones_utm, w).ok):
-            gj = mapping(transform(to_wgs84, s.geometry))
-            raise ExclusionError(
-                "a swath cannot avoid a no-go zone or the parcel boundary",
-                code="NO_DRIVABLE_AREA",
-                params={"geometry": {"type": gj["type"], "coordinates": _to_lists(gj["coordinates"])}})
-    return _finish(inp, fixed, report, passes0, _manual_warnings(fixed, removed))
+    ensure_swaths_clear(fixed, inp.parcel_utm, inp.zones_utm, w, project_polygon_to_utm(inp.wgs84_poly)[3])
+    return _finish(inp, fixed, report, passes0, manual)
 
 
 def _finish(inp: LadderInput, plan: CoveragePlan, report: ValidationReport,
