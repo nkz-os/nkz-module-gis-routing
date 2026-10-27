@@ -218,11 +218,20 @@ def _split_path(path) -> list:
         if len(distinct) < 2:
             continue
         parts.append((kind, LineString(pts)))
+        # Two swaths with no TURN state between them: record the jump as a
+        # straight connector so the route stays continuous and the turn is
+        # a first-class, removable part.
+        if kind == "swath" and n + 1 < len(runs) and runs[n + 1][0] == "swath":
+            a, b = pts[-1], runs[n + 1][1][0]
+            if math.hypot(b[0] - a[0], b[1] - a[1]) > 1e-6:
+                parts.append(("turn", LineString([a, b])))
     return parts
 
 
 def _headland_rings(piece: Polygon, w: float, passes: int) -> list:
     """Closed rings at w/2 + k*w inside the fence, ordered innermost -> outermost."""
+    # Built from the exterior only: holes get no rings (the wrapper's fail-safe
+    # and the ladder's validation guard crossings).
     rings = []
     for k in range(passes):
         ring_poly = piece.buffer(-(w / 2.0 + k * w))
