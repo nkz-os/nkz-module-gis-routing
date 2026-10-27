@@ -32,6 +32,11 @@ from app.api.pathfinding_router import build_dem_registry
 from app.services.pathfinding.grid_sampler import make_grid_sampler
 from app.config import get_settings
 from app.services.coverage.errors import PlanError
+from app.services.coverage.ladder import plan_with_fallbacks, LadderInput
+from app.services.exclusion import validate_access_point
+from app.services.routing.base import project_polygon_to_utm
+from shapely.geometry import Point
+from shapely.ops import transform as shp_transform
 
 
 logger = logging.getLogger(__name__)
@@ -438,8 +443,6 @@ async def generate_routing_plan(request: Request, body: GenerateRequest, auth: A
         raise PlanError("INVALID_GEOMETRY", "parcel_geometry is not a valid polygon")
     pc = body.pattern_config
     pattern = _PATTERN_ALIASES.get(body.pattern, body.pattern)
-    # TODO task 7: real auto selection in the ladder
-    pattern = "boustrophedon" if pattern == "auto" else pattern
 
     machine = await _resolve_machine(body, auth)
     machine.setdefault("implementWidth", pc.width_m)
@@ -454,26 +457,49 @@ async def generate_routing_plan(request: Request, body: GenerateRequest, auth: A
         heading_deg=pc.heading_deg,
         headland_passes=pc.headland_passes,
         heading_objective=pc.heading_objective,
+        return_to_access=body.return_to_access,
     )
-    from app.services.exclusion import ExclusionError
     # Wire DEM sampler when contour heading is requested.
     if pc.heading_objective == "contour":
         sampler, bbox = await _resolve_contour_dem(body.parcel_geometry)
         if sampler:
             cfg.dem_sampler = sampler
             cfg.parcel_bbox = bbox
-    # Resolve the tenant only when a parcel is given — otherwise an ad-hoc
-    # geometry request (no parcel_id, persist=False) must not require a tenant.
-    cov_kwargs: dict = {}
-    if body.parcel_id:
-        cov_kwargs = await _coverage_constraints(
-            body.parcel_id, auth.tenant_id, robot.cov_width)
+    constraints = await _load_constraints_wgs84(body.parcel_id, auth.tenant_id)
+    access_wgs84 = constraints["access_point"]
+    zones_wgs84 = constraints["zones"]
+
+    parcel_utm, _crs, to_utm, to_wgs84 = project_polygon_to_utm(wgs84_poly)
+    zones_utm = [shp_transform(to_utm, z) for z in zones_wgs84]
+    access_utm = None
+    if access_wgs84 is not None:
+        access_utm = shp_transform(to_utm, Point(access_wgs84[0], access_wgs84[1]))
+        validate_access_point(access_utm, parcel_utm, zones_utm, robot.cov_width / 2.0,
+                              to_wgs84=to_wgs84)
+
     try:
-        result = generate_coverage(wgs84_poly, robot, cfg, **cov_kwargs)
-    except ExclusionError as exc:
-        raise HTTPException(status_code=422, detail=f"unroutable: {exc}")
+        if pattern == "headland-only":
+            result = generate_coverage(
+                wgs84_poly, robot, cfg,
+                exclusion_zones_wgs84=zones_wgs84,
+                exclusion_buffer_m=robot.cov_width / 2.0,
+                start_point_wgs84=access_wgs84,
+            )
+            plan = None
+            plan_dict = _headland_only_plan(result, robot, cfg, parcel_utm, zones_wgs84,
+                                            access_wgs84, to_wgs84)
+        else:
+            plan = plan_with_fallbacks(LadderInput(
+                parcel_utm=parcel_utm, zones_utm=zones_utm, robot=robot, cfg=cfg,
+                access_utm=access_utm, wgs84_poly=wgs84_poly))
+            result = plan.to_route_result(to_wgs84, robot.cov_width)
+            plan_dict = plan.as_api_dict(to_wgs84, robot.cov_width)
+    except PlanError:
+        raise
     except Exception as exc:
-        raise HTTPException(status_code=400, detail=f"route generation failed: {exc}")
+        logger.exception("generate: route generation failed (pattern=%s, parcel_id=%s)",
+                         pattern, body.parcel_id)
+        raise PlanError("ENGINE_FAILURE", "route generation failed", {}) from exc
 
     prescription_map = None
     if body.vra and body.vra.enabled:
@@ -486,7 +512,7 @@ async def generate_routing_plan(request: Request, body: GenerateRequest, auth: A
 
     operation_id = None
     if body.persist and body.parcel_id:
-        operation_id = await _persist_operation(result, body, auth, prescription_map)
+        operation_id = await _persist_operation(result, body, auth, prescription_map, plan_dict)
 
     selected = {
         "pattern": result.pattern,
@@ -500,9 +526,45 @@ async def generate_routing_plan(request: Request, body: GenerateRequest, auth: A
     }
     return {
         "success": True,
+        "operation_id": operation_id,
+        "plan": plan_dict,
         "selected": selected,
         "prescription_map": prescription_map,
-        "operation_id": operation_id,
+    }
+
+
+def _headland_only_plan(result, robot, cfg, parcel_utm, zones_wgs84, access_wgs84, to_wgs84) -> dict:
+    """Minimal plan body for the legacy headland-only path (rings, no turns)."""
+    from shapely.geometry import mapping as _map, Point as _Point
+    parts = list(result.geometry.geoms)
+    parcel_area_ha = round(parcel_utm.area / 10000.0, 3)
+    metrics = dict(result.metrics or {})
+    metrics.update({"access_distance_m": 0.0, "working_area_ha": parcel_area_ha})
+    exit_point = None
+    if parts:
+        last = parts[-1].coords[-1]
+        exit_point = {"type": "Point", "coordinates": [last[0], last[1]]}
+    return {
+        "pattern": "headland-only",
+        "curve_type": robot.curve_type,
+        "swath_count": result.swath_count,
+        "headland_passes": max(cfg.headland_passes, 1),
+        "route": _map(result.geometry),
+        "swaths": [{"index": i, "kind": "headland", "geometry": _map(g)}
+                   for i, g in enumerate(parts)],
+        "access_path": None,
+        "access_point": _map(_Point(access_wgs84[0], access_wgs84[1])) if access_wgs84 else None,
+        "exit_point": exit_point,
+        "working_area": _map(shp_transform(to_wgs84, parcel_utm)),
+        "unreached_parts": [],
+        "metrics": metrics,
+        "validation": None,
+        "exclusion_zones": {
+            "type": "FeatureCollection",
+            "features": [{"type": "Feature", "properties": {}, "geometry": _map(z)}
+                         for z in zones_wgs84],
+        },
+        "prescription": None,
     }
 
 
@@ -538,16 +600,12 @@ async def _resolve_machine(body: GenerateRequest, auth: AuthContext) -> dict:
 _fetch_parcel_constraints = fetch_parcel_constraints
 
 
-async def _coverage_constraints(parcel_id, tenant_id: str, cov_width: float) -> dict:
-    """Build the exclusion kwargs for generate_coverage from a parcel's config."""
+async def _load_constraints_wgs84(parcel_id, tenant_id: str) -> dict:
+    """Access point (lon, lat) and exclusion zones (WGS84 polygons) of a parcel."""
     if not parcel_id:
-        return {}
+        return {"access_point": None, "zones": []}
     c = await _fetch_parcel_constraints(parcel_id, tenant_id)
-    return {
-        "start_point_wgs84": c["access_point"],
-        "exclusion_zones_wgs84": c["zones"],
-        "exclusion_buffer_m": cov_width / 2.0,
-    }
+    return {"access_point": c["access_point"], "zones": list(c["zones"])}
 
 
 async def _resolve_contour_dem(parcel_geometry: dict):
@@ -606,7 +664,8 @@ def _zones_from_orion(zones: list[dict], parcel_id: str, zone_ids: list[str] | N
     return matched
 
 
-async def _persist_operation(result, body: GenerateRequest, auth: AuthContext, prescription_map: dict | None) -> Optional[str]:
+async def _persist_operation(result, body: GenerateRequest, auth: AuthContext,
+                             prescription_map: dict | None, plan_dict: dict | None = None) -> Optional[str]:
     """Persist route as AgriParcelOperation in Orion-LD. Returns operation URN."""
     from app.services import operation_store
     tenant_id = auth.tenant_id
@@ -614,7 +673,8 @@ async def _persist_operation(result, body: GenerateRequest, auth: AuthContext, p
     op_id = operation_store.new_operation_id(tenant_id)
     entity = operation_store.build_operation_entity(
         op_id=op_id, body=body, result=result,
-        prescription_map=prescription_map, is_template=False,
+        prescription_map=prescription_map, is_template=False, plan=plan_dict,
+        planned_start_at=body.planned_start_at, planned_end_at=body.planned_end_at,
     )
     orion = OrionClient(tenant_id, base_url=settings.context_broker_url,
                        context_url=settings.ngsi_ld_context)

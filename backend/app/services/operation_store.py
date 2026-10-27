@@ -99,19 +99,46 @@ def new_operation_id(tenant_id: str) -> str:
     return f"urn:ngsi-ld:AgriParcelOperation:{tenant_id}:{uuid.uuid4().hex[:8]}"
 
 
-def build_operation_entity(*, op_id, body, result, prescription_map, is_template=False) -> dict:
+def _planned_iso(epoch_s: float) -> dict:
+    return {"@type": "DateTime",
+            "@value": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(epoch_s))}
+
+
+def _planned_value(given: Optional[str], default_epoch_s: float) -> dict:
+    if given:
+        return {"@type": "DateTime", "@value": given}
+    return _planned_iso(default_epoch_s)
+
+
+def build_operation_entity(*, op_id, body, result, prescription_map, is_template=False,
+                           plan: Optional[dict] = None,
+                           planned_start_at: Optional[str] = None,
+                           planned_end_at: Optional[str] = None) -> dict:
     """Build an AgriParcelOperation NGSI-LD entity from a generation result."""
     pc = body.pattern_config
     metrics = getattr(result, "metrics", {}) or {}
+    location = plan["route"] if plan is not None else mapping(result.geometry)
+    generation_config = {
+        "pattern": body.pattern,
+        "heading_deg": pc.heading_deg,
+        "width_m": pc.width_m,
+        "overlap_pct": pc.overlap_pct,
+        "headland_passes": pc.headland_passes,
+        "heading_objective": pc.heading_objective,
+        "turning_radius_m": pc.turning_radius_m,
+    }
+    if plan is not None:
+        generation_config["pattern_used"] = plan.get("pattern")
+        generation_config["curve_type"] = plan.get("curve_type")
+        generation_config["return_to_access"] = getattr(body, "return_to_access", False)
     entity = {
         "id": op_id,
         "type": "AgriParcelOperation",
         "name": {"type": "Property",
                  "value": f"{body.operation_type} - {(body.parcel_id or 'op')[:8]}"},
         "operationType": {"type": "Property", "value": body.operation_type},
-        "couplingModel": {"type": "Property", "value": body.coupling_model},
         "status": {"type": "Property", "value": "planned"},
-        "location": {"type": "GeoProperty", "value": mapping(result.geometry)},
+        "location": {"type": "GeoProperty", "value": location},
         "swathCount": {"type": "Property", "value": result.swath_count},
         "totalDistanceM": {"type": "Property", "value": result.total_distance_m},
         "fieldEfficiency": {"type": "Property", "value": metrics.get("field_efficiency")},
@@ -120,18 +147,31 @@ def build_operation_entity(*, op_id, body, result, prescription_map, is_template
         "coveredAreaHa": {"type": "Property", "value": metrics.get("covered_area_ha")},
         "isTemplate": {"type": "Property", "value": is_template},
         "dateCreated": {"type": "Property", "value": _now_iso()},
-        "generationConfig": {"type": "Property", "value": {
-            "pattern": body.pattern,
-            "heading_deg": pc.heading_deg,
-            "width_m": pc.width_m,
-            "overlap_pct": pc.overlap_pct,
-            "headland_passes": pc.headland_passes,
-            "direction": pc.direction,
-            "heading_objective": pc.heading_objective,
-            "turning_radius_m": pc.turning_radius_m,
-        }},
+        "generationConfig": {"type": "Property", "value": generation_config},
         "hasAgriParcel": {"type": "Relationship", "object": body.parcel_id},
     }
+    now = time.time()
+    entity["plannedStartAt"] = {"type": "Property", "value": _planned_value(planned_start_at, now)}
+    entity["plannedEndAt"] = {"type": "Property", "value": _planned_value(planned_end_at, now + 86400)}
+    if plan is not None:
+        if plan.get("access_point") is not None:
+            entity["accessPoint"] = {"type": "GeoProperty", "value": plan["access_point"]}
+        if plan.get("access_path") is not None:
+            entity["accessPath"] = {"type": "GeoProperty", "value": plan["access_path"]}
+        entity["exclusionZones"] = {"type": "Property", "value": {
+            "type": "FeatureCollection",
+            "features": (plan.get("exclusion_zones") or {}).get("features", [])}}
+        entity["swaths"] = {"type": "Property", "value": {
+            "type": "FeatureCollection",
+            "features": [{"type": "Feature", "geometry": s["geometry"],
+                          "properties": {"index": s["index"], "kind": s["kind"]}}
+                         for s in plan.get("swaths", [])]}}
+        if plan.get("working_area") is not None:
+            entity["workingArea"] = {"type": "GeoProperty", "value": plan["working_area"]}
+        if plan.get("validation") is not None:
+            entity["validation"] = {"type": "Property", "value": plan["validation"]}
+        entity["planVersion"] = {"type": "Property", "value": 1}
+        entity["headlandPasses"] = {"type": "Property", "value": plan.get("headland_passes")}
     if body.tractor_id:
         entity["usesTractor"] = {"type": "Relationship", "object": body.tractor_id}
     if body.implement_id:

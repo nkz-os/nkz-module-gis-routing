@@ -1,4 +1,6 @@
 import pytest
+from shapely.geometry import Point, mapping
+from tests.fixtures_parcels import RECT, ZONE_CENTER, ZONE_SPLIT, GATE, wgs84, wgs84_point
 from fastapi.testclient import TestClient
 from app.main import app
 
@@ -89,7 +91,6 @@ def test_deprecated_fields_are_accepted_and_logged(caplog):
         assert name in caplog.text
 
 
-@pytest.mark.xfail(strict=True, reason="plan body lands in task 7")
 def test_headland_passes_zero_is_coerced_to_one():
     resp = client.post("/api/routing/generate", json={
         "parcel_geometry": _POLY, "pattern": "boustrophedon",
@@ -125,3 +126,104 @@ def test_generate_with_parcel_id_passes_tenant_to_constraints(monkeypatch):
     assert resp.status_code == 200
     assert seen["parcel_id"] == "urn:ngsi-ld:AgriParcel:p1"
     assert seen["tenant_id"] == "tenant-a"
+
+
+_RECT_WGS = mapping(wgs84(RECT))
+
+
+def _fake_constraints(access=None, zones=()):
+    async def fake(parcel_id, tenant_id):
+        return {"access_point": access, "zones": list(zones)}
+    return fake
+
+
+def _gen(monkeypatch, **extra):
+    monkeypatch.setattr("app.api.routing._fetch_parcel_constraints",
+                        _fake_constraints(extra.pop("access", None), extra.pop("zones", ())))
+    body = {"parcel_geometry": _RECT_WGS, "parcel_id": "urn:ngsi-ld:AgriParcel:p1", "pattern": "boustrophedon",
+            "pattern_config": {"width_m": 4, "headland_passes": 1, "turning_radius_m": 6.0}, "persist": False}
+    body.update(extra)
+    return client.post("/api/routing/generate", json=body)
+
+
+def test_plan_body_shape(monkeypatch):
+    resp = _gen(monkeypatch, access=wgs84_point(GATE))
+    assert resp.status_code == 200, resp.text
+    plan = resp.json()["plan"]
+    for key in ("pattern", "curve_type", "swath_count", "headland_passes", "route", "swaths", "access_path",
+                "access_point", "exit_point", "working_area", "unreached_parts", "metrics", "validation",
+                "exclusion_zones", "prescription"):
+        assert key in plan, key
+    assert plan["swath_count"] == len(plan["swaths"]) and plan["swaths"][0]["kind"] in ("work", "headland")
+    assert plan["validation"]["ok"] is True and plan["prescription"] is None
+    assert {"worked_distance_m", "non_working_distance_m", "access_distance_m", "field_efficiency",
+            "covered_area_ha", "parcel_area_ha", "working_area_ha"} <= set(plan["metrics"])
+    assert resp.json()["selected"]["route"]["type"] in ("MultiLineString", "LineString")   # legado conservado
+
+
+def test_gate_in_zone_returns_access_in_zone(monkeypatch):
+    resp = _gen(monkeypatch, access=wgs84_point(Point(100, 50)), zones=[wgs84(ZONE_CENTER)])
+    assert resp.status_code == 422
+    body = resp.json()
+    assert body["code"] == "ACCESS_IN_ZONE" and body["params"]["point"]["type"] == "Point"
+
+
+def test_gate_outside_parcel(monkeypatch):
+    resp = _gen(monkeypatch, access=wgs84_point(Point(-50, 50)))
+    assert resp.status_code == 422 and resp.json()["code"] == "ACCESS_OUTSIDE_PARCEL"
+
+
+def test_split_zone_reports_unreached(monkeypatch):
+    resp = _gen(monkeypatch, access=wgs84_point(GATE), zones=[wgs84(ZONE_SPLIT)])
+    assert resp.status_code == 200, resp.text
+    plan = resp.json()["plan"]
+    assert len(plan["unreached_parts"]) == 1 and plan["unreached_parts"][0]["area_ha"] > 0.5
+    assert any(w["code"] == "UNREACHED_AREA" for w in plan["validation"]["warnings"])
+
+
+def test_auto_pattern_default(monkeypatch):
+    monkeypatch.setattr("app.api.routing._fetch_parcel_constraints", _fake_constraints())
+    resp = client.post("/api/routing/generate", json={
+        "parcel_geometry": _RECT_WGS, "pattern_config": {"width_m": 4, "turning_radius_m": 6.0}, "persist": False})
+    assert resp.status_code == 200
+    assert resp.json()["plan"]["pattern"] in ("boustrophedon", "snake", "spiral")
+
+
+def test_engine_failure_is_500_with_code(monkeypatch):
+    def boom(*a, **k):
+        raise RuntimeError("f2c exploded")
+    monkeypatch.setattr("app.api.routing.plan_with_fallbacks", boom)
+    resp = _gen(monkeypatch)
+    assert resp.status_code == 500 and resp.json()["code"] == "ENGINE_FAILURE"
+
+
+def test_persist_writes_plan_attributes(monkeypatch):
+    captured = {}
+
+    class FakeOrion:
+        def __init__(self, *a, **k): ...
+        async def create_entity(self, entity):
+            captured["entity"] = entity
+            return {"id": entity["id"]}
+        async def close(self): ...
+
+    monkeypatch.setattr("app.api.routing.OrionClient", FakeOrion)
+    resp = _gen(monkeypatch, access=wgs84_point(GATE), persist=True,
+                planned_start_at="2026-11-02T08:00:00Z", planned_end_at="2026-11-02T18:00:00Z")
+    assert resp.status_code == 200 and resp.json()["operation_id"]
+    e = captured["entity"]
+    assert e["swaths"]["value"]["type"] == "FeatureCollection"
+    assert e["accessPoint"]["type"] == "GeoProperty" and e["workingArea"]["type"] == "GeoProperty"
+    assert e["planVersion"]["value"] == 1 and e["validation"]["value"]["ok"] is True
+    assert e["plannedStartAt"]["value"] == {"@type": "DateTime", "@value": "2026-11-02T08:00:00Z"}
+    assert e["plannedEndAt"]["value"]["@value"] == "2026-11-02T18:00:00Z"
+    assert "couplingModel" not in e
+
+
+def test_headland_only_returns_minimal_plan(monkeypatch):
+    resp = _gen(monkeypatch, access=wgs84_point(GATE), pattern="headland-only")
+    assert resp.status_code == 200, resp.text
+    plan = resp.json()["plan"]
+    assert plan["pattern"] == "headland-only" and plan["validation"] is None
+    assert plan["swaths"] and all(s["kind"] == "headland" for s in plan["swaths"])
+    assert plan["access_point"]["type"] == "Point" and plan["exit_point"]["type"] == "Point"
