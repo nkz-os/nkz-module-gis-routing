@@ -60,14 +60,16 @@ def _grow_zones(zones, buffer_m):
 async def _resolve_path_constraints(parcel_id, tenant_id, raster, cols, rows, machine_width_m, bbox):
     """Return (default_origin_or_None, blocked_cells_set).
 
-    With parcel_id: that parcel's zones and access point. Without: the zones of
-    the tenant's parcels intersecting bbox.
+    The zones of every tenant parcel intersecting bbox are always blocked (an A-B
+    route can leave the parcel); with parcel_id, that parcel's own zones are added
+    and its access point is the default origin.
     """
+    zones = list(await fetch_tenant_zones_in_bbox(tenant_id, bbox))
+    default_origin = None
     if parcel_id:
         c = await _fetch_parcel_constraints(parcel_id, tenant_id)
-        zones, default_origin = c["zones"], c["access_point"]
-    else:
-        zones, default_origin = await fetch_tenant_zones_in_bbox(tenant_id, bbox), None
+        zones += list(c["zones"])
+        default_origin = c["access_point"]
     block_wgs84 = _grow_zones(zones, machine_width_m / 2.0)
     blocked = rasterize_blocked_cells(
         block_wgs84, raster["origin_lon"], raster["origin_lat"],
