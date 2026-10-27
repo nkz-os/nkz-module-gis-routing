@@ -63,10 +63,23 @@ def min_headland_passes(turning_radius_m: float, cov_width_m: float) -> int:
     return max(1, math.ceil((turning_radius_m + cov_width_m / 2) / cov_width_m))
 
 
+def _polygons(geom: BaseGeometry) -> list[Polygon]:
+    """Flatten to the non-empty Polygon parts, dropping lines and points."""
+    if geom.is_empty:
+        return []
+    if isinstance(geom, Polygon):
+        return [geom]
+    if hasattr(geom, "geoms"):
+        return [p for g in geom.geoms for p in _polygons(g)]
+    return []
+
+
 def split_working_area(work: BaseGeometry, access: Point | None) -> tuple[Polygon, list[Polygon]]:
-    if isinstance(work, Polygon):
+    if isinstance(work, Polygon) and not work.is_empty:
         return work, []
-    pieces = sorted(work.geoms, key=lambda g: g.area, reverse=True)
+    pieces = sorted(_polygons(work), key=lambda g: g.area, reverse=True)
+    if not pieces:
+        raise ExclusionError("No drivable area remains", code="NO_DRIVABLE_AREA")
     if access is None:
         return pieces[0], pieces[1:]
     for i, p in enumerate(pieces):
@@ -82,6 +95,9 @@ def split_working_area(work: BaseGeometry, access: Point | None) -> tuple[Polygo
 def check_inside_parcel(geom: BaseGeometry, parcel: Polygon, cov_width: float,
                         *, erode: bool = True) -> Check:
     allowed = parcel.buffer(-cov_width / 2 + TOL_INSIDE_M if erode else TOL_INSIDE_M)
+    if allowed.is_empty:
+        # parcel narrower than the implement: the whole geometry is outside
+        return Check("inside_parcel", False, round(float(geom.length), 2), 0.0, geom)
     outside = geom.difference(allowed)
     if outside.is_empty:
         return Check("inside_parcel", True, 0.0, 0.0, None)

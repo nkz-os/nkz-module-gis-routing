@@ -26,7 +26,14 @@ def geojson_wgs84(geom: BaseGeometry | None, to_wgs84) -> dict | None:
     """Project a UTM geometry and return GeoJSON with 7-decimal list coordinates."""
     if geom is None:
         return None
-    gj = mapping(transform(to_wgs84, geom))
+    return _geojson(transform(to_wgs84, geom))
+
+
+def _geojson(geom: BaseGeometry) -> dict:
+    gj = mapping(geom)
+    if gj["type"] == "GeometryCollection":
+        return {"type": "GeometryCollection",
+                "geometries": [_geojson(g) for g in geom.geoms]}
     return {"type": gj["type"], "coordinates": _round_coords(gj["coordinates"])}
 
 
