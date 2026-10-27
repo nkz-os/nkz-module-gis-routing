@@ -313,3 +313,51 @@ def test_return_to_access_returns_return_path_and_persists_it(monkeypatch):
     assert plan["metrics"]["return_distance_m"] > 0
     assert {"inside_parcel:return_path", "outside_zones:return_path"} <= {c["id"] for c in plan["validation"]["checks"]}
     assert captured["entity"]["returnPath"]["type"] == "GeoProperty"
+
+
+# ---- final fix I2: planned dates and persistence outcome ----
+class _OkOrion:
+    created: list = []
+
+    def __init__(self, *a, **k): ...
+    async def create_entity(self, entity):
+        _OkOrion.created.append(entity)
+        return {"id": entity["id"]}
+    async def close(self): ...
+
+
+class _FailOrion(_OkOrion):
+    async def create_entity(self, entity):
+        raise RuntimeError("broker unavailable")
+
+
+@pytest.mark.parametrize("value", ["2026-11-02T08:00:00", "tomorrow"])
+def test_naive_or_unparseable_planned_date_is_422(monkeypatch, value):
+    resp = _gen(monkeypatch, planned_start_at=value)
+    assert resp.status_code == 422
+
+
+def test_planned_dates_are_normalised_to_utc(monkeypatch):
+    _OkOrion.created = []
+    monkeypatch.setattr("app.api.routing.OrionClient", _OkOrion)
+    resp = _gen(monkeypatch, persist=True, planned_start_at="2026-11-02T10:00:00+02:00",
+                planned_end_at="2026-11-02T18:30:00Z")
+    assert resp.status_code == 200, resp.text
+    e = _OkOrion.created[-1]
+    assert e["plannedStartAt"]["value"] == {"@type": "DateTime", "@value": "2026-11-02T08:00:00Z"}
+    assert e["plannedEndAt"]["value"]["@value"] == "2026-11-02T18:30:00Z"
+    assert resp.json()["persisted"] is True and resp.json()["operation_id"] == e["id"]
+
+
+def test_persist_failure_is_reported_not_silent(monkeypatch, caplog):
+    monkeypatch.setattr("app.api.routing.OrionClient", _FailOrion)
+    resp = _gen(monkeypatch, persist=True)
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["success"] is True and body["persisted"] is False and body["operation_id"] is None
+    assert any(r.name == "app.api.routing" and r.exc_info for r in caplog.records)
+
+
+def test_persisted_false_when_not_requested(monkeypatch):
+    resp = _gen(monkeypatch, persist=False)
+    assert resp.status_code == 200 and resp.json()["persisted"] is False

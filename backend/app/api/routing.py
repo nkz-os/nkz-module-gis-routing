@@ -14,6 +14,7 @@ import logging
 import os
 import time
 import io
+from datetime import datetime, timezone
 from fastapi import APIRouter, Request, Query, HTTPException
 from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import JSONResponse
@@ -402,13 +403,22 @@ class GenerateRequest(BaseModel):
     pattern_config: PatternConfigRequest = Field(default_factory=PatternConfigRequest)
     operation_type: str = "spraying"
     return_to_access: bool = False
-    planned_start_at: Optional[str] = None  # ISO 8601 UTC "YYYY-MM-DDTHH:MM:SSZ"
-    planned_end_at: Optional[str] = None
+    planned_start_at: Optional[datetime] = None  # ISO 8601 with offset; stored as UTC "...Z"
+    planned_end_at: Optional[datetime] = None
     persist: bool = True
     vra: Optional[VRAConfig] = None
     coupling_model: Optional[str] = None  # deprecated, ignored
     selected_alternative_id: Optional[str] = None  # deprecated, ignored
     base_pattern_id: Optional[str] = None  # deprecated, ignored
+
+    @field_validator("planned_start_at", "planned_end_at")
+    @classmethod
+    def planned_dates_are_utc(cls, value: Optional[datetime]) -> Optional[datetime]:
+        if value is None:
+            return None
+        if value.tzinfo is None or value.utcoffset() is None:
+            raise ValueError("planned dates must carry a timezone offset (e.g. Z)")
+        return value.astimezone(timezone.utc)
 
     def deprecated_fields_present(self) -> list[str]:
         names = [
@@ -507,6 +517,7 @@ async def generate_routing_plan(request: Request, body: GenerateRequest, auth: A
     operation_id = None
     if body.persist and body.parcel_id:
         operation_id = await _persist_operation(result, body, auth, prescription_map, plan_dict)
+    persisted = operation_id is not None
 
     selected = {
         "pattern": result.pattern,
@@ -521,6 +532,7 @@ async def generate_routing_plan(request: Request, body: GenerateRequest, auth: A
     return {
         "success": True,
         "operation_id": operation_id,
+        "persisted": persisted,
         "plan": plan_dict,
         "selected": selected,
         "prescription_map": prescription_map,
@@ -618,18 +630,23 @@ async def _persist_operation(result, body: GenerateRequest, auth: AuthContext,
     entity = operation_store.build_operation_entity(
         op_id=op_id, body=body, result=result,
         prescription_map=prescription_map, is_template=False, plan=plan_dict,
-        planned_start_at=body.planned_start_at, planned_end_at=body.planned_end_at,
+        planned_start_at=_iso_utc(body.planned_start_at), planned_end_at=_iso_utc(body.planned_end_at),
     )
     orion = OrionClient(tenant_id, base_url=settings.context_broker_url,
                        context_url=settings.ngsi_ld_context)
     try:
         await orion.create_entity(entity)
         return op_id
-    except Exception as e:
-        logger.error("Failed to persist operation: %s", e)
+    except Exception:
+        # Reported to the client as persisted=false; the plan itself is still returned.
+        logger.exception("Failed to persist operation: op_id=%s parcel_id=%s", op_id, body.parcel_id)
         return None
     finally:
         await orion.close()
+
+
+def _iso_utc(value: Optional[datetime]) -> Optional[str]:
+    return value.strftime("%Y-%m-%dT%H:%M:%SZ") if value is not None else None
 
 
 class ExternalZonesIngestRequest(BaseModel):
