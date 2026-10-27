@@ -111,8 +111,13 @@ async def _run_pathfinding(job_id: str, body: PathRequest, tenant_id: str):
         if body.machine_id:
             kin = await fetch_machine_kinematics(body.machine_id, tenant_id)
             width = kin.get("implementWidth")
-            if isinstance(width, (int, float)) and width > 0:
-                machine_width_m = float(width)
+            if not isinstance(width, (int, float)) or width <= 0:
+                logger.error("path/calculate: machine not found or has no implementWidth: machine_id=%s job=%s",
+                             body.machine_id, job_id)
+                JOBS.set(job_id, {"status": "failed",
+                                  "error": "machine not found or has no implementWidth"})
+                return
+            machine_width_m = float(width)
 
         if body.elevation_grid:
             raster = body.elevation_grid  # legacy/explicit override (tests)

@@ -16,6 +16,8 @@ def _no_tenant_zones(monkeypatch):
         return []
 
     monkeypatch.setattr(pr, "fetch_tenant_zones_in_bbox", none)
+    from app.services.pathfinding.job_store import JobStore
+    monkeypatch.setattr(pr, "JOBS", JobStore())
 
 
 def _grid():
@@ -140,3 +142,37 @@ async def test_without_parcel_uses_tenant_zones_in_bbox(monkeypatch):
     raster = {"origin_lon": 0.0, "origin_lat": 0.0, "pixel_size_deg": 0.001}
     origin, blocked = await pr._resolve_path_constraints(None, "tenant-a", raster, 10, 10, 2.0, (0, 0, 0.01, 0.01))
     assert origin is None and blocked and called["bbox"] == (0, 0, 0.01, 0.01)
+
+
+def _wait(job_id):
+    for _ in range(50):
+        body = client.get(f"/api/routing/path/{job_id}").json()
+        if body["status"] in ("completed", "failed"):
+            return body
+        time.sleep(0.05)
+    return body
+
+
+def test_unknown_machine_fails_job(monkeypatch):
+    from app.api import pathfinding_router as pr
+
+    async def no_machine(machine_id, tenant_id):
+        return {}
+
+    monkeypatch.setattr(pr, "fetch_machine_kinematics", no_machine)
+    job_id = client.post("/api/routing/path/calculate", json={
+        "point_a": [-2.0, 43.0], "point_b": [-1.99, 43.0],
+        "elevation_grid": _grid(), "machine_id": "urn:missing"}).json()["job_id"]
+    body = _wait(job_id)
+    assert body["status"] == "failed"
+    assert body["error"] == "machine not found or has no implementWidth"
+
+
+def test_job_limit_returns_429():
+    from app.api import pathfinding_router as pr
+    for _ in range(pr.JOBS._max_per_tenant):
+        pr.JOBS.create("tenant-a")
+    resp = client.post("/api/routing/path/calculate", json={
+        "point_a": [-2.0, 43.0], "point_b": [-1.99, 43.0], "elevation_grid": _grid()})
+    assert resp.status_code == 429
+    assert resp.json()["detail"]["code"] == "JOB_LIMIT"
