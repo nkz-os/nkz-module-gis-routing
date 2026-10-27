@@ -231,3 +231,20 @@ def test_access_path_unavailable_warning(monkeypatch):
     plan = plan_with_fallbacks(_inp(access=GATE))
     w = [w for w in plan.validation.warnings if w.code == "ACCESS_PATH_UNAVAILABLE"]
     assert len(w) == 1 and w[0].geometry.equals(GATE)
+
+
+def test_headland_only_is_validated_single_attempt(monkeypatch):
+    from app.services.coverage import ladder as lm
+    real = lm.plan_coverage
+    calls = []
+
+    def spy(*a, **k):
+        calls.append(a[3].pattern)
+        return real(*a, **k)
+    monkeypatch.setattr(lm, "plan_coverage", spy)
+    plan = plan_with_fallbacks(_inp(pattern="headland-only", passes=2))
+    assert calls == ["headland-only"]
+    assert plan.swaths and all(s.kind == "headland" for s in plan.swaths)
+    assert _hard_ok(plan) and plan.validation.ok
+    dists = sorted(RECT.exterior.distance(s.geometry) for s in plan.swaths)
+    assert dists == [pytest.approx(2.0, abs=0.05), pytest.approx(6.0, abs=0.05)]

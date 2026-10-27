@@ -174,3 +174,13 @@ def test_split_path_adds_connector_between_adjacent_swaths():
     parts = _split_path(_Path())
     assert [k for k, _ in parts] == ["swath", "turn", "swath"]
     assert parts[1][1].coords[0] == (10.0, 0.0) and parts[1][1].coords[-1] == (0.0, 5.0)
+
+
+# ---- final fix C1: headland-only is a normal, validated plan ----
+def test_headland_only_rings_sit_inside_at_offsets():
+    from app.services.coverage.validation import check_inside_parcel
+    p = _plan_at(GATE, pattern="headland-only", passes=2)
+    assert p.swaths and all(s.kind == "headland" for s in p.swaths)
+    dists = sorted(RECT.exterior.distance(s.geometry) for s in p.swaths)
+    assert dists == [pytest.approx(10.0, abs=0.05), pytest.approx(30.0, abs=0.05)]
+    assert check_inside_parcel(p.route, RECT, ROBOT.cov_width).ok

@@ -26,6 +26,7 @@ logger = logging.getLogger(__name__)
 
 AUTO_PATTERN_ORDER = ("boustrophedon", "snake", "spiral")
 HEADLAND_EXTRA_MAX = 2
+HEADLAND_ONLY = "headland-only"
 _HARD_IDS = ("inside_parcel", "outside_zones")
 
 
@@ -154,9 +155,15 @@ def plan_with_fallbacks(inp: LadderInput) -> CoveragePlan:
     w = inp.robot.cov_width
     work = build_working_polygon(inp.parcel_utm, inp.zones_utm, w / 2)
     piece, unreached = split_working_area(work, inp.access_utm)
-    passes0 = max(inp.cfg.headland_passes, min_headland_passes(inp.robot.min_turning_radius, w))
-    patterns = AUTO_PATTERN_ORDER if inp.cfg.pattern == "auto" else (inp.cfg.pattern,)
-    curves = (inp.robot.curve_type,) + (("reeds_shepp",) if inp.robot.curve_type == "dubins" else ())
+    if inp.cfg.pattern == HEADLAND_ONLY:
+        # Rings only: no interior turns, so no curve or headland alternatives.
+        passes0, extra = max(inp.cfg.headland_passes, 1), 0
+        patterns, curves = (HEADLAND_ONLY,), (inp.robot.curve_type,)
+    else:
+        passes0 = max(inp.cfg.headland_passes, min_headland_passes(inp.robot.min_turning_radius, w))
+        extra = HEADLAND_EXTRA_MAX
+        patterns = AUTO_PATTERN_ORDER if inp.cfg.pattern == "auto" else (inp.cfg.pattern,)
+        curves = (inp.robot.curve_type,) + (("reeds_shepp",) if inp.robot.curve_type == "dubins" else ())
 
     attempts: list[_Attempt] = []
     first_ok: dict[str, _Attempt] = {}
@@ -164,7 +171,7 @@ def plan_with_fallbacks(inp: LadderInput) -> CoveragePlan:
     for pattern in patterns:
         done = False
         for curve in curves:
-            for passes in range(passes0, passes0 + HEADLAND_EXTRA_MAX + 1):
+            for passes in range(passes0, passes0 + extra + 1):
                 try:
                     plan = plan_coverage(
                         piece, inp.parcel_utm, replace(inp.robot, curve_type=curve),

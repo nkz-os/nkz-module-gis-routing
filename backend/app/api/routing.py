@@ -431,7 +431,7 @@ async def generate_routing_plan(request: Request, body: GenerateRequest, auth: A
 
     from shapely.geometry import shape, mapping as _map
     from app.services.coverage.robot_model import build_robot
-    from app.services.coverage.f2c_engine import generate_coverage, CoverageConfig
+    from app.services.coverage.f2c_engine import CoverageConfig
 
     try:
         wgs84_poly = shape(body.parcel_geometry)
@@ -479,22 +479,11 @@ async def generate_routing_plan(request: Request, body: GenerateRequest, auth: A
                               to_wgs84=to_wgs84)
 
     try:
-        if pattern == "headland-only":
-            result = generate_coverage(
-                wgs84_poly, robot, cfg,
-                exclusion_zones_wgs84=zones_wgs84,
-                exclusion_buffer_m=robot.cov_width / 2.0,
-                start_point_wgs84=access_wgs84,
-            )
-            plan = None
-            plan_dict = _headland_only_plan(result, robot, cfg, parcel_utm, zones_wgs84,
-                                            access_wgs84, to_wgs84)
-        else:
-            plan = plan_with_fallbacks(LadderInput(
-                parcel_utm=parcel_utm, zones_utm=zones_utm, robot=robot, cfg=cfg,
-                access_utm=access_utm, wgs84_poly=wgs84_poly))
-            result = plan.to_route_result(to_wgs84, robot.cov_width)
-            plan_dict = plan.as_api_dict(to_wgs84, robot.cov_width)
+        plan = plan_with_fallbacks(LadderInput(
+            parcel_utm=parcel_utm, zones_utm=zones_utm, robot=robot, cfg=cfg,
+            access_utm=access_utm, wgs84_poly=wgs84_poly))
+        result = plan.to_route_result(to_wgs84, robot.cov_width)
+        plan_dict = plan.as_api_dict(to_wgs84, robot.cov_width)
     except PlanError:
         raise
     except Exception as exc:
@@ -531,42 +520,6 @@ async def generate_routing_plan(request: Request, body: GenerateRequest, auth: A
         "plan": plan_dict,
         "selected": selected,
         "prescription_map": prescription_map,
-    }
-
-
-def _headland_only_plan(result, robot, cfg, parcel_utm, zones_wgs84, access_wgs84, to_wgs84) -> dict:
-    """Minimal plan body for the legacy headland-only path (rings, no turns)."""
-    from shapely.geometry import mapping as _map
-    g = result.geometry
-    parts = list(g.geoms) if hasattr(g, "geoms") else [g]
-    parcel_area_ha = round(parcel_utm.area / 10000.0, 3)
-    metrics = dict(result.metrics or {})
-    metrics.update({"access_distance_m": 0.0, "working_area_ha": parcel_area_ha})
-    exit_point = None
-    if parts:
-        last = parts[-1].coords[-1]
-        exit_point = {"type": "Point", "coordinates": [last[0], last[1]]}
-    return {
-        "pattern": "headland-only",
-        "curve_type": robot.curve_type,
-        "swath_count": result.swath_count,
-        "headland_passes": max(cfg.headland_passes, 1),
-        "route": _map(result.geometry),
-        "swaths": [{"index": i, "kind": "headland", "geometry": _map(g)}
-                   for i, g in enumerate(parts)],
-        "access_path": None,
-        "access_point": _map(Point(access_wgs84[0], access_wgs84[1])) if access_wgs84 else None,
-        "exit_point": exit_point,
-        "working_area": _map(shp_transform(to_wgs84, parcel_utm)),
-        "unreached_parts": [],
-        "metrics": metrics,
-        "validation": None,
-        "exclusion_zones": {
-            "type": "FeatureCollection",
-            "features": [{"type": "Feature", "properties": {}, "geometry": _map(z)}
-                         for z in zones_wgs84],
-        },
-        "prescription": None,
     }
 
 

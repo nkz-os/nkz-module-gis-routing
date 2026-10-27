@@ -244,7 +244,7 @@ def test_headland_only_returns_minimal_plan(monkeypatch):
     resp = _gen(monkeypatch, access=wgs84_point(GATE), pattern="headland-only")
     assert resp.status_code == 200, resp.text
     plan = resp.json()["plan"]
-    assert plan["pattern"] == "headland-only" and plan["validation"] is None
+    assert plan["pattern"] == "headland-only" and plan["validation"]["ok"] is True
     assert plan["swaths"] and all(s["kind"] == "headland" for s in plan["swaths"])
     assert plan["access_point"]["type"] == "Point" and plan["exit_point"]["type"] == "Point"
     assert plan["swath_count"] == len(plan["swaths"])
