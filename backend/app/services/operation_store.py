@@ -130,7 +130,7 @@ def build_operation_entity(*, op_id, body, result, prescription_map, is_template
     if plan is not None:
         generation_config["pattern_used"] = plan.get("pattern")
         generation_config["curve_type"] = plan.get("curve_type")
-        generation_config["return_to_access"] = getattr(body, "return_to_access", False)
+        generation_config["return_to_access"] = body.return_to_access
     entity = {
         "id": op_id,
         "type": "AgriParcelOperation",
@@ -186,7 +186,9 @@ def build_operation_entity(*, op_id, body, result, prescription_map, is_template
         }}
     if prescription_map:
         entity["prescriptionMap"] = {"type": "Property", "value": prescription_map}
-    return entity
+    # Orion rejects a Property/GeoProperty whose value is null.
+    return {k: v for k, v in entity.items()
+            if k in ("id", "type") or not (isinstance(v, dict) and "value" in v and v["value"] is None)}
 
 
 def build_template_entity(*, op_id, parcel_id, name, pattern_type, pattern_config,

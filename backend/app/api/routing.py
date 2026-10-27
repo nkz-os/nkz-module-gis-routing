@@ -535,8 +535,9 @@ async def generate_routing_plan(request: Request, body: GenerateRequest, auth: A
 
 def _headland_only_plan(result, robot, cfg, parcel_utm, zones_wgs84, access_wgs84, to_wgs84) -> dict:
     """Minimal plan body for the legacy headland-only path (rings, no turns)."""
-    from shapely.geometry import mapping as _map, Point as _Point
-    parts = list(result.geometry.geoms)
+    from shapely.geometry import mapping as _map
+    g = result.geometry
+    parts = list(g.geoms) if hasattr(g, "geoms") else [g]
     parcel_area_ha = round(parcel_utm.area / 10000.0, 3)
     metrics = dict(result.metrics or {})
     metrics.update({"access_distance_m": 0.0, "working_area_ha": parcel_area_ha})
@@ -553,7 +554,7 @@ def _headland_only_plan(result, robot, cfg, parcel_utm, zones_wgs84, access_wgs8
         "swaths": [{"index": i, "kind": "headland", "geometry": _map(g)}
                    for i, g in enumerate(parts)],
         "access_path": None,
-        "access_point": _map(_Point(access_wgs84[0], access_wgs84[1])) if access_wgs84 else None,
+        "access_point": _map(Point(access_wgs84[0], access_wgs84[1])) if access_wgs84 else None,
         "exit_point": exit_point,
         "working_area": _map(shp_transform(to_wgs84, parcel_utm)),
         "unreached_parts": [],

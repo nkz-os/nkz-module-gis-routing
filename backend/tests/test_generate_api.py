@@ -189,12 +189,29 @@ def test_auto_pattern_default(monkeypatch):
     assert resp.json()["plan"]["pattern"] in ("boustrophedon", "snake", "spiral")
 
 
-def test_engine_failure_is_500_with_code(monkeypatch):
+def test_engine_failure_is_500_with_code(monkeypatch, caplog):
     def boom(*a, **k):
         raise RuntimeError("f2c exploded")
     monkeypatch.setattr("app.api.routing.plan_with_fallbacks", boom)
     resp = _gen(monkeypatch)
     assert resp.status_code == 500 and resp.json()["code"] == "ENGINE_FAILURE"
+    assert resp.json()["params"] == {}
+    recs = [r for r in caplog.records if r.name == "app.api.routing" and r.exc_info]
+    assert recs, "expected a logged traceback"
+
+
+def test_plan_error_passes_through_unchanged(monkeypatch):
+    from app.services.exclusion import ExclusionError
+
+    def boom(*a, **k):
+        raise ExclusionError("no area", code="NO_DRIVABLE_AREA",
+                             params={"point": {"type": "Point", "coordinates": [0, 0]}})
+    monkeypatch.setattr("app.api.routing.plan_with_fallbacks", boom)
+    resp = _gen(monkeypatch)
+    assert resp.status_code == 422
+    body = resp.json()
+    assert body["code"] == "NO_DRIVABLE_AREA"
+    assert body["params"]["point"] == {"type": "Point", "coordinates": [0, 0]}
 
 
 def test_persist_writes_plan_attributes(monkeypatch):
@@ -218,6 +235,9 @@ def test_persist_writes_plan_attributes(monkeypatch):
     assert e["plannedStartAt"]["value"] == {"@type": "DateTime", "@value": "2026-11-02T08:00:00Z"}
     assert e["plannedEndAt"]["value"]["@value"] == "2026-11-02T18:00:00Z"
     assert "couplingModel" not in e
+    assert e["headlandPasses"]["value"] >= 1
+    assert e["exclusionZones"]["value"]["type"] == "FeatureCollection"
+    assert e["location"]["value"]["type"] in ("LineString", "MultiLineString")
 
 
 def test_headland_only_returns_minimal_plan(monkeypatch):
@@ -227,3 +247,24 @@ def test_headland_only_returns_minimal_plan(monkeypatch):
     assert plan["pattern"] == "headland-only" and plan["validation"] is None
     assert plan["swaths"] and all(s["kind"] == "headland" for s in plan["swaths"])
     assert plan["access_point"]["type"] == "Point" and plan["exit_point"]["type"] == "Point"
+    assert plan["swath_count"] == len(plan["swaths"])
+    assert {"worked_distance_m", "non_working_distance_m", "access_distance_m", "field_efficiency",
+            "covered_area_ha", "parcel_area_ha", "working_area_ha"} <= set(plan["metrics"])
+
+
+def test_headland_only_persist_has_no_null_properties(monkeypatch):
+    captured = {}
+
+    class FakeOrion:
+        def __init__(self, *a, **k): ...
+        async def create_entity(self, entity):
+            captured["entity"] = entity
+            return {"id": entity["id"]}
+        async def close(self): ...
+
+    monkeypatch.setattr("app.api.routing.OrionClient", FakeOrion)
+    resp = _gen(monkeypatch, access=wgs84_point(GATE), pattern="headland-only", persist=True)
+    assert resp.status_code == 200 and resp.json()["operation_id"]
+    nulls = [k for k, v in captured["entity"].items()
+             if isinstance(v, dict) and "value" in v and v["value"] is None]
+    assert nulls == []

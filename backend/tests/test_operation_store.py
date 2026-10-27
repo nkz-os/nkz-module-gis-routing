@@ -98,6 +98,7 @@ def _body():
         pattern_config=_PC(),
         operation_type="spraying",
         coupling_model="rigid",
+        return_to_access=False,
         vra=_VRA(),
     )
 
@@ -331,3 +332,11 @@ def test_build_operation_entity_defaults_planned_dates(monkeypatch):
     assert e["plannedStartAt"]["value"]["@value"] == "2027-01-15T08:00:00Z"
     assert e["plannedEndAt"]["value"]["@value"] == "2027-01-16T08:00:00Z"
     assert "accessPoint" not in e and e["generationConfig"]["value"]["pattern_used"] == "snake"
+
+
+def test_build_operation_entity_has_no_null_values_with_empty_metrics():
+    r = _result()
+    r.metrics = {}
+    e = store.build_operation_entity(op_id="urn:x", body=_body(), result=r, prescription_map=None)
+    nulls = [k for k, v in e.items() if isinstance(v, dict) and "value" in v and v["value"] is None]
+    assert nulls == [] and e["id"] == "urn:x" and e["type"] == "AgriParcelOperation"
