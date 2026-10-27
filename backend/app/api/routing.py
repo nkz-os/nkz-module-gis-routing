@@ -477,19 +477,28 @@ async def generate_routing_plan(request: Request, body: GenerateRequest, auth: A
         if sampler:
             cfg.dem_sampler = sampler
             cfg.parcel_bbox = bbox
-    constraints = await _load_constraints_wgs84(body.parcel_id, auth.tenant_id)
-    access_wgs84 = constraints["access_point"]
-    zones_wgs84 = constraints["zones"]
-
-    parcel_utm, _crs, to_utm, to_wgs84 = project_polygon_to_utm(wgs84_poly)
-    zones_utm = [shp_transform(to_utm, z) for z in zones_wgs84]
-    access_utm = None
-    if access_wgs84 is not None:
-        access_utm = shp_transform(to_utm, Point(access_wgs84[0], access_wgs84[1]))
-        validate_access_point(access_utm, parcel_utm, zones_utm, robot.cov_width / 2.0,
-                              to_wgs84=to_wgs84)
-
     try:
+        try:
+            constraints = await _load_constraints_wgs84(body.parcel_id, auth.tenant_id)
+        except PlanError:
+            raise
+        except ValueError as exc:
+            # _zone_polygons: unreadable / malformed no-go zone on the parcel entity.
+            logger.error("generate: invalid no-go zone configuration: parcel_id=%s error=%s",
+                         body.parcel_id, exc)
+            raise PlanError("INVALID_GEOMETRY",
+                            f"parcel configuration has an invalid no-go zone: {body.parcel_id}") from exc
+        access_wgs84 = constraints["access_point"]
+        zones_wgs84 = constraints["zones"]
+
+        parcel_utm, _crs, to_utm, to_wgs84 = project_polygon_to_utm(wgs84_poly)
+        zones_utm = [shp_transform(to_utm, z) for z in zones_wgs84]
+        access_utm = None
+        if access_wgs84 is not None:
+            access_utm = shp_transform(to_utm, Point(access_wgs84[0], access_wgs84[1]))
+            validate_access_point(access_utm, parcel_utm, zones_utm, robot.cov_width / 2.0,
+                                  to_wgs84=to_wgs84)
+
         # CPU-bound (Fields2Cover): keep it off the event loop.
         plan = await run_in_threadpool(
             plan_with_fallbacks,
@@ -548,7 +557,11 @@ async def _resolve_machine(body: GenerateRequest, auth: AuthContext) -> dict:
     machine_id = body.implement_id or body.tractor_id
     if not machine_id:
         return {}
-    return await fetch_machine_kinematics(machine_id, auth.tenant_id)
+    machine = await fetch_machine_kinematics(machine_id, auth.tenant_id)
+    if not machine:
+        # Never fall back to the request's default width for a machine that does not exist.
+        raise PlanError("MACHINE_WIDTH_MISSING", f"machine not found: {machine_id}")
+    return machine
 
 
 # Re-export from the shared service so existing monkeypatches on

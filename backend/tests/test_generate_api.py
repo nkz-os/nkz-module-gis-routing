@@ -361,3 +361,47 @@ def test_persist_failure_is_reported_not_silent(monkeypatch, caplog):
 def test_persisted_false_when_not_requested(monkeypatch):
     resp = _gen(monkeypatch, persist=False)
     assert resp.status_code == 200 and resp.json()["persisted"] is False
+
+
+# ---- final fix I2b + minor: coded errors for constraints, projection and machines ----
+def test_unreadable_zone_maps_to_invalid_geometry(monkeypatch):
+    async def bad(parcel_id, tenant_id):
+        raise ValueError("unreadable exclusion zone geometry on urn:ngsi-ld:AgriParcel:p1: bad ring")
+    monkeypatch.setattr("app.api.routing._fetch_parcel_constraints", bad)
+    body = {"parcel_geometry": _RECT_WGS, "parcel_id": "urn:ngsi-ld:AgriParcel:p1", "pattern": "boustrophedon",
+            "pattern_config": {"width_m": 4, "turning_radius_m": 6.0}, "persist": False}
+    resp = client.post("/api/routing/generate", json=body)
+    assert resp.status_code == 400
+    assert resp.json()["code"] == "INVALID_GEOMETRY"
+    assert resp.json()["detail"] == "parcel configuration has an invalid no-go zone: urn:ngsi-ld:AgriParcel:p1"
+
+
+def test_constraint_loader_crash_is_engine_failure(monkeypatch):
+    async def boom(parcel_id, tenant_id):
+        raise RuntimeError("broker down")
+    monkeypatch.setattr("app.api.routing._fetch_parcel_constraints", boom)
+    body = {"parcel_geometry": _RECT_WGS, "parcel_id": "urn:ngsi-ld:AgriParcel:p1", "pattern": "boustrophedon",
+            "pattern_config": {"width_m": 4, "turning_radius_m": 6.0}, "persist": False}
+    resp = client.post("/api/routing/generate", json=body)
+    assert resp.status_code == 500 and resp.json()["code"] == "ENGINE_FAILURE"
+
+
+def test_projection_failure_is_engine_failure(monkeypatch):
+    def boom(*a, **k):
+        raise RuntimeError("no CRS")
+    monkeypatch.setattr("app.api.routing.project_polygon_to_utm", boom)
+    resp = _gen(monkeypatch)
+    assert resp.status_code == 500 and resp.json()["code"] == "ENGINE_FAILURE"
+
+
+def test_unknown_machine_is_machine_width_missing(monkeypatch):
+    class NoEntityOrion:
+        def __init__(self, *a, **k): ...
+        async def get_entity(self, eid):
+            return {}
+        async def close(self): ...
+    monkeypatch.setattr("app.services.machines.OrionClient", NoEntityOrion)
+    resp = _gen(monkeypatch, implement_id="urn:ngsi-ld:ManufacturingMachine:missing")
+    assert resp.status_code == 422
+    assert resp.json()["code"] == "MACHINE_WIDTH_MISSING"
+    assert resp.json()["detail"] == "machine not found: urn:ngsi-ld:ManufacturingMachine:missing"
