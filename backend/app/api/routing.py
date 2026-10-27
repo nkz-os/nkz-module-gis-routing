@@ -17,7 +17,7 @@ import io
 from fastapi import APIRouter, Request, Query, HTTPException
 from fastapi.responses import JSONResponse
 from fastapi.responses import Response as FastAPIResponse
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 from typing import Optional, Literal
 
 import httpx
@@ -31,6 +31,7 @@ from app.services.parcel_constraints import fetch_parcel_constraints
 from app.api.pathfinding_router import build_dem_registry
 from app.services.pathfinding.grid_sampler import make_grid_sampler
 from app.config import get_settings
+from app.services.coverage.errors import PlanError
 
 
 logger = logging.getLogger(__name__)
@@ -359,10 +360,18 @@ class PatternConfigRequest(BaseModel):
     heading_deg: Optional[float] = Field(default=None, ge=0, lt=360)
     width_m: float = Field(default=24, gt=0)
     overlap_pct: float = Field(default=0, ge=0, le=30)
-    headland_passes: int = Field(default=0, ge=0, le=3)
-    direction: Literal["inside-out", "outside-in"] = "outside-in"
+    headland_passes: int = Field(default=1, ge=0, le=3)
+    direction: Optional[Literal["inside-out", "outside-in"]] = None  # deprecated, ignored
     heading_objective: Literal["efficiency", "contour"] = "efficiency"
     turning_radius_m: Optional[float] = Field(default=None, gt=0)
+
+    @field_validator("headland_passes")
+    @classmethod
+    def coerce_zero_headland(cls, value: int) -> int:
+        if value == 0:
+            logger.warning("generate: headland_passes=0 coerced to 1")
+            return 1
+        return value
 
 
 class VRAConfig(BaseModel):
@@ -380,42 +389,65 @@ class GenerateRequest(BaseModel):
     tractor_id: Optional[str] = None
     implement_id: Optional[str] = None
     pattern: Literal[
-        "boustrophedon", "snake", "spiral", "headland-only",
+        "auto", "boustrophedon", "snake", "spiral", "headland-only",
         "ab-line", "ab-skip",
-    ] = "boustrophedon"
+    ] = "auto"
     pattern_config: PatternConfigRequest = Field(default_factory=PatternConfigRequest)
     operation_type: str = "spraying"
-    coupling_model: str = "rigid"
+    return_to_access: bool = False
+    planned_start_at: Optional[str] = None  # ISO 8601 UTC "YYYY-MM-DDTHH:MM:SSZ"
+    planned_end_at: Optional[str] = None
     persist: bool = True
-    selected_alternative_id: Optional[str] = None
-    base_pattern_id: Optional[str] = None
     vra: Optional[VRAConfig] = None
+    coupling_model: Optional[str] = None  # deprecated, ignored
+    selected_alternative_id: Optional[str] = None  # deprecated, ignored
+    base_pattern_id: Optional[str] = None  # deprecated, ignored
+
+    def deprecated_fields_present(self) -> list[str]:
+        names = [
+            name for name in ("coupling_model", "selected_alternative_id", "base_pattern_id")
+            if getattr(self, name) is not None
+        ]
+        if self.pattern_config.direction is not None:
+            names.append("direction")
+        return names
 
 
 @router.post("/generate")
 async def generate_routing_plan(request: Request, body: GenerateRequest, auth: AuthContext = require_auth()):
     """Unified route generation endpoint (Fields2Cover coverage engine)."""
+    deprecated = body.deprecated_fields_present()
+    if deprecated:
+        logger.warning("generate: deprecated fields ignored: %s", ", ".join(deprecated))
+
     if body.parcel_geometry.get("type") != "Polygon":
-        raise HTTPException(status_code=400, detail="parcel_geometry must be a GeoJSON Polygon")
+        raise PlanError("INVALID_GEOMETRY", "parcel_geometry must be a GeoJSON Polygon")
 
     from shapely.geometry import shape, mapping as _map
     from app.services.coverage.robot_model import build_robot
     from app.services.coverage.f2c_engine import generate_coverage, CoverageConfig
 
-    wgs84_poly = shape(body.parcel_geometry)
+    try:
+        wgs84_poly = shape(body.parcel_geometry)
+    except (ValueError, TypeError, KeyError) as exc:
+        raise PlanError("INVALID_GEOMETRY", "parcel_geometry is not a valid polygon") from exc
+    if not wgs84_poly.is_valid:
+        wgs84_poly = wgs84_poly.buffer(0)
+    if (not wgs84_poly.is_valid or wgs84_poly.is_empty or wgs84_poly.area == 0
+            or wgs84_poly.geom_type != "Polygon"):
+        raise PlanError("INVALID_GEOMETRY", "parcel_geometry is not a valid polygon")
     pc = body.pattern_config
     pattern = _PATTERN_ALIASES.get(body.pattern, body.pattern)
+    # TODO task 7: real auto selection in the ladder
+    pattern = "boustrophedon" if pattern == "auto" else pattern
 
     machine = await _resolve_machine(body, auth)
     machine.setdefault("implementWidth", pc.width_m)
-    try:
-        robot = build_robot(
-            machine,
-            overlap_pct=pc.overlap_pct,
-            turning_radius_override=pc.turning_radius_m,
-        )
-    except ValueError as exc:
-        raise HTTPException(status_code=422, detail=str(exc))
+    robot = build_robot(
+        machine,
+        overlap_pct=pc.overlap_pct,
+        turning_radius_override=pc.turning_radius_m,
+    )
 
     cfg = CoverageConfig(
         pattern=pattern,
@@ -602,7 +634,7 @@ class ExternalZonesIngestRequest(BaseModel):
 
 
 @router.post("/zones/external/ingest")
-async def ingest_external_zones(body: ExternalZonesIngestRequest):
+async def ingest_external_zones(body: ExternalZonesIngestRequest, auth: AuthContext = require_auth()):
     fmt = (body.format or "geojson").strip().lower()
     if fmt not in {"geojson", "csv"}:
         raise HTTPException(status_code=400, detail="Unsupported format. Use geojson or csv.")
