@@ -158,7 +158,7 @@ def _fake_plan(cfg, robot, swaths=(SW_A, SW_B), turn=TURN_OK, access_path=None):
 def _patch(monkeypatch, builder):
     calls = []
 
-    def fake(piece, parcel, robot, cfg, *, access_utm, wgs84_poly):
+    def fake(piece, parcel, robot, cfg, *, access_utm, wgs84_poly, swath_cache=None):
         calls.append((cfg.pattern, robot.curve_type, cfg.headland_passes))
         return builder(cfg, robot)
 
@@ -261,3 +261,49 @@ def test_bowtie_zone_both_lobes_avoided():
     right = Polygon([(140, 30), (140, 70), (100, 50)])
     for lobe in (left, right):
         assert plan.route.intersection(lobe.buffer(ROBOT.cov_width / 2 - 0.1)).length == 0.0
+
+
+
+def test_time_budget_stops_auto_after_first_ok(monkeypatch, caplog):
+    import logging
+    calls = _patch(monkeypatch, _turn_by_pattern({"boustrophedon": 5, "snake": 2, "spiral": 7}))
+    ticks = iter(range(0, 10000, 100))
+    monkeypatch.setattr(ladder_mod, "monotonic", lambda: next(ticks))
+    with caplog.at_level(logging.INFO, logger="app.services.coverage.ladder"):
+        plan = plan_with_fallbacks(_inp(pattern="auto", access=None), time_budget_s=50.0)
+    assert [c[0] for c in calls] == ["boustrophedon"]
+    assert plan.pattern == "boustrophedon" and plan.validation.fallbacks_applied[-1] == "time_budget"
+    assert "time_budget" in plan.fallbacks
+    assert len([r for r in caplog.records if "time budget" in r.getMessage()]) == 1
+
+
+def test_time_budget_ignored_for_concrete_pattern(monkeypatch):
+    calls = _patch(monkeypatch, lambda c, r: _fake_plan(c, r, turn=TURN_BAD if r.curve_type == "dubins" else TURN_OK))
+    ticks = iter(range(0, 10000, 100))
+    monkeypatch.setattr(ladder_mod, "monotonic", lambda: next(ticks))
+    inp = LadderInput(RECT, [ZONE_CENTER], ROBOT, CoverageConfig("boustrophedon", headland_passes=2),
+                      access_utm=None, wgs84_poly=wgs84(RECT))
+    plan = plan_with_fallbacks(inp, time_budget_s=0.0)
+    assert len(calls) == 4 and "time_budget" not in plan.validation.fallbacks_applied
+
+
+def test_time_budget_not_applied_without_an_ok_plan(monkeypatch):
+    calls = _patch(monkeypatch, lambda c, r: _fake_plan(c, r, turn=TURN_BAD))
+    ticks = iter(range(0, 100000, 100))
+    monkeypatch.setattr(ladder_mod, "monotonic", lambda: next(ticks))
+    inp = LadderInput(RECT, [ZONE_CENTER], ROBOT, CoverageConfig("auto", headland_passes=1),
+                      access_utm=None, wgs84_poly=wgs84(RECT))
+    plan = plan_with_fallbacks(inp, time_budget_s=0.0)
+    assert len(calls) == 18 and "time_budget" not in plan.validation.fallbacks_applied
+
+
+def test_ladder_reuses_swaths_per_passes(monkeypatch):
+    seen = []
+    real = ladder_mod.plan_coverage
+
+    def spy(*a, swath_cache=None, **k):
+        seen.append(id(swath_cache))
+        return real(*a, swath_cache=swath_cache, **k)
+    monkeypatch.setattr(ladder_mod, "plan_coverage", spy)
+    plan_with_fallbacks(_inp(pattern="auto", passes=2))
+    assert len(seen) >= 3 and len(set(seen)) == 1 and seen[0] != id(None)

@@ -15,6 +15,7 @@ import os
 import time
 import io
 from fastapi import APIRouter, Request, Query, HTTPException
+from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import JSONResponse
 from fastapi.responses import Response as FastAPIResponse
 from pydantic import BaseModel, Field, field_validator
@@ -479,9 +480,12 @@ async def generate_routing_plan(request: Request, body: GenerateRequest, auth: A
                               to_wgs84=to_wgs84)
 
     try:
-        plan = plan_with_fallbacks(LadderInput(
-            parcel_utm=parcel_utm, zones_utm=zones_utm, robot=robot, cfg=cfg,
-            access_utm=access_utm, wgs84_poly=wgs84_poly))
+        # CPU-bound (Fields2Cover): keep it off the event loop.
+        plan = await run_in_threadpool(
+            plan_with_fallbacks,
+            LadderInput(parcel_utm=parcel_utm, zones_utm=zones_utm, robot=robot, cfg=cfg,
+                        access_utm=access_utm, wgs84_poly=wgs84_poly),
+            time_budget_s=get_settings().LADDER_TIME_BUDGET_S)
         result = plan.to_route_result(to_wgs84, robot.cov_width)
         plan_dict = plan.as_api_dict(to_wgs84, robot.cov_width)
     except PlanError:

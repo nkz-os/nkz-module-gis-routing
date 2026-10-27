@@ -64,6 +64,9 @@ class Settings(BaseSettings):
     pmtiles_margin_meters: int = Field(default=500, gt=0)
     pmtiles_max_area_ha: float = Field(default=100.0, gt=0)
 
+    # Coverage planner: wall-time budget for pattern "auto" (seconds)
+    LADDER_TIME_BUDGET_S: float = Field(default=60.0, gt=0)
+
     # Sync
     sync_default_schema_version: int = 3
     sync_supported_schema_versions: list[int] = [3, 4]

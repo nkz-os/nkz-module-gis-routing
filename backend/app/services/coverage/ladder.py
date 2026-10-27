@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, replace
+from time import monotonic
 
 from shapely.geometry import LineString, MultiLineString, Point, Polygon, mapping
 from shapely.ops import transform
@@ -151,7 +152,19 @@ def _extra_warnings(inp: LadderInput, plan: CoveragePlan, applied: int) -> list[
     return out
 
 
-def plan_with_fallbacks(inp: LadderInput) -> CoveragePlan:
+def _over_budget(inp: LadderInput, budget_s: float | None, first_ok: dict, start: float) -> bool:
+    """auto only: stop once a hard-ok plan exists and the budget is spent."""
+    return (inp.cfg.pattern == "auto" and budget_s is not None and bool(first_ok)
+            and monotonic() - start > budget_s)
+
+
+def plan_with_fallbacks(inp: LadderInput, time_budget_s: float | None = None) -> CoveragePlan:
+    """Plan with the fallback ladder.
+
+    time_budget_s applies to pattern "auto" only: once a hard-ok plan exists and
+    the budget is spent, no further attempts run and "time_budget" is reported.
+    """
+    start = monotonic()
     w = inp.robot.cov_width
     work = build_working_polygon(inp.parcel_utm, inp.zones_utm, w / 2)
     piece, unreached = split_working_area(work, inp.access_utm)
@@ -168,15 +181,24 @@ def plan_with_fallbacks(inp: LadderInput) -> CoveragePlan:
     attempts: list[_Attempt] = []
     first_ok: dict[str, _Attempt] = {}
     last_error: ExclusionError | None = None
+    swath_cache: dict = {}
+    budget_hit = False
     for pattern in patterns:
         done = False
         for curve in curves:
             for passes in range(passes0, passes0 + extra + 1):
+                if _over_budget(inp, time_budget_s, first_ok, start):
+                    budget_hit = True
+                    logger.warning("ladder time budget spent: elapsed=%.1fs budget=%.1fs "
+                                   "next_pattern=%s ok_patterns=%s", monotonic() - start,
+                                   time_budget_s, pattern, sorted(first_ok))
+                    break
                 try:
                     plan = plan_coverage(
                         piece, inp.parcel_utm, replace(inp.robot, curve_type=curve),
                         replace(inp.cfg, pattern=pattern, headland_passes=passes),
-                        access_utm=inp.access_utm, wgs84_poly=inp.wgs84_poly)
+                        access_utm=inp.access_utm, wgs84_poly=inp.wgs84_poly,
+                        swath_cache=swath_cache)
                 except ExclusionError as e:
                     logger.info("ladder attempt pattern=%s curve=%s passes=%s raised=%s",
                                 pattern, curve, passes, e.code)
@@ -193,9 +215,9 @@ def plan_with_fallbacks(inp: LadderInput) -> CoveragePlan:
                     first_ok[pattern] = att
                     done = True
                     break
-            if done:
+            if done or budget_hit:
                 break
-        if done and inp.cfg.pattern != "auto":
+        if budget_hit or (done and inp.cfg.pattern != "auto"):
             break
 
     if first_ok:
@@ -203,6 +225,9 @@ def plan_with_fallbacks(inp: LadderInput) -> CoveragePlan:
             first_ok.values(),
             key=lambda a: (a.plan.metrics(w)["non_working_distance_m"],
                            AUTO_PATTERN_ORDER.index(a.pattern) if a.pattern in AUTO_PATTERN_ORDER else 0))
+        if budget_hit:
+            best.plan.fallbacks.append("time_budget")
+            best.report.fallbacks_applied.append("time_budget")
         return _finish(inp, best.plan, best.report, best.passes, [])
 
     if not attempts:

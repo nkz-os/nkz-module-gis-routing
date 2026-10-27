@@ -31,6 +31,10 @@ _ROUTE_PLANNERS = {
     "spiral": lambda: f2c.RP_Spiral(2),
 }
 _EPS = 1e-9
+TURN_SIMPLIFY_M = 0.05   # F2C emits a turn point every ~0.1 m; keep curves within 5 cm
+# F2C's default curve discretization (0.01 m) doubles planPath time on large
+# parcels; 0.1 m changes a turn by < 1 mm (chord sagitta at R = 5 m).
+TURN_DISCRETIZATION_M = 0.1
 
 
 @dataclass
@@ -83,16 +87,21 @@ def generate_coverage(
 
 def plan_coverage(
     piece_utm: Polygon, parcel_utm: Polygon, robot: RobotParams, cfg: CoverageConfig, *,
-    access_utm: Point | None, wgs84_poly: Polygon,
+    access_utm: Point | None, wgs84_poly: Polygon, swath_cache: dict | None = None,
 ) -> CoveragePlan:
-    """Plan pasadas, giros and headland rings over one drivable piece (UTM)."""
+    """Plan pasadas, giros and headland rings over one drivable piece (UTM).
+
+    swath_cache: optional dict shared by the attempts over the same piece; F2C
+    headlands + swaths are computed once per (passes, cov_width, heading) and
+    only ordering and path planning run per pattern/curve.
+    """
     passes = max(cfg.headland_passes, 1)
     w = robot.cov_width
 
     # parts: ("swath", geometry) | ("turn", geometry), in travel order.
     # headland-only: no interior swaths, the rings below are the whole plan.
     parts = ([] if cfg.pattern == "headland-only"
-             else _interior_parts(piece_utm, robot, cfg, wgs84_poly, passes))
+             else _interior_parts(piece_utm, robot, cfg, wgs84_poly, passes, swath_cache))
 
     # Orient to the access point BEFORE adding the rings.
     if access_utm is not None and parts:
@@ -151,23 +160,17 @@ def plan_coverage(
     )
 
 
-def _interior_parts(piece_utm, robot, cfg, wgs84_poly, passes) -> list:
+def _interior_parts(piece_utm, robot, cfg, wgs84_poly, passes, swath_cache=None) -> list:
     """F2C interior swaths + turns as ordered ("swath"|"turn", LineString) parts."""
-    cells = shapely_to_f2c_cells(piece_utm)
-    headland = f2c.HG_Const_gen().generateHeadlands(cells, robot.cov_width * passes)
-    if headland.size() == 0:
-        return []
-    work_cell = headland.getGeometry(0)
-    if work_cell.area() <= 0:
-        return []
-
-    bf = f2c.SG_BruteForce()
     angle = _resolve_angle(cfg, wgs84_poly)
-    if angle is not None:
-        swaths = bf.generateSwaths(angle, robot.cov_width, work_cell)
+    key = (passes, robot.cov_width, angle)
+    if swath_cache is not None and key in swath_cache:
+        swaths = swath_cache[key]
     else:
-        swaths = bf.generateBestSwaths(f2c.OBJ_NSwath(), robot.cov_width, work_cell)
-    if swaths.size() == 0:
+        swaths = _generate_swaths(piece_utm, robot.cov_width, passes, angle)
+        if swath_cache is not None:
+            swath_cache[key] = swaths
+    if swaths is None:
         return []
 
     planner = _ROUTE_PLANNERS.get(cfg.pattern, f2c.RP_Boustrophedon)()
@@ -176,8 +179,27 @@ def _interior_parts(piece_utm, robot, cfg, wgs84_poly, passes) -> list:
         f2c.PP_ReedsSheppCurves() if robot.curve_type == "reeds_shepp"
         else f2c.PP_DubinsCurves()
     )
+    curve.setDiscretization(TURN_DISCRETIZATION_M)
     path = f2c.PP_PathPlanning().planPath(robot.to_f2c_robot(), ordered, curve)
-    return _split_path(path)
+    return [(k, g.simplify(TURN_SIMPLIFY_M, preserve_topology=True) if k == "turn" else g)
+            for k, g in _split_path(path)]
+
+
+def _generate_swaths(piece_utm, cov_width: float, passes: int, angle: float | None):
+    """F2C headland reduction + swath generation; None when no swath fits."""
+    cells = shapely_to_f2c_cells(piece_utm)
+    headland = f2c.HG_Const_gen().generateHeadlands(cells, cov_width * passes)
+    if headland.size() == 0:
+        return None
+    work_cell = headland.getGeometry(0)
+    if work_cell.area() <= 0:
+        return None
+    bf = f2c.SG_BruteForce()
+    if angle is not None:
+        swaths = bf.generateSwaths(angle, cov_width, work_cell)
+    else:
+        swaths = bf.generateBestSwaths(f2c.OBJ_NSwath(), cov_width, work_cell)
+    return swaths if swaths.size() > 0 else None
 
 
 def _split_path(path) -> list:
@@ -208,11 +230,14 @@ def _split_path(path) -> list:
             else:
                 runs.append(("turn", [(x, y)]))
     parts = []
-    for n, (kind, pts) in enumerate(runs):
+    for n, (kind, raw) in enumerate(runs):
         if kind == "turn" and n + 1 < len(runs):
-            pts = pts + [runs[n + 1][1][0]]
-        distinct = {(round(px, 9), round(py, 9)) for px, py in pts}
-        if len(distinct) < 2:
+            raw = raw + [runs[n + 1][1][0]]
+        pts = [raw[0]]
+        for p in raw[1:]:   # drop consecutive duplicates, O(n)
+            if math.hypot(p[0] - pts[-1][0], p[1] - pts[-1][1]) > _EPS:
+                pts.append(p)
+        if len(pts) < 2:
             continue
         parts.append((kind, LineString(pts)))
         # Two swaths with no TURN state between them: record the jump as a

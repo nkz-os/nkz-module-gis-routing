@@ -73,7 +73,12 @@ def _plan_at(access, poly=RECT, **kw):
 def test_route_is_continuous_and_lengths_add_up(pattern):
     p = _plan_at(GATE, pattern=pattern)
     total = sum(s.geometry.length for s in p.swaths) + sum(t.geometry.length for t in p.turns)
-    assert p.route.length == pytest.approx(total, abs=0.01)
+    assert p.route.length == pytest.approx(total, rel=0.005)
+    # turns are simplified (0.05 m): F2C emits a point every ~0.1 m along a curve
+    curved = [t for t in p.turns if t.geometry.length > 3.0 and len(t.geometry.coords) > 2]
+    assert curved
+    for t in curved:
+        assert t.geometry.length / (len(t.geometry.coords) - 1) > 0.3
     # every swath/turn vertex chain is contiguous along the route
     coords = list(p.route.coords)
     for s in p.swaths:
@@ -184,3 +189,63 @@ def test_headland_only_rings_sit_inside_at_offsets():
     dists = sorted(RECT.exterior.distance(s.geometry) for s in p.swaths)
     assert dists == [pytest.approx(10.0, abs=0.05), pytest.approx(30.0, abs=0.05)]
     assert check_inside_parcel(p.route, RECT, ROBOT.cov_width).ok
+
+
+# ---- final fix C3: swath cache, sequential junction dedup ----
+def test_swath_cache_reused_across_patterns(monkeypatch):
+    import fields2cover as f2c
+    from app.services.coverage import f2c_engine as fe
+    real = f2c.SG_BruteForce
+    n = {"gen": 0}
+
+    class Spy:
+        def __init__(self):
+            self._r = real()
+
+        def generateBestSwaths(self, *a):
+            n["gen"] += 1
+            return self._r.generateBestSwaths(*a)
+
+        def generateSwaths(self, *a):
+            n["gen"] += 1
+            return self._r.generateSwaths(*a)
+
+    monkeypatch.setattr(fe.f2c, "SG_BruteForce", Spy)
+    cache = {}
+    plans = []
+    for pattern in ("boustrophedon", "snake", "spiral"):
+        cfg = CoverageConfig(pattern=pattern, headland_passes=1)
+        plans.append(plan_coverage(RECT, RECT, ROBOT, cfg, access_utm=GATE, wgs84_poly=wgs84(RECT),
+                                   swath_cache=cache))
+    assert n["gen"] == 1 and list(cache) == [(1, ROBOT.cov_width, None)]
+    works = [sorted(round(s.geometry.length, 3) for s in p.swaths if s.kind == "work") for p in plans]
+    assert works[0] == works[1] == works[2]
+    again = plan_coverage(RECT, RECT, ROBOT, CoverageConfig(pattern="boustrophedon", headland_passes=1),
+                          access_utm=GATE, wgs84_poly=wgs84(RECT), swath_cache=cache)
+    assert n["gen"] == 1 and again.route.equals_exact(plans[0].route, 1e-9)
+
+
+def test_split_path_drops_consecutive_duplicate_points():
+    import fields2cover as f2c
+    from app.services.coverage.f2c_engine import _split_path
+
+    class _P:
+        def __init__(self, t, x, y, ang=0.0, ln=0.0):
+            self.type, self.angle, self.len = t, ang, ln
+            self.point = type("Pt", (), {"getX": lambda _s: x, "getY": lambda _s: y})()
+
+    class _S(list):
+        def size(self):
+            return len(self)
+
+    sw, tn = f2c.PathSectionType_SWATH, f2c.PathSectionType_TURN
+
+    class _Path:
+        def getStates(self):
+            return _S([_P(sw, 0, 0, 0.0, 10.0), _P(tn, 10, 0), _P(tn, 10, 0), _P(tn, 11, 1),
+                       _P(tn, 11, 1), _P(tn, 10, 2), _P(sw, 10, 2, 3.14159265, 10.0),
+                       _P(tn, 0.0, 2.0), _P(tn, 0.0, 2.0)])
+
+    parts = _split_path(_Path())
+    assert [k for k, _ in parts] == ["swath", "turn", "swath"]
+    assert list(parts[1][1].coords) == [(10.0, 0.0), (11.0, 1.0), (10.0, 2.0)]

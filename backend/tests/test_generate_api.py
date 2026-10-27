@@ -268,3 +268,23 @@ def test_headland_only_persist_has_no_null_properties(monkeypatch):
     nulls = [k for k, v in captured["entity"].items()
              if isinstance(v, dict) and "value" in v and v["value"] is None]
     assert nulls == []
+
+
+def test_planner_runs_off_the_event_loop_with_budget(monkeypatch):
+    import asyncio
+    from app.api import routing
+    seen = {}
+    real = routing.plan_with_fallbacks
+
+    def spy(*a, **k):
+        try:
+            asyncio.get_running_loop()
+            seen["on_loop"] = True
+        except RuntimeError:
+            seen["on_loop"] = False
+        seen["budget"] = k.get("time_budget_s")
+        return real(*a, **k)
+    monkeypatch.setattr(routing, "plan_with_fallbacks", spy)
+    resp = _gen(monkeypatch)
+    assert resp.status_code == 200, resp.text
+    assert seen == {"on_loop": False, "budget": 60.0}
