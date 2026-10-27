@@ -97,10 +97,25 @@ def ensure_swaths_clear(plan: CoveragePlan, parcel_utm: Polygon, zones_utm: list
                 params={"geometry": {"type": gj["type"], "coordinates": _to_lists(gj["coordinates"])}})
 
 
+def _preceded(t: Turn, by_swath: dict) -> bool:
+    """A turn is linkable when it starts where its from_swath ends."""
+    s = by_swath.get(t.from_swath)
+    return s is not None and Point(t.geometry.coords[0]).distance(Point(s.geometry.coords[-1])) <= 1e-6
+
+
 def _rebuild_route(swaths: list[Swath], turns: list[Turn]):
     by_swath = {s.index: s for s in swaths}
-    turn_from = {t.from_swath: t for t in turns}
-    to_swath = {t.to_swath for t in turns}
+    linkable = []
+    for t in turns:
+        if _preceded(t, by_swath):
+            linkable.append(t)
+        else:
+            logger.warning("rebuild route: turn with no preceding swath ignored: turn=%d from=%d to=%d",
+                           t.index, t.from_swath, t.to_swath)
+    turn_from = {t.from_swath: t for t in linkable}
+    # A turn after the last swath (from == to) continues that swath's run; it must not
+    # join the last swath to the previous run across a removed (manual) turn.
+    to_swath = {t.to_swath for t in linkable if t.to_swath != t.from_swath}
     runs: list[list] = []
     for s in swaths:
         if s.index in to_swath and runs:

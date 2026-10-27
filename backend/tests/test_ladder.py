@@ -329,3 +329,36 @@ def test_failing_transit_is_dropped_never_returned(monkeypatch):
                if c.id.split(":")[0] in ("inside_parcel", "outside_zones") and not c.ok]
     assert failing == []
     assert [w.code for w in plan.validation.warnings].count("ACCESS_PATH_UNAVAILABLE") == 1
+
+
+# ---- final fix minors ----
+def test_postcondition_raises_when_route_still_violates(monkeypatch):
+    through = LineString([(10, 50), (190, 50)])          # route inconsistent with its clean swaths/turns
+    _patch(monkeypatch, lambda c, r: replace(_fake_plan(c, r), route=through))
+    inp = LadderInput(RECT, [ZONE_CENTER], ROBOT, CoverageConfig("boustrophedon", headland_passes=2),
+                      access_utm=None, wgs84_poly=wgs84(RECT))
+    with pytest.raises(ExclusionError) as e:
+        plan_with_fallbacks(inp)
+    assert e.value.code == "NO_DRIVABLE_AREA" and "cannot be made to respect" in e.value.detail
+    assert e.value.params["geometry"]["type"] in ("LineString", "MultiLineString")
+
+
+def test_rebuild_route_ignores_turn_without_preceding_swath(caplog):
+    import logging
+    from app.services.coverage.ladder import _rebuild_route
+    swaths = [Swath(0, "work", SW_A), Swath(1, "work", SW_B)]
+    lead = Turn(1, 0, 0, LineString([(0, 0), (10, 10)]))     # ends at SW_A's start: nothing precedes it
+    with caplog.at_level(logging.WARNING, logger="app.services.coverage.ladder"):
+        route = _rebuild_route(swaths, [Turn(0, 0, 1, TURN_OK), lead])
+    expected = list(SW_A.coords) + list(TURN_OK.coords)[1:] + list(SW_B.coords)[1:]
+    assert route.geom_type == "LineString" and list(route.coords) == expected
+    assert "no preceding swath" in caplog.text
+
+
+def test_rebuild_route_trailing_turn_does_not_bridge_a_manual_turn():
+    from app.services.coverage.ladder import _rebuild_route
+    swaths = [Swath(0, "work", SW_A), Swath(1, "work", SW_B)]
+    tail = Turn(1, 1, 1, LineString([(10, 20), (5, 25)]))     # after the last swath; 0->1 turn removed
+    route = _rebuild_route(swaths, [tail])
+    assert isinstance(route, MultiLineString) and len(route.geoms) == 2
+    assert list(route.geoms[1].coords) == list(SW_B.coords) + [(5.0, 25.0)]
