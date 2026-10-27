@@ -6,13 +6,21 @@ No Orion / IO here so it is exhaustively unit-testable on planar coordinates.
 """
 from __future__ import annotations
 
-from shapely.geometry import Point, Polygon
+from typing import Callable
+
+from shapely.geometry import Point, Polygon, mapping
 from shapely.geometry.base import BaseGeometry
 from shapely.ops import unary_union
 
+from app.services.coverage.errors import PlanError
 
-class ExclusionError(ValueError):
+
+class ExclusionError(PlanError):
     """Raised when constraints make a parcel unroutable (fail-safe)."""
+
+    def __init__(self, detail: str, code: str = "NO_DRIVABLE_AREA",
+                 params: dict | None = None) -> None:
+        super().__init__(code, detail, params)
 
 
 def buffered_zones(zones: list[Polygon], buffer_m: float) -> "BaseGeometry | None":
@@ -48,14 +56,33 @@ def build_working_polygon(parcel: Polygon, zones: list[Polygon], buffer_m: float
     return work
 
 
+def _as_json(geojson: dict) -> dict:
+    """shapely's mapping() yields tuples; JSON bodies and comparisons want lists."""
+    return {"type": geojson["type"], "coordinates": list(geojson["coordinates"])}
+
+
 def validate_access_point(point: Point, parcel: Polygon, zones: list[Polygon],
-                          buffer_m: float) -> None:
-    """Fail-safe checks for the access point. Raises ExclusionError on violation."""
+                          buffer_m: float, *,
+                          to_wgs84: "Callable[[float, float], tuple[float, float]] | None" = None
+                          ) -> None:
+    """Fail-safe checks for the access point. Raises ExclusionError on violation.
+
+    The error carries the point as GeoJSON in params; in WGS84 when `to_wgs84`
+    is given, otherwise in the input coordinates.
+    """
+    def _params() -> dict:
+        if to_wgs84 is not None:
+            lon, lat = to_wgs84(point.x, point.y)
+            return {"point": _as_json(mapping(Point(lon, lat)))}
+        return {"point": _as_json(mapping(point))}
+
     if not parcel.covers(point):
-        raise ExclusionError("Access point is outside the parcel")
+        raise ExclusionError("Access point is outside the parcel",
+                             code="ACCESS_OUTSIDE_PARCEL", params=_params())
     block = buffered_zones(zones, buffer_m)
     if block is not None and block.contains(point):
-        raise ExclusionError("Access point falls inside a no-go zone")
+        raise ExclusionError("Access point falls inside a no-go zone",
+                             code="ACCESS_IN_ZONE", params=_params())
 
 
 def rasterize_blocked_cells(block: "BaseGeometry | None", origin_lon: float,

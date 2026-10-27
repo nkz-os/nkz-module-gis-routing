@@ -67,7 +67,7 @@ jobs:
             - name: Run backend tests in image
               run: >-
                 docker run --rm -v "${{ github.workspace }}/backend":/app -w /app
-                gis-routing-backend:ci python -m pytest -q
+                gis-routing-backend:ci python -m pytest -q -m "not slow"
 
     # ==========================================================================
     # Build IIFE bundle

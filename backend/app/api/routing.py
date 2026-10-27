@@ -14,10 +14,12 @@ import logging
 import os
 import time
 import io
+from datetime import datetime, timezone
 from fastapi import APIRouter, Request, Query, HTTPException
+from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import JSONResponse
 from fastapi.responses import Response as FastAPIResponse
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 from typing import Optional, Literal
 
 import httpx
@@ -31,6 +33,13 @@ from app.services.parcel_constraints import fetch_parcel_constraints
 from app.api.pathfinding_router import build_dem_registry
 from app.services.pathfinding.grid_sampler import make_grid_sampler
 from app.config import get_settings
+from app.services.machines import fetch_machine_kinematics
+from app.services.coverage.errors import PlanError
+from app.services.coverage.ladder import plan_with_fallbacks, LadderInput
+from app.services.exclusion import validate_access_point
+from app.services.routing.base import project_polygon_to_utm
+from shapely.geometry import Point
+from shapely.ops import transform as shp_transform
 
 
 logger = logging.getLogger(__name__)
@@ -359,10 +368,18 @@ class PatternConfigRequest(BaseModel):
     heading_deg: Optional[float] = Field(default=None, ge=0, lt=360)
     width_m: float = Field(default=24, gt=0)
     overlap_pct: float = Field(default=0, ge=0, le=30)
-    headland_passes: int = Field(default=0, ge=0, le=3)
-    direction: Literal["inside-out", "outside-in"] = "outside-in"
+    headland_passes: int = Field(default=1, ge=0, le=3)
+    direction: Optional[Literal["inside-out", "outside-in"]] = None  # deprecated, ignored
     heading_objective: Literal["efficiency", "contour"] = "efficiency"
     turning_radius_m: Optional[float] = Field(default=None, gt=0)
+
+    @field_validator("headland_passes")
+    @classmethod
+    def coerce_zero_headland(cls, value: int) -> int:
+        if value == 0:
+            logger.warning("generate: headland_passes=0 coerced to 1")
+            return 1
+        return value
 
 
 class VRAConfig(BaseModel):
@@ -380,68 +397,122 @@ class GenerateRequest(BaseModel):
     tractor_id: Optional[str] = None
     implement_id: Optional[str] = None
     pattern: Literal[
-        "boustrophedon", "snake", "spiral", "headland-only",
+        "auto", "boustrophedon", "snake", "spiral", "headland-only",
         "ab-line", "ab-skip",
-    ] = "boustrophedon"
+    ] = "auto"
     pattern_config: PatternConfigRequest = Field(default_factory=PatternConfigRequest)
     operation_type: str = "spraying"
-    coupling_model: str = "rigid"
+    return_to_access: bool = False
+    planned_start_at: Optional[datetime] = None  # ISO 8601 with offset; stored as UTC "...Z"
+    planned_end_at: Optional[datetime] = None
     persist: bool = True
-    selected_alternative_id: Optional[str] = None
-    base_pattern_id: Optional[str] = None
     vra: Optional[VRAConfig] = None
+    coupling_model: Optional[str] = None  # deprecated, ignored
+    selected_alternative_id: Optional[str] = None  # deprecated, ignored
+    base_pattern_id: Optional[str] = None  # deprecated, ignored
+
+    @field_validator("planned_start_at", "planned_end_at")
+    @classmethod
+    def planned_dates_are_utc(cls, value: Optional[datetime]) -> Optional[datetime]:
+        if value is None:
+            return None
+        if value.tzinfo is None or value.utcoffset() is None:
+            raise ValueError("planned dates must carry a timezone offset (e.g. Z)")
+        return value.astimezone(timezone.utc)
+
+    def deprecated_fields_present(self) -> list[str]:
+        names = [
+            name for name in ("coupling_model", "selected_alternative_id", "base_pattern_id")
+            if getattr(self, name) is not None
+        ]
+        if self.pattern_config.direction is not None:
+            names.append("direction")
+        return names
 
 
 @router.post("/generate")
 async def generate_routing_plan(request: Request, body: GenerateRequest, auth: AuthContext = require_auth()):
     """Unified route generation endpoint (Fields2Cover coverage engine)."""
+    deprecated = body.deprecated_fields_present()
+    if deprecated:
+        logger.warning("generate: deprecated fields ignored: %s", ", ".join(deprecated))
+
     if body.parcel_geometry.get("type") != "Polygon":
-        raise HTTPException(status_code=400, detail="parcel_geometry must be a GeoJSON Polygon")
+        raise PlanError("INVALID_GEOMETRY", "parcel_geometry must be a GeoJSON Polygon")
 
     from shapely.geometry import shape, mapping as _map
     from app.services.coverage.robot_model import build_robot
-    from app.services.coverage.f2c_engine import generate_coverage, CoverageConfig
+    from app.services.coverage.f2c_engine import CoverageConfig
 
-    wgs84_poly = shape(body.parcel_geometry)
+    try:
+        wgs84_poly = shape(body.parcel_geometry)
+    except (ValueError, TypeError, KeyError) as exc:
+        raise PlanError("INVALID_GEOMETRY", "parcel_geometry is not a valid polygon") from exc
+    if not wgs84_poly.is_valid:
+        wgs84_poly = wgs84_poly.buffer(0)
+    if (not wgs84_poly.is_valid or wgs84_poly.is_empty or wgs84_poly.area == 0
+            or wgs84_poly.geom_type != "Polygon"):
+        raise PlanError("INVALID_GEOMETRY", "parcel_geometry is not a valid polygon")
     pc = body.pattern_config
     pattern = _PATTERN_ALIASES.get(body.pattern, body.pattern)
 
     machine = await _resolve_machine(body, auth)
     machine.setdefault("implementWidth", pc.width_m)
-    try:
-        robot = build_robot(
-            machine,
-            overlap_pct=pc.overlap_pct,
-            turning_radius_override=pc.turning_radius_m,
-        )
-    except ValueError as exc:
-        raise HTTPException(status_code=422, detail=str(exc))
+    robot = build_robot(
+        machine,
+        overlap_pct=pc.overlap_pct,
+        turning_radius_override=pc.turning_radius_m,
+    )
 
     cfg = CoverageConfig(
         pattern=pattern,
         heading_deg=pc.heading_deg,
         headland_passes=pc.headland_passes,
         heading_objective=pc.heading_objective,
+        return_to_access=body.return_to_access,
     )
-    from app.services.exclusion import ExclusionError
     # Wire DEM sampler when contour heading is requested.
     if pc.heading_objective == "contour":
         sampler, bbox = await _resolve_contour_dem(body.parcel_geometry)
         if sampler:
             cfg.dem_sampler = sampler
             cfg.parcel_bbox = bbox
-    # Resolve the tenant only when a parcel is given — otherwise an ad-hoc
-    # geometry request (no parcel_id, persist=False) must not require a tenant.
-    cov_kwargs: dict = {}
-    if body.parcel_id:
-        cov_kwargs = await _coverage_constraints(
-            body.parcel_id, auth.tenant_id, robot.cov_width)
     try:
-        result = generate_coverage(wgs84_poly, robot, cfg, **cov_kwargs)
-    except ExclusionError as exc:
-        raise HTTPException(status_code=422, detail=f"unroutable: {exc}")
+        try:
+            constraints = await _load_constraints_wgs84(body.parcel_id, auth.tenant_id)
+        except PlanError:
+            raise
+        except ValueError as exc:
+            # _zone_polygons: unreadable / malformed no-go zone on the parcel entity.
+            logger.error("generate: invalid no-go zone configuration: parcel_id=%s error=%s",
+                         body.parcel_id, exc)
+            raise PlanError("INVALID_GEOMETRY",
+                            f"parcel configuration has an invalid no-go zone: {body.parcel_id}") from exc
+        access_wgs84 = constraints["access_point"]
+        zones_wgs84 = constraints["zones"]
+
+        parcel_utm, _crs, to_utm, to_wgs84 = project_polygon_to_utm(wgs84_poly)
+        zones_utm = [shp_transform(to_utm, z) for z in zones_wgs84]
+        access_utm = None
+        if access_wgs84 is not None:
+            access_utm = shp_transform(to_utm, Point(access_wgs84[0], access_wgs84[1]))
+            validate_access_point(access_utm, parcel_utm, zones_utm, robot.cov_width / 2.0,
+                                  to_wgs84=to_wgs84)
+
+        # CPU-bound (Fields2Cover): keep it off the event loop.
+        plan = await run_in_threadpool(
+            plan_with_fallbacks,
+            LadderInput(parcel_utm=parcel_utm, zones_utm=zones_utm, robot=robot, cfg=cfg,
+                        access_utm=access_utm, wgs84_poly=wgs84_poly),
+            time_budget_s=get_settings().LADDER_TIME_BUDGET_S)
+        result = plan.to_route_result(to_wgs84, robot.cov_width)
+        plan_dict = plan.as_api_dict(to_wgs84, robot.cov_width)
+    except PlanError:
+        raise
     except Exception as exc:
-        raise HTTPException(status_code=400, detail=f"route generation failed: {exc}")
+        logger.exception("generate: route generation failed (pattern=%s, parcel_id=%s)",
+                         pattern, body.parcel_id)
+        raise PlanError("ENGINE_FAILURE", "route generation failed", {}) from exc
 
     prescription_map = None
     if body.vra and body.vra.enabled:
@@ -454,7 +525,8 @@ async def generate_routing_plan(request: Request, body: GenerateRequest, auth: A
 
     operation_id = None
     if body.persist and body.parcel_id:
-        operation_id = await _persist_operation(result, body, auth, prescription_map)
+        operation_id = await _persist_operation(result, body, auth, prescription_map, plan_dict)
+    persisted = operation_id is not None
 
     selected = {
         "pattern": result.pattern,
@@ -468,9 +540,11 @@ async def generate_routing_plan(request: Request, body: GenerateRequest, auth: A
     }
     return {
         "success": True,
+        "operation_id": operation_id,
+        "persisted": persisted,
+        "plan": plan_dict,
         "selected": selected,
         "prescription_map": prescription_map,
-        "operation_id": operation_id,
     }
 
 
@@ -483,22 +557,11 @@ async def _resolve_machine(body: GenerateRequest, auth: AuthContext) -> dict:
     machine_id = body.implement_id or body.tractor_id
     if not machine_id:
         return {}
-    tenant_id = auth.tenant_id
-    settings = get_settings()
-    orion = OrionClient(
-        tenant_id,
-        base_url=settings.context_broker_url,
-        context_url=settings.ngsi_ld_context,
-    )
-    try:
-        entity = await orion.get_entity(machine_id)
-    finally:
-        await orion.close()
-    if not entity:
-        return {}
-    keys = ("implementWidth", "trackWidth", "minTurningRadius", "steeringType")
-    return {k: (entity.get(k, {}) or {}).get("value") for k in keys
-            if entity.get(k) is not None}
+    machine = await fetch_machine_kinematics(machine_id, auth.tenant_id)
+    if not machine:
+        # Never fall back to the request's default width for a machine that does not exist.
+        raise PlanError("MACHINE_WIDTH_MISSING", f"machine not found: {machine_id}")
+    return machine
 
 
 # Re-export from the shared service so existing monkeypatches on
@@ -506,16 +569,12 @@ async def _resolve_machine(body: GenerateRequest, auth: AuthContext) -> dict:
 _fetch_parcel_constraints = fetch_parcel_constraints
 
 
-async def _coverage_constraints(parcel_id, tenant_id: str, cov_width: float) -> dict:
-    """Build the exclusion kwargs for generate_coverage from a parcel's config."""
+async def _load_constraints_wgs84(parcel_id, tenant_id: str) -> dict:
+    """Access point (lon, lat) and exclusion zones (WGS84 polygons) of a parcel."""
     if not parcel_id:
-        return {}
+        return {"access_point": None, "zones": []}
     c = await _fetch_parcel_constraints(parcel_id, tenant_id)
-    return {
-        "start_point_wgs84": c["access_point"],
-        "exclusion_zones_wgs84": c["zones"],
-        "exclusion_buffer_m": cov_width / 2.0,
-    }
+    return {"access_point": c["access_point"], "zones": list(c["zones"])}
 
 
 async def _resolve_contour_dem(parcel_geometry: dict):
@@ -574,7 +633,8 @@ def _zones_from_orion(zones: list[dict], parcel_id: str, zone_ids: list[str] | N
     return matched
 
 
-async def _persist_operation(result, body: GenerateRequest, auth: AuthContext, prescription_map: dict | None) -> Optional[str]:
+async def _persist_operation(result, body: GenerateRequest, auth: AuthContext,
+                             prescription_map: dict | None, plan_dict: dict | None = None) -> Optional[str]:
     """Persist route as AgriParcelOperation in Orion-LD. Returns operation URN."""
     from app.services import operation_store
     tenant_id = auth.tenant_id
@@ -582,18 +642,24 @@ async def _persist_operation(result, body: GenerateRequest, auth: AuthContext, p
     op_id = operation_store.new_operation_id(tenant_id)
     entity = operation_store.build_operation_entity(
         op_id=op_id, body=body, result=result,
-        prescription_map=prescription_map, is_template=False,
+        prescription_map=prescription_map, is_template=False, plan=plan_dict,
+        planned_start_at=_iso_utc(body.planned_start_at), planned_end_at=_iso_utc(body.planned_end_at),
     )
     orion = OrionClient(tenant_id, base_url=settings.context_broker_url,
                        context_url=settings.ngsi_ld_context)
     try:
         await orion.create_entity(entity)
         return op_id
-    except Exception as e:
-        logger.error("Failed to persist operation: %s", e)
+    except Exception:
+        # Reported to the client as persisted=false; the plan itself is still returned.
+        logger.exception("Failed to persist operation: op_id=%s parcel_id=%s", op_id, body.parcel_id)
         return None
     finally:
         await orion.close()
+
+
+def _iso_utc(value: Optional[datetime]) -> Optional[str]:
+    return value.strftime("%Y-%m-%dT%H:%M:%SZ") if value is not None else None
 
 
 class ExternalZonesIngestRequest(BaseModel):
@@ -602,7 +668,7 @@ class ExternalZonesIngestRequest(BaseModel):
 
 
 @router.post("/zones/external/ingest")
-async def ingest_external_zones(body: ExternalZonesIngestRequest):
+async def ingest_external_zones(body: ExternalZonesIngestRequest, auth: AuthContext = require_auth()):
     fmt = (body.format or "geojson").strip().lower()
     if fmt not in {"geojson", "csv"}:
         raise HTTPException(status_code=400, detail="Unsupported format. Use geojson or csv.")

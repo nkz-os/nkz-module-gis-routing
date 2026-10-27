@@ -1,30 +1,40 @@
 """Fields2Cover coverage pipeline: headland -> swaths -> route order -> path.
 
-Returns a routing.base.RouteResult in WGS84 with honest coverage metrics.
-This is the only orchestration point; F2C stays behind robot_model and
+plan_coverage() is the core: it works in UTM, splits the F2C path into
+pasadas (Swath) and giros (Turn), appends the headland rings and orients the
+route to the access point. generate_coverage() is a thin compatibility wrapper
+returning a routing.base.RouteResult in WGS84. F2C stays behind robot_model and
 geometry_adapter. API verified against Fields2Cover v2.0.0.
 """
 from __future__ import annotations
 
+import logging
 import math
 from dataclasses import dataclass
 
-import numpy as np
 import fields2cover as f2c
-from shapely.geometry import LineString, MultiLineString, Point, Polygon
+from shapely.geometry import LineString, Point, Polygon
+from shapely.ops import nearest_points
 from app.services.exclusion import build_working_polygon, route_enters_zones, ExclusionError
 
-from app.services.routing.base import (
-    RouteResult, project_polygon_to_utm, project_linestrings_to_wgs84,
-)
+from app.services.routing.base import RouteResult, project_polygon_to_utm
+from app.services.coverage.access import CLEARANCE_M, compute_access_path
+from app.services.coverage.plan import CoveragePlan, Swath, Turn
 from app.services.coverage.robot_model import RobotParams
 from app.services.coverage.geometry_adapter import shapely_to_f2c_cells
+from app.services.coverage.validation import TOL_INSIDE_M, split_working_area
+
+logger = logging.getLogger(__name__)
 
 _ROUTE_PLANNERS = {
     "boustrophedon": f2c.RP_Boustrophedon,
     "snake": f2c.RP_Snake,
     "spiral": lambda: f2c.RP_Spiral(2),
 }
+_EPS = 1e-9
+TURN_SIMPLIFY_M = 0.05   # F2C emits a turn point every ~0.1 m; keep curves within 5 cm
+# F2C default curve discretization is 0.01 m; 0.1 m halves planPath, measured change < 1 mm.
+TURN_DISCRETIZATION_M = 0.1
 
 
 @dataclass
@@ -35,6 +45,7 @@ class CoverageConfig:
     heading_objective: str = "efficiency"   # "efficiency" | "contour"
     dem_sampler: object = None              # callable(lon,lat)->m, or None
     parcel_bbox: tuple | None = None        # (min_lon,min_lat,max_lon,max_lat)
+    return_to_access: bool = False          # close the route back at the access point
 
 
 def generate_coverage(
@@ -43,7 +54,9 @@ def generate_coverage(
     exclusion_buffer_m: float = 0.0,
     start_point_wgs84: tuple | None = None,
 ) -> RouteResult:
+    """Compatibility wrapper: project, build working area, plan, return WGS84."""
     utm_poly, _crs, to_utm, to_wgs84 = project_polygon_to_utm(wgs84_poly)
+    work = utm_poly
 
     if exclusion_zones_wgs84:
         zones_utm = []
@@ -51,87 +64,264 @@ def generate_coverage(
             zx, zy = to_utm(*z.exterior.coords.xy)
             zones_utm.append(Polygon(zip(zx, zy)))
         buffer_m = exclusion_buffer_m if exclusion_buffer_m > 0 else robot.cov_width / 2.0
-        utm_poly = build_working_polygon(utm_poly, zones_utm, buffer_m)
+        work = build_working_polygon(utm_poly, zones_utm, buffer_m)
 
-    if utm_poly.geom_type == "MultiPolygon":
-        if start_point_wgs84 is not None:
-            sx, sy = to_utm(start_point_wgs84[0], start_point_wgs84[1])
-            sp = Point(sx, sy)
-            utm_poly = min(utm_poly.geoms, key=lambda g: g.distance(sp))
-        else:
-            utm_poly = max(utm_poly.geoms, key=lambda g: g.area)
+    access_utm = None
+    if start_point_wgs84 is not None:
+        sx, sy = to_utm(start_point_wgs84[0], start_point_wgs84[1])
+        access_utm = Point(sx, sy)
 
-    parcel_area_ha = utm_poly.area / 10000.0
+    piece, _unreached = split_working_area(work, access_utm)
 
-    if cfg.pattern == "headland-only":
-        return _headland_only(utm_poly, to_wgs84, robot, cfg, parcel_area_ha)
-
-    cells = shapely_to_f2c_cells(utm_poly)
-    f2c_robot = robot.to_f2c_robot()
-    passes = max(cfg.headland_passes, 1)
-
-    # 1. Headland band -> working interior cell.
-    headland = f2c.HG_Const_gen().generateHeadlands(cells, robot.cov_width * passes)
-    work_cell = headland.getGeometry(0)
-
-    # 2. Swaths at chosen heading.
-    bf = f2c.SG_BruteForce()
-    angle = _resolve_angle(cfg, wgs84_poly)
-    if angle is not None:
-        swaths = bf.generateSwaths(angle, robot.cov_width, work_cell)
-    else:
-        swaths = bf.generateBestSwaths(f2c.OBJ_NSwath(), robot.cov_width, work_cell)
-
-    # 3. Order the passes (boustrophedon / snake / spiral).
-    planner = _ROUTE_PLANNERS.get(cfg.pattern, f2c.RP_Boustrophedon)()
-    ordered = planner.genSortedSwaths(swaths)
-
-    # 4. Plan the connecting path honoring the turning radius.
-    curve = (
-        f2c.PP_ReedsSheppCurves() if robot.curve_type == "reeds_shepp"
-        else f2c.PP_DubinsCurves()
-    )
-    path = f2c.PP_PathPlanning().planPath(f2c_robot, ordered, curve)
-
-    # 5. Geometry (continuous route incl. turns) + honest metrics.
-    geometry = _route_to_wgs84(path, to_wgs84)
-    geometry = _orient_to_start(geometry, start_point_wgs84)
+    plan = plan_coverage(piece, utm_poly, robot, cfg,
+                         access_utm=access_utm, wgs84_poly=wgs84_poly)
+    result = plan.to_route_result(to_wgs84, robot.cov_width)
 
     # Fail-safe: working swaths are clipped away from the zones, but F2C's
     # obstacle-blind connecting/turn curves can still cross a no-go zone.
     # Never emit a route that enters a no-go area — fail instead.
-    if exclusion_zones_wgs84 and route_enters_zones(geometry, exclusion_zones_wgs84):
+    if exclusion_zones_wgs84 and route_enters_zones(result.geometry, exclusion_zones_wgs84):
         raise ExclusionError("Generated route would cross a no-go zone")
+    return result
 
-    worked = sum(ordered.at(i).length() for i in range(ordered.size()))
-    total = path.length()
-    non_working = max(total - worked, 0.0)
-    covered_ha = min(worked * robot.cov_width / 10000.0, parcel_area_ha)
 
-    return RouteResult(
-        geometry=geometry, pattern=cfg.pattern,
-        swath_count=ordered.size(), headland_count=passes,
-        total_distance_m=round(total, 1), covered_area_ha=round(covered_ha, 3),
-        pass_order=[list(range(ordered.size()))],
-        metadata={"curve_type": robot.curve_type},
-        metrics=_metrics(worked, non_working, covered_ha, parcel_area_ha),
+def plan_coverage(
+    piece_utm: Polygon, parcel_utm: Polygon, robot: RobotParams, cfg: CoverageConfig, *,
+    access_utm: Point | None, wgs84_poly: Polygon, swath_cache: dict | None = None,
+) -> CoveragePlan:
+    """Plan pasadas, giros and headland rings over one drivable piece (UTM).
+
+    swath_cache: optional dict shared by the attempts over the same piece; F2C
+    headlands + swaths are computed once per (passes, cov_width, heading) and
+    only ordering and path planning run per pattern/curve.
+    """
+    passes = max(cfg.headland_passes, 1)
+    w = robot.cov_width
+
+    # parts: ("swath", geometry) | ("turn", geometry), in travel order.
+    # headland-only: no interior swaths, the rings below are the whole plan.
+    parts = ([] if cfg.pattern == "headland-only"
+             else _interior_parts(piece_utm, robot, cfg, wgs84_poly, passes, swath_cache))
+
+    # Orient to the access point BEFORE adding the rings.
+    if access_utm is not None and parts:
+        first = parts[0][1].coords[0]
+        last = parts[-1][1].coords[-1]
+        if access_utm.distance(Point(last)) < access_utm.distance(Point(first)):
+            parts = [(k, LineString(list(g.coords)[::-1])) for k, g in parts[::-1]]
+
+    # Headland rings, innermost first, outermost last.
+    rings = _headland_rings(piece_utm, w, passes)
+    if len(rings) < passes:
+        logger.warning(
+            "headland rings fewer than requested",
+            extra={"requested": passes, "produced": len(rings), "cov_width": w},
+        )
+    prev = Point(parts[-1][1].coords[-1]) if parts else access_utm
+    for ring in rings:
+        ring = _rotate_ring(ring, prev)
+        if parts and prev is not None and prev.distance(Point(ring.coords[0])) > _EPS:
+            parts.append(("turn", LineString([prev.coords[0], ring.coords[0]])))
+        parts.append(("headland", ring))
+        prev = Point(ring.coords[-1])
+
+    if not any(k != "turn" for k, _ in parts):
+        raise ExclusionError("No drivable area remains", code="NO_DRIVABLE_AREA")
+
+    route_coords: list[tuple[float, float]] = []
+    for _k, g in parts:
+        for c in g.coords:
+            if not route_coords or math.hypot(c[0] - route_coords[-1][0],
+                                              c[1] - route_coords[-1][1]) > _EPS:
+                route_coords.append((c[0], c[1]))
+    route = LineString(route_coords)
+    exit_point = Point(route.coords[-1])
+
+    access_leg = access_path = return_path = None
+    if access_utm is not None:
+        inner = _transit_area(piece_utm, robot.cov_width, Point(route.coords[0]))
+        if inner is not None:
+            access_leg, entry = _fence_leg(access_utm, inner)
+            access_path = compute_access_path(entry, Point(route.coords[0]), inner)
+            if access_path is None:
+                access_leg = None
+            elif cfg.return_to_access:
+                return_path = compute_access_path(exit_point, entry, inner)
+                if return_path is not None:
+                    exit_point = Point(access_utm.x, access_utm.y)
+                else:
+                    logger.warning("no return path to access point",
+                                   extra={"exit": (exit_point.x, exit_point.y)})
+
+    swaths, turns = _index_parts(parts)
+    return CoveragePlan(
+        pattern=cfg.pattern, curve_type=robot.curve_type, headland_passes=passes,
+        swaths=swaths, turns=turns, route=route, working_area=piece_utm,
+        unreached=[], parcel_area_m2=parcel_utm.area, access_point=access_utm,
+        access_path=access_path, exit_point=exit_point, exclusion_zones=[],
+        access_leg=access_leg, return_path=return_path,
     )
 
 
-def _orient_to_start(geometry: MultiLineString, start_wgs84) -> MultiLineString:
-    """Reverse the route (lines + their order) if it ends nearer the start point."""
-    lines = list(geometry.geoms)
-    if not lines or start_wgs84 is None:
-        return geometry
-    sx, sy = start_wgs84
-    head = lines[0].coords[0]
-    tail = lines[-1].coords[-1]
-    d_head = (head[0] - sx) ** 2 + (head[1] - sy) ** 2
-    d_tail = (tail[0] - sx) ** 2 + (tail[1] - sy) ** 2
-    if d_tail < d_head:
-        rev = [LineString(list(ln.coords)[::-1]) for ln in lines[::-1]]
-        return MultiLineString(rev)
-    return geometry
+def _transit_area(piece: Polygon, cov_width: float, anchor: Point) -> Polygon | None:
+    """Area the access/return paths may use: the piece eroded so that a path in it
+    (within CLEARANCE_M) stays inside parcel.buffer(-(w/2 - TOL_INSIDE_M))."""
+    inner = piece.buffer(-(cov_width / 2.0 - TOL_INSIDE_M) - CLEARANCE_M)
+    parts = sorted(_polygon_parts(inner), key=lambda g: g.area, reverse=True)
+    if not parts:
+        return None
+    return next((p for p in parts if p.covers(anchor)), parts[0])
+
+
+def _polygon_parts(geom) -> list[Polygon]:
+    if geom.is_empty:
+        return []
+    if isinstance(geom, Polygon):
+        return [geom]
+    return [g for g in getattr(geom, "geoms", []) if isinstance(g, Polygon) and not g.is_empty]
+
+
+def _fence_leg(gate: Point, inner: Polygon) -> tuple[LineString | None, Point]:
+    """Straight leg from the gate to the nearest point of the inner area (None if inside)."""
+    if inner.covers(gate):
+        return None, gate
+    entry = nearest_points(inner, gate)[0]
+    return LineString([(gate.x, gate.y), (entry.x, entry.y)]), entry
+
+
+def _interior_parts(piece_utm, robot, cfg, wgs84_poly, passes, swath_cache=None) -> list:
+    """F2C interior swaths + turns as ordered ("swath"|"turn", LineString) parts."""
+    angle = _resolve_angle(cfg, wgs84_poly)
+    key = (passes, robot.cov_width, angle)
+    if swath_cache is not None and key in swath_cache:
+        swaths = swath_cache[key]
+    else:
+        swaths = _generate_swaths(piece_utm, robot.cov_width, passes, angle)
+        if swath_cache is not None:
+            swath_cache[key] = swaths
+    if swaths is None:
+        return []
+
+    planner = _ROUTE_PLANNERS.get(cfg.pattern, f2c.RP_Boustrophedon)()
+    ordered = planner.genSortedSwaths(swaths)
+    curve = (
+        f2c.PP_ReedsSheppCurves() if robot.curve_type == "reeds_shepp"
+        else f2c.PP_DubinsCurves()
+    )
+    curve.setDiscretization(TURN_DISCRETIZATION_M)
+    path = f2c.PP_PathPlanning().planPath(robot.to_f2c_robot(), ordered, curve)
+    return [(k, g.simplify(TURN_SIMPLIFY_M, preserve_topology=True) if k == "turn" else g)
+            for k, g in _split_path(path)]
+
+
+def _generate_swaths(piece_utm, cov_width: float, passes: int, angle: float | None):
+    """F2C headland reduction + swath generation; None when no swath fits."""
+    cells = shapely_to_f2c_cells(piece_utm)
+    headland = f2c.HG_Const_gen().generateHeadlands(cells, cov_width * passes)
+    if headland.size() == 0:
+        return None
+    work_cell = headland.getGeometry(0)
+    if work_cell.area() <= 0:
+        return None
+    bf = f2c.SG_BruteForce()
+    if angle is not None:
+        swaths = bf.generateSwaths(angle, cov_width, work_cell)
+    else:
+        swaths = bf.generateBestSwaths(f2c.OBJ_NSwath(), cov_width, work_cell)
+    return swaths if swaths.size() > 0 else None
+
+
+def _split_path(path) -> list:
+    """Split an F2C Path into ordered ("swath"|"turn", LineString) parts.
+
+    Probe (F2C 2.0.0, CI image): path.getStates() is indexable (size(), [i]).
+    Each PathState has type, point, angle, len, dir. A swath (type
+    PathSectionType_SWATH=1 / HL_SWATH=3) is stored as ONE state: point = start,
+    angle = heading (rad, math convention), len = length, so its end is
+    point + len*(cos, sin). A turn (type TURN=2) is a dense run of states
+    (~0.1 m apart), each point being the start of a short segment; the first
+    turn point equals the previous swath end and the next swath start follows
+    the last turn point. A run's LineString is closed with the next run's first
+    point so consecutive parts share their junction vertex.
+    """
+    states = path.getStates()
+    swath_types = (f2c.PathSectionType_SWATH, f2c.PathSectionType_HL_SWATH)
+    runs: list[tuple[str, list[tuple[float, float]]]] = []
+    for i in range(states.size()):
+        s = states[i]
+        x, y = s.point.getX(), s.point.getY()
+        if s.type in swath_types:
+            end = (x + s.len * math.cos(s.angle), y + s.len * math.sin(s.angle))
+            runs.append(("swath", [(x, y), end]))
+        elif s.type == f2c.PathSectionType_TURN:
+            if runs and runs[-1][0] == "turn":
+                runs[-1][1].append((x, y))
+            else:
+                runs.append(("turn", [(x, y)]))
+    parts = []
+    for n, (kind, raw) in enumerate(runs):
+        if kind == "turn" and n + 1 < len(runs):
+            raw = raw + [runs[n + 1][1][0]]
+        pts = [raw[0]]
+        for p in raw[1:]:   # drop consecutive duplicates, O(n)
+            if math.hypot(p[0] - pts[-1][0], p[1] - pts[-1][1]) > _EPS:
+                pts.append(p)
+        if len(pts) < 2:
+            continue
+        parts.append((kind, LineString(pts)))
+        # Two swaths with no TURN state between them: record the jump as a
+        # straight connector so the route stays continuous and the turn is
+        # a first-class, removable part.
+        if kind == "swath" and n + 1 < len(runs) and runs[n + 1][0] == "swath":
+            a, b = pts[-1], runs[n + 1][1][0]
+            if math.hypot(b[0] - a[0], b[1] - a[1]) > 1e-6:
+                parts.append(("turn", LineString([a, b])))
+    return parts
+
+
+def _headland_rings(piece: Polygon, w: float, passes: int) -> list:
+    """Closed rings at w/2 + k*w inside the fence, ordered innermost -> outermost."""
+    # Built from the exterior only: holes get no rings (the wrapper's fail-safe
+    # and the ladder's validation guard crossings).
+    rings = []
+    for k in range(passes):
+        ring_poly = piece.buffer(-(w / 2.0 + k * w))
+        if ring_poly.is_empty:
+            break
+        if ring_poly.geom_type == "MultiPolygon":
+            ring_poly = max(ring_poly.geoms, key=lambda g: g.area)
+        rings.append(LineString(ring_poly.exterior.coords))
+    return rings[::-1]
+
+
+def _rotate_ring(ring: LineString, prev: Point | None) -> LineString:
+    """Start the closed ring at its vertex nearest to prev, and re-close it."""
+    if prev is None:
+        return ring
+    verts = list(ring.coords)[:-1]
+    i = min(range(len(verts)), key=lambda j: prev.distance(Point(verts[j])))
+    rot = verts[i:] + verts[:i]
+    return LineString(rot + [rot[0]])
+
+
+def _index_parts(parts) -> tuple[list, list]:
+    """Assign swath/turn indices; each turn links the swaths around it."""
+    swaths: list[Swath] = []
+    turns: list[Turn] = []
+    pending: list[LineString] = []
+    for kind, g in parts:
+        if kind == "turn":
+            pending.append(g)
+            continue
+        idx = len(swaths)
+        swaths.append(Swath(idx, "headland" if kind == "headland" else "work", g))
+        for t in pending:
+            turns.append(Turn(len(turns), max(idx - 1, 0), idx, t))
+        pending = []
+    last = max(len(swaths) - 1, 0)
+    for t in pending:
+        turns.append(Turn(len(turns), last, last, t))
+    return swaths, turns
 
 
 def _resolve_angle(cfg: CoverageConfig, wgs84_poly) -> float | None:
@@ -145,63 +335,6 @@ def _resolve_angle(cfg: CoverageConfig, wgs84_poly) -> float | None:
             best_contour_heading_deg(centroid, cfg.parcel_bbox, cfg.dem_sampler)
         )
     return None
-
-
-def _route_to_wgs84(path, to_wgs84) -> MultiLineString:
-    """Convert an F2C Path to a WGS84 MultiLineString via path.toLineString()."""
-    ls = path.toLineString()
-    coords = [(ls.getGeometry(i).getX(), ls.getGeometry(i).getY())
-              for i in range(ls.size())]
-    if len(coords) < 2:
-        return MultiLineString([])
-    arr = np.array(coords)
-    wx, wy = to_wgs84(arr[:, 0], arr[:, 1])
-    return MultiLineString([LineString(np.column_stack((wx, wy)))])
-
-
-def _headland_only(utm_poly, to_wgs84, robot, cfg, parcel_area_ha) -> RouteResult:
-    """Perimeter passes only, eroding inward by cov_width per pass (shapely).
-
-    F2C's headland generator returns the remaining interior, not the ring
-    lines, so the perimeter rings are produced here with the projection helpers
-    already used by the rest of the module.
-    """
-    ew = robot.cov_width
-    passes = max(cfg.headland_passes, 1)
-    rings = []
-    cur = utm_poly
-    for _ in range(passes):
-        if cur.is_empty:
-            break
-        boundary = cur.exterior
-        if boundary is not None and not boundary.is_empty:
-            rings.append(LineString(boundary.coords))
-        cur = cur.buffer(-ew)
-        if cur.geom_type == "MultiPolygon" and not cur.is_empty:
-            cur = max(cur.geoms, key=lambda p: p.area)
-    geometry = project_linestrings_to_wgs84(rings, to_wgs84)
-    total = sum(r.length for r in rings)
-    remaining = 0.0 if cur.is_empty else cur.area
-    covered_ha = (parcel_area_ha * 10000.0 - remaining) / 10000.0
-    return RouteResult(
-        geometry=geometry, pattern="headland-only",
-        swath_count=len(rings), headland_count=len(rings),
-        total_distance_m=round(total, 1), covered_area_ha=round(covered_ha, 3),
-        pass_order=[list(range(len(rings)))],
-        metadata={"headland_passes": passes},
-        metrics=_metrics(total, 0.0, covered_ha, parcel_area_ha),
-    )
-
-
-def _metrics(worked, non_working, covered_ha, parcel_ha) -> dict:
-    total = worked + non_working
-    return {
-        "worked_distance_m": round(worked, 1),
-        "non_working_distance_m": round(non_working, 1),
-        "field_efficiency": round(worked / total, 4) if total > 0 else 0.0,
-        "covered_area_ha": round(covered_ha, 3),
-        "parcel_area_ha": round(parcel_ha, 3),
-    }
 
 
 def _deg_to_rad(deg: float) -> float:

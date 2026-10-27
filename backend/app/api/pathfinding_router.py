@@ -1,15 +1,19 @@
-from nkz_platform_sdk.auth import require_auth, AuthContext
 """A-B pathfinding with DEM-based least-cost routing."""
 import asyncio
 import logging
-import uuid
+from nkz_platform_sdk.auth import require_auth, AuthContext
 from fastapi import APIRouter, Request, HTTPException
 from pydantic import BaseModel, Field
 
 from app.config import get_settings
 from app.services.pathfinding.least_cost_path import compute_ab_routes, terminus_blocked
 from app.services.pathfinding.dem_provider import DemRegistry, EuElevationProvider
-from app.services.parcel_constraints import fetch_parcel_constraints as _fetch_parcel_constraints
+from app.services.parcel_constraints import (
+    fetch_parcel_constraints as _fetch_parcel_constraints,
+    fetch_tenant_zones_in_bbox,
+)
+from app.services.machines import fetch_machine_kinematics
+from app.services.pathfinding.job_store import JobStore, JobLimitError
 from app.services.exclusion import buffered_zones, rasterize_blocked_cells
 from app.services.routing.base import project_polygon_to_utm
 
@@ -18,7 +22,7 @@ from shapely.geometry import Polygon
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/path", tags=["pathfinding"])
 
-_JOBS: dict[str, dict] = {}
+JOBS = JobStore()
 
 
 def build_dem_registry() -> DemRegistry:
@@ -33,74 +37,97 @@ class PathRequest(BaseModel):
     point_b: list[float]
     machine_width_m: float = Field(default=3.0, gt=0)
     max_slope_deg: float = Field(default=15.0, gt=0, le=45)
-    min_turn_radius_m: float = Field(default=8.0, gt=0)
+    machine_id: str | None = None
+    min_turn_radius_m: float | None = None  # deprecated: accepted and ignored
     elevation_grid: dict | None = None
     parcel_id: str | None = None
 
 
-async def _resolve_path_constraints(parcel_id, tenant_id, raster, cols, rows, machine_width_m):
-    """Return (default_origin_or_None, blocked_cells_set)."""
-    if not parcel_id:
-        return None, set()
-    c = await _fetch_parcel_constraints(parcel_id, tenant_id)
-    buffer_m = machine_width_m / 2.0
-    block_wgs84 = None
-    if c["zones"]:
-        grown = []
-        for z in c["zones"]:
-            _p, _crs, to_utm, to_wgs84 = project_polygon_to_utm(z)
-            ux, uy = to_utm(*z.exterior.coords.xy)
-            gu = Polygon(zip(ux, uy)).buffer(buffer_m)
-            gx, gy = to_wgs84(*gu.exterior.coords.xy)
-            grown.append(Polygon(zip(gx, gy)))
-        block_wgs84 = buffered_zones(grown, 0.0)  # union (already buffered)
+def _grow_zones(zones, buffer_m):
+    """Buffer WGS84 zones by buffer_m (in UTM) and return their union in WGS84."""
+    if not zones:
+        return None
+    grown = []
+    for z in zones:
+        _p, _crs, to_utm, to_wgs84 = project_polygon_to_utm(z)
+        ux, uy = to_utm(*z.exterior.coords.xy)
+        gu = Polygon(zip(ux, uy)).buffer(buffer_m)
+        gx, gy = to_wgs84(*gu.exterior.coords.xy)
+        grown.append(Polygon(zip(gx, gy)))
+    return buffered_zones(grown, 0.0)  # union (already buffered)
+
+
+async def _resolve_path_constraints(parcel_id, tenant_id, raster, cols, rows, machine_width_m, bbox):
+    """Return (default_origin_or_None, blocked_cells_set).
+
+    The zones of every tenant parcel intersecting bbox are always blocked (an A-B
+    route can leave the parcel); with parcel_id, that parcel's own zones are added
+    and its access point is the default origin.
+    """
+    zones = list(await fetch_tenant_zones_in_bbox(tenant_id, bbox))
+    default_origin = None
+    if parcel_id:
+        c = await _fetch_parcel_constraints(parcel_id, tenant_id)
+        zones += list(c["zones"])
+        default_origin = c["access_point"]
+    block_wgs84 = _grow_zones(zones, machine_width_m / 2.0)
     blocked = rasterize_blocked_cells(
         block_wgs84, raster["origin_lon"], raster["origin_lat"],
         raster["pixel_size_deg"], cols, rows)
-    return c["access_point"], blocked
+    return default_origin, blocked
 
 
 @router.post("/calculate")
 async def start_path_calculation(request: Request, body: PathRequest, auth: AuthContext = require_auth()):
-    job_id = uuid.uuid4().hex[:12]
-    _JOBS[job_id] = {"status": "queued", "result": None}
-    # Tenant is only required when parcel_id is given (to fetch constraints).
-    # Without parcel_id the endpoint works without auth headers (free routing).
+    tenant_id = auth.tenant_id
+    if body.min_turn_radius_m is not None:
+        logger.warning("path/calculate: min_turn_radius_m is deprecated and ignored")
     try:
-        tenant_id = auth.tenant_id
-    except HTTPException:
-        if body.parcel_id:
-            raise
-        tenant_id = None
+        job_id = JOBS.create(tenant_id)
+    except JobLimitError:
+        raise HTTPException(status_code=429, detail={
+            "code": "JOB_LIMIT", "message": "too many pathfinding jobs for this tenant"})
     asyncio.create_task(_run_pathfinding(job_id, body, tenant_id))
     return {"job_id": job_id, "status": "queued"}
 
 
 @router.get("/{job_id}")
-async def get_path_result(job_id: str):
-    job = _JOBS.get(job_id)
+async def get_path_result(job_id: str, auth: AuthContext = require_auth()):
+    job = JOBS.get(job_id, auth.tenant_id)
     if not job:
         raise HTTPException(status_code=404, detail="Job not found")
     return job
 
 
-async def _run_pathfinding(job_id: str, body: PathRequest, tenant_id: str | None):
+async def _run_pathfinding(job_id: str, body: PathRequest, tenant_id: str):
     try:
         lon_a, lat_a = body.point_a
         lon_b, lat_b = body.point_b
 
+        margin = 0.005
+        bbox = (
+            min(lon_a, lon_b) - margin, min(lat_a, lat_b) - margin,
+            max(lon_a, lon_b) + margin, max(lat_a, lat_b) + margin,
+        )
+        machine_width_m = body.machine_width_m
+        if body.machine_id:
+            kin = await fetch_machine_kinematics(body.machine_id, tenant_id)
+            width = kin.get("implementWidth")
+            if not isinstance(width, (int, float)) or width <= 0:
+                logger.error("path/calculate: machine not found or has no implementWidth: machine_id=%s job=%s",
+                             body.machine_id, job_id)
+                JOBS.set(job_id, {"status": "failed",
+                                  "error": "machine not found or has no implementWidth"})
+                return
+            machine_width_m = float(width)
+
         if body.elevation_grid:
             raster = body.elevation_grid  # legacy/explicit override (tests)
         else:
-            margin = 0.005
-            bbox = (
-                min(lon_a, lon_b) - margin, min(lat_a, lat_b) - margin,
-                max(lon_a, lon_b) + margin, max(lat_a, lat_b) + margin,
-            )
             raster = await build_dem_registry().fetch_best(bbox, resolution_m=10)
             if not raster:
-                _JOBS[job_id] = {"status": "failed",
-                                 "error": "No elevation data available for this area"}
+                JOBS.set(job_id, {"status": "failed",
+                                 "error": "No elevation data available for this area"})
                 return
 
         elevations = raster["elevations"]
@@ -116,11 +143,12 @@ async def _run_pathfinding(job_id: str, body: PathRequest, tenant_id: str | None
         end_row = max(0, min(int((lat_b - origin_lat) / pixel_size), rows - 1))
 
         default_origin, blocked = await _resolve_path_constraints(
-            body.parcel_id, tenant_id, raster, cols, rows, body.machine_width_m)
+            parcel_id=body.parcel_id, tenant_id=tenant_id, raster=raster,
+            cols=cols, rows=rows, machine_width_m=machine_width_m, bbox=bbox)
 
         if terminus_blocked((start_col, start_row), (end_col, end_row), blocked):
-            _JOBS[job_id] = {"status": "failed",
-                             "error": "Start or end point is inside a no-go zone"}
+            JOBS.set(job_id, {"status": "failed",
+                             "error": "Start or end point is inside a no-go zone"})
             return
 
         alternatives = compute_ab_routes(
@@ -131,11 +159,18 @@ async def _run_pathfinding(job_id: str, body: PathRequest, tenant_id: str | None
         )
 
         if not alternatives:
-            _JOBS[job_id] = {"status": "failed",
-                             "error": "No route avoids the no-go zones"}
+            JOBS.set(job_id, {"status": "failed",
+                             "error": "No route avoids the no-go zones"})
             return
 
-        _JOBS[job_id] = {"status": "completed", "alternatives": alternatives}
+        JOBS.set(job_id, {
+            "status": "completed",
+            "alternatives": alternatives,
+            "report": {
+                "max_slope_deg": body.max_slope_deg,
+                "blocked_cells_hit": sum(a["blocked_cells_hit"] for a in alternatives),
+            },
+        })
     except Exception as e:
         logger.exception("Pathfinding job %s failed", job_id)
-        _JOBS[job_id] = {"status": "failed", "error": str(e)}
+        JOBS.set(job_id, {"status": "failed", "error": str(e)})
