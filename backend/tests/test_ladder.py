@@ -59,6 +59,8 @@ def test_hole_is_respected():
 def test_auto_picks_a_pattern_and_reports_it():
     plan = plan_with_fallbacks(_inp(pattern="auto"))
     assert plan.pattern in ("boustrophedon", "snake", "spiral") and _hard_ok(plan)
+    pat = [f for f in plan.validation.fallbacks_applied if f.startswith("pattern:")]
+    assert pat == ([] if plan.pattern == "boustrophedon" else [f"pattern:{plan.pattern}"])
 
 
 # Turns bulge into the headland strip, <2 m from neighbouring swaths/turns: with the real
@@ -129,3 +131,103 @@ def test_gate_in_zone_is_rejected_before_planning():
     with pytest.raises(ExclusionError) as e:
         validate_access_point(Point(100, 50), RECT, [ZONE_CENTER], ROBOT.cov_width / 2)
     assert e.value.code == "ACCESS_IN_ZONE"
+
+
+# ---- deterministic ladder tests: plan_coverage replaced by hand-built plans ----
+from shapely.geometry import LineString, MultiLineString  # noqa: E402
+from app.services.coverage import ladder as ladder_mod  # noqa: E402
+from app.services.coverage.plan import CoveragePlan, Swath, Turn  # noqa: E402
+
+SW_A = LineString([(10, 10), (190, 10)])
+SW_B = LineString([(190, 20), (10, 20)])
+TURN_OK = LineString([(190, 10), (195, 15), (190, 20)])
+TURN_BAD = LineString([(190, 10), (100, 50), (190, 20)])     # crosses ZONE_CENTER
+
+
+def _fake_plan(cfg, robot, swaths=(SW_A, SW_B), turn=TURN_OK, access_path=None):
+    coords = list(swaths[0].coords) + list(turn.coords)[1:] + list(swaths[1].coords)[1:]
+    route = LineString(coords)
+    return CoveragePlan(
+        pattern=cfg.pattern, curve_type=robot.curve_type, headland_passes=cfg.headland_passes,
+        swaths=[Swath(0, "work", swaths[0]), Swath(1, "work", swaths[1])],
+        turns=[Turn(0, 0, 1, turn)], route=route, working_area=RECT, unreached=[],
+        parcel_area_m2=RECT.area, access_point=None, access_path=access_path,
+        exit_point=Point(route.coords[-1]), exclusion_zones=[])
+
+
+def _patch(monkeypatch, builder):
+    calls = []
+
+    def fake(piece, parcel, robot, cfg, *, access_utm, wgs84_poly):
+        calls.append((cfg.pattern, robot.curve_type, cfg.headland_passes))
+        return builder(cfg, robot)
+
+    monkeypatch.setattr(ladder_mod, "plan_coverage", fake)
+    return calls
+
+
+def test_step5_manual_turn_end_to_end(monkeypatch):
+    calls = _patch(monkeypatch, lambda c, r: _fake_plan(c, r, turn=TURN_BAD))
+    inp = LadderInput(RECT, [ZONE_CENTER], ROBOT, CoverageConfig("boustrophedon", headland_passes=1),
+                      access_utm=None, wgs84_poly=wgs84(RECT))
+    plan = plan_with_fallbacks(inp)
+    assert len(calls) == 6                       # 1 pattern x 2 curves x 3 passes
+    assert isinstance(plan.route, MultiLineString) and len(plan.route.geoms) == 2
+    assert len([w for w in plan.validation.warnings if w.code == "MANUAL_TURN"]) == 1
+    assert "manual_turns:1" in plan.validation.fallbacks_applied
+    assert _hard_ok(plan)
+
+
+def test_step5_swath_through_zone_raises(monkeypatch):
+    through = LineString([(10, 50), (190, 50)])
+    _patch(monkeypatch, lambda c, r: _fake_plan(c, r, swaths=(through, SW_B), turn=TURN_OK))
+    inp = LadderInput(RECT, [ZONE_CENTER], ROBOT, CoverageConfig("boustrophedon", headland_passes=1),
+                      access_utm=None, wgs84_poly=wgs84(RECT))
+    with pytest.raises(ExclusionError) as e:
+        plan_with_fallbacks(inp)
+    assert e.value.code == "NO_DRIVABLE_AREA"
+
+
+def test_curve_fallback_reeds_shepp(monkeypatch):
+    calls = _patch(monkeypatch, lambda c, r: _fake_plan(
+        c, r, turn=TURN_BAD if r.curve_type == "dubins" else TURN_OK))
+    inp = LadderInput(RECT, [ZONE_CENTER], ROBOT, CoverageConfig("boustrophedon", headland_passes=2),
+                      access_utm=None, wgs84_poly=wgs84(RECT))
+    plan = plan_with_fallbacks(inp)
+    assert plan.validation.fallbacks_applied == ["curve:reeds_shepp"]
+    assert len(calls) == 4 and plan.curve_type == "reeds_shepp"
+
+
+def _turn_by_pattern(lengths):
+    shapes = {p: LineString([(190, 10), (190 + x, 15), (190, 20)]) for p, x in lengths.items()}
+    return lambda c, r: _fake_plan(c, r, turn=shapes[c.pattern])
+
+
+def test_auto_selects_shortest_non_working_pattern(monkeypatch):
+    _patch(monkeypatch, _turn_by_pattern({"boustrophedon": 5, "snake": 2, "spiral": 7}))
+    plan = plan_with_fallbacks(_inp(pattern="auto", access=None))
+    assert plan.pattern == "snake" and "pattern:snake" in plan.validation.fallbacks_applied
+
+
+def test_auto_tie_goes_to_boustrophedon(monkeypatch):
+    _patch(monkeypatch, _turn_by_pattern({"boustrophedon": 5, "snake": 5, "spiral": 5}))
+    plan = plan_with_fallbacks(_inp(pattern="auto", access=None))
+    assert plan.pattern == "boustrophedon"
+    assert not [f for f in plan.validation.fallbacks_applied if f.startswith("pattern:")]
+
+
+def test_headland_widened_warning(monkeypatch):
+    calls = _patch(monkeypatch, lambda c, r: _fake_plan(c, r))
+    robot = RobotParams(width=2.0, cov_width=4.0, min_turning_radius=20.0, curve_type="dubins")
+    plan = plan_with_fallbacks(_inp(access=None, robot=robot))
+    used = calls[-1][2]
+    assert used == 6
+    w = [w for w in plan.validation.warnings if w.code == "HEADLAND_WIDENED"]
+    assert len(w) == 1 and w[0].params == {"requested": 1, "applied": used}
+
+
+def test_access_path_unavailable_warning(monkeypatch):
+    _patch(monkeypatch, lambda c, r: _fake_plan(c, r, access_path=None))
+    plan = plan_with_fallbacks(_inp(access=GATE))
+    w = [w for w in plan.validation.warnings if w.code == "ACCESS_PATH_UNAVAILABLE"]
+    assert len(w) == 1 and w[0].geometry.equals(GATE)

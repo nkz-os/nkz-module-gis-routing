@@ -44,6 +44,7 @@ class _Attempt:
     plan: CoveragePlan
     report: ValidationReport
     pattern: str
+    passes: int
 
     @property
     def hard_ok(self) -> bool:
@@ -139,11 +140,11 @@ def _attempt_fallbacks(inp: LadderInput, pattern: str, curve: str, passes: int) 
     return fb
 
 
-def _extra_warnings(inp: LadderInput, plan: CoveragePlan, passes0: int) -> list[Warning]:
+def _extra_warnings(inp: LadderInput, plan: CoveragePlan, applied: int) -> list[Warning]:
     out = []
-    if passes0 > 3:
+    if applied > 3:
         out.append(Warning("HEADLAND_WIDENED", None,
-                           {"requested": inp.cfg.headland_passes, "applied": passes0}))
+                           {"requested": inp.cfg.headland_passes, "applied": applied}))
     if inp.access_utm is not None and plan.access_path is None:
         out.append(Warning("ACCESS_PATH_UNAVAILABLE", inp.access_utm, {}))
     return out
@@ -177,7 +178,7 @@ def plan_with_fallbacks(inp: LadderInput) -> CoveragePlan:
                 plan.unreached = list(unreached)
                 plan.exclusion_zones = list(inp.zones_utm)
                 plan.fallbacks = _attempt_fallbacks(inp, pattern, curve, passes)
-                att = _Attempt(plan, validate_plan(plan, inp.parcel_utm, inp.zones_utm, w), pattern)
+                att = _Attempt(plan, validate_plan(plan, inp.parcel_utm, inp.zones_utm, w), pattern, passes)
                 attempts.append(att)
                 logger.info("ladder attempt pattern=%s curve=%s passes=%s hard_ok=%s",
                             pattern, curve, passes, att.hard_ok)
@@ -195,22 +196,32 @@ def plan_with_fallbacks(inp: LadderInput) -> CoveragePlan:
             first_ok.values(),
             key=lambda a: (a.plan.metrics(w)["non_working_distance_m"],
                            AUTO_PATTERN_ORDER.index(a.pattern) if a.pattern in AUTO_PATTERN_ORDER else 0))
-        return _finish(inp, best.plan, best.report, passes0, [])
+        return _finish(inp, best.plan, best.report, best.passes, [])
 
     if not attempts:
-        assert last_error is not None
+        if last_error is None:
+            raise RuntimeError("ladder produced no attempt and no error")
         raise last_error
     worst = min(attempts, key=lambda a: a.hard_score)
     fixed, manual = remove_violating_turns(worst.plan, inp.parcel_utm, inp.zones_utm, w)
     report = validate_plan(fixed, inp.parcel_utm, inp.zones_utm, w)
-    ensure_swaths_clear(fixed, inp.parcel_utm, inp.zones_utm, w, project_polygon_to_utm(inp.wgs84_poly)[3])
-    return _finish(inp, fixed, report, passes0, manual)
+    _, _, _, to_wgs84 = project_polygon_to_utm(inp.wgs84_poly)
+    ensure_swaths_clear(fixed, inp.parcel_utm, inp.zones_utm, w, to_wgs84)
+    for c in report.checks:
+        if c.id in _HARD_IDS and not c.ok:
+            gj = mapping(transform(to_wgs84, c.geometry)) if c.geometry is not None else None
+            raise ExclusionError(
+                "route cannot be made to respect the parcel and the no-go zones",
+                code="NO_DRIVABLE_AREA",
+                params={"geometry": None if gj is None else
+                        {"type": gj["type"], "coordinates": _to_lists(gj["coordinates"])}})
+    return _finish(inp, fixed, report, worst.passes, manual)
 
 
 def _finish(inp: LadderInput, plan: CoveragePlan, report: ValidationReport,
-            passes0: int, manual: list[Warning]) -> CoveragePlan:
+            applied: int, manual: list[Warning]) -> CoveragePlan:
     report.warnings.extend(manual)
-    report.warnings.extend(_extra_warnings(inp, plan, passes0))
+    report.warnings.extend(_extra_warnings(inp, plan, applied))
     plan.validation = report
     logger.info("ladder result pattern=%s fallbacks=%s ok=%s",
                 plan.pattern, report.fallbacks_applied, report.ok)
