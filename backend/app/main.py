@@ -7,12 +7,14 @@ Main entry point for the backend service.
 import asyncio
 import logging
 from contextlib import asynccontextmanager
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
+from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import get_settings
 from app.logging_setup import configure_logging
 from app.api import router as api_router
+from app.services.coverage.errors import PlanError
 from app.services.subscriptions import reconcile_once, run_subscription_reconciler
 from nkz_platform_sdk.lifecycle import lifecycle_hint_router
 
@@ -62,6 +64,13 @@ def create_app() -> FastAPI:
         allow_methods=["*"],
         allow_headers=["*"],
     )
+
+    @app.exception_handler(PlanError)
+    async def plan_error_handler(request: Request, exc: PlanError) -> JSONResponse:
+        if exc.code == "ENGINE_FAILURE":
+            logger.error("Plan engine failure: %s path=%s", exc.detail,
+                         request.url.path, exc_info=True)
+        return JSONResponse(status_code=exc.status, content=exc.to_body())
 
     # Health check (at root for k8s probes). Must be exempt from rate limiting
     # per CLAUDE.md rule: health endpoints must use @limiter.exempt.

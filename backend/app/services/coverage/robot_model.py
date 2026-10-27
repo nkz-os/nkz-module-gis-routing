@@ -8,7 +8,12 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-import fields2cover as f2c
+try:
+    import fields2cover as f2c
+except ImportError:  # engine only present in the CI/runtime image
+    f2c = None
+
+from app.services.coverage.errors import PlanError
 
 # steeringType values that imply reverse-capable / pivoting curves
 # (Reeds-Shepp). Canonical Entity Wizard vocabulary is articulated / skid_steer
@@ -54,7 +59,7 @@ def build_robot(
     """
     impl_width = _num(machine.get("implementWidth"))
     if impl_width is None or impl_width <= 0:
-        raise ValueError("implementWidth is required and must be > 0")
+        raise PlanError("MACHINE_WIDTH_MISSING", "implementWidth is required and must be > 0")
 
     track = _num(machine.get("trackWidth"), impl_width) or impl_width
 
@@ -62,9 +67,10 @@ def build_robot(
     if radius is None:
         radius = _num(machine.get("minTurningRadius"))
     if radius is None or radius <= 0:
-        raise ValueError(
+        raise PlanError(
+            "TURNING_RADIUS_MISSING",
             "minTurningRadius missing — provide it on the ManufacturingMachine "
-            "entity or pass an override in the request"
+            "entity or pass an override in the request",
         )
 
     if overlap_pct < 0 or overlap_pct >= 100:
