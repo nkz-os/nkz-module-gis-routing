@@ -15,15 +15,18 @@ async def test_resolve_constraints_builds_blocked_and_default_origin(monkeypatch
     raster = {"origin_lon": 0.0, "origin_lat": 0.0, "pixel_size_deg": 0.001}
     default_origin, blocked = await pr._resolve_path_constraints(
         parcel_id="urn:p1", tenant_id="t1", raster=raster, cols=10, rows=10,
-        machine_width_m=2.0)
+        machine_width_m=2.0, bbox=(0, 0, 0.01, 0.01))
     assert default_origin == (0.0, 0.0)
     assert blocked
     assert (0, 0) not in blocked
 
 
 @pytest.mark.asyncio
-async def test_resolve_constraints_empty_without_parcel():
+async def test_resolve_constraints_empty_without_parcel(monkeypatch):
+    async def no_zones(tenant_id, bbox):
+        return []
+    monkeypatch.setattr(pr, "fetch_tenant_zones_in_bbox", no_zones)
     default_origin, blocked = await pr._resolve_path_constraints(
         None, "t1", {"origin_lon": 0.0, "origin_lat": 0.0, "pixel_size_deg": 0.001},
-        10, 10, 2.0)
+        10, 10, 2.0, (0, 0, 0.01, 0.01))
     assert default_origin is None and blocked == set()

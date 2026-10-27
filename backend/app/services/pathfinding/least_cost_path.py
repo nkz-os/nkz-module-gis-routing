@@ -70,7 +70,7 @@ def compute_ab_routes(
             smoothed = _smooth_cells(path, blocked or set())
             routes.append(_summarize(path, objective, elevations,
                                      origin_lon, origin_lat, pixel_size_deg,
-                                     smoothed=smoothed))
+                                     smoothed=smoothed, blocked=blocked))
     return routes
 
 
@@ -152,17 +152,22 @@ def _reconstruct(node) -> list[tuple[int, int]]:
 
 
 def _summarize(cells, objective, elevations,
-               origin_lon, origin_lat, pixel_size_deg, smoothed=None) -> dict:
+               origin_lon, origin_lat, pixel_size_deg, smoothed=None, blocked=None) -> dict:
     # Metrics pass: ALWAYS over the full A* cell path (honest distance/climb).
     distance_m = 0.0
     climb_m = 0.0
+    max_slope_deg = 0.0
     for i, (c, r) in enumerate(cells):
         if i > 0:
             pc, pr = cells[i - 1]
-            distance_m += _cell_dist_m(c - pc, r - pr,
-                                       origin_lat + pr * pixel_size_deg,
-                                       pixel_size_deg)
-            climb_m += max(0.0, elevations[r][c] - elevations[pr][pc])
+            step_m = _cell_dist_m(c - pc, r - pr,
+                                  origin_lat + pr * pixel_size_deg,
+                                  pixel_size_deg)
+            distance_m += step_m
+            dz = elevations[r][c] - elevations[pr][pc]
+            climb_m += max(0.0, dz)
+            if step_m > 0:
+                max_slope_deg = max(max_slope_deg, math.degrees(math.atan(abs(dz) / step_m)))
 
     # Geometry/profile pass: over the smoothed any-angle vertices if provided.
     coords, profile = [], []
@@ -177,6 +182,8 @@ def _summarize(cells, objective, elevations,
         "label": _LABELS[objective],
         "distance_m": round(distance_m, 1),
         "cumulative_climb_m": round(climb_m, 1),
+        "max_slope_deg_found": round(max_slope_deg, 1),
+        "blocked_cells_hit": sum(1 for cell in cells if cell in blocked) if blocked else 0,
         "geometry": {"type": "LineString", "coordinates": coords},
         "elevation_profile": profile,
     }

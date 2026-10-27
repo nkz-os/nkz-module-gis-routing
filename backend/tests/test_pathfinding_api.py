@@ -1,9 +1,21 @@
 import asyncio
 import time
+import pytest
 from fastapi.testclient import TestClient
 from app.main import app
 
 client = TestClient(app)
+
+
+@pytest.fixture(autouse=True)
+def _no_tenant_zones(monkeypatch):
+    """Without parcel_id the job queries Orion for tenant zones; stub it (no broker in tests)."""
+    from app.api import pathfinding_router as pr
+
+    async def none(tenant_id, bbox):
+        return []
+
+    monkeypatch.setattr(pr, "fetch_tenant_zones_in_bbox", none)
 
 
 def _grid():
@@ -48,3 +60,83 @@ def test_build_dem_registry_uses_settings_eu_url(monkeypatch):
     assert asyncio.iscoroutinefunction(reg.fetch_best)
     assert any(p.name == "eu-elevation" and p.covers((-1.7, 42.7, -1.6, 42.9))
                for p in reg._providers)
+
+
+def test_calculate_requires_auth():
+    resp = client.post("/api/routing/path/calculate", json={"point_a": [-2.0, 43.0], "point_b": [-1.99, 43.0],
+                                                           "elevation_grid": _grid()}, headers={"X-Tenant-ID": ""})
+    assert resp.status_code == 401
+
+
+def test_get_job_requires_auth_and_tenant():
+    job_id = client.post("/api/routing/path/calculate", json={"point_a": [-2.0, 43.0], "point_b": [-1.99, 43.0],
+                                                             "elevation_grid": _grid()}).json()["job_id"]
+    assert client.get(f"/api/routing/path/{job_id}", headers={"X-Tenant-ID": ""}).status_code == 401
+    assert client.get(f"/api/routing/path/{job_id}", headers={"X-Tenant-ID": "tenant-b"}).status_code == 404
+
+
+def test_get_job_other_tenant_404(monkeypatch):
+    from app.api import pathfinding_router as pr
+    jid = pr.JOBS.create("tenant-z")
+    pr.JOBS.set(jid, {"status": "completed", "alternatives": []})
+    assert client.get(f"/api/routing/path/{jid}").status_code == 404   # client = tenant-a
+
+
+def test_completed_job_has_report_and_slope_fields():
+    resp = client.post("/api/routing/path/calculate", json={"point_a": [-2.0, 43.0], "point_b": [-1.99, 43.0],
+                                                           "elevation_grid": _grid()})
+    job_id = resp.json()["job_id"]
+    for _ in range(50):
+        body = client.get(f"/api/routing/path/{job_id}").json()
+        if body["status"] in ("completed", "failed"):
+            break
+        time.sleep(0.05)
+    assert body["status"] == "completed"
+    assert body["report"]["blocked_cells_hit"] == 0
+    assert all("max_slope_deg_found" in a and a["blocked_cells_hit"] == 0 for a in body["alternatives"])
+
+
+def test_min_turn_radius_is_deprecated(caplog):
+    import logging
+    with caplog.at_level(logging.WARNING, logger="app.api.pathfinding_router"):
+        resp = client.post("/api/routing/path/calculate", json={"point_a": [-2.0, 43.0], "point_b": [-1.99, 43.0],
+                                                               "elevation_grid": _grid(), "min_turn_radius_m": 8.0})
+    assert resp.status_code == 200 and "min_turn_radius_m" in caplog.text
+
+
+def test_machine_id_sets_width(monkeypatch):
+    seen = {}
+
+    async def fake_machine(machine_id, tenant_id):
+        return {"implementWidth": 5.5}
+
+    async def fake_constraints(parcel_id, tenant_id, raster, cols, rows, machine_width_m, bbox):
+        seen["w"] = machine_width_m
+        return None, set()
+
+    from app.api import pathfinding_router as pr
+    monkeypatch.setattr(pr, "fetch_machine_kinematics", fake_machine)
+    monkeypatch.setattr(pr, "_resolve_path_constraints", fake_constraints)
+    job_id = client.post("/api/routing/path/calculate", json={"point_a": [-2.0, 43.0], "point_b": [-1.99, 43.0],
+                                                             "elevation_grid": _grid(), "machine_id": "urn:m1"}).json()["job_id"]
+    for _ in range(50):
+        if client.get(f"/api/routing/path/{job_id}").json()["status"] in ("completed", "failed"):
+            break
+        time.sleep(0.05)
+    assert seen["w"] == 5.5
+
+
+@pytest.mark.asyncio
+async def test_without_parcel_uses_tenant_zones_in_bbox(monkeypatch):
+    from app.api import pathfinding_router as pr
+    from shapely.geometry import Polygon
+    called = {}
+
+    async def fake_bbox(tenant_id, bbox):
+        called["bbox"] = bbox
+        return [Polygon([(0.001, 0.001), (0.003, 0.001), (0.003, 0.003), (0.001, 0.003)])]
+
+    monkeypatch.setattr(pr, "fetch_tenant_zones_in_bbox", fake_bbox)
+    raster = {"origin_lon": 0.0, "origin_lat": 0.0, "pixel_size_deg": 0.001}
+    origin, blocked = await pr._resolve_path_constraints(None, "tenant-a", raster, 10, 10, 2.0, (0, 0, 0.01, 0.01))
+    assert origin is None and blocked and called["bbox"] == (0, 0, 0.01, 0.01)

@@ -45,5 +45,6 @@ def test_two_objectives_diverge_on_a_ridge():
     # Least-slope climbs less; fastest is shorter.
     assert least["cumulative_climb_m"] < fast["cumulative_climb_m"]
     assert fast["distance_m"] <= least["distance_m"] + 1e-6
+    assert least["blocked_cells_hit"] == 0 and least["max_slope_deg_found"] >= 0
     # Both carry an elevation profile.
     assert len(least["elevation_profile"]) == len(least["geometry"]["coordinates"])

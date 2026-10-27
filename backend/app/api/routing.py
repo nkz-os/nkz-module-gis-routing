@@ -31,6 +31,7 @@ from app.services.parcel_constraints import fetch_parcel_constraints
 from app.api.pathfinding_router import build_dem_registry
 from app.services.pathfinding.grid_sampler import make_grid_sampler
 from app.config import get_settings
+from app.services.machines import fetch_machine_kinematics
 from app.services.coverage.errors import PlanError
 from app.services.coverage.ladder import plan_with_fallbacks, LadderInput
 from app.services.exclusion import validate_access_point
@@ -578,22 +579,7 @@ async def _resolve_machine(body: GenerateRequest, auth: AuthContext) -> dict:
     machine_id = body.implement_id or body.tractor_id
     if not machine_id:
         return {}
-    tenant_id = auth.tenant_id
-    settings = get_settings()
-    orion = OrionClient(
-        tenant_id,
-        base_url=settings.context_broker_url,
-        context_url=settings.ngsi_ld_context,
-    )
-    try:
-        entity = await orion.get_entity(machine_id)
-    finally:
-        await orion.close()
-    if not entity:
-        return {}
-    keys = ("implementWidth", "trackWidth", "minTurningRadius", "steeringType")
-    return {k: (entity.get(k, {}) or {}).get("value") for k in keys
-            if entity.get(k) is not None}
+    return await fetch_machine_kinematics(machine_id, auth.tenant_id)
 
 
 # Re-export from the shared service so existing monkeypatches on
