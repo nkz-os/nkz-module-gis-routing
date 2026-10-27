@@ -30,3 +30,26 @@ async def test_resolve_constraints_empty_without_parcel(monkeypatch):
         None, "t1", {"origin_lon": 0.0, "origin_lat": 0.0, "pixel_size_deg": 0.001},
         10, 10, 2.0, (0, 0, 0.01, 0.01))
     assert default_origin is None and blocked == set()
+
+
+@pytest.mark.asyncio
+async def test_bowtie_zone_blocks_cells_of_both_lobes(monkeypatch):
+    from app.services import parcel_constraints as pcs
+    bowtie = {"type": "Polygon", "coordinates": [[[0.002, 0.002], [0.008, 0.006], [0.008, 0.002],
+                                                  [0.002, 0.006], [0.002, 0.002]]]}
+
+    class FakeOrion:
+        def __init__(self, *a, **k): ...
+        async def get_entity(self, eid):
+            return {"id": eid, "exclusionZones": {"value": {
+                "type": "FeatureCollection", "features": [{"type": "Feature", "geometry": bowtie}]}}}
+        async def query_entities(self, *a, **k):
+            return []
+        async def close(self): ...
+
+    monkeypatch.setattr(pcs, "OrionClient", FakeOrion)
+    raster = {"origin_lon": 0.0, "origin_lat": 0.0, "pixel_size_deg": 0.001}
+    _origin, blocked = await pr._resolve_path_constraints(
+        parcel_id="urn:ngsi-ld:AgriParcel:p1", tenant_id="tenant-a", raster=raster, cols=10, rows=10,
+        machine_width_m=2.0, bbox=(0, 0, 0.01, 0.01))
+    assert (3, 4) in blocked and (7, 4) in blocked

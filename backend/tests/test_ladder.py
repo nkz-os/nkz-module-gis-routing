@@ -248,3 +248,16 @@ def test_headland_only_is_validated_single_attempt(monkeypatch):
     assert _hard_ok(plan) and plan.validation.ok
     dists = sorted(RECT.exterior.distance(s.geometry) for s in plan.swaths)
     assert dists == [pytest.approx(2.0, abs=0.05), pytest.approx(6.0, abs=0.05)]
+
+
+def test_bowtie_zone_both_lobes_avoided():
+    from app.services.parcel_constraints import _zone_polygons
+    bowtie = Polygon([(60, 30), (140, 70), (140, 30), (60, 70)])
+    fc = {"type": "FeatureCollection", "features": [
+        {"type": "Feature", "geometry": {"type": "Polygon", "coordinates": [list(bowtie.exterior.coords)]}}]}
+    zones = _zone_polygons(fc, entity_id="urn:ngsi-ld:AgriParcel:p1")
+    plan = plan_with_fallbacks(_inp(zones=zones, passes=2))
+    left = Polygon([(60, 30), (60, 70), (100, 50)])
+    right = Polygon([(140, 30), (140, 70), (100, 50)])
+    for lobe in (left, right):
+        assert plan.route.intersection(lobe.buffer(ROBOT.cov_width / 2 - 0.1)).length == 0.0

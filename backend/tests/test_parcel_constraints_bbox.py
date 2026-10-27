@@ -76,3 +76,35 @@ async def test_malformed_zone_raises_with_entity_id(monkeypatch):
 def test_zone_polygons_splits_multipolygon():
     mp = {"type": "MultiPolygon", "coordinates": [_sq(0, 0, 1, 1)["coordinates"], _sq(2, 2, 3, 3)["coordinates"]]}
     assert len(pc._zone_polygons(_fc(mp)["value"])) == 2
+
+
+# ---- final fix C2 + minors: invalid / malformed zones ----
+BOWTIE = {"type": "Polygon", "coordinates": [[[0, 0], [20, 10], [20, 0], [0, 10], [0, 0]]]}
+
+
+def test_bowtie_zone_keeps_both_lobes_and_logs_entity(caplog):
+    import logging
+    from shapely.geometry import Point
+    with caplog.at_level(logging.WARNING, logger="app.services.parcel_constraints"):
+        polys = pc._zone_polygons(_fc(BOWTIE)["value"], entity_id="urn:ngsi-ld:AgriParcel:p1")
+    assert len(polys) == 2 and all(p.is_valid for p in polys)
+    assert sum(p.area for p in polys) == pytest.approx(100.0)
+    assert any(p.covers(Point(2, 5)) for p in polys) and any(p.covers(Point(18, 5)) for p in polys)
+    assert "urn:ngsi-ld:AgriParcel:p1" in caplog.text
+
+
+@pytest.mark.parametrize("value", [
+    {"type": "Feature", "geometry": _sq(0, 0, 1, 1)},
+    [{"geometry": _sq(0, 0, 1, 1)}],
+    {"type": "FeatureCollection"},
+    {"type": "FeatureCollection", "features": [{"properties": {}}]},
+    {"type": "FeatureCollection", "features": [{"geometry": None}]},
+])
+def test_malformed_zone_config_raises_naming_entity(value):
+    with pytest.raises(ValueError, match="urn:ngsi-ld:AgriParcel:p1"):
+        pc._zone_polygons(value, entity_id="urn:ngsi-ld:AgriParcel:p1")
+
+
+def test_empty_zone_config_is_no_zones():
+    assert pc._zone_polygons({}, entity_id="x") == []
+    assert pc._zone_polygons(None, entity_id="x") == []
