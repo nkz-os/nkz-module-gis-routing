@@ -73,6 +73,11 @@ class CoveragePlan:
     exclusion_zones: list[Polygon]
     fallbacks: list[str] = field(default_factory=list)
     validation: "ValidationReport | None" = None
+    # Straight leg from the gate on the fence to the eroded area; access_path
+    # continues from its end, inside the eroded area, to the route start.
+    access_leg: LineString | None = None
+    # Route end -> leg end, inside the eroded area (not a Turn, not in route).
+    return_path: LineString | None = None
 
     def _worked(self) -> float:
         return sum(s.geometry.length for s in self.swaths)
@@ -80,17 +85,37 @@ class CoveragePlan:
     def _non_working(self) -> float:
         return sum(t.geometry.length for t in self.turns)
 
+    def full_access_path(self) -> LineString | None:
+        """Gate -> route start: the fence leg followed by the inner path."""
+        if self.access_path is None:
+            return None
+        if self.access_leg is None:
+            return self.access_path
+        return LineString(list(self.access_leg.coords) + list(self.access_path.coords)[1:])
+
+    def full_return_path(self) -> LineString | None:
+        """Route end -> gate: the inner return path followed by the leg reversed."""
+        if self.return_path is None:
+            return None
+        if self.access_leg is None:
+            return self.return_path
+        return LineString(list(self.return_path.coords) + [self.access_leg.coords[0]])
+
     def metrics(self, cov_width: float) -> dict:
         worked = self._worked()
         non_working = self._non_working()
         total = worked + non_working
         working_ha = self.working_area.area / 1e4
         covered_ha = min(worked * cov_width / 1e4, working_ha)
-        access = self.access_path.length if self.access_path is not None else 0.0
+        access = self.full_access_path()
+        back = self.full_return_path()
+        leg = self.access_leg.length if self.access_leg is not None and self.access_path is not None else 0.0
         return {
             "worked_distance_m": round(worked, 1),
             "non_working_distance_m": round(non_working, 1),
-            "access_distance_m": round(access, 1),
+            "access_distance_m": round(access.length if access is not None else 0.0, 1),
+            "access_leg_distance_m": round(leg, 1),
+            "return_distance_m": round(back.length if back is not None else 0.0, 1),
             "field_efficiency": round(worked / total, 4) if total > 0 else 0.0,
             "covered_area_ha": round(covered_ha, 3),
             "parcel_area_ha": round(self.parcel_area_m2 / 1e4, 3),
@@ -108,7 +133,8 @@ class CoveragePlan:
                 {"index": s.index, "kind": s.kind, "geometry": geojson_wgs84(s.geometry, to_wgs84)}
                 for s in self.swaths
             ],
-            "access_path": geojson_wgs84(self.access_path, to_wgs84),
+            "access_path": geojson_wgs84(self.full_access_path(), to_wgs84),
+            "return_path": geojson_wgs84(self.full_return_path(), to_wgs84),
             "access_point": geojson_wgs84(self.access_point, to_wgs84),
             "exit_point": geojson_wgs84(self.exit_point, to_wgs84),
             "working_area": geojson_wgs84(self.working_area, to_wgs84),

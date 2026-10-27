@@ -250,8 +250,35 @@ def plan_with_fallbacks(inp: LadderInput, time_budget_s: float | None = None) ->
     return _finish(inp, fixed, report, worst.passes, manual)
 
 
+def _last_point(route) -> Point:
+    last = route.geoms[-1] if hasattr(route, "geoms") else route
+    return Point(last.coords[-1])
+
+
+def _drop_failing_transit(inp: LadderInput, plan: CoveragePlan,
+                          report: ValidationReport) -> tuple[CoveragePlan, ValidationReport]:
+    """Never return a transit geometry that fails a hard check: drop it, re-validate.
+
+    Without the access leg the return path no longer reaches the gate, so it goes too.
+    """
+    failed = {c.id.split(":", 1)[1] for c in report.checks
+              if not c.ok and ":" in c.id and c.id.split(":", 1)[0] in _HARD_IDS}
+    if not failed:
+        return plan, report
+    changes: dict = {}
+    if failed & {"access_leg", "access_path"}:
+        changes.update(access_leg=None, access_path=None)
+    if "return_path" in failed or ("access_leg" in changes and plan.return_path is not None):
+        changes.update(return_path=None, exit_point=_last_point(plan.route))
+    logger.warning("transit geometry fails hard checks, dropped: failed=%s dropped=%s",
+                   sorted(failed), sorted(k for k in changes if k != "exit_point"))
+    plan = replace(plan, **changes)
+    return plan, validate_plan(plan, inp.parcel_utm, inp.zones_utm, inp.robot.cov_width)
+
+
 def _finish(inp: LadderInput, plan: CoveragePlan, report: ValidationReport,
             applied: int, manual: list[Warning]) -> CoveragePlan:
+    plan, report = _drop_failing_transit(inp, plan, report)
     report.warnings.extend(manual)
     report.warnings.extend(_extra_warnings(inp, plan, applied))
     plan.validation = report

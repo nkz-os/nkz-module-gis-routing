@@ -123,25 +123,48 @@ def check_starts_at_access(start: Point | None, access: Point | None) -> Check:
     return Check("starts_at_access", d <= ACCESS_START_MAX_M, d, ACCESS_START_MAX_M, None)
 
 
+def check_access_reaches_route(access_end: Point | None, route_start: Point) -> Check:
+    if access_end is None:
+        return Check("access_reaches_route", True, 0.0, ACCESS_START_MAX_M, None)
+    d = round(float(access_end.distance(route_start)), 2)
+    return Check("access_reaches_route", d <= ACCESS_START_MAX_M, d, ACCESS_START_MAX_M, None)
+
+
 def _first_point(geom) -> Point:
     first = geom.geoms[0] if hasattr(geom, "geoms") else geom
     return Point(first.coords[0])
 
 
+def _transit_checks(name: str, geom, parcel: Polygon, zones: list[Polygon], cov_width: float,
+                    *, erode: bool) -> list[Check]:
+    a = check_inside_parcel(geom, parcel, cov_width, erode=erode)
+    a.id = f"inside_parcel:{name}"
+    b = check_outside_zones(geom, zones, cov_width)
+    b.id = f"outside_zones:{name}"
+    return [a, b]
+
+
 def validate_plan(plan: CoveragePlan, parcel: Polygon, zones: list[Polygon],
                   cov_width: float) -> ValidationReport:
+    """Hard checks on the route and on every transit geometry; soft access checks.
+
+    The fence leg (gate -> eroded area) may run next to the fence (erode=False);
+    the access and return paths must stay inside the eroded parcel (erode=True).
+    """
     checks = [
         check_inside_parcel(plan.route, parcel, cov_width, erode=True),
         check_outside_zones(plan.route, zones, cov_width),
     ]
+    if plan.access_leg is not None:
+        checks += _transit_checks("access_leg", plan.access_leg, parcel, zones, cov_width, erode=False)
     if plan.access_path is not None:
-        a = check_inside_parcel(plan.access_path, parcel, cov_width, erode=False)
-        a.id = "inside_parcel:access_path"
-        b = check_outside_zones(plan.access_path, zones, cov_width)
-        b.id = "outside_zones:access_path"
-        checks += [a, b]
-    start = _first_point(plan.access_path if plan.access_path is not None else plan.route)
-    checks.append(check_starts_at_access(start, plan.access_point))
+        checks += _transit_checks("access_path", plan.access_path, parcel, zones, cov_width, erode=True)
+    if plan.return_path is not None:
+        checks += _transit_checks("return_path", plan.return_path, parcel, zones, cov_width, erode=True)
+    entry = next((g for g in (plan.access_leg, plan.access_path) if g is not None), plan.route)
+    checks.append(check_starts_at_access(_first_point(entry), plan.access_point))
+    access_end = Point(plan.access_path.coords[-1]) if plan.access_path is not None else None
+    checks.append(check_access_reaches_route(access_end, _first_point(plan.route)))
     warnings = [
         Warning("UNREACHED_AREA", p, {"area_ha": round(p.area / 1e4, 3)}) for p in plan.unreached
     ]

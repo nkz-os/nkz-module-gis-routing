@@ -151,13 +151,16 @@ def test_plan_body_shape(monkeypatch):
     assert resp.status_code == 200, resp.text
     plan = resp.json()["plan"]
     for key in ("pattern", "curve_type", "swath_count", "headland_passes", "route", "swaths", "access_path",
-                "access_point", "exit_point", "working_area", "unreached_parts", "metrics", "validation",
-                "exclusion_zones", "prescription"):
+                "return_path", "access_point", "exit_point", "working_area", "unreached_parts", "metrics",
+                "validation", "exclusion_zones", "prescription"):
         assert key in plan, key
     assert plan["swath_count"] == len(plan["swaths"]) and plan["swaths"][0]["kind"] in ("work", "headland")
     assert plan["validation"]["ok"] is True and plan["prescription"] is None
-    assert {"worked_distance_m", "non_working_distance_m", "access_distance_m", "field_efficiency",
-            "covered_area_ha", "parcel_area_ha", "working_area_ha"} <= set(plan["metrics"])
+    assert {"worked_distance_m", "non_working_distance_m", "access_distance_m", "access_leg_distance_m",
+            "return_distance_m", "field_efficiency", "covered_area_ha", "parcel_area_ha",
+            "working_area_ha"} <= set(plan["metrics"])
+    assert plan["access_path"]["coordinates"][0] == pytest.approx(list(wgs84_point(GATE)), abs=1e-6)
+    assert plan["return_path"] is None
     assert resp.json()["selected"]["route"]["type"] in ("MultiLineString", "LineString")   # legado conservado
 
 
@@ -288,3 +291,25 @@ def test_planner_runs_off_the_event_loop_with_budget(monkeypatch):
     resp = _gen(monkeypatch)
     assert resp.status_code == 200, resp.text
     assert seen == {"on_loop": False, "budget": 60.0}
+
+
+def test_return_to_access_returns_return_path_and_persists_it(monkeypatch):
+    captured = {}
+
+    class FakeOrion:
+        def __init__(self, *a, **k): ...
+        async def create_entity(self, entity):
+            captured["entity"] = entity
+            return {"id": entity["id"]}
+        async def close(self): ...
+
+    monkeypatch.setattr("app.api.routing.OrionClient", FakeOrion)
+    resp = _gen(monkeypatch, access=wgs84_point(GATE), return_to_access=True, persist=True)
+    assert resp.status_code == 200, resp.text
+    plan = resp.json()["plan"]
+    assert plan["return_path"]["type"] == "LineString"
+    assert plan["return_path"]["coordinates"][-1] == pytest.approx(list(wgs84_point(GATE)), abs=1e-6)
+    assert plan["exit_point"]["coordinates"] == pytest.approx(list(wgs84_point(GATE)), abs=1e-6)
+    assert plan["metrics"]["return_distance_m"] > 0
+    assert {"inside_parcel:return_path", "outside_zones:return_path"} <= {c["id"] for c in plan["validation"]["checks"]}
+    assert captured["entity"]["returnPath"]["type"] == "GeoProperty"

@@ -73,24 +73,78 @@ def test_starts_at_access():
     assert check_starts_at_access(Point(5, 50), None).ok
 
 
-def _plan(route, swaths, access_path=None, unreached=()):
+def _plan(route, swaths, access_path=None, unreached=(), access_leg=None, return_path=None):
     return CoveragePlan(pattern="boustrophedon", curve_type="dubins", headland_passes=1,
                         swaths=swaths, turns=[], route=route, working_area=RECT, unreached=list(unreached),
                         parcel_area_m2=RECT.area, access_point=GATE, access_path=access_path,
-                        exit_point=Point(route.coords[-1]), exclusion_zones=[])
+                        exit_point=Point(route.coords[-1]), exclusion_zones=[],
+                        access_leg=access_leg, return_path=return_path)
+
+
+ROUTE = LineString([(10, 10), (190, 10), (190, 30), (10, 30)])
+SWATHS = [Swath(0, "work", LineString([(10, 10), (190, 10)])), Swath(1, "work", LineString([(190, 30), (10, 30)]))]
+LEG = LineString([(0, 50), (10, 50)])               # fence gate -> eroded area (w=20: 9.5 m in)
+PATH = LineString([(10, 50), (10, 10)])             # eroded area -> route start
+
+
+def _ids(rep):
+    return [c.id for c in rep.checks]
+
+
+def _check(rep, cid):
+    return [c for c in rep.checks if c.id == cid][0]
 
 
 def test_validate_plan_ok_and_warnings():
-    route = LineString([(10, 10), (190, 10), (190, 30), (10, 30)])
-    plan = _plan(route, [Swath(0, "work", LineString([(10, 10), (190, 10)])), Swath(1, "work", LineString([(190, 30), (10, 30)]))],
-                 access_path=LineString([(0, 50), (10, 10)]), unreached=[Polygon([(150, 40), (190, 40), (190, 90), (150, 90)])])
+    plan = _plan(ROUTE, SWATHS, access_path=PATH, access_leg=LEG,
+                 unreached=[Polygon([(150, 40), (190, 40), (190, 90), (150, 90)])])
     rep = validate_plan(plan, RECT, [], 20.0)
     assert rep.ok
-    assert [c.id for c in rep.checks] == ["inside_parcel", "outside_zones", "inside_parcel:access_path",
-                                          "outside_zones:access_path", "starts_at_access"]
+    assert _ids(rep) == ["inside_parcel", "outside_zones", "inside_parcel:access_leg", "outside_zones:access_leg",
+                         "inside_parcel:access_path", "outside_zones:access_path", "starts_at_access",
+                         "access_reaches_route"]
     assert rep.warnings[0].code == "UNREACHED_AREA" and rep.warnings[0].params["area_ha"] == pytest.approx(0.2)
     d = rep.to_dict(lambda x, y: (x, y))
     assert d["ok"] is True and d["warnings"][0]["geometry"]["type"] == "Polygon"
+
+
+def test_access_path_is_checked_against_eroded_parcel():
+    hugging = LineString([(10, 50), (3, 50), (3, 10), (10, 10)])   # 3 m from the fence with w=20
+    rep = validate_plan(_plan(ROUTE, SWATHS, access_path=hugging, access_leg=LEG), RECT, [], 20.0)
+    c = _check(rep, "inside_parcel:access_path")
+    assert not c.ok and c.value == pytest.approx(6.5, abs=0.05)
+    assert _check(rep, "inside_parcel:access_leg").ok
+
+
+def test_starts_at_access_measures_gate_to_leg_start():
+    rep = validate_plan(_plan(ROUTE, SWATHS, access_path=PATH, access_leg=LineString([(5, 50), (10, 50)])),
+                        RECT, [], 20.0)
+    c = _check(rep, "starts_at_access")
+    assert not c.ok and c.value == pytest.approx(5.0)
+
+
+def test_access_reaches_route_measures_path_end_to_route_start():
+    short = LineString([(10, 50), (10, 15)])
+    rep = validate_plan(_plan(ROUTE, SWATHS, access_path=short, access_leg=LEG), RECT, [], 20.0)
+    c = _check(rep, "access_reaches_route")
+    assert not c.ok and c.value == pytest.approx(5.0) and c.limit == 1.0
+    assert _check(rep, "starts_at_access").ok
+
+
+def test_return_path_checks_are_eroded():
+    back = LineString([(10, 30), (10, 50)])
+    rep = validate_plan(_plan(ROUTE, SWATHS, access_path=PATH, access_leg=LEG, return_path=back), RECT, [], 20.0)
+    assert {"inside_parcel:return_path", "outside_zones:return_path"} <= set(_ids(rep))
+    assert rep.ok
+    bad = LineString([(10, 30), (2, 30), (2, 50)])
+    rep2 = validate_plan(_plan(ROUTE, SWATHS, access_path=PATH, access_leg=LEG, return_path=bad), RECT, [], 20.0)
+    assert not _check(rep2, "inside_parcel:return_path").ok
+
+
+def test_leg_through_zone_fails_outside_zones():
+    zone = Polygon([(4, 45), (6, 45), (6, 55), (4, 55)])
+    rep = validate_plan(_plan(ROUTE, SWATHS, access_path=PATH, access_leg=LEG), RECT, [zone], 4.0)
+    assert not _check(rep, "outside_zones:access_leg").ok
 
 
 def test_validate_plan_fails_when_route_touches_zone():

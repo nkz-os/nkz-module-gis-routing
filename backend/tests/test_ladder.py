@@ -144,15 +144,17 @@ TURN_OK = LineString([(190, 10), (195, 15), (190, 20)])
 TURN_BAD = LineString([(190, 10), (100, 50), (190, 20)])     # crosses ZONE_CENTER
 
 
-def _fake_plan(cfg, robot, swaths=(SW_A, SW_B), turn=TURN_OK, access_path=None):
+def _fake_plan(cfg, robot, swaths=(SW_A, SW_B), turn=TURN_OK, access_path=None, access_leg=None,
+               access_point=None, return_path=None):
     coords = list(swaths[0].coords) + list(turn.coords)[1:] + list(swaths[1].coords)[1:]
     route = LineString(coords)
     return CoveragePlan(
         pattern=cfg.pattern, curve_type=robot.curve_type, headland_passes=cfg.headland_passes,
         swaths=[Swath(0, "work", swaths[0]), Swath(1, "work", swaths[1])],
         turns=[Turn(0, 0, 1, turn)], route=route, working_area=RECT, unreached=[],
-        parcel_area_m2=RECT.area, access_point=None, access_path=access_path,
-        exit_point=Point(route.coords[-1]), exclusion_zones=[])
+        parcel_area_m2=RECT.area, access_point=access_point, access_path=access_path,
+        exit_point=Point(route.coords[-1]), exclusion_zones=[], access_leg=access_leg,
+        return_path=return_path)
 
 
 def _patch(monkeypatch, builder):
@@ -307,3 +309,23 @@ def test_ladder_reuses_swaths_per_passes(monkeypatch):
     monkeypatch.setattr(ladder_mod, "plan_coverage", spy)
     plan_with_fallbacks(_inp(pattern="auto", passes=2))
     assert len(seen) >= 3 and len(set(seen)) == 1 and seen[0] != id(None)
+
+
+
+def test_failing_transit_is_dropped_never_returned(monkeypatch):
+    gate = Point(0, 50)
+    zone = Polygon([(3, 44), (5, 44), (5, 56), (3, 56)])            # straddles the straight leg
+    leg = LineString([(0, 50), (12, 50)])
+    path = LineString([(12, 50), (10, 10)])
+    back = LineString([(10, 20), (2, 20), (2, 50)])                 # hugs the fence: outside eroded area
+    _patch(monkeypatch, lambda c, r: _fake_plan(c, r, access_leg=leg, access_path=path, access_point=gate,
+                                                return_path=back))
+    inp = LadderInput(RECT, [zone], ROBOT, CoverageConfig("boustrophedon", headland_passes=2,
+                                                         return_to_access=True),
+                      access_utm=gate, wgs84_poly=wgs84(RECT))
+    plan = plan_with_fallbacks(inp)
+    assert plan.access_leg is None and plan.access_path is None and plan.return_path is None
+    failing = [c.id for c in plan.validation.checks
+               if c.id.split(":")[0] in ("inside_parcel", "outside_zones") and not c.ok]
+    assert failing == []
+    assert [w.code for w in plan.validation.warnings].count("ACCESS_PATH_UNAVAILABLE") == 1

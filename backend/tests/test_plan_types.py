@@ -19,8 +19,8 @@ def _plan(route=None):
         swaths=[Swath(0, "work", s0), Swath(1, "work", s1)],
         turns=[Turn(0, 0, 1, LineString([(190, 10), (190, 30)]))],
         route=route, working_area=RECT, unreached=[Polygon([(0, 0), (100, 0), (100, 100), (0, 100)])],
-        parcel_area_m2=20000.0, access_point=GATE, access_path=LineString([(0, 50), (10, 10)]),
-        exit_point=Point(10, 30), exclusion_zones=[ZONE_CENTER])
+        parcel_area_m2=20000.0, access_point=GATE, access_path=LineString([(10, 50), (10, 10)]),
+        exit_point=Point(10, 30), exclusion_zones=[ZONE_CENTER], access_leg=LineString([(0, 50), (10, 50)]))
 
 
 def test_geojson_rounding_lists_and_none():
@@ -40,7 +40,8 @@ def test_metrics():
     m = _plan().metrics(20.0)
     assert m["worked_distance_m"] == 360.0
     assert m["non_working_distance_m"] == 20.0
-    assert m["access_distance_m"] == pytest.approx(41.2, abs=0.05)
+    assert m["access_distance_m"] == 50.0 and m["access_leg_distance_m"] == 10.0
+    assert m["return_distance_m"] == 0.0
     assert m["field_efficiency"] == round(360 / 380, 4)
     assert m["covered_area_ha"] == 0.72
     assert m["parcel_area_ha"] == 2.0 and m["working_area_ha"] == 2.0
@@ -99,3 +100,29 @@ def test_inside_check_narrow_parcel_is_finite():
     route = LineString([(10, 5), (190, 5)])
     c = check_inside_parcel(route, narrow, 20.0)
     assert not c.ok and c.value == 180.0 and c.geometry is route
+
+
+def test_access_leg_and_return_path_in_metrics_and_api():
+    from dataclasses import replace
+    leg = LineString([(0, 50), (5, 50)])
+    path = LineString([(5, 50), (10, 10)])
+    back = LineString([(10, 30), (5, 50)])
+    assert _plan().access_leg is not None
+    plan = replace(_plan(), access_leg=leg, access_path=path, return_path=back, exit_point=GATE)
+    m = plan.metrics(20.0)
+    assert m["access_leg_distance_m"] == 5.0
+    assert m["access_distance_m"] == pytest.approx(5.0 + path.length, abs=0.05)
+    assert m["return_distance_m"] == pytest.approx(back.length + 5.0, abs=0.05)
+    d = plan.as_api_dict(IDENT, 20.0)
+    assert d["access_path"]["coordinates"] == [[0.0, 50.0], [5.0, 50.0], [10.0, 10.0]]
+    assert d["return_path"]["coordinates"] == [[10.0, 30.0], [5.0, 50.0], [0.0, 50.0]]
+    assert d["exit_point"]["coordinates"] == [0.0, 50.0]
+
+
+def test_api_without_transit_has_null_paths_and_zero_distances():
+    from dataclasses import replace
+    plan = replace(_plan(), access_path=None, access_leg=None)
+    d = plan.as_api_dict(IDENT, 20.0)
+    assert d["access_path"] is None and d["return_path"] is None
+    assert d["metrics"]["access_distance_m"] == 0.0 and d["metrics"]["access_leg_distance_m"] == 0.0
+    assert d["metrics"]["return_distance_m"] == 0.0

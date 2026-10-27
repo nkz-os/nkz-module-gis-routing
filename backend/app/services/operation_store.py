@@ -158,6 +158,8 @@ def build_operation_entity(*, op_id, body, result, prescription_map, is_template
             entity["accessPoint"] = {"type": "GeoProperty", "value": plan["access_point"]}
         if plan.get("access_path") is not None:
             entity["accessPath"] = {"type": "GeoProperty", "value": plan["access_path"]}
+        if plan.get("return_path") is not None:
+            entity["returnPath"] = {"type": "GeoProperty", "value": plan["return_path"]}
         entity["exclusionZones"] = {"type": "Property", "value": {
             "type": "FeatureCollection",
             "features": (plan.get("exclusion_zones") or {}).get("features", [])}}

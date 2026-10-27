@@ -14,14 +14,15 @@ from dataclasses import dataclass
 
 import fields2cover as f2c
 from shapely.geometry import LineString, Point, Polygon
+from shapely.ops import nearest_points
 from app.services.exclusion import build_working_polygon, route_enters_zones, ExclusionError
 
 from app.services.routing.base import RouteResult, project_polygon_to_utm
-from app.services.coverage.access import compute_access_path
+from app.services.coverage.access import CLEARANCE_M, compute_access_path
 from app.services.coverage.plan import CoveragePlan, Swath, Turn
 from app.services.coverage.robot_model import RobotParams
 from app.services.coverage.geometry_adapter import shapely_to_f2c_cells
-from app.services.coverage.validation import split_working_area
+from app.services.coverage.validation import TOL_INSIDE_M, split_working_area
 
 logger = logging.getLogger(__name__)
 
@@ -137,19 +138,21 @@ def plan_coverage(
     route = LineString(route_coords)
     exit_point = Point(route.coords[-1])
 
-    if cfg.return_to_access and access_utm is not None:
-        back = compute_access_path(exit_point, access_utm, piece_utm)
-        if back is not None:
-            parts.append(("turn", back))
-            exit_point = Point(access_utm.x, access_utm.y)
-            route = LineString(route_coords + [c for c in back.coords][1:])
-        else:
-            logger.warning("no return path to access point",
-                           extra={"exit": (exit_point.x, exit_point.y)})
-
-    access_path = None
+    access_leg = access_path = return_path = None
     if access_utm is not None:
-        access_path = compute_access_path(access_utm, Point(route.coords[0]), piece_utm)
+        inner = _transit_area(piece_utm, robot.cov_width, Point(route.coords[0]))
+        if inner is not None:
+            access_leg, entry = _fence_leg(access_utm, inner)
+            access_path = compute_access_path(entry, Point(route.coords[0]), inner)
+            if access_path is None:
+                access_leg = None
+            elif cfg.return_to_access:
+                return_path = compute_access_path(exit_point, entry, inner)
+                if return_path is not None:
+                    exit_point = Point(access_utm.x, access_utm.y)
+                else:
+                    logger.warning("no return path to access point",
+                                   extra={"exit": (exit_point.x, exit_point.y)})
 
     swaths, turns = _index_parts(parts)
     return CoveragePlan(
@@ -157,7 +160,34 @@ def plan_coverage(
         swaths=swaths, turns=turns, route=route, working_area=piece_utm,
         unreached=[], parcel_area_m2=parcel_utm.area, access_point=access_utm,
         access_path=access_path, exit_point=exit_point, exclusion_zones=[],
+        access_leg=access_leg, return_path=return_path,
     )
+
+
+def _transit_area(piece: Polygon, cov_width: float, anchor: Point) -> Polygon | None:
+    """Area the access/return paths may use: the piece eroded so that a path in it
+    (within CLEARANCE_M) stays inside parcel.buffer(-(w/2 - TOL_INSIDE_M))."""
+    inner = piece.buffer(-(cov_width / 2.0 - TOL_INSIDE_M) - CLEARANCE_M)
+    parts = sorted(_polygon_parts(inner), key=lambda g: g.area, reverse=True)
+    if not parts:
+        return None
+    return next((p for p in parts if p.covers(anchor)), parts[0])
+
+
+def _polygon_parts(geom) -> list[Polygon]:
+    if geom.is_empty:
+        return []
+    if isinstance(geom, Polygon):
+        return [geom]
+    return [g for g in getattr(geom, "geoms", []) if isinstance(g, Polygon) and not g.is_empty]
+
+
+def _fence_leg(gate: Point, inner: Polygon) -> tuple[LineString | None, Point]:
+    """Straight leg from the gate to the nearest point of the inner area (None if inside)."""
+    if inner.covers(gate):
+        return None, gate
+    entry = nearest_points(inner, gate)[0]
+    return LineString([(gate.x, gate.y), (entry.x, entry.y)]), entry
 
 
 def _interior_parts(piece_utm, robot, cfg, wgs84_poly, passes, swath_cache=None) -> list:

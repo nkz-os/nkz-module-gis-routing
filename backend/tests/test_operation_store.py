@@ -340,3 +340,16 @@ def test_build_operation_entity_has_no_null_values_with_empty_metrics():
     e = store.build_operation_entity(op_id="urn:x", body=_body(), result=r, prescription_map=None)
     nulls = [k for k, v in e.items() if isinstance(v, dict) and "value" in v and v["value"] is None]
     assert nulls == [] and e["id"] == "urn:x" and e["type"] == "AgriParcelOperation"
+
+
+
+def test_build_operation_entity_writes_return_path_when_present():
+    rp = {"type": "LineString", "coordinates": [[0, 1], [0, 0]]}
+    plan = {"route": {"type": "LineString", "coordinates": [[0, 0], [0, 1]]}, "swaths": [], "exclusion_zones": [],
+            "working_area": None, "access_point": None, "access_path": None, "return_path": rp,
+            "validation": None, "headland_passes": 1, "pattern": "snake", "curve_type": "dubins"}
+    e = store.build_operation_entity(op_id="urn:x", body=_body(), result=_result(), prescription_map=None, plan=plan)
+    assert e["returnPath"] == {"type": "GeoProperty", "value": rp}
+    plan["return_path"] = None
+    e2 = store.build_operation_entity(op_id="urn:x", body=_body(), result=_result(), prescription_map=None, plan=plan)
+    assert "returnPath" not in e2

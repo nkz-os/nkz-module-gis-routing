@@ -3,7 +3,7 @@ pytest.importorskip("fields2cover")
 from shapely.geometry import Point
 from app.services.coverage.f2c_engine import plan_coverage, CoverageConfig
 from app.services.coverage.robot_model import RobotParams
-from tests.fixtures_parcels import RECT, GATE, wgs84
+from tests.fixtures_parcels import RECT, L_SHAPE, GATE, wgs84
 
 ROBOT = RobotParams(width=2.0, cov_width=20.0, min_turning_radius=6.0, curve_type="dubins")
 
@@ -34,17 +34,21 @@ def test_headland_ring_sits_half_width_inside_fence():
 
 def test_route_is_oriented_to_access_and_access_path_exists():
     p = _plan()
-    assert p.access_path is not None
-    assert Point(p.access_path.coords[0]).distance(GATE) < 1e-6
+    assert p.access_leg is not None and p.access_path is not None
+    assert Point(p.access_leg.coords[0]).distance(GATE) < 1e-6
+    assert Point(p.access_leg.coords[-1]).distance(Point(p.access_path.coords[0])) < 1e-6
     assert Point(p.access_path.coords[-1]).distance(Point(p.route.coords[0])) < 1e-6
     far = Point(200, 50)
     assert Point(p.route.coords[0]).distance(GATE) <= Point(p.route.coords[0]).distance(far)
 
 
-def test_return_to_access_appends_final_turn():
+def test_return_to_access_is_a_return_path_not_a_turn():
     p = _plan(return_to_access=True)
     assert p.exit_point.distance(GATE) < 1e-6
-    assert p.turns[-1].geometry.coords[-1] == (GATE.x, GATE.y)
+    assert p.return_path is not None
+    assert all(t.from_swath != t.to_swath for t in p.turns)
+    assert Point(p.return_path.coords[0]).distance(Point(p.route.coords[-1])) < 1e-6
+    assert Point(p.return_path.coords[-1]).distance(Point(p.access_leg.coords[-1])) < 1e-6
 
 
 def test_metrics_consistent():
@@ -123,14 +127,13 @@ def test_inner_ring_offset_is_three_halves_width():
     assert RECT.exterior.distance(heads[1].geometry) == pytest.approx(10.0, abs=0.05)
 
 
-def test_return_uses_access_path_back_and_closes_at_access():
+def test_return_path_stays_in_eroded_area_and_route_excludes_it():
+    from app.services.coverage.validation import check_inside_parcel
     p = _plan(return_to_access=True)
-    last = p.turns[-1]
-    assert last.from_swath == last.to_swath == p.swaths[-1].index
-    assert Point(last.geometry.coords[0]).distance(Point(p.swaths[-1].geometry.coords[-1])) < 1e-6
-    assert Point(p.route.coords[-1]).distance(GATE) < 1e-6
+    assert check_inside_parcel(p.return_path, RECT, ROBOT.cov_width).ok
+    assert Point(p.route.coords[-1]).distance(GATE) > 1.0
     total = sum(s.geometry.length for s in p.swaths) + sum(t.geometry.length for t in p.turns)
-    assert p.route.length == pytest.approx(total, abs=0.01)
+    assert p.route.length == pytest.approx(total, rel=0.005)
 
 
 def test_ring_only_plan_when_no_interior(caplog):
@@ -249,3 +252,21 @@ def test_split_path_drops_consecutive_duplicate_points():
     parts = _split_path(_Path())
     assert [k for k, _ in parts] == ["swath", "turn", "swath"]
     assert list(parts[1][1].coords) == [(10.0, 0.0), (11.0, 1.0), (10.0, 2.0)]
+
+
+# ---- final fix I1: access = fence leg + path inside the eroded area ----
+def test_access_path_does_not_hug_a_reflex_corner():
+    from app.services.coverage.validation import check_inside_parcel, validate_plan
+    from app.services.coverage.robot_model import RobotParams
+    robot = RobotParams(width=2.0, cov_width=6.0, min_turning_radius=5.0, curve_type="dubins")
+    gate = Point(100, 95)                    # east fence of the L's upper arm, behind the reflex corner
+    cfg = CoverageConfig(pattern="snake", headland_passes=2, heading_deg=90.0)   # starts in the far lobe
+    p = plan_coverage(L_SHAPE, L_SHAPE, robot, cfg, access_utm=gate, wgs84_poly=wgs84(L_SHAPE))
+    assert p.access_leg is not None and p.access_path is not None
+    assert len(p.access_path.coords) >= 3, "path should bend around the reflex corner (100, 50)"
+    assert L_SHAPE.buffer(-robot.cov_width / 2 + 0.5).covers(p.access_path)
+    assert check_inside_parcel(p.access_leg, L_SHAPE, robot.cov_width, erode=False).ok
+    rep = validate_plan(p, L_SHAPE, [], robot.cov_width)
+    for cid in ("inside_parcel:access_leg", "inside_parcel:access_path", "starts_at_access",
+                "access_reaches_route"):
+        assert [c for c in rep.checks if c.id == cid][0].ok, cid
