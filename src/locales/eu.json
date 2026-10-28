@@ -349,7 +349,8 @@
       "access": "Sarbidea",
       "route": "Ibilbidea",
       "swaths": "Pasaldiak",
-      "warnings": "Abisuak"
+      "warnings": "Abisuak",
+      "vra": "VRA klaseak"
     }
   }
 }

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildSources, changedSources, layerSpecs, planBounds, SOURCE_IDS } from '../model';
+import { buildSources, changedSources, layerSpecs, planBounds, SOURCE_IDS, VRA_PALETTE, vraClassColors, VRA_UNCOVERED_COLOR } from '../model';
 const sq = (x0: number, y0: number, x1: number, y1: number, holes: number[][][] = []) => ({ type: 'Polygon', coordinates: [[[x0, y0], [x1, y0], [x1, y1], [x0, y1], [x0, y0]], ...holes] }) as any;
 const base = { parcel: sq(0, 0, 10, 10, [[[4, 4], [6, 4], [6, 6], [4, 6], [4, 4]]]), zones: [{ id: 'z', polygon: sq(1, 1, 2, 2), areaHa: 1, valid: true }], marginM: 2, accessPoint: { type: 'Point', coordinates: [0, 5] } as any, accessIssue: null, plan: null, stale: false, hoveredSwath: null, selectedWarning: null };
 describe('map model', () => {
@@ -72,5 +72,61 @@ describe('changedSources', () => {
     const out = changedSources(base as any, { ...base, plan: {} } as any);
     expect(out).toEqual(expect.arrayContaining(['swaths', 'route', 'access', 'markers', 'warnings']));
     expect(out).not.toContain('parcel'); expect(out).not.toContain('zones');
+  });
+
+  describe('VRA classes', () => {
+    const presc: any = {
+      unit: 'kg_ha', product: 'N', warnings: [],
+      classes: [{ index: 0 }, { index: 1 }, { index: 2 }],
+      zones: { type: 'FeatureCollection', features: [
+        { type: 'Feature', geometry: sq(0, 0, 4, 4), properties: { class_index: 0, rate: 80 } },
+        { type: 'Feature', geometry: sq(4, 0, 8, 4), properties: { class_index: 2, rate: 120 } },
+      ] },
+      swath_segments: { type: 'FeatureCollection', features: [
+        { type: 'Feature', geometry: { type: 'LineString', coordinates: [[0, 1], [3, 1]] }, properties: { swath_index: 3, class_index: 0, rate: 80, length_m: 3 } },
+        { type: 'Feature', geometry: { type: 'LineString', coordinates: [[9, 1], [10, 1]] }, properties: { swath_index: 3, class_index: null, rate: null, length_m: 1 } },
+      ] },
+    };
+    const plan: any = { route: { type: 'LineString', coordinates: [[0, 0], [1, 1]] }, swaths: [{ index: 3, kind: 'work', geometry: { type: 'LineString', coordinates: [[0, 1], [10, 1]] } }], access_path: null, return_path: null, exit_point: { type: 'Point', coordinates: [1, 1] }, access_point: null, validation: null };
+    const withVra = { ...base, plan, vra: presc, vraRateLabel: (r: number) => `${r} u` };
+
+    it('palette: n first steps spread over the ramp; grey for uncovered', () => {
+      expect(VRA_PALETTE).toHaveLength(5);
+      expect(vraClassColors(5)).toEqual([...VRA_PALETTE]);
+      expect(vraClassColors(2)).toEqual([VRA_PALETTE[0], VRA_PALETTE[4]]);
+      expect(vraClassColors(3)).toEqual([VRA_PALETTE[0], VRA_PALETTE[2], VRA_PALETTE[4]]);
+      expect(vraClassColors(1)).toEqual([VRA_PALETTE[0]]);
+      expect(new Set(vraClassColors(4)).size).toBe(4);
+      expect(VRA_UNCOVERED_COLOR).not.toBe('');
+    });
+    it('no prescription: empty vra source and plain swaths', () => {
+      const s = buildSources({ ...base, plan });
+      expect(s['vra-classes'].features).toHaveLength(0);
+      expect(s.swaths.features[0].properties).toEqual({ index: 3, kind: 'work', hovered: false });
+    });
+    it('emits a fill and a labelled anchor per class polygon', () => {
+      const f = buildSources(withVra)['vra-classes'].features;
+      const fills = f.filter(x => x.properties?.part === 'fill');
+      const labels = f.filter(x => x.properties?.part === 'label');
+      expect(fills.map(x => x.properties?.color)).toEqual([vraClassColors(3)[0], vraClassColors(3)[2]]);
+      expect(labels.map(x => x.properties?.label)).toEqual(['80 u', '120 u']);
+      expect(labels.every(x => x.geometry.type === 'Point')).toBe(true);
+    });
+    it('colours swath segments by class from the prescription; uncovered grey', () => {
+      const f = buildSources({ ...withVra, hoveredSwath: 3 }).swaths.features;
+      expect(f).toHaveLength(2);
+      expect(f[0].properties).toMatchObject({ index: 3, kind: 'work', hovered: true, color: vraClassColors(3)[0] });
+      expect(f[1].properties).toMatchObject({ index: 3, color: VRA_UNCOVERED_COLOR });
+    });
+    it('changedSources reacts to the prescription and drives swaths', () => {
+      const a = { ...base, plan };
+      expect(changedSources(a, withVra)).toEqual(expect.arrayContaining(['vra-classes', 'swaths']));
+      expect(changedSources(withVra, { ...withVra, hoveredSwath: 3 })).toEqual(['swaths']);
+    });
+    it('vra-classes layers sit between zones-margin and swaths', () => {
+      const ids = layerSpecs().map(l => (l as any).source);
+      expect(ids.indexOf('vra-classes')).toBeGreaterThan(ids.lastIndexOf('zones-margin'));
+      expect(ids.lastIndexOf('vra-classes')).toBeLessThan(ids.indexOf('swaths'));
+    });
   });
 });

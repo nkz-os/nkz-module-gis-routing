@@ -349,7 +349,8 @@
       "access": "Acesso",
       "route": "Rota",
       "swaths": "Passagens",
-      "warnings": "Avisos"
+      "warnings": "Avisos",
+      "vra": "Classes VRA"
     }
   }
 }

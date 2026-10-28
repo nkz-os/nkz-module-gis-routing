@@ -25,7 +25,8 @@ import { ResultStrip } from './ResultStrip';
 import { ActionsBar } from './ActionsBar';
 
 const NS = 'gis-routing';
-const LAYER_GROUPS: readonly LayerGroup[] = ['zones', 'access', 'route', 'swaths', 'warnings'];
+const LAYER_GROUPS: readonly LayerGroup[] = ['zones', 'access', 'route', 'swaths', 'warnings', 'vra'];
+const VRA_UNIT_LABEL = { kg_ha: 'kg/ha', l_ha: 'L/ha' } as const;
 
 export function computeAccessIssue(
   point: GeoJSON.Point | null,
@@ -86,7 +87,7 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({ onContextChange }) => {
   const [mapReady, setMapReady] = useState(false);
   const [mapError, setMapError] = useState(false);
   const [visibleLayers, setVisibleLayers] = useState<Record<LayerGroup, boolean>>({
-    zones: true, access: true, route: true, swaths: true, warnings: true,
+    zones: true, access: true, route: true, swaths: true, warnings: true, vra: true,
   });
 
   const stateRef = useRef(state);
@@ -127,6 +128,12 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({ onContextChange }) => {
 
   const plan = state.result?.plan ?? null;
 
+  const vraPrescription = state.vra.prescription;
+  const vraRateLabel = useMemo(
+    () => (rate: number) => `${rate} ${vraPrescription ? VRA_UNIT_LABEL[vraPrescription.unit] : ''}`.trim(),
+    [vraPrescription],
+  );
+
   const model = useMemo<MapModel>(
     () => ({
       parcel: state.parcel?.geometry ?? null,
@@ -140,9 +147,11 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({ onContextChange }) => {
       hoveredSwath,
       selectedWarning,
       focus,
+      vra: vraPrescription,
+      vraRateLabel,
     }),
     [state.parcel, state.zones, state.machine.widthM, state.accessPoint, state.accessIssue,
-      plan, state.stale, hoveredSwath, selectedWarning, focus],
+      plan, state.stale, hoveredSwath, selectedWarning, focus, vraPrescription, vraRateLabel],
   );
 
   // The strip appearing shrinks the visible map: refit once (not on every collapse/expand).
@@ -319,7 +328,7 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({ onContextChange }) => {
 
         {!mapError && (
           <div className="absolute top-2 left-2 z-10 p-2 rounded-md bg-nkz-surface border border-nkz-border space-y-1">
-            {LAYER_GROUPS.map((g) => (
+            {LAYER_GROUPS.filter((g) => g !== 'vra' || vraPrescription !== null).map((g) => (
               <Checkbox
                 key={g}
                 id={`layer-${g}`}
