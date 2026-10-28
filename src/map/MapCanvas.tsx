@@ -170,7 +170,7 @@ export const MapCanvas: React.FC<MapCanvasProps> = (props) => {
             }),
             new td.TerraDrawPointMode({ styles: { pointColor: '#2563EB', pointWidth: 6 } }),
             // Non-interactive mode used while a request runs (features stay visible).
-            new td.TerraDrawRenderMode({ styles: {} }),
+            new td.TerraDrawRenderMode({ modeName: 'render', styles: {} }),
             new td.TerraDrawSelectMode({
               flags: {
                 polygon: { feature: { draggable: false, coordinates: { midpoints: false, draggable: true, deletable: true } } },
