@@ -118,3 +118,69 @@ describe('workReducer', () => {
     expect(s.result?.plan.pattern).toBe('spiral'); expect(s.result?.operationId).toBe('urn:op:2');
   });
 });
+
+describe('VRA slice', () => {
+  const full = (s: any, rates: (number | null)[] = [10, 20, 30]) => workReducer(s, { type: 'VRA_CONFIG_CHANGED', config: {
+    enabled: true, classes: [0, 33, 67].map((m, i) => ({ minPct: m, maxPct: [33, 67, 100][i], rate: rates[i] as any })) } });
+  const prescription = { unit: 'kg_ha', product: 'P', classes: [], zones: { type: 'FeatureCollection', features: [] },
+    swath_segments: { type: 'FeatureCollection', features: [] }, warnings: [] } as any;
+  const planWith = (p: any) => { const r = plan(true); (r.plan as any).prescription = p; return r; };
+  const generated = (s: any, p: any) => workReducer(workReducer(s, { type: 'GENERATE_REQUESTED' }), { type: 'GENERATED', response: planWith(p) });
+
+  it('has the default config', () => {
+    const c = initialWorkState.vra.config;
+    expect(c.enabled).toBe(false); expect(c.unit).toBe('kg_ha'); expect(c.invert).toBe(false);
+    expect(c.classes.map((k) => [k.minPct, k.maxPct, k.rate])).toEqual([[0, 33, null], [33, 67, null], [67, 100, null]]);
+    expect(initialWorkState.vra.status).toBe('idle');
+  });
+  it('config change does not mark stale', () => {
+    const g = generated(machineReady(loaded()), null);
+    const s = workReducer(g, { type: 'VRA_CONFIG_CHANGED', config: { invert: true } });
+    expect(s.stale).toBe(false); expect(s.vra.config.invert).toBe(true); expect(s.phase).toBe('generated');
+  });
+  it('GENERATED keeps config, takes or clears prescription', () => {
+    const r = full(machineReady(loaded()));
+    const withP = generated(r, prescription);
+    expect(withP.vra.prescription).toBe(prescription); expect(withP.vra.config.enabled).toBe(true);
+    const again = generated(workReducer(withP, { type: 'PATTERN_CHANGED', pattern: { pattern: 'snake' } }), null);
+    expect(again.vra.prescription).toBeNull(); expect(again.vra.config.enabled).toBe(true);
+  });
+  it('SAVE_RESULT takes the plan prescription', () => {
+    const g = generated(machineReady(loaded()), null);
+    const s = workReducer(workReducer(g, { type: 'SAVE_REQUESTED' }), { type: 'SAVE_RESULT', response: { ...planWith(prescription), persisted: true, operation_id: 'urn:op:1' } });
+    expect(s.vra.prescription).toBe(prescription);
+  });
+  it('distribution / prescription / failure events drive status', () => {
+    const dist = { source: 'orion', variable: 'NDVI', zones: [], missing: [], percentiles: [] } as any;
+    let s = workReducer(initialWorkState, { type: 'VRA_DISTRIBUTION_LOADED', distribution: dist });
+    expect(s.vra.distribution).toBe(dist);
+    s = workReducer(s, { type: 'VRA_PRESCRIPTION_RESULT', prescription });
+    expect(s.vra.prescription).toBe(prescription); expect(s.vra.status).toBe('ready');
+    s = workReducer(s, { type: 'VRA_FAILED', error: { code: 'INVALID_VRA', detail: 'x', params: {} } });
+    expect(s.vra.status).toBe('error'); expect(s.vra.error?.code).toBe('INVALID_VRA');
+    s = workReducer(s, { type: 'VRA_CONFIG_CHANGED', config: { product: 'A' } });
+    expect(s.vra.error).toBeNull();
+  });
+  it('stepStatus vra: disabled / optional / complete', () => {
+    expect(stepStatus(loaded(), 'vra')).toBe('disabled');
+    const g = generated(machineReady(loaded()), null);
+    expect(stepStatus(g, 'vra')).toBe('optional');
+    expect(stepStatus(generated(full(machineReady(loaded())), prescription), 'vra')).toBe('complete');
+  });
+  it('buildGenerateRequest sends vra only when enabled with all rates >= 0', () => {
+    const base = machineReady(loaded());
+    expect(buildGenerateRequest(base, false)).not.toHaveProperty('vra');
+    expect(buildGenerateRequest(full(base, [10, null, 30]), false)).not.toHaveProperty('vra');
+    expect(buildGenerateRequest(full(base, [10, -1, 30]), false)).not.toHaveProperty('vra');
+    const off = workReducer(full(base), { type: 'VRA_CONFIG_CHANGED', config: { enabled: false } });
+    expect(buildGenerateRequest(off, false)).not.toHaveProperty('vra');
+    const body = buildGenerateRequest(workReducer(full(base, [0, 20, 30]), { type: 'VRA_CONFIG_CHANGED', config: { product: 'N', variable: 'NDVI' } }), true);
+    expect(body.vra).toEqual({ enabled: true, source: 'orion', variable: 'NDVI', unit: 'kg_ha', product: 'N', invert: false,
+      classes: [{ min_pct: 0, max_pct: 33, rate: 0 }, { min_pct: 33, max_pct: 67, rate: 20 }, { min_pct: 67, max_pct: 100, rate: 30 }] });
+  });
+  it('external source sends external_features', () => {
+    const fc = { type: 'FeatureCollection', features: [] };
+    const s = workReducer(full(machineReady(loaded())), { type: 'VRA_CONFIG_CHANGED', config: { source: 'external', externalFeatures: fc as any } });
+    expect(buildGenerateRequest(s, false).vra?.external_features).toEqual(fc);
+  });
+});

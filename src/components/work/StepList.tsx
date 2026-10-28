@@ -56,6 +56,8 @@ const BADGE: Record<ReturnType<typeof stepStatus>, { intent: 'default' | 'positi
   done: { intent: 'positive', glyph: '✓' },
   warning: { intent: 'warning', glyph: '!' },
   disabled: { intent: 'default', glyph: '–' },
+  complete: { intent: 'positive', glyph: '✓' },
+  optional: { intent: 'default', glyph: '' },
 };
 
 interface Props extends StepProps {
