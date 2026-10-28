@@ -235,7 +235,9 @@
         "active": "Pas actiu",
         "done": "Completat",
         "warning": "Requereix atenció",
-        "disabled": "No disponible"
+        "disabled": "No disponible",
+        "complete": "Complet",
+        "optional": "Opcional"
       }
     },
     "zones": {
@@ -273,14 +275,45 @@
       "summary": "{{pattern}} · capçaleres: {{n}}"
     },
     "vra": {
-      "nextPhase": "Prescripció variable: propera fase"
+      "enable": "Aplicar dosi variable",
+      "source": "Origen de les zones",
+      "sourceOrion": "Zones de maneig de la parcel·la",
+      "sourceExternal": "Fitxer extern",
+      "upload": "Fitxer de zones (GeoJSON o CSV)",
+      "noZones": "La parcel·la no té zones de maneig.",
+      "generateZones": "Generar zones ({{n}})",
+      "polling": "Generant zones…",
+      "timeout": "La generació de zones triga massa.",
+      "retry": "Reintentar",
+      "missingTitle": "Zones sense valor",
+      "missingZone": "{{id}}: sense valor; regenera les zones",
+      "regenerateZones": "Regenerar zones",
+      "histogram": "Superfície per valor de zona, amb els talls de classe",
+      "classCount": "Nombre de classes",
+      "cut": "Tall {{n}}",
+      "product": "Producte",
+      "unit": "Unitat",
+      "colClass": "Classe",
+      "colRange": "Rang",
+      "colHa": "ha",
+      "colRate": "Dosi ({{unit}})",
+      "colTotal": "Producte",
+      "rateOfClass": "Dosi de la classe {{n}}",
+      "total": "Total",
+      "invert": "Invertir",
+      "calculating": "Calculant la prescripció…",
+      "summaryOn": "{{n}} classes",
+      "summaryOff": "Sense aplicar"
     },
     "warnings": {
       "UNREACHED_AREA": "Zona sense cobrir de {{ha}} ha",
       "HEADLAND_WIDENED": "Capçalera eixamplada de {{requested}} a {{applied}} passades",
       "MANUAL_TURN": "Gir manual entre les passades {{from_swath}} i {{to_swath}}",
       "ACCESS_PATH_UNAVAILABLE": "No s'ha pogut traçar el camí d'accés",
-      "UNKNOWN": "Avís {{code}}"
+      "UNKNOWN": "Avís {{code}}",
+      "VRA_UNCOVERED": "{{length_m}} m de ruta queden fora de les zones de maneig: no s'aplica dosi",
+      "VRA_DEGENERATE": "Totes les zones tenen el mateix valor: s'aplica una sola classe",
+      "VRA_ZONE_INVALID": "La zona {{zone_id}} té una geometria no vàlida i s'ha ignorat"
     },
     "fallbacks": {
       "headland": "Passades de capçalera ajustades de {{a}} a {{b}}",
@@ -300,7 +333,8 @@
       "ENGINE_FAILURE": "Error intern del motor de rutes",
       "PERSIST_FAILED": "No s'ha pogut desar l'operació",
       "UNKNOWN": "No s'ha pogut generar la ruta: {{detail}}",
-      "CONFIG_UNVERIFIED": "No s'ha pogut verificar la configuració desada. No s'ha generat res; torna-ho a provar."
+      "CONFIG_UNVERIFIED": "No s'ha pogut verificar la configuració desada. No s'ha generat res; torna-ho a provar.",
+      "INVALID_VRA": "La configuració de dosi variable no és vàlida"
     },
     "actions": {
       "regenerate": "Regenerar",

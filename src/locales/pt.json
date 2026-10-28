@@ -235,7 +235,9 @@
         "active": "Passo ativo",
         "done": "Concluído",
         "warning": "Requer atenção",
-        "disabled": "Indisponível"
+        "disabled": "Indisponível",
+        "complete": "Completo",
+        "optional": "Opcional"
       }
     },
     "zones": {
@@ -273,14 +275,45 @@
       "summary": "{{pattern}} · cabeceiras: {{n}}"
     },
     "vra": {
-      "nextPhase": "Prescrição variável: próxima fase"
+      "enable": "Aplicar dose variável",
+      "source": "Origem das zonas",
+      "sourceOrion": "Zonas de gestão da parcela",
+      "sourceExternal": "Ficheiro externo",
+      "upload": "Ficheiro de zonas (GeoJSON ou CSV)",
+      "noZones": "A parcela não tem zonas de gestão.",
+      "generateZones": "Gerar zonas ({{n}})",
+      "polling": "A gerar zonas…",
+      "timeout": "A geração de zonas está a demorar demasiado.",
+      "retry": "Tentar novamente",
+      "missingTitle": "Zonas sem valor",
+      "missingZone": "{{id}}: sem valor; regenere as zonas",
+      "regenerateZones": "Regenerar zonas",
+      "histogram": "Área por valor de zona, com os cortes de classe",
+      "classCount": "Número de classes",
+      "cut": "Corte {{n}}",
+      "product": "Produto",
+      "unit": "Unidade",
+      "colClass": "Classe",
+      "colRange": "Intervalo",
+      "colHa": "ha",
+      "colRate": "Dose ({{unit}})",
+      "colTotal": "Produto",
+      "rateOfClass": "Dose da classe {{n}}",
+      "total": "Total",
+      "invert": "Inverter",
+      "calculating": "A calcular a prescrição…",
+      "summaryOn": "{{n}} classes",
+      "summaryOff": "Não aplicada"
     },
     "warnings": {
       "UNREACHED_AREA": "Zona não coberta de {{ha}} ha",
       "HEADLAND_WIDENED": "Cabeceira alargada de {{requested}} para {{applied}} passagens",
       "MANUAL_TURN": "Curva manual entre as passagens {{from_swath}} e {{to_swath}}",
       "ACCESS_PATH_UNAVAILABLE": "Não foi possível traçar o caminho de acesso",
-      "UNKNOWN": "Aviso {{code}}"
+      "UNKNOWN": "Aviso {{code}}",
+      "VRA_UNCOVERED": "{{length_m}} m do percurso ficam fora das zonas de gestão: nenhuma dose aplicada",
+      "VRA_DEGENERATE": "Todas as zonas têm o mesmo valor: aplica-se uma única classe",
+      "VRA_ZONE_INVALID": "A zona {{zone_id}} tem uma geometria inválida e foi ignorada"
     },
     "fallbacks": {
       "headland": "Passagens de cabeceira ajustadas de {{a}} para {{b}}",
@@ -300,7 +333,8 @@
       "ENGINE_FAILURE": "Erro interno do motor de rotas",
       "PERSIST_FAILED": "Não foi possível guardar a operação",
       "UNKNOWN": "Não foi possível gerar a rota: {{detail}}",
-      "CONFIG_UNVERIFIED": "Não foi possível verificar a configuração guardada. Nada foi gerado; tente novamente."
+      "CONFIG_UNVERIFIED": "Não foi possível verificar a configuração guardada. Nada foi gerado; tente novamente.",
+      "INVALID_VRA": "A configuração de dose variável não é válida"
     },
     "actions": {
       "regenerate": "Regenerar",

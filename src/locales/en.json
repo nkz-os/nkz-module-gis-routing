@@ -235,7 +235,9 @@
         "active": "Active step",
         "done": "Done",
         "warning": "Needs attention",
-        "disabled": "Unavailable"
+        "disabled": "Unavailable",
+        "complete": "Complete",
+        "optional": "Optional"
       }
     },
     "zones": {
@@ -273,14 +275,45 @@
       "summary": "{{pattern}} · headlands: {{n}}"
     },
     "vra": {
-      "nextPhase": "Variable-rate prescription: next phase"
+      "enable": "Apply variable rate",
+      "source": "Zone source",
+      "sourceOrion": "Parcel management zones",
+      "sourceExternal": "External file",
+      "upload": "Zones file (GeoJSON or CSV)",
+      "noZones": "This parcel has no management zones.",
+      "generateZones": "Generate zones ({{n}})",
+      "polling": "Generating zones…",
+      "timeout": "Zone generation is taking too long.",
+      "retry": "Retry",
+      "missingTitle": "Zones without a value",
+      "missingZone": "{{id}}: no value; regenerate the zones",
+      "regenerateZones": "Regenerate zones",
+      "histogram": "Area by zone value, with class cuts",
+      "classCount": "Number of classes",
+      "cut": "Cut {{n}}",
+      "product": "Product",
+      "unit": "Unit",
+      "colClass": "Class",
+      "colRange": "Range",
+      "colHa": "ha",
+      "colRate": "Rate ({{unit}})",
+      "colTotal": "Product",
+      "rateOfClass": "Rate of class {{n}}",
+      "total": "Total",
+      "invert": "Invert",
+      "calculating": "Calculating prescription…",
+      "summaryOn": "{{n}} classes",
+      "summaryOff": "Not applied"
     },
     "warnings": {
       "UNREACHED_AREA": "Uncovered area of {{ha}} ha",
       "HEADLAND_WIDENED": "Headland widened from {{requested}} to {{applied}} passes",
       "MANUAL_TURN": "Manual turn between swaths {{from_swath}} and {{to_swath}}",
       "ACCESS_PATH_UNAVAILABLE": "Access path could not be drawn",
-      "UNKNOWN": "Warning {{code}}"
+      "UNKNOWN": "Warning {{code}}",
+      "VRA_UNCOVERED": "{{length_m}} m of route lie outside the management zones: no rate applied",
+      "VRA_DEGENERATE": "All zones have the same value: a single class applies",
+      "VRA_ZONE_INVALID": "Zone {{zone_id}} has an invalid geometry and was ignored"
     },
     "fallbacks": {
       "headland": "Headland passes adjusted from {{a}} to {{b}}",
@@ -300,7 +333,8 @@
       "ENGINE_FAILURE": "Internal routing engine error",
       "PERSIST_FAILED": "The operation could not be saved",
       "UNKNOWN": "The route could not be generated: {{detail}}",
-      "CONFIG_UNVERIFIED": "The saved configuration could not be verified. Nothing was generated; retry."
+      "CONFIG_UNVERIFIED": "The saved configuration could not be verified. Nothing was generated; retry.",
+      "INVALID_VRA": "The variable-rate configuration is not valid"
     },
     "actions": {
       "regenerate": "Regenerate",

@@ -235,7 +235,9 @@
         "active": "Étape active",
         "done": "Terminé",
         "warning": "Nécessite attention",
-        "disabled": "Indisponible"
+        "disabled": "Indisponible",
+        "complete": "Terminé",
+        "optional": "Facultatif"
       }
     },
     "zones": {
@@ -273,14 +275,45 @@
       "summary": "{{pattern}} · fourrières : {{n}}"
     },
     "vra": {
-      "nextPhase": "Prescription variable : phase suivante"
+      "enable": "Appliquer une dose variable",
+      "source": "Origine des zones",
+      "sourceOrion": "Zones de gestion de la parcelle",
+      "sourceExternal": "Fichier externe",
+      "upload": "Fichier de zones (GeoJSON ou CSV)",
+      "noZones": "La parcelle n'a pas de zones de gestion.",
+      "generateZones": "Générer les zones ({{n}})",
+      "polling": "Génération des zones…",
+      "timeout": "La génération des zones prend trop de temps.",
+      "retry": "Réessayer",
+      "missingTitle": "Zones sans valeur",
+      "missingZone": "{{id}} : sans valeur ; régénérez les zones",
+      "regenerateZones": "Régénérer les zones",
+      "histogram": "Surface par valeur de zone, avec les seuils de classe",
+      "classCount": "Nombre de classes",
+      "cut": "Seuil {{n}}",
+      "product": "Produit",
+      "unit": "Unité",
+      "colClass": "Classe",
+      "colRange": "Plage",
+      "colHa": "ha",
+      "colRate": "Dose ({{unit}})",
+      "colTotal": "Produit",
+      "rateOfClass": "Dose de la classe {{n}}",
+      "total": "Total",
+      "invert": "Inverser",
+      "calculating": "Calcul de la prescription…",
+      "summaryOn": "{{n}} classes",
+      "summaryOff": "Non appliquée"
     },
     "warnings": {
       "UNREACHED_AREA": "Zone non couverte de {{ha}} ha",
       "HEADLAND_WIDENED": "Fourrière élargie de {{requested}} à {{applied}} passages",
       "MANUAL_TURN": "Demi-tour manuel entre les passages {{from_swath}} et {{to_swath}}",
       "ACCESS_PATH_UNAVAILABLE": "Le chemin d'accès n'a pas pu être tracé",
-      "UNKNOWN": "Alerte {{code}}"
+      "UNKNOWN": "Alerte {{code}}",
+      "VRA_UNCOVERED": "{{length_m}} m de parcours sont hors des zones de gestion : aucune dose appliquée",
+      "VRA_DEGENERATE": "Toutes les zones ont la même valeur : une seule classe s'applique",
+      "VRA_ZONE_INVALID": "La zone {{zone_id}} a une géométrie invalide et a été ignorée"
     },
     "fallbacks": {
       "headland": "Passages de fourrière ajustés de {{a}} à {{b}}",
@@ -300,7 +333,8 @@
       "ENGINE_FAILURE": "Erreur interne du moteur d'itinéraires",
       "PERSIST_FAILED": "L'opération n'a pas pu être enregistrée",
       "UNKNOWN": "L'itinéraire n'a pas pu être généré : {{detail}}",
-      "CONFIG_UNVERIFIED": "Impossible de vérifier la configuration enregistrée. Rien n'a été généré ; réessayez."
+      "CONFIG_UNVERIFIED": "Impossible de vérifier la configuration enregistrée. Rien n'a été généré ; réessayez.",
+      "INVALID_VRA": "La configuration de dose variable n'est pas valide"
     },
     "actions": {
       "regenerate": "Régénérer",
