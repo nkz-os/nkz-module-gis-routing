@@ -303,7 +303,8 @@
       "invert": "Alderantzikatu",
       "calculating": "Preskripzioa kalkulatzen…",
       "summaryOn": "{{n}} klase",
-      "summaryOff": "Aplikatu gabe"
+      "summaryOff": "Aplikatu gabe",
+      "uploadPrompt": "Igo zonen fitxategi bat jarraitzeko."
     },
     "warnings": {
       "UNREACHED_AREA": "{{ha}} ha-ko eremu estali gabea",

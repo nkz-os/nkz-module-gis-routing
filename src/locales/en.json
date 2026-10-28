@@ -303,7 +303,8 @@
       "invert": "Invert",
       "calculating": "Calculating prescription…",
       "summaryOn": "{{n}} classes",
-      "summaryOff": "Not applied"
+      "summaryOff": "Not applied",
+      "uploadPrompt": "Upload a zones file to continue."
     },
     "warnings": {
       "UNREACHED_AREA": "Uncovered area of {{ha}} ha",

@@ -190,10 +190,18 @@ export function workReducer(state: WorkState, event: WorkEvent): WorkState {
       return afterEdit(state, { ...state, machine: { ...state.machine, ...event.machine } });
     case 'PATTERN_CHANGED':
       return afterEdit(state, { ...state, pattern: { ...state.pattern, ...event.pattern } });
-    case 'VRA_CONFIG_CHANGED':
+    case 'VRA_CONFIG_CHANGED': {
       // Deliberately not an "edit": changing the VRA config never marks the route stale.
-      return { ...state, vra: { ...state.vra, config: { ...state.vra.config, ...event.config }, error: null,
-        status: state.vra.status === 'error' ? 'idle' : state.vra.status } };
+      const config = { ...state.vra.config, ...event.config };
+      const status = state.vra.status === 'error' ? 'idle' : state.vra.status;
+      if (config.enabled && toVraRequest(config) !== null) {
+        return { ...state, vra: { ...state.vra, config, error: null, status } };
+      }
+      // Disabled or incomplete: what Save would send is "no VRA", so no prescription may stay
+      // visible, and a result still in flight must be ignored (new requestId).
+      return { ...state, vra: { ...state.vra, config, error: null, prescription: null,
+        requestId: state.vra.requestId + 1, status: status === 'loading' ? 'idle' : status } };
+    }
     case 'VRA_REQUESTED':
       if (event.parcelRequestId !== state.parcelRequestId) return state;
       return { ...state, vra: { ...state.vra, requestId: event.requestId, status: 'loading', error: null } };
@@ -259,8 +267,8 @@ export function stepStatus(
 ): 'pending' | 'active' | 'done' | 'warning' | 'disabled' | 'complete' | 'optional' {
   if (step === 'vra') {
     if (s.result === null) return 'disabled';
-    if (s.vra.prescription !== null) return 'complete';
-    return s.vra.config.enabled ? 'pending' : 'optional';
+    if (!s.vra.config.enabled) return 'optional';
+    return s.vra.prescription !== null && toVraRequest(s.vra.config) !== null ? 'complete' : 'pending';
   }
   if (step === 'zones' && s.zones.some((z) => !z.valid)) return 'warning';
   if (step === 'access' && s.accessIssue !== null) return 'warning';

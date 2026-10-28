@@ -303,7 +303,8 @@
       "invert": "Invertir",
       "calculating": "Calculant la prescripció…",
       "summaryOn": "{{n}} classes",
-      "summaryOff": "Sense aplicar"
+      "summaryOff": "Sense aplicar",
+      "uploadPrompt": "Puja un fitxer de zones per continuar."
     },
     "warnings": {
       "UNREACHED_AREA": "Zona sense cobrir de {{ha}} ha",

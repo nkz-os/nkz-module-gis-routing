@@ -12,6 +12,10 @@ export type ZonesJob = 'idle' | 'polling' | 'timeout';
 
 export interface VraSync {
   job: ZonesJob;
+  /** Last error of a zone poll (polling continues until the deadline). */
+  pollError: NonNullable<WorkState['error']> | null;
+  /** Re-run the failed distribution load / prescription request. */
+  retry: () => void;
   generateZones: () => void;
   uploadFile: (file: File) => Promise<void>;
 }
@@ -35,6 +39,8 @@ export function useVraSync(state: WorkState, dispatch: React.Dispatch<WorkEvent>
   const [job, setJob] = useState<ZonesJob>('idle');
   const pollRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const jobToken = useRef(0);
+  const [pollError, setPollError] = useState<VraSync['pollError']>(null);
+  const [retryTick, setRetryTick] = useState(0);
 
   const parcelId = state.parcel?.id ?? null;
   const parcelRequestId = state.parcelRequestId;
@@ -62,7 +68,7 @@ export function useVraSync(state: WorkState, dispatch: React.Dispatch<WorkEvent>
         if (!cancelled) dispatch({ type: 'VRA_FAILED', parcelRequestId, error: vraError(e) });
       });
     return () => { cancelled = true; };
-  }, [stepActive, parcelId, parcelRequestId, source, dispatch]);
+  }, [stepActive, parcelId, parcelRequestId, source, retryTick, dispatch]);
 
   const generateZones = useCallback(() => {
     const id = stateRef.current.parcel?.id;
@@ -71,6 +77,7 @@ export function useVraSync(state: WorkState, dispatch: React.Dispatch<WorkEvent>
     stopPolling();
     const token = jobToken.current;
     setJob('polling');
+    setPollError(null);
     let ticks = 0;
     const tick = () => {
       pollRef.current = setTimeout(async () => {
@@ -82,10 +89,12 @@ export function useVraSync(state: WorkState, dispatch: React.Dispatch<WorkEvent>
           if (distribution.zones.length > 0 && distribution.missing.length === 0) {
             dispatch({ type: 'VRA_DISTRIBUTION_LOADED', parcelRequestId: prId, distribution });
             setJob('idle');
+            setPollError(null);
             return;
           }
-        } catch {
-          // transient: keep polling until the deadline
+        } catch (e) {
+          // transient: shown, and polling continues until the deadline
+          if (token === jobToken.current) setPollError(vraError(e));
         }
         if (ticks >= ZONES_POLL_MAX_TICKS) setJob('timeout');
         else tick();
@@ -142,7 +151,13 @@ export function useVraSync(state: WorkState, dispatch: React.Dispatch<WorkEvent>
     }, VRA_DEBOUNCE_MS);
     return () => clearTimeout(handle);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [key, plan, parcelId]);
+  }, [key, plan, parcelId, retryTick]);
 
-  return { job, generateZones, uploadFile };
+  const retry = useCallback(() => {
+    lastKey.current = null;
+    dispatch({ type: 'VRA_CONFIG_CHANGED', config: {} });
+    setRetryTick((n) => n + 1);
+  }, [dispatch]);
+
+  return { job, pollError, retry, generateZones, uploadFile };
 }

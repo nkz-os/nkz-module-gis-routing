@@ -3,7 +3,7 @@ import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { i18n } from '@nekazari/sdk';
 import '../../../i18n';
-import { initialWorkState, workReducer, type WorkState } from '../../../state/workMachine';
+import { initialWorkState, stepStatus, workReducer, type WorkState } from '../../../state/workMachine';
 import { useVraSync } from '../../../state/useVraSync';
 import { StepVra } from '../StepVra';
 import { equalClasses, moveCut } from '../vraClasses';
@@ -11,7 +11,7 @@ import { equalClasses, moveCut } from '../vraClasses';
 vi.mock('@nekazari/ui-kit', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@nekazari/ui-kit')>();
   const Select = (p: any) => (
-    <select aria-label={p['aria-label']} value={p.value} onChange={(e) => p.onValueChange(e.target.value)} disabled={p.disabled}>
+    <select value={p.value} onChange={(e) => p.onValueChange(e.target.value)} disabled={p.disabled}>
       {p.options.map((o: any) => <option key={o.value} value={o.value}>{o.label}</option>)}
     </select>
   );
@@ -123,7 +123,7 @@ describe('StepVra', () => {
 
   it('class count redistributes the cuts and adds rows', async () => {
     await mount(baseState());
-    fireEvent.change(screen.getAllByRole('combobox')[1], { target: { value: '4' } });
+    fireEvent.change(screen.getByLabelText('Número de clases'), { target: { value: '4' } });
     expect(screen.getAllByTestId('vra-row')).toHaveLength(4);
     expect(latest.vra.config.classes.map((c) => c.minPct)).toEqual([0, 25, 50, 75]);
     expect(screen.getAllByRole('slider')).toHaveLength(3);
@@ -201,7 +201,7 @@ describe('StepVra', () => {
 
   it('is locked while generating', async () => {
     await mount(baseState({ phase: 'generating' }));
-    expect((screen.getAllByRole('combobox')[1] as HTMLSelectElement).disabled).toBe(true);
+    expect((screen.getByLabelText('Número de clases') as HTMLSelectElement).disabled).toBe(true);
     expect((screen.getByLabelText('Dosis de la clase 1') as HTMLInputElement).disabled).toBe(true);
     expect((screen.getByRole('button', { name: 'Invertir' }) as HTMLButtonElement).disabled).toBe(true);
   });
@@ -268,5 +268,78 @@ describe('zone generation polling', () => {
     await flush(0);
     expect(screen.getByRole('alert')).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Generar zonas (8)' })).toBeTruthy();
+  });
+});
+
+
+const rated = (rates: (number | null)[]) => rates.map((rate, i) => ({ minPct: [0, 33, 67][i], maxPct: [33, 67, 100][i], rate }));
+
+describe('prescription follows the config Save would send', () => {
+  const withPresc = () => baseState({}, { prescription: presc(), status: 'ready' }, { classes: rated([1, 2, 3]) });
+
+  it('disabling VRA clears the prescription; the step is optional, not complete', () => {
+    const s = withPresc();
+    expect(stepStatus(s, 'vra')).toBe('complete');
+    const off = workReducer(s, { type: 'VRA_CONFIG_CHANGED', config: { enabled: false } });
+    expect(off.vra.prescription).toBeNull();
+    expect(stepStatus(off, 'vra')).toBe('optional');
+  });
+
+  it('clearing a rate clears the prescription', () => {
+    const s = withPresc();
+    const next = workReducer(s, { type: 'VRA_CONFIG_CHANGED', config: { classes: rated([1, null, 3]) } });
+    expect(next.vra.prescription).toBeNull();
+    expect(stepStatus(next, 'vra')).toBe('pending');
+  });
+
+  it('a result in flight when VRA is disabled is ignored', () => {
+    let s = withPresc();
+    s = workReducer(s, { type: 'VRA_REQUESTED', parcelRequestId: 1, requestId: s.vra.requestId + 1 });
+    const inflight = s.vra.requestId;
+    s = workReducer(s, { type: 'VRA_CONFIG_CHANGED', config: { enabled: false } });
+    s = workReducer(s, { type: 'VRA_PRESCRIPTION_RESULT', parcelRequestId: 1, requestId: inflight, prescription: presc() });
+    expect(s.vra.prescription).toBeNull();
+    expect(s.vra.status).toBe('idle');
+  });
+
+  it('a valid edit keeps the prescription', () => {
+    const next = workReducer(withPresc(), { type: 'VRA_CONFIG_CHANGED', config: { classes: rated([5, 2, 3]) } });
+    expect(next.vra.prescription).not.toBeNull();
+  });
+});
+
+describe('StepVra failure and source handling', () => {
+  const cfg = { classes: rated([1, 2, 3]) };
+
+  it('a failed prescription request shows the error and retries on demand', async () => {
+    (api.prescription as any).mockRejectedValueOnce(new Error('boom'));
+    await mount(baseState({}, {}, cfg));
+    fireEvent.change(screen.getByLabelText('Dosis de la clase 1'), { target: { value: '9' } });
+    await flush(500);
+    expect(screen.getByRole('alert')).toBeTruthy();
+    expect(api.prescription).toHaveBeenCalledTimes(1);
+    fireEvent.click(screen.getByRole('button', { name: 'Reintentar' }));
+    await flush(500);
+    expect(api.prescription).toHaveBeenCalledTimes(2);
+    expect(latest.vra.prescription).not.toBeNull();
+  });
+
+  it('shows poll errors while polling continues', async () => {
+    (api.getDistribution as any).mockResolvedValue({ source: 'orion', variable: 'NDVI', zones: [], missing: [], percentiles: [] });
+    (api.requestZones as any).mockResolvedValue({});
+    await mount(baseState());
+    fireEvent.click(screen.getByRole('button', { name: 'Generar zonas (8)' }));
+    await flush(0);
+    (api.getDistribution as any).mockRejectedValue(new Error('down'));
+    await flush(5000);
+    expect(screen.getByTestId('vra-pollerror')).toBeTruthy();
+    expect(screen.getByText('Generando zonas…')).toBeTruthy();
+  });
+
+  it('external source without an upload hides the parcel zones and asks for a file', async () => {
+    await mount(baseState({}, { distribution: dist([0.3, 0.6]) }, { source: 'external' }));
+    expect(screen.queryByTestId('vra-histogram')).toBeNull();
+    expect(screen.queryByTestId('vra-table')).toBeNull();
+    expect(screen.getByTestId('vra-uploadprompt')).toBeTruthy();
   });
 });

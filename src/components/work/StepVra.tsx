@@ -53,8 +53,10 @@ export const StepVra: React.FC<Props> = ({ state, dispatch, sync }) => {
   const change = (patch: Partial<VraConfig>) => dispatch({ type: 'VRA_CONFIG_CHANGED', config: patch });
   const unitLabel = UNIT_LABEL[config.unit];
   const colors = vraClassColors(config.classes.length);
-  const zones = distribution?.zones ?? [];
-  const missing = distribution?.missing ?? [];
+  // A distribution of another source (e.g. the parcel's while "external" has no upload yet) is not shown.
+  const shown = distribution && distribution.source === config.source ? distribution : null;
+  const zones = shown?.zones ?? [];
+  const missing = shown?.missing ?? [];
   const polling = sync.job === 'polling';
 
   const tr = (scope: 'errors' | 'warnings', code: string, params: Record<string, unknown>, detail?: string) =>
@@ -75,8 +77,8 @@ export const StepVra: React.FC<Props> = ({ state, dispatch, sync }) => {
 
       {config.enabled && (
         <>
-          <div>
-            <label className="text-nkz-sm text-nkz-text-secondary">{t('work.vra.source')}</label>
+          <label className="block">
+            <span className="text-nkz-sm text-nkz-text-secondary">{t('work.vra.source')}</span>
             <Select
               value={config.source}
               disabled={locked}
@@ -87,7 +89,7 @@ export const StepVra: React.FC<Props> = ({ state, dispatch, sync }) => {
                 { value: 'external', label: t('work.vra.sourceExternal') },
               ]}
             />
-          </div>
+          </label>
 
           {config.source === 'external' && (
             <div>
@@ -104,6 +106,9 @@ export const StepVra: React.FC<Props> = ({ state, dispatch, sync }) => {
                   e.target.value = '';
                 }}
               />
+              {zones.length === 0 && (
+                <p className="text-nkz-sm text-nkz-text-secondary" data-testid="vra-uploadprompt">{t('work.vra.uploadPrompt')}</p>
+              )}
             </div>
           )}
 
@@ -147,12 +152,12 @@ export const StepVra: React.FC<Props> = ({ state, dispatch, sync }) => {
             </div>
           )}
 
-          {distribution && zones.length > 0 && (
+          {shown && zones.length > 0 && (
             <>
-              <VraHistogram distribution={distribution} classes={config.classes} label={t('work.vra.histogram')} />
+              <VraHistogram distribution={shown} classes={config.classes} label={t('work.vra.histogram')} />
 
-              <div>
-                <label className="text-nkz-sm text-nkz-text-secondary">{t('work.vra.classCount')}</label>
+              <label className="block">
+                <span className="text-nkz-sm text-nkz-text-secondary">{t('work.vra.classCount')}</span>
                 <Select
                   value={String(config.classes.length)}
                   disabled={locked}
@@ -160,7 +165,7 @@ export const StepVra: React.FC<Props> = ({ state, dispatch, sync }) => {
                   onValueChange={(v) => change({ classes: equalClasses(Number(v), config.classes) })}
                   options={CLASS_COUNTS.map((n) => ({ value: String(n), label: String(n) }))}
                 />
-              </div>
+              </label>
 
               <div className="space-y-1">
                 {config.classes.slice(1).map((c, i) => (
@@ -189,8 +194,8 @@ export const StepVra: React.FC<Props> = ({ state, dispatch, sync }) => {
                     onChange={(e) => change({ product: e.target.value })}
                   />
                 </div>
-                <div>
-                  <label className="text-nkz-sm text-nkz-text-secondary">{t('work.vra.unit')}</label>
+                <label className="block">
+                  <span className="text-nkz-sm text-nkz-text-secondary">{t('work.vra.unit')}</span>
                   <Select
                     value={config.unit}
                     disabled={locked}
@@ -201,7 +206,7 @@ export const StepVra: React.FC<Props> = ({ state, dispatch, sync }) => {
                       { value: 'l_ha', label: UNIT_LABEL.l_ha },
                     ]}
                   />
-                </div>
+                </label>
               </div>
 
               <table className="w-full text-nkz-sm" data-testid="vra-table">
@@ -266,13 +271,21 @@ export const StepVra: React.FC<Props> = ({ state, dispatch, sync }) => {
             </>
           )}
 
+          {polling && sync.pollError && (
+            <p className="text-nkz-xs text-nkz-danger" data-testid="vra-pollerror">
+              {tr('errors', sync.pollError.code, sync.pollError.params, sync.pollError.detail)}
+            </p>
+          )}
           {status === 'loading' && (
             <p className="flex items-center gap-2 text-nkz-sm text-nkz-text-secondary">
               <Spinner /> {t('work.vra.calculating')}
             </p>
           )}
           {error && (
-            <p className="text-nkz-sm text-nkz-danger" role="alert">{tr('errors', error.code, error.params, error.detail)}</p>
+            <div className="flex items-center justify-between gap-2">
+              <p className="text-nkz-sm text-nkz-danger" role="alert">{tr('errors', error.code, error.params, error.detail)}</p>
+              <Button variant="secondary" size="sm" disabled={locked} onClick={sync.retry}>{t('work.vra.retry')}</Button>
+            </div>
           )}
           {prescription && prescription.warnings.length > 0 && (
             <ul className="space-y-1">

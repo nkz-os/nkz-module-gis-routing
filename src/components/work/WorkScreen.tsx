@@ -8,6 +8,7 @@ import {
   buildGenerateRequest,
   canGenerate,
   initialWorkState,
+  toVraRequest,
   workReducer,
   type WorkState,
 } from '../../state/workMachine';
@@ -131,7 +132,8 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({ onContextChange }) => {
 
   const plan = state.result?.plan ?? null;
 
-  const vraPrescription = state.vra.prescription;
+  const vraPrescription =
+    state.vra.config.enabled && toVraRequest(state.vra.config) !== null ? state.vra.prescription : null;
   const vraRateLabel = useMemo(
     () => (rate: number) => `${rate} ${vraPrescription ? VRA_UNIT_LABEL[vraPrescription.unit] : ''}`.trim(),
     [vraPrescription],

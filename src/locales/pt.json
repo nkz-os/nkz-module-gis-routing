@@ -303,7 +303,8 @@
       "invert": "Inverter",
       "calculating": "A calcular a prescrição…",
       "summaryOn": "{{n}} classes",
-      "summaryOff": "Não aplicada"
+      "summaryOff": "Não aplicada",
+      "uploadPrompt": "Carregue um ficheiro de zonas para continuar."
     },
     "warnings": {
       "UNREACHED_AREA": "Zona não coberta de {{ha}} ha",
