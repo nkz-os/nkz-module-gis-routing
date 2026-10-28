@@ -404,7 +404,8 @@
       "width": "Largura de trabalho (m)",
       "slope": "Declive máximo (°)",
       "slopeHelp": "Entre 0 e 45°. A rota evita terreno mais inclinado (por defeito 15°).",
-      "noWidth": "Esta máquina não tem largura de trabalho: escreva-a."
+      "noWidth": "Esta máquina não tem largura de trabalho: escreva-a.",
+      "pick": "Máquina a usar"
     },
     "calculate": "Calcular rota",
     "status": {
@@ -430,12 +431,14 @@
       "needParcel": "Escolha uma parcela de destino para guardar. Sem ela só pode exportar.",
       "button": "Guardar como operação",
       "saving": "A guardar...",
-      "saved": "Disponível na app · operação #{{id}}"
+      "saved": "Disponível na app · operação #{{id}}",
+      "parcel": "Parcela de destino"
     },
     "export": {
       "title": "Exportar",
       "gpx": "GPX",
-      "geojson": "GeoJSON"
+      "geojson": "GeoJSON",
+      "stale": "Exporta-se a rota do último cálculo; os dados mudaram desde então."
     },
     "context": {
       "zoomIn": "Aproxime para ver parcelas, portões e zonas NO-GO",

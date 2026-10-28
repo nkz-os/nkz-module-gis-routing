@@ -404,7 +404,8 @@
       "width": "Lan-zabalera (m)",
       "slope": "Gehieneko malda (°)",
       "slopeHelp": "0 eta 45° artean. Ibilbideak malda handiagoko lurzorua saihesten du (lehenetsia 15°).",
-      "noWidth": "Makina honek ez du lan-zabalerarik: idatzi ezazu."
+      "noWidth": "Makina honek ez du lan-zabalerarik: idatzi ezazu.",
+      "pick": "Erabili beharreko makina"
     },
     "calculate": "Kalkulatu ibilbidea",
     "status": {
@@ -430,12 +431,14 @@
       "needParcel": "Aukeratu helburuko partzela gordetzeko. Hura gabe esportatu besterik ezin duzu.",
       "button": "Gorde eragiketa gisa",
       "saving": "Gordetzen...",
-      "saved": "Aplikazioan eskuragarri · #{{id}} eragiketa"
+      "saved": "Aplikazioan eskuragarri · #{{id}} eragiketa",
+      "parcel": "Helburuko partzela"
     },
     "export": {
       "title": "Esportatu",
       "gpx": "GPX",
-      "geojson": "GeoJSON"
+      "geojson": "GeoJSON",
+      "stale": "Azken kalkuluaren ibilbidea esportatzen da;ordutik datuak aldatu dira."
     },
     "context": {
       "zoomIn": "Hurbildu partzelak, ateak eta NO-GO eremuak ikusteko",

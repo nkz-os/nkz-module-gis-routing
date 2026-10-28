@@ -26,10 +26,14 @@ vi.mock('../../../map/MapCanvas', () => ({
   },
 }));
 
+let transitMounts = 0;
 vi.mock('../../transit/TransitScreen', () => ({
-  TransitScreen: (props: any) => (
-    <div data-testid="pf">Rutas A-B|{String(props.workContext.parcelId)}|{String(props.workContext.machineWidthM)}|{String(props.workContext.turningRadiusM)}</div>
-  ),
+  TransitScreen: (props: any) => {
+    const [id] = React.useState(() => ++transitMounts);
+    return (
+    <div data-testid="pf" data-mount={id}>Rutas A-B|{String(props.workContext.parcelId)}|{String(props.workContext.machineWidthM)}|{String(props.workContext.turningRadiusM)}</div>
+    );
+  },
 }));
 
 vi.mock('../../../services/api', async (importOriginal) => {
@@ -373,5 +377,20 @@ describe('App', () => {
     await waitFor(() => expect(mapProps().model.parcel).not.toBeNull());
     fireEvent.mouseDown(screen.getByRole('tab', { name: 'Tránsito A-B' }), { button: 0, ctrlKey: false }); // Radix activates on mousedown
     expect((await screen.findByTestId('pf')).textContent).toBe('Rutas A-B|p1|null|null');
+  });
+
+  it('the transit screen is mounted on first visit and survives tab switches (hidden, not unmounted)', async () => {
+    render(<App />);
+    const tab = (name: string) => fireEvent.mouseDown(screen.getByRole('tab', { name }), { button: 0, ctrlKey: false });
+    expect(screen.queryByTestId('pf')).toBeNull();
+    tab('Tránsito A-B');
+    const first = await screen.findByTestId('pf');
+    const mount = first.getAttribute('data-mount');
+    expect(first.parentElement!.className).not.toContain('hidden');
+    tab('Trabajo');
+    await waitFor(() => expect(screen.getByTestId('pf').parentElement!.className).toContain('hidden'));
+    tab('Tránsito A-B');
+    await waitFor(() => expect(screen.getByTestId('pf').parentElement!.className).not.toContain('hidden'));
+    expect(screen.getByTestId('pf').getAttribute('data-mount')).toBe(mount);
   });
 });

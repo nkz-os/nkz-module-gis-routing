@@ -404,7 +404,8 @@
       "width": "Ancho de trabajo (m)",
       "slope": "Pendiente máxima (°)",
       "slopeHelp": "Entre 0 y 45°. La ruta evita terreno más pendiente (por defecto 15°).",
-      "noWidth": "Esta máquina no tiene ancho de trabajo: escríbelo."
+      "noWidth": "Esta máquina no tiene ancho de trabajo: escríbelo.",
+      "pick": "Máquina a usar"
     },
     "calculate": "Calcular ruta",
     "status": {
@@ -430,12 +431,14 @@
       "needParcel": "Elige una parcela de destino para guardar. Sin ella solo puedes exportar.",
       "button": "Guardar como operación",
       "saving": "Guardando...",
-      "saved": "Disponible en la app · operación #{{id}}"
+      "saved": "Disponible en la app · operación #{{id}}",
+      "parcel": "Parcela de destino"
     },
     "export": {
       "title": "Exportar",
       "gpx": "GPX",
-      "geojson": "GeoJSON"
+      "geojson": "GeoJSON",
+      "stale": "Se exporta la ruta del último cálculo; los datos han cambiado desde entonces."
     },
     "context": {
       "zoomIn": "Acércate para ver parcelas, portones y zonas NO-GO",

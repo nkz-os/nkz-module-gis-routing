@@ -1,7 +1,8 @@
 import type { PathAlternative } from './api';
 
+// XML 1.0 forbids most control characters, even escaped.
 const xml = (s: string) =>
-  s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&apos;');
+  s.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F]/g, '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&apos;');
 
 /** Elevation-bearing vertices: the profile when it carries z, else the plain geometry. */
 function vertices(alt: PathAlternative): number[][] {

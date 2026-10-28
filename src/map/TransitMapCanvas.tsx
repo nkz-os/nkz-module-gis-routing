@@ -30,6 +30,23 @@ export interface TransitMapCanvasProps {
 const DEFAULT_CENTER: [number, number] = [-3.7, 40.4];
 const FIT_PADDING = 60;
 
+type Bounds = [number, number, number, number];
+
+/**
+ * fitBounds throws when the padding exceeds the canvas (a hidden tab gives a 0x0 box).
+ * Returns false when the fit had to wait for a usable size.
+ */
+function tryFit(map: MapLibreMap, el: HTMLElement | null, bounds: Bounds, duration: number): boolean {
+  const size = el ? Math.min(el.clientWidth, el.clientHeight) : 0;
+  if (size < 2 * FIT_PADDING + 1) return false;
+  try {
+    map.fitBounds(bounds, { padding: FIT_PADDING, duration, maxZoom: 16 });
+  } catch (e) {
+    console.warn('[gis-routing] fitBounds failed', e);
+  }
+  return true;
+}
+
 function toError(e: unknown): Error {
   return e instanceof Error ? e : new Error(String(e));
 }
@@ -38,6 +55,9 @@ function markerElement(label: string): HTMLDivElement {
   const el = document.createElement('div');
   el.setAttribute('data-testid', `marker-${label}`);
   el.textContent = label;
+  el.setAttribute('role', 'img');
+  el.setAttribute('aria-label', label);
+  el.setAttribute('data-transit-marker', label);
   // Map markers live outside the host's Tailwind scope; sizes are fixed pixels.
   Object.assign(el.style, {
     width: '26px', height: '26px', borderRadius: '9999px', color: '#FFFFFF', fontSize: '13px', fontWeight: '700',
@@ -53,6 +73,8 @@ export const TransitMapCanvas: React.FC<TransitMapCanvasProps> = (props) => {
   const mapRef = useRef<MapLibreMap | null>(null);
   const markersRef = useRef<{ a: Marker | null; b: Marker | null }>({ a: null, b: null });
   const prevModelRef = useRef<TransitMapModel | null>(null);
+  /** A fit requested while the container had no usable size; run on the next resize. */
+  const deferredFitRef = useRef<{ bounds: Bounds; duration: number } | null>(null);
   const [ready, setReady] = useState(false);
 
   const propsRef = useRef(props);
@@ -111,11 +133,14 @@ export const TransitMapCanvas: React.FC<TransitMapCanvasProps> = (props) => {
           created.on('click', (e) => {
             const p = propsRef.current;
             if (!p.pick || p.locked) return;
+            // A click that lands on a marker (or ends a drag) belongs to the marker, not the map.
+            const target = e.originalEvent?.target as Element | null | undefined;
+            if (target && typeof target.closest === 'function' && target.closest('[data-transit-marker]')) return;
             p.onPick(p.pick, [e.lngLat.lng, e.lngLat.lat]);
           });
 
           const b = transitBounds(m) ?? propsRef.current.homeBounds ?? null;
-          if (b) created.fitBounds(b, { padding: FIT_PADDING, duration: 0, maxZoom: 16 });
+          if (b && !tryFit(created, ref.current, b, 0)) deferredFitRef.current = { bounds: b, duration: 0 };
 
           prevModelRef.current = m;
           mapRef.current = created;
@@ -200,7 +225,13 @@ export const TransitMapCanvas: React.FC<TransitMapCanvasProps> = (props) => {
   useEffect(() => {
     const el = ref.current;
     if (!ready || !el || typeof ResizeObserver === 'undefined') return undefined;
-    const ro = new ResizeObserver(() => mapRef.current?.resize());
+    const ro = new ResizeObserver(() => {
+      const map = mapRef.current;
+      if (!map) return;
+      map.resize();
+      const d = deferredFitRef.current;
+      if (d && tryFit(map, el, d.bounds, d.duration)) deferredFitRef.current = null;
+    });
     ro.observe(el);
     return () => ro.disconnect();
   }, [ready]);
@@ -209,7 +240,7 @@ export const TransitMapCanvas: React.FC<TransitMapCanvasProps> = (props) => {
     const map = mapRef.current;
     if (!ready || !map || fitKey === null) return;
     const b = transitBounds(model);
-    if (b) map.fitBounds(b, { padding: FIT_PADDING, duration: 400, maxZoom: 16 });
+    if (b) deferredFitRef.current = tryFit(map, ref.current, b, 400) ? null : { bounds: b, duration: 400 };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- refit only when fitKey changes
   }, [fitKey, ready]);
 

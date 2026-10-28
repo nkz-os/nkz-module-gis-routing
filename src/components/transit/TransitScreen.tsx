@@ -67,8 +67,8 @@ const num = (v: unknown): number | null => {
   return Number.isFinite(n) && n > 0 ? n : null;
 };
 
-const NumField: React.FC<{ id: string; value: number | null; onValue: (v: number | null) => void; disabled?: boolean; step?: number; max?: number }> =
-  ({ id, value, onValue, disabled, step = 0.1, max }) => {
+const NumField: React.FC<{ id: string; value: number | null; onValue: (v: number | null) => void; disabled?: boolean; step?: number; min?: number; max?: number }> =
+  ({ id, value, onValue, disabled, step = 0.1, min = step, max }) => {
     const [draft, setDraft] = useState(value === null ? '' : String(value));
     useEffect(() => {
       if (num(draft) !== value) setDraft(value === null ? '' : String(value));
@@ -76,7 +76,7 @@ const NumField: React.FC<{ id: string; value: number | null; onValue: (v: number
     }, [value]);
     return (
       <Input
-        id={id} type="number" min={step} max={max} step={step} value={draft} disabled={disabled}
+        id={id} type="number" min={min} max={max} step={step} value={draft} disabled={disabled}
         onChange={(e) => { setDraft(e.target.value); onValue(num(e.target.value)); }}
         className="w-full mt-1"
       />
@@ -181,12 +181,23 @@ export const TransitScreen: React.FC<Props> = ({ workContext }) => {
     return () => { cancelled = true; clearTimeout(timer); };
   }, [view]);
 
-  // Destination parcel defaults to the one whose gate is at B.
+  // Destination parcel defaults to the parcel whose gate is at B. It is re-derived when B moves (and may
+  // become empty then), but a context refresh only ever adds a match: panning never clears the choice.
+  const contextRef = useRef(context);
+  contextRef.current = context;
   useEffect(() => {
     if (stateRef.current.parcelManual) return;
-    const match = parcelAtGate(state.b, context);
+    const match = parcelAtGate(state.b, contextRef.current);
     if (match !== stateRef.current.parcelId) dispatch({ type: 'PARCEL_SET', parcelId: match, auto: true });
-  }, [state.b, context]);
+  }, [state.b]);
+  useEffect(() => {
+    if (stateRef.current.parcelManual) return;
+    const match = parcelAtGate(stateRef.current.b, context);
+    if (match !== null && match !== stateRef.current.parcelId) dispatch({ type: 'PARCEL_SET', parcelId: match, auto: true });
+  }, [context]);
+
+  // The profile marker belongs to the shown route: drop it when the route or result changes.
+  useEffect(() => { setHover(null); }, [state.result, state.selected]);
 
   const calculate = useCallback(async () => {
     const req = buildPathRequest(stateRef.current);
@@ -342,6 +353,8 @@ export const TransitScreen: React.FC<Props> = ({ workContext }) => {
 
         <section className="space-y-2" aria-label={t('transit.machine.title')}>
           <h2 className="text-nkz-sm font-semibold">{t('transit.machine.title')}</h2>
+          <label className="block">
+            <span className="text-nkz-xs text-nkz-text-secondary">{t('transit.machine.pick')}</span>
           <Select
             value={state.machineId ?? ''}
             disabled={locked}
@@ -352,6 +365,7 @@ export const TransitScreen: React.FC<Props> = ({ workContext }) => {
             }}
             options={machineOptions}
           />
+          </label>
           <div>
             <label htmlFor={ids.width} className="text-nkz-xs text-nkz-text-secondary">{t('transit.machine.width')}</label>
             <NumField id={ids.width} value={state.widthM} disabled={locked}
@@ -362,7 +376,7 @@ export const TransitScreen: React.FC<Props> = ({ workContext }) => {
           </div>
           <div>
             <label htmlFor={ids.slope} className="text-nkz-xs text-nkz-text-secondary">{t('transit.machine.slope')}</label>
-            <NumField id={ids.slope} step={1} max={45} value={state.maxSlopeDeg} disabled={locked}
+            <NumField id={ids.slope} step={1} min={0.1} max={45} value={state.maxSlopeDeg} disabled={locked}
               onValue={(v) => dispatch({ type: 'SLOPE_SET', maxSlopeDeg: v ?? 0 })} />
             <p className={slopeOk ? 'text-nkz-xs text-nkz-text-secondary' : 'text-nkz-xs text-nkz-danger'}>{t('transit.machine.slopeHelp')}</p>
           </div>
@@ -409,12 +423,15 @@ export const TransitScreen: React.FC<Props> = ({ workContext }) => {
 
             <div className="space-y-2">
               <h2 className="text-nkz-sm font-semibold">{t('transit.save.title')}</h2>
+              <label className="block">
+                <span className="text-nkz-xs text-nkz-text-secondary">{t('transit.save.parcel')}</span>
               <Select
                 value={state.parcelId ?? ''}
                 disabled={locked}
                 onValueChange={(v) => dispatch({ type: 'PARCEL_SET', parcelId: v || null })}
                 options={[{ value: '', label: t('transit.save.noParcel') }, ...parcelOptions]}
               />
+              </label>
               {!state.parcelId && <p className="text-nkz-xs text-nkz-text-secondary">{t('transit.save.needParcel')}</p>}
               <Button onClick={save} disabled={!canSave(state)} className="w-full">
                 {t(state.phase === 'saving' ? 'transit.save.saving' : 'transit.save.button')}
@@ -426,6 +443,7 @@ export const TransitScreen: React.FC<Props> = ({ workContext }) => {
 
             <div className="space-y-2">
               <h2 className="text-nkz-sm font-semibold">{t('transit.export.title')}</h2>
+              {state.stale && <p className="text-nkz-xs text-nkz-text-secondary">{t('transit.export.stale')}</p>}
               <div className="flex gap-2">
                 <Button variant="ghost" disabled={!selectedAlt} onClick={() => exportAlt('gpx')}>{t('transit.export.gpx')}</Button>
                 <Button variant="ghost" disabled={!selectedAlt} onClick={() => exportAlt('geojson')}>{t('transit.export.geojson')}</Button>

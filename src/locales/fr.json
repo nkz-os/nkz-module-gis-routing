@@ -404,7 +404,8 @@
       "width": "Largeur de travail (m)",
       "slope": "Pente maximale (°)",
       "slopeHelp": "Entre 0 et 45°. L'itinéraire évite les terrains plus pentus (15° par défaut).",
-      "noWidth": "Cette machine n'a pas de largeur de travail : saisissez-la."
+      "noWidth": "Cette machine n'a pas de largeur de travail : saisissez-la.",
+      "pick": "Machine à utiliser"
     },
     "calculate": "Calculer l'itinéraire",
     "status": {
@@ -430,12 +431,14 @@
       "needParcel": "Choisissez une parcelle de destination pour enregistrer. Sans elle, vous pouvez seulement exporter.",
       "button": "Enregistrer comme opération",
       "saving": "Enregistrement...",
-      "saved": "Disponible dans l'app · opération #{{id}}"
+      "saved": "Disponible dans l'app · opération #{{id}}",
+      "parcel": "Parcelle de destination"
     },
     "export": {
       "title": "Exporter",
       "gpx": "GPX",
-      "geojson": "GeoJSON"
+      "geojson": "GeoJSON",
+      "stale": "L'itinéraire exporté est celui du dernier calcul ; les données ont changé depuis."
     },
     "context": {
       "zoomIn": "Zoomez pour voir les parcelles, les portails et les zones NO-GO",

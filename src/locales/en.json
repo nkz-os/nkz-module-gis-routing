@@ -404,7 +404,8 @@
       "width": "Working width (m)",
       "slope": "Maximum slope (°)",
       "slopeHelp": "Between 0 and 45°. The route avoids steeper ground (default 15°).",
-      "noWidth": "This machine has no working width: type one in."
+      "noWidth": "This machine has no working width: type one in.",
+      "pick": "Machine to use"
     },
     "calculate": "Calculate route",
     "status": {
@@ -430,12 +431,14 @@
       "needParcel": "Choose a destination parcel to save. Without one you can still export.",
       "button": "Save as operation",
       "saving": "Saving...",
-      "saved": "Available in the app · operation #{{id}}"
+      "saved": "Available in the app · operation #{{id}}",
+      "parcel": "Destination parcel"
     },
     "export": {
       "title": "Export",
       "gpx": "GPX",
-      "geojson": "GeoJSON"
+      "geojson": "GeoJSON",
+      "stale": "Exports the route as last calculated; the inputs have changed since."
     },
     "context": {
       "zoomIn": "Zoom in to see parcels, gates and no-go zones",

@@ -150,7 +150,7 @@ describe('TransitScreen', () => {
   it('sends machine_id when a machine is picked', async () => {
     await setup();
     await act(async () => { tm().onPick('a', [0, 0]); tm().onPick('b', [0.001, 0.001]); });
-    fireEvent.change(screen.getByLabelText('Ancho manual'), { target: { value: 'm1' } });
+    fireEvent.change(screen.getByLabelText('Máquina a usar'), { target: { value: 'm1' } });
     await calculate();
     expect((api.startPathCalculation as any).mock.calls[0][0]).toMatchObject({ machine_id: 'm1', machine_width_m: 4 });
   });
@@ -195,7 +195,7 @@ describe('TransitScreen', () => {
     await place();
     await calculate();
     await screen.findByTestId('alt-fastest');
-    fireEvent.change(screen.getByLabelText('Sin parcela'), { target: { value: 'p2' } });
+    fireEvent.change(screen.getByLabelText('Parcela de destino'), { target: { value: 'p2' } });
     const save = screen.getByRole('button', { name: 'Guardar como operación' }) as HTMLButtonElement;
     expect(save.disabled).toBe(false);
     await act(async () => { tm().onMarkerMoved('a', [0.0005, 0.0005]); });
@@ -223,7 +223,7 @@ describe('TransitScreen', () => {
     await advance(0);
     await calculate();
     await screen.findByTestId('alt-fastest');
-    expect((screen.getByLabelText('Sin parcela') as HTMLSelectElement).value).toBe('p1');
+    expect((screen.getByLabelText('Parcela de destino') as HTMLSelectElement).value).toBe('p1');
     let resolve!: (v: unknown) => void;
     (api.saveOperation as any).mockReturnValue(new Promise((r) => { resolve = r; }));
     const save = screen.getByRole('button', { name: 'Guardar como operación' });
@@ -236,12 +236,27 @@ describe('TransitScreen', () => {
     expect((screen.getByRole('button', { name: 'Guardar como operación' }) as HTMLButtonElement).disabled).toBe(true);
   });
 
+  it('keeps the auto-selected parcel when the context empties (pan / zoom out)', async () => {
+    (api.getParcelsContext as any).mockResolvedValue({ parcels: [gatedParcel] });
+    await setup();
+    await place([0, 0], [0.001, 0.001]);
+    await advance(0);
+    await calculate();
+    await screen.findByTestId('alt-fastest');
+    expect((screen.getByLabelText('Parcela de destino') as HTMLSelectElement).value).toBe('p1');
+    await act(async () => { tm().onViewChange({ bbox: [0, 0, 0.5, 0.5], zoom: 9 }); });
+    await advance(500);
+    expect(tm().model.context).toEqual([]);
+    expect((screen.getByLabelText('Parcela de destino') as HTMLSelectElement).value).toBe('p1');
+    expect((screen.getByRole('button', { name: 'Guardar como operación' }) as HTMLButtonElement).disabled).toBe(false);
+  });
+
   it('shows a coded save error', async () => {
     await setup();
     await place();
     await calculate();
     await screen.findByTestId('alt-fastest');
-    fireEvent.change(screen.getByLabelText('Sin parcela'), { target: { value: 'p2' } });
+    fireEvent.change(screen.getByLabelText('Parcela de destino'), { target: { value: 'p2' } });
     (api.saveOperation as any).mockRejectedValue(new ApiError(404, { code: 'JOB_NOT_FOUND', detail: 'gone', params: {} }));
     fireEvent.click(screen.getByRole('button', { name: 'Guardar como operación' }));
     expect((await screen.findByRole('alert')).textContent).toContain('El cálculo ya no está disponible');

@@ -404,7 +404,8 @@
       "width": "Amplada de treball (m)",
       "slope": "Pendent màxim (°)",
       "slopeHelp": "Entre 0 i 45°. La ruta evita el terreny més inclinat (per defecte 15°).",
-      "noWidth": "Aquesta màquina no té amplada de treball: escriu-la."
+      "noWidth": "Aquesta màquina no té amplada de treball: escriu-la.",
+      "pick": "Màquina a usar"
     },
     "calculate": "Calcular ruta",
     "status": {
@@ -430,12 +431,14 @@
       "needParcel": "Tria una parcel·la de destinació per desar. Sense ella només pots exportar.",
       "button": "Desar com a operació",
       "saving": "Desant...",
-      "saved": "Disponible a l'app · operació #{{id}}"
+      "saved": "Disponible a l'app · operació #{{id}}",
+      "parcel": "Parcel·la de destinació"
     },
     "export": {
       "title": "Exportar",
       "gpx": "GPX",
-      "geojson": "GeoJSON"
+      "geojson": "GeoJSON",
+      "stale": "S'exporta la ruta de l'últim càlcul; les dades han canviat des d'aleshores."
     },
     "context": {
       "zoomIn": "Acosta't per veure parcel·les, portes i zones NO-GO",
