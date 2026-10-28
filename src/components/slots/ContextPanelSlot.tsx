@@ -14,7 +14,7 @@ import { WorkRoutePanel } from '../viewer/WorkRoutePanel';
 import { TransitPanel, startTransit } from '../viewer/TransitPanel';
 import { EV, emitMode, type RoutingMode } from '../viewer/routingMode';
 import { Button } from '@nekazari/ui-kit';
-import { buildConfigPatch, type CfgSnapshot, type CfgZone } from '../../state/configPatch';
+import { buildConfigPatch, parseParcelConfig, type CfgSnapshot, type CfgZone } from '../../state/configPatch';
 
 const NS = 'gis-routing';
 
@@ -69,8 +69,8 @@ const SavedRoutes: React.FC<{
 
 const DrawControls: React.FC<{
   zones: any[]; onRemoveZone: (id: string) => void;
-  onSave: () => void; saving: boolean; status: string; t: any;
-}> = ({ zones, onRemoveZone, onSave, saving, status, t }) => {
+  onSave: () => void; saving: boolean; status: string; loadFailed: boolean; t: any;
+}> = ({ zones, onRemoveZone, onSave, saving, status, loadFailed, t }) => {
   const markAccess = () => window.dispatchEvent(new CustomEvent(
     EV.activateDraw, { detail: { mode: 'access' } }));
   const drawZone = () => window.dispatchEvent(new CustomEvent(
@@ -117,12 +117,15 @@ const DrawControls: React.FC<{
       )}
       <Button
         onClick={onSave}
-        disabled={saving}
+        disabled={saving || loadFailed}
         className="w-full flex items-center justify-center gap-1.5 py-2"
       >
         {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
         {t('parcelConfig.save')}
       </Button>
+      {loadFailed && (
+        <p role="alert" className="text-nkz-xs text-nkz-danger text-center">{t('parcelConfig.loadFailed')}</p>
+      )}
       {status === 'saved' && (
         <p className="text-nkz-xs text-nkz-success text-center">{t('parcelConfig.saved')}</p>
       )}
@@ -151,6 +154,8 @@ export const ContextPanelSlot: React.FC = () => {
   const loadedCfg = useRef<CfgSnapshot>({ gate: null, zones: [] });
   const [cfgSaving, setCfgSaving] = useState(false);
   const [cfgStatus, setCfgStatus] = useState<'idle' | 'saved' | 'error'>('idle');
+  // Saving is allowed only on top of a configuration that was really read.
+  const [cfgLoad, setCfgLoad] = useState<'loading' | 'ok' | 'failed'>('loading');
   // Cockpit mode FSM
   const [mode, setMode] = useState<RoutingMode>('idle');
 
@@ -170,29 +175,26 @@ export const ContextPanelSlot: React.FC = () => {
   // Load saved parcel config when a parcel is selected; render it on the globe.
   useEffect(() => {
     if (!selectedEntityId || selectedEntityType !== 'AgriParcel') {
-      setAccessPoint(null); setZones([]); setCfgStatus('idle');
+      setAccessPoint(null); setZones([]); setCfgStatus('idle'); setCfgLoad('loading');
       setMode('idle');
       return;
     }
     let cancelled = false;
     setCfgStatus('idle');
+    setCfgLoad('loading');
     setMode('idle');
     api.getParcelConfig(selectedEntityId)
       .then((d: any) => {
         if (cancelled) return;
-        const gate = d?.accessPoint?.coordinates ?? null;
-        const loadedZones: CfgZone[] = (d?.exclusionZones?.features ?? []).map((f: any, i: number) => ({
-          id: f?.properties?.id ?? `z${i}`,
-          ring: (f?.geometry?.type === 'MultiPolygon'
-            ? f.geometry.coordinates?.[0]?.[0] : f?.geometry?.coordinates?.[0]) ?? [],
-          geometry: f?.geometry,
-        }));
-        loadedCfg.current = { gate, zones: loadedZones };
-        setAccessPoint(gate);
-        setZones(loadedZones);
+        const snapshot = parseParcelConfig(d);
+        loadedCfg.current = snapshot;
+        setAccessPoint(snapshot.gate);
+        setZones(snapshot.zones);
+        setCfgLoad('ok');
       })
       .catch(() => {
-        if (!cancelled) { loadedCfg.current = { gate: null, zones: [] }; setAccessPoint(null); setZones([]); }
+        // Never pretend the parcel has no zones: a save from this state would overwrite them.
+        if (!cancelled) { setAccessPoint(null); setZones([]); setCfgLoad('failed'); }
       });
     window.dispatchEvent(new CustomEvent('nekazari:gis-routing:parcelConfig:show',
       { detail: { parcelId: selectedEntityId } }));
@@ -284,7 +286,7 @@ export const ContextPanelSlot: React.FC = () => {
   const removeZone = (id: string) => setZones(prev => prev.filter(z => z.id !== id));
 
   const saveCfg = async () => {
-    if (!selectedEntityId) return;
+    if (!selectedEntityId || cfgLoad !== 'ok') return;
     setCfgSaving(true); setCfgStatus('idle');
     try {
       const current: CfgSnapshot = { gate: accessPoint, zones };
@@ -328,7 +330,7 @@ export const ContextPanelSlot: React.FC = () => {
           )}
           {(mode === 'placing-gate' || mode === 'drawing-zone') && (
             <DrawControls zones={zones} onRemoveZone={removeZone}
-              onSave={saveCfg} saving={cfgSaving} status={cfgStatus} t={t} />
+              onSave={saveCfg} saving={cfgSaving} status={cfgStatus} loadFailed={cfgLoad === 'failed'} t={t} />
           )}
           {mode === 'work-route' && <WorkRoutePanel parcelId={selectedEntityId} />}
           {(mode === 'picking-a' || mode === 'picking-b' ||

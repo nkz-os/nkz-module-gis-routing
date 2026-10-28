@@ -196,7 +196,8 @@
     "noAccessPoint": "Sans point d'accès",
     "zonesCount_one": "{{count}} zone non accessible",
     "zonesCount_other": "{{count}} zones non accessibles",
-    "instructions": "Cliquez sur la carte pour marquer le portail ; dessinez des polygones pour les zones interdites."
+    "instructions": "Cliquez sur la carte pour marquer le portail ; dessinez des polygones pour les zones interdites.",
+    "loadFailed": "Impossible de charger la configuration enregistrée. Rechargez avant d'enregistrer pour ne pas écraser les zones existantes."
   },
   "cockpit": {
     "gate": "Portail",

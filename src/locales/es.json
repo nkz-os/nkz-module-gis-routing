@@ -196,7 +196,8 @@
     "noAccessPoint": "Sin punto de acceso",
     "zonesCount_one": "{{count}} zona no transitable",
     "zonesCount_other": "{{count}} zonas no transitables",
-    "instructions": "Haz clic en el mapa para marcar el portón; dibuja polígonos para las zonas prohibidas."
+    "instructions": "Haz clic en el mapa para marcar el portón; dibuja polígonos para las zonas prohibidas.",
+    "loadFailed": "No se pudo cargar la configuración guardada. Recarga antes de guardar: así no se pisan las zonas existentes."
   },
   "cockpit": {
     "gate": "Portón",

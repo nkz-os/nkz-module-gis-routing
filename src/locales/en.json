@@ -196,7 +196,8 @@
     "noAccessPoint": "No access point",
     "zonesCount_one": "{{count}} no-go zone",
     "zonesCount_other": "{{count}} no-go zones",
-    "instructions": "Click the map to mark the gate; draw polygons for the no-go zones."
+    "instructions": "Click the map to mark the gate; draw polygons for the no-go zones.",
+    "loadFailed": "Could not load the saved configuration. Reload before saving so existing zones are not overwritten."
   },
   "cockpit": {
     "gate": "Gate",

@@ -196,7 +196,8 @@
     "noAccessPoint": "Sarbide-punturik ez",
     "zonesCount_one": "{{count}} gune debekatua",
     "zonesCount_other": "{{count}} gune debekatuak",
-    "instructions": "Egin klik mapan atea markatzeko; marraztu poligonoak debekatutako guneentzat."
+    "instructions": "Egin klik mapan atea markatzeko; marraztu poligonoak debekatutako guneentzat.",
+    "loadFailed": "Ezin izan da gordetako konfigurazioa kargatu. Birkargatu gorde aurretik, lehendik dauden eremuak ez gainidazteko."
   },
   "cockpit": {
     "gate": "Atea",

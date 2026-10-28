@@ -35,3 +35,27 @@ export function buildConfigPatch(loaded: CfgSnapshot, current: CfgSnapshot): Par
   if (!sameZones(loaded.zones, current.zones)) patch.exclusionZones = zonesToCollection(current.zones);
   return patch;
 }
+
+const NKZ_NS = 'https://nkz-os.org/ns/';
+
+/** The module's own attribute under any name the broker may return it with (short, nkz:, full IRI). */
+function pick(d: Record<string, any> | null | undefined, name: string): any {
+  for (const key of [name, `nkz:${name}`, `${NKZ_NS}${name}`]) {
+    const v = d?.[key];
+    if (v !== undefined && v !== null) return v;
+  }
+  return null;
+}
+
+/** The stored gate and zones from a GET /parcels/{id}/config body, whichever form the names have. */
+export function parseParcelConfig(d: Record<string, any> | null | undefined): CfgSnapshot {
+  const gate = pick(d, 'accessPoint')?.coordinates ?? null;
+  const features: any[] = pick(d, 'exclusionZones')?.features ?? [];
+  const zones: CfgZone[] = features.map((f, i) => ({
+    id: f?.properties?.id ?? `z${i}`,
+    ring: (f?.geometry?.type === 'MultiPolygon'
+      ? f.geometry.coordinates?.[0]?.[0] : f?.geometry?.coordinates?.[0]) ?? [],
+    geometry: f?.geometry,
+  }));
+  return { gate, zones };
+}

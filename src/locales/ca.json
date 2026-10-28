@@ -196,7 +196,8 @@
     "noAccessPoint": "Sense punt d'accés",
     "zonesCount_one": "{{count}} zona no transitable",
     "zonesCount_other": "{{count}} zones no transitables",
-    "instructions": "Fes clic al mapa per marcar el portal; dibuixa polígons per a les zones prohibides."
+    "instructions": "Fes clic al mapa per marcar el portal; dibuixa polígons per a les zones prohibides.",
+    "loadFailed": "No s'ha pogut carregar la configuració desada. Recarrega abans de desar: així no es trepitgen les zones existents."
   },
   "cockpit": {
     "gate": "Portal",

@@ -81,3 +81,32 @@ describe('cockpit config save', () => {
     expect(api.saveParcelConfig).not.toHaveBeenCalled();
   });
 });
+
+describe('cockpit config load', () => {
+  it('a config that failed to load blocks the save and says so', async () => {
+    vi.mocked(api.getParcelConfig).mockRejectedValue(new Error('502'));
+    render(<ContextPanelSlot />);
+    await waitFor(() => expect(api.getParcelConfig).toHaveBeenCalled());
+    await act(async () => {});
+    fireEvent.click(screen.getByRole('button', { name: /Portón|Gate/i }));
+    expect(screen.getByRole('alert').textContent).toMatch(/No se pudo cargar la configuración|Could not load/i);
+    act(() => { window.dispatchEvent(new CustomEvent(EV.zoneDrawn, { detail: { ring } })); });
+    save();
+    await act(async () => {});
+    expect(api.saveParcelConfig).not.toHaveBeenCalled();
+  });
+
+  it.each(['nkz:', 'https://nkz-os.org/ns/'])('reads zones and gate stored as %s names, so a new zone keeps them', async (prefix) => {
+    await openDraw({
+      [`${prefix}accessPoint`]: { type: 'Point', coordinates: [1, 1] },
+      [`${prefix}exclusionZones`]: { type: 'FeatureCollection', features: [zone('a')] },
+    });
+    act(() => { window.dispatchEvent(new CustomEvent(EV.zoneDrawn, { detail: { ring } })); });
+    save();
+    await waitFor(() => expect(api.saveParcelConfig).toHaveBeenCalled());
+    const body: any = vi.mocked(api.saveParcelConfig).mock.calls[0][1];
+    expect('accessPoint' in body).toBe(false);
+    expect(body.exclusionZones.features).toHaveLength(2);
+  });
+});
+
