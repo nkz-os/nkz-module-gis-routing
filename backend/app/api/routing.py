@@ -227,7 +227,7 @@ async def parcels_context(bbox: str = Query(..., description="minLon,minLat,maxL
                              if p["access_point"] else None),
             "zones": [mapping(z) for z in p["zones"]],
         }
-        for p in parcels
+        for p in parcels if p["geometry"] is not None
     ]}
 
 

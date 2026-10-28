@@ -1,4 +1,8 @@
 import pytest
+
+
+def _pz(zones):
+    return {"id": "urn:p", "name": "", "polygon": None, "geometry": None, "access_point": None, "zones": zones}
 from shapely.geometry import Polygon
 from app.api import pathfinding_router as pr
 
@@ -11,12 +15,9 @@ async def test_resolve_constraints_builds_blocked_and_default_origin(monkeypatch
             "zones": [Polygon([(0.001, 0.001), (0.003, 0.001),
                                (0.003, 0.003), (0.001, 0.003)])],
         }
-    async def no_tenant_zones(tenant_id, bbox):
-        return []
     monkeypatch.setattr(pr, "_fetch_parcel_constraints", fake_fetch)
-    monkeypatch.setattr(pr, "fetch_tenant_zones_in_bbox", no_tenant_zones)
     raster = {"origin_lon": 0.0, "origin_lat": 0.0, "pixel_size_deg": 0.001}
-    default_origin, blocked = await pr._resolve_path_constraints(
+    default_origin, blocked, _fences = await pr._resolve_path_constraints(
         parcel_id="urn:p1", tenant_id="t1", raster=raster, cols=10, rows=10,
         machine_width_m=2.0, bbox=(0, 0, 0.01, 0.01))
     assert default_origin == (0.0, 0.0)
@@ -26,10 +27,7 @@ async def test_resolve_constraints_builds_blocked_and_default_origin(monkeypatch
 
 @pytest.mark.asyncio
 async def test_resolve_constraints_empty_without_parcel(monkeypatch):
-    async def no_zones(tenant_id, bbox):
-        return []
-    monkeypatch.setattr(pr, "fetch_tenant_zones_in_bbox", no_zones)
-    default_origin, blocked = await pr._resolve_path_constraints(
+    default_origin, blocked, _fences = await pr._resolve_path_constraints(
         None, "t1", {"origin_lon": 0.0, "origin_lat": 0.0, "pixel_size_deg": 0.001},
         10, 10, 2.0, (0, 0, 0.01, 0.01))
     assert default_origin is None and blocked == set()
@@ -52,7 +50,7 @@ async def test_bowtie_zone_blocks_cells_of_both_lobes(monkeypatch):
 
     monkeypatch.setattr(pcs, "OrionClient", FakeOrion)
     raster = {"origin_lon": 0.0, "origin_lat": 0.0, "pixel_size_deg": 0.001}
-    _origin, blocked = await pr._resolve_path_constraints(
+    _origin, blocked, _fences = await pr._resolve_path_constraints(
         parcel_id="urn:ngsi-ld:AgriParcel:p1", tenant_id="tenant-a", raster=raster, cols=10, rows=10,
         machine_width_m=2.0, bbox=(0, 0, 0.01, 0.01))
     assert (3, 4) in blocked and (7, 4) in blocked
@@ -69,12 +67,12 @@ async def test_parcel_and_neighbouring_tenant_zones_both_block(monkeypatch):
 
     async def fake_tenant(tenant_id, bbox):
         seen["bbox"], seen["tenant"] = bbox, tenant_id
-        return [neighbour]
+        return [_pz([neighbour])]
 
     monkeypatch.setattr(pr, "_fetch_parcel_constraints", fake_fetch)
-    monkeypatch.setattr(pr, "fetch_tenant_zones_in_bbox", fake_tenant)
+    monkeypatch.setattr(pr, "fetch_tenant_parcels_in_bbox", fake_tenant)
     raster = {"origin_lon": 0.0, "origin_lat": 0.0, "pixel_size_deg": 0.001}
-    origin, blocked = await pr._resolve_path_constraints(
+    origin, blocked, _fences = await pr._resolve_path_constraints(
         parcel_id="urn:ngsi-ld:AgriParcel:p1", tenant_id="tenant-a", raster=raster, cols=10, rows=10,
         machine_width_m=2.0, bbox=(0, 0, 0.01, 0.01))
     assert origin == (0.0, 0.0)

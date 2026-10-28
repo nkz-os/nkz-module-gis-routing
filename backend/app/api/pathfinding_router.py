@@ -11,10 +11,9 @@ from app.services.pathfinding.least_cost_path import compute_ab_routes, blocked_
 from app.services.pathfinding.dem_provider import DemRegistry, EuElevationProvider
 from app.services.parcel_constraints import (
     fetch_parcel_constraints as _fetch_parcel_constraints,
-    fetch_tenant_zones_in_bbox,
     fetch_tenant_parcels_in_bbox,
 )
-from app.services.pathfinding.barriers import parcel_barrier_cells
+from app.services.pathfinding.barriers import parcel_barrier_map
 from app.services.machines import fetch_machine_kinematics
 from app.services.pathfinding.job_store import JobStore, JobLimitError
 from app.services.exclusion import buffered_zones, rasterize_blocked_cells
@@ -31,8 +30,10 @@ JOBS = JobStore()
 SEARCH_MARGINS_M = (500, 2000)
 DEM_RESOLUTION_M = 10
 # Cap on planned DEM cells. Measured: an exhaustive no-path A* over 1M cells takes
-# ~14 s and ~200 MB per objective, so 4M is ~1 min and ~800 MB worst case.
-MAX_SEARCH_CELLS = 4_000_000
+# ~14 s and ~200 MB; the pod limit is 512 MiB, so 1M is the ceiling. The two
+# objectives run one after the other (compute_ab_routes) and each search's
+# structures are freed when it returns.
+MAX_SEARCH_CELLS = 1_000_000
 _M_PER_DEG_LAT = 111320.0
 
 
@@ -69,26 +70,27 @@ def _grow_zones(zones, buffer_m):
 
 
 async def _resolve_path_constraints(parcel_id, tenant_id, raster, cols, rows, machine_width_m, bbox):
-    """Return (default_origin_or_None, blocked_cells_set).
+    """Return (default_origin_or_None, zone_cells, fences).
 
-    The zones of every tenant parcel intersecting bbox are always blocked (an A-B
-    route can leave the parcel); with parcel_id, that parcel's own zones are added
-    and its access point is the default origin. Gated parcels add their fence.
+    One read of the tenant's parcels in bbox gives both parts. The zones of every
+    parcel are always blocked (an A-B route can leave the parcel); with parcel_id,
+    that parcel's own zones are added and its access point is the default origin.
+    fences maps each gated parcel id to its fence cells (crossable only at the gate);
+    ungated parcels are open ground.
     """
-    zones = list(await fetch_tenant_zones_in_bbox(tenant_id, bbox))
+    parcels = await fetch_tenant_parcels_in_bbox(tenant_id, bbox)
+    zones = [z for p in parcels for z in p["zones"]]
     default_origin = None
     if parcel_id:
         c = await _fetch_parcel_constraints(parcel_id, tenant_id)
         zones += list(c["zones"])
         default_origin = c["access_point"]
     block_wgs84 = _grow_zones(zones, machine_width_m / 2.0)
-    blocked = rasterize_blocked_cells(
+    zone_cells = rasterize_blocked_cells(
         block_wgs84, raster["origin_lon"], raster["origin_lat"],
         raster["pixel_size_deg"], cols, rows)
-    # Parcels with a gate are fences crossed only at the gate; ungated ones are open ground.
-    parcels = await fetch_tenant_parcels_in_bbox(tenant_id, bbox)
-    blocked |= parcel_barrier_cells(parcels, raster, machine_width_m, cols=cols, rows=rows)
-    return default_origin, blocked
+    fences = parcel_barrier_map(parcels, raster, machine_width_m, cols=cols, rows=rows)
+    return default_origin, zone_cells, fences
 
 
 @router.post("/calculate")
@@ -187,15 +189,27 @@ async def _run_pathfinding(job_id: str, body: PathRequest, tenant_id: str):
             end_col = max(0, min(int((lon_b - origin_lon) / pixel_size), cols - 1))
             end_row = max(0, min(int((lat_b - origin_lat) / pixel_size), rows - 1))
 
-            _default_origin, blocked = await _resolve_path_constraints(
+            _default_origin, zone_cells, fences = await _resolve_path_constraints(
                 parcel_id=body.parcel_id, tenant_id=tenant_id, raster=raster,
                 cols=cols, rows=rows, machine_width_m=machine_width_m, bbox=bbox)
+            fence_cells: set = set().union(*fences.values()) if fences else set()
+            blocked = zone_cells | fence_cells
 
-            point = blocked_terminus((start_col, start_row), (end_col, end_row), blocked)
+            start, end = (start_col, start_row), (end_col, end_row)
+            point = blocked_terminus(start, end, zone_cells)
             if point:
                 coords = [lon_a, lat_a] if point == "A" else [lon_b, lat_b]
                 _fail(job_id, "POINT_IN_ZONE", "Start or end point is inside a no-go zone",
                       {"point": point, "geometry": {"type": "Point", "coordinates": coords}})
+                return
+            point = blocked_terminus(start, end, fence_cells)
+            if point:
+                cell = start if point == "A" else end
+                coords = [lon_a, lat_a] if point == "A" else [lon_b, lat_b]
+                on_parcel = next((pid for pid, cs in fences.items() if cell in cs), None)
+                _fail(job_id, "POINT_ON_BARRIER", "Start or end point is on a parcel fence",
+                      {"point": point, "parcel_id": on_parcel,
+                       "geometry": {"type": "Point", "coordinates": coords}})
                 return
 
             alternatives = await asyncio.to_thread(

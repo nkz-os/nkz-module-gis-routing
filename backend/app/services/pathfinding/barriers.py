@@ -60,32 +60,44 @@ def _rasterize(geom, raster: dict, cols: int, rows: int) -> set:
     return {(int(c), int(r)) for c, r in zip(cs[inside], rs[inside])}
 
 
-def parcel_barrier_cells(parcels: list[dict], raster: dict, machine_width_m: float,
-                         cols: int | None = None, rows: int | None = None) -> set:
-    """Blocked (col, row) cells for the fences of the gated parcels.
+def parcel_barrier_map(parcels: list[dict], raster: dict, machine_width_m: float,
+                       cols: int | None = None, rows: int | None = None) -> dict:
+    """Blocked (col, row) cells of each gated parcel's fence, keyed by parcel id.
 
-    parcels: [{polygon (WGS84 shapely), access_point (lon, lat)|None, id?}].
+    parcels: [{id, polygon (WGS84 shapely)|None, access_point (lon, lat)|None}].
     The ring is the boundary widened by machine_width/2 + one cell; the opening
-    around the gate has radius max(machine_width, 2 cells).
+    around the gate has radius max(machine_width, 2 cells). Ungated parcels (and
+    parcels without a readable polygon) have no fence.
     """
     if rows is None:
         rows = len(raster["elevations"])
     if cols is None:
         cols = len(raster["elevations"][0]) if rows else 0
     cell_m = raster["pixel_size_deg"] * _M_PER_DEG_LAT
-    blocked: set = set()
-    for parcel in parcels:
+    fences: dict = {}
+    for n, parcel in enumerate(parcels):
         gate = parcel.get("access_point")
-        if not gate:
+        if not gate or parcel.get("polygon") is None:
             continue
+        cells: set = set()
         for part in _parts(parcel["polygon"]):
             if part.is_empty:
                 continue
             try:
                 ring = _ring_wgs84(part, gate, machine_width_m, cell_m)
-                blocked |= _rasterize(ring, raster, cols, rows)
+                cells |= _rasterize(ring, raster, cols, rows)
             except Exception:
                 # A fence we cannot build must not silently become open ground.
                 logger.error("gated parcel barrier failed: id=%s", parcel.get("id"), exc_info=True)
                 raise
-    return blocked
+        fences[parcel.get("id") or f"#{n}"] = cells
+    return fences
+
+
+def parcel_barrier_cells(parcels: list[dict], raster: dict, machine_width_m: float,
+                         cols: int | None = None, rows: int | None = None) -> set:
+    """Union of the fences of parcel_barrier_map."""
+    out: set = set()
+    for cells in parcel_barrier_map(parcels, raster, machine_width_m, cols, rows).values():
+        out |= cells
+    return out

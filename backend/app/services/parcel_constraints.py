@@ -105,39 +105,13 @@ async def _read_tenant_parcels(tenant_id: str, attrs: str) -> list[dict]:
     return entities
 
 
-async def fetch_tenant_zones_in_bbox(tenant_id: str, bbox: tuple[float, float, float, float]) -> list[Polygon]:
-    """No-go zones (WGS84) of the tenant's AgriParcels whose location intersects bbox."""
-    entities = await _read_tenant_parcels(tenant_id, "location,exclusionZones")
-    area = box(*bbox)
-    zones: list[Polygon] = []
-    matched = 0
-    for ent in entities:
-        ent_id = ent.get("id")
-        loc = (ent.get("location", {}) or {}).get("value")
-        try:
-            if not shape(loc).intersects(area):
-                continue
-        except Exception:
-            # Cannot prove the parcel is outside the bbox: keep its zones (fail safe).
-            logger.error("tenant zones: unreadable parcel location, including its zones: id=%s",
-                         ent_id, exc_info=True)
-        matched += 1
-        fc = (ent.get("exclusionZones", {}) or {}).get("value") or {}
-        try:
-            zones.extend(_zone_polygons(fc, entity_id=ent_id))
-        except Exception as exc:
-            raise ValueError(f"unreadable exclusion zone geometry on {ent_id}: {exc}") from exc
-    logger.info("tenant zones in bbox: tenant=%s parcels_total=%d parcels_in_bbox=%d zones=%d",
-                tenant_id, len(entities), matched, len(zones))
-    return zones
-
-
 async def fetch_tenant_parcels_in_bbox(tenant_id: str, bbox: tuple[float, float, float, float]) -> list[dict]:
     """The tenant's AgriParcels intersecting bbox.
 
     Each item: {id, name, polygon (shapely, WGS84), geometry (GeoJSON), access_point
     (lon, lat)|None, zones (shapely Polygons)}. A parcel whose location cannot be
-    read is logged and left out (it cannot be drawn or used as a barrier).
+    read is kept with polygon/geometry None: it cannot be drawn or fenced, but its
+    no-go zones still count (fail safe).
     """
     entities = await _read_tenant_parcels(tenant_id, "name,location,accessPoint,exclusionZones")
     area = box(*bbox)
@@ -150,8 +124,9 @@ async def fetch_tenant_parcels_in_bbox(tenant_id: str, bbox: tuple[float, float,
             if geom.is_empty or not geom.intersects(area):
                 continue
         except Exception:
-            logger.error("tenant parcels: unreadable parcel location, skipped: id=%s", ent_id, exc_info=True)
-            continue
+            logger.error("tenant parcels: unreadable parcel location, keeping its zones only: id=%s",
+                         ent_id, exc_info=True)
+            geom, loc = None, None
         ap = (ent.get("accessPoint", {}) or {}).get("value")
         access_point = None
         if isinstance(ap, dict) and isinstance(ap.get("coordinates"), (list, tuple)) and len(ap["coordinates"]) >= 2:
@@ -172,3 +147,9 @@ async def fetch_tenant_parcels_in_bbox(tenant_id: str, bbox: tuple[float, float,
     logger.info("tenant parcels in bbox: tenant=%s parcels_total=%d parcels_in_bbox=%d",
                 tenant_id, len(entities), len(out))
     return out
+
+
+async def fetch_tenant_zones_in_bbox(tenant_id: str, bbox: tuple[float, float, float, float]) -> list[Polygon]:
+    """No-go zones (WGS84) of the tenant's AgriParcels whose location intersects bbox."""
+    parcels = await fetch_tenant_parcels_in_bbox(tenant_id, bbox)
+    return [z for p in parcels for z in p["zones"]]

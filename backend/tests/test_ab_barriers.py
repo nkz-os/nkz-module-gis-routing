@@ -30,7 +30,8 @@ def _pt(c, r):
 
 
 def _parcel(poly, gate):
-    return {"id": "urn:ngsi-ld:AgriParcel:p", "polygon": poly, "access_point": gate}
+    return {"id": "urn:ngsi-ld:AgriParcel:p", "name": "", "geometry": None, "zones": [],
+            "polygon": poly, "access_point": gate}
 
 
 @pytest.fixture(autouse=True)
@@ -38,10 +39,6 @@ def _isolate(monkeypatch):
     from app.api import pathfinding_router as pr
     from app.services.pathfinding.job_store import JobStore
 
-    async def no_zones(tenant_id, bbox):
-        return []
-
-    monkeypatch.setattr(pr, "fetch_tenant_zones_in_bbox", no_zones)
     monkeypatch.setattr(pr, "JOBS", JobStore())
 
 
@@ -168,3 +165,23 @@ def test_area_too_large_when_cell_cap_exceeded(monkeypatch):
     out = _route((5, 15), (25, 15), grid=None)
     # explicit grid overrides the fetch, but the planned search area is still capped
     assert out["status"] == "failed" and out["error_code"] == "AREA_TOO_LARGE"
+
+
+def test_point_on_fence_ring_reports_barrier_with_parcel(monkeypatch):
+    poly = _square(10, 10, 20, 20)
+    _with_parcels(monkeypatch, [_parcel(poly, tuple(_pt(15, 10)))])
+    out = _route((10, 15), (25, 15))   # A on the west edge, away from the gate
+    assert out["status"] == "failed" and out["error"]
+    assert out["error_code"] == "POINT_ON_BARRIER"
+    assert out["error_params"] == {"point": "A", "parcel_id": "urn:ngsi-ld:AgriParcel:p",
+                                   "geometry": {"type": "Point", "coordinates": _pt(10, 15)}}
+
+
+def test_cap_stops_before_any_search(monkeypatch):
+    from app.api import pathfinding_router as pr
+    assert pr.MAX_SEARCH_CELLS == 1_000_000
+    called = []
+    monkeypatch.setattr(pr, "compute_ab_routes", lambda *a, **k: called.append(1))
+    monkeypatch.setattr(pr, "MAX_SEARCH_CELLS", 100)
+    out = _route((5, 15), (25, 15))
+    assert out["error_code"] == "AREA_TOO_LARGE" and called == []

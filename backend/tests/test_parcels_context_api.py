@@ -54,6 +54,13 @@ def test_context_rejects_bad_bbox(monkeypatch, bbox):
     assert r.status_code == 422 and r.json()["code"] == "BBOX_INVALID"
 
 
+def test_context_skips_parcels_without_readable_geometry(monkeypatch):
+    _stub(monkeypatch, [{"id": "x", "name": "", "polygon": None, "geometry": None,
+                         "access_point": None, "zones": []}])
+    r = client.get("/api/routing/parcels/context", params={"bbox": "0,0,0.1,0.1"})
+    assert r.json() == {"parcels": []}
+
+
 def test_context_requires_auth():
     r = client.get("/api/routing/parcels/context", params={"bbox": "0,0,0.1,0.1"}, headers={"X-Tenant-ID": ""})
     assert r.status_code == 401
@@ -77,5 +84,6 @@ async def test_fetch_tenant_parcels_in_bbox_reads_gate_and_skips_outside(monkeyp
 
     monkeypatch.setattr(pc, "OrionClient", FakeOrion)
     got = await pc.fetch_tenant_parcels_in_bbox("tenant-a", (-0.01, -0.01, 0.02, 0.02))
-    assert [p["id"] for p in got] == ["in"]
+    assert [p["id"] for p in got] == ["in", "bad"]
+    assert got[1]["geometry"] is None and got[1]["polygon"] is None
     assert got[0]["access_point"] == (0.005, 0.0) and got[0]["name"] == "A" and got[0]["zones"] == []
