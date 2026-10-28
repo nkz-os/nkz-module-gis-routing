@@ -99,4 +99,22 @@ describe('workReducer', () => {
     const f = workReducer(g, { type: 'GENERATE_FAILED', error: { code: 'X', detail: 'x', params: {} } });
     expect(workReducer(f, { type: 'PATTERN_CHANGED', pattern: { pattern: 'snake' } }).error).toBeNull();
   });
+  it('GENERATE_REQUESTED also starts from generated, saved and failed (single source for the button)', () => {
+    const g = workReducer(workReducer(machineReady(loaded()), { type: 'GENERATE_REQUESTED' }), { type: 'GENERATED', response: plan(true) });
+    expect(workReducer(g, { type: 'GENERATE_REQUESTED' }).phase).toBe('generating');
+    const f = workReducer(workReducer(machineReady(loaded()), { type: 'GENERATE_REQUESTED' }), { type: 'GENERATE_FAILED', error: { code: 'ENGINE_FAILURE', detail: '', params: {} } });
+    expect(f.phase).toBe('failed');
+    const again = workReducer(f, { type: 'GENERATE_REQUESTED' });
+    expect(again.phase).toBe('generating'); expect(again.error).toBeNull();
+    const busy = workReducer(g, { type: 'SAVE_REQUESTED' });
+    expect(canGenerate(busy)).toBe(false);
+    expect(workReducer(busy, { type: 'GENERATE_REQUESTED' })).toBe(busy);
+  });
+  it('SAVE_RESULT shows the persisted plan, not the previously reviewed one', () => {
+    const g = workReducer(workReducer(machineReady(loaded()), { type: 'GENERATE_REQUESTED' }), { type: 'GENERATED', response: plan(true) });
+    const persisted = { ...plan(true), persisted: true, operation_id: 'urn:op:2' };
+    persisted.plan = { ...persisted.plan, pattern: 'spiral' };
+    const s = workReducer(workReducer(g, { type: 'SAVE_REQUESTED' }), { type: 'SAVE_RESULT', response: persisted });
+    expect(s.result?.plan.pattern).toBe('spiral'); expect(s.result?.operationId).toBe('urn:op:2');
+  });
 });

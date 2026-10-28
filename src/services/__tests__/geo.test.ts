@@ -18,5 +18,17 @@ describe('geo', () => {
     expect(zones.map(z => z.id)).toEqual(['a']);
     expect(featureCollectionToZones(null)).toEqual([]);
   });
+  it('keeps MultiPolygon zones as one zone per part and round-trips them as polygons', () => {
+    const a = sq(0, 0, 1, 1).coordinates; const b = sq(2, 2, 3, 3).coordinates;
+    const fc: any = { type: 'FeatureCollection', features: [
+      { type: 'Feature', properties: { id: 'm' }, geometry: { type: 'MultiPolygon', coordinates: [a, b] } },
+    ] };
+    const zones = featureCollectionToZones(fc);
+    expect(zones.map((z) => z.id)).toEqual(['m#0', 'm#1']);
+    expect(zones[1].polygon.coordinates).toEqual(b);
+    const back = zonesToFeatureCollection(zones);
+    expect(back.features).toHaveLength(2);
+    expect(featureCollectionToZones(back).map((z) => z.id)).toEqual(['m#0', 'm#1']);
+  });
   it('bbox of a polygon', () => { expect(bboxOf(sq(0, 1, 2, 3))).toEqual([0, 1, 2, 3]); });
 });

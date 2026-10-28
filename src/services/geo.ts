@@ -101,18 +101,25 @@ export function zonesToFeatureCollection(zones: Zone[]): GeoJSON.FeatureCollecti
   };
 }
 
+/**
+ * Zones from the stored FeatureCollection. A MultiPolygon (the backend accepts and enforces
+ * them) is split into one editable zone per part, ids `<id>#<k>`; saving writes them back as
+ * Polygons, which the backend treats as the same union.
+ */
 export function featureCollectionToZones(fc: GeoJSON.FeatureCollection | null): Zone[] {
   if (!fc) return [];
   const zones: Zone[] = [];
+  const push = (id: string, polygon: GeoJSON.Polygon) =>
+    zones.push({ id, polygon, areaHa: areaHa(polygon), valid: isValidPolygon(polygon) });
   fc.features.forEach((f, i) => {
-    if (!f.geometry || f.geometry.type !== 'Polygon') return;
-    const id = f.properties?.id;
-    zones.push({
-      id: id !== undefined && id !== null ? String(id) : `z${i}`,
-      polygon: f.geometry,
-      areaHa: areaHa(f.geometry),
-      valid: isValidPolygon(f.geometry),
-    });
+    const g = f.geometry;
+    if (!g) return;
+    const raw = f.properties?.id;
+    const id = raw !== undefined && raw !== null ? String(raw) : `z${i}`;
+    if (g.type === 'Polygon') push(id, g);
+    else if (g.type === 'MultiPolygon') {
+      g.coordinates.forEach((rings, k) => push(`${id}#${k}`, { type: 'Polygon', coordinates: rings }));
+    }
   });
   return zones;
 }

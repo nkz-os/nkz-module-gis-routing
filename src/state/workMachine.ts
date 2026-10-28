@@ -130,7 +130,8 @@ export function workReducer(state: WorkState, event: WorkEvent): WorkState {
     case 'PATTERN_CHANGED':
       return afterEdit(state, { ...state, pattern: { ...state.pattern, ...event.pattern } });
     case 'GENERATE_REQUESTED':
-      if (state.phase !== 'ready') return state;
+      // Any non-busy phase with a complete configuration may (re)generate.
+      if (!canGenerate(state)) return state;
       return { ...state, phase: 'generating', error: null };
     case 'GENERATED':
       if (state.phase !== 'generating') return state;
@@ -145,10 +146,8 @@ export function workReducer(state: WorkState, event: WorkEvent): WorkState {
       if (state.phase !== 'saving') return state;
       const { response } = event;
       if (response.persisted && response.operation_id) {
-        const result = state.result
-          ? { ...state.result, operationId: response.operation_id }
-          : resultFrom(response);
-        return { ...state, phase: 'saved', result, error: null };
+        // Show the plan that was persisted: the save request recomputes it.
+        return { ...state, phase: 'saved', stale: false, result: resultFrom(response), error: null };
       }
       return {
         ...state, phase: 'failed',
