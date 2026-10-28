@@ -93,7 +93,7 @@ const EDITABLE: ReadonlySet<Phase> = new Set<Phase>(['configuring', 'ready', 'ge
 function afterEdit(prev: WorkState, next: WorkState): WorkState {
   if (!EDITABLE.has(prev.phase)) return prev;
   const phase: Phase = canGenerate(next) ? 'ready' : 'configuring';
-  return { ...next, phase, stale: prev.result !== null ? true : next.stale };
+  return { ...next, phase, stale: prev.result !== null ? true : next.stale, error: null };
 }
 
 function resultFrom(response: GenerateResponse): NonNullable<WorkState['result']> {
@@ -133,13 +133,16 @@ export function workReducer(state: WorkState, event: WorkEvent): WorkState {
       if (state.phase !== 'ready') return state;
       return { ...state, phase: 'generating', error: null };
     case 'GENERATED':
+      if (state.phase !== 'generating') return state;
       return { ...state, phase: 'generated', stale: false, result: resultFrom(event.response), error: null };
     case 'GENERATE_FAILED':
+      if (state.phase !== 'generating') return state;
       return { ...state, phase: 'failed', error: event.error };
     case 'SAVE_REQUESTED':
       if (state.phase !== 'generated') return state;
       return { ...state, phase: 'saving', error: null };
     case 'SAVE_RESULT': {
+      if (state.phase !== 'saving') return state;
       const { response } = event;
       if (response.persisted && response.operation_id) {
         const result = state.result
@@ -153,6 +156,7 @@ export function workReducer(state: WorkState, event: WorkEvent): WorkState {
       };
     }
     case 'SAVE_FAILED':
+      if (state.phase !== 'saving') return state;
       return { ...state, phase: 'failed', error: event.error };
     case 'DISMISS_ERROR': {
       if (state.phase !== 'failed') return state;
@@ -192,6 +196,10 @@ export function stepStatus(
   }
 }
 
+/**
+ * Build the request from the state BEFORE dispatching GENERATE_REQUESTED/SAVE_REQUESTED:
+ * once the phase is generating/saving, canGenerate is false and this throws.
+ */
 export function buildGenerateRequest(s: WorkState, persist: boolean): GenerateRequest {
   if (!canGenerate(s) || s.parcel === null) throw new Error('not ready');
   const { machine, pattern, parcel } = s;

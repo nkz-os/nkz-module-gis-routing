@@ -69,4 +69,34 @@ describe('workReducer', () => {
     const z = workReducer(s, { type: 'ZONES_CHANGED', zones: [{ id: 'z1', polygon: geom as any, areaHa: 1, valid: false }] });
     expect(stepStatus(z, 'zones')).toBe('warning'); expect(canGenerate(z)).toBe(false);
   });
+
+  it('GENERATED after PARCEL_SELECTED is ignored', () => {
+    const g = workReducer(machineReady(loaded()), { type: 'GENERATE_REQUESTED' });
+    const s = workReducer(workReducer(g, { type: 'PARCEL_SELECTED', id: 'p2', requestId: 2 }), { type: 'GENERATED', response: plan(true) });
+    expect(s.phase).toBe('empty'); expect(s.result).toBeNull();
+  });
+  it('SAVE_RESULT outside saving is ignored', () => {
+    const g = workReducer(workReducer(machineReady(loaded()), { type: 'GENERATE_REQUESTED' }), { type: 'GENERATED', response: plan(true) });
+    const s = workReducer(g, { type: 'SAVE_RESULT', response: { ...plan(true), persisted: true, operation_id: 'urn:op:1' } });
+    expect(s).toBe(g);
+  });
+  it('buildGenerateRequest throws once generating', () => {
+    const g = workReducer(machineReady(loaded()), { type: 'GENERATE_REQUESTED' });
+    expect(() => buildGenerateRequest(g, false)).toThrow('not ready');
+  });
+  it('GENERATED with validation null → with_warnings', () => {
+    const g = workReducer(machineReady(loaded()), { type: 'GENERATE_REQUESTED' });
+    const r = plan(true); (r.plan as any).validation = null;
+    expect(workReducer(g, { type: 'GENERATED', response: r }).result?.kind).toBe('with_warnings');
+  });
+  it('generated → invalid zone → configuring, stale, result kept', () => {
+    const g = workReducer(workReducer(machineReady(loaded()), { type: 'GENERATE_REQUESTED' }), { type: 'GENERATED', response: plan(true) });
+    const s = workReducer(g, { type: 'ZONES_CHANGED', zones: [{ id: 'z1', polygon: geom as any, areaHa: 1, valid: false }] });
+    expect(s.phase).toBe('configuring'); expect(s.stale).toBe(true); expect(s.result).not.toBeNull();
+  });
+  it('an edit from failed clears the error', () => {
+    const g = workReducer(machineReady(loaded()), { type: 'GENERATE_REQUESTED' });
+    const f = workReducer(g, { type: 'GENERATE_FAILED', error: { code: 'X', detail: 'x', params: {} } });
+    expect(workReducer(f, { type: 'PATTERN_CHANGED', pattern: { pattern: 'snake' } }).error).toBeNull();
+  });
 });
