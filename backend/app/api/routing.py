@@ -652,7 +652,7 @@ async def generate_routing_plan(request: Request, body: GenerateRequest, auth: A
             planned_start_at=_iso_utc(body.planned_start_at), planned_end_at=_iso_utc(body.planned_end_at))
         entity_bytes = len(json.dumps(entity, separators=(",", ":")).encode("utf-8"))
         if entity_bytes <= operation_store.MAX_ENTITY_BYTES:
-            plan_id = _store_plan(auth.tenant_id, operation_id, plan_dict, body, result)
+            plan_id = _store_plan(auth.tenant_id, operation_id, plan_dict, body, result, alert)
         if plan_id is None:
             # Saving would fail with PLAN_TOO_LARGE (or the store cannot hold it): do not keep it.
             logger.warning("generate: plan not stored, too large to save: tenant_id=%s entity_bytes=%d",
@@ -663,7 +663,7 @@ async def generate_routing_plan(request: Request, body: GenerateRequest, auth: A
                 {"code": "PLAN_TOO_LARGE_TO_SAVE", "geometry": None,
                  "params": {"size_kb": round(entity_bytes / 1024)}})
     else:
-        plan_id = _store_plan(auth.tenant_id, operation_id, plan_dict, body, result)
+        plan_id = _store_plan(auth.tenant_id, operation_id, plan_dict, body, result, alert)
 
     return {
         "success": True,
@@ -675,9 +675,11 @@ async def generate_routing_plan(request: Request, body: GenerateRequest, auth: A
     }
 
 
-def _store_plan(tenant_id: str, operation_id, plan_dict: dict, body: GenerateRequest, result) -> Optional[str]:
+def _store_plan(tenant_id: str, operation_id, plan_dict: dict, body: GenerateRequest, result,
+                alert: Optional[str] = None) -> Optional[str]:
     return PLAN_STORE.put(tenant_id, {
         "operation_id": operation_id,
+        "alert": alert,
         "plan_dict": plan_dict,
         # external_features can be MBs and is not needed to build the entity.
         "body": body.model_dump(exclude={"vra": {"external_features"}}),
@@ -854,15 +856,12 @@ async def _send_alert(entity: dict, tenant_id: str) -> str:
     """Alert for a just-stored operation per the tenant setting: sent | skipped | failed."""
     from app.services.alerts import notify_operation
     settings = get_settings()
-    orion = OrionClient(tenant_id, base_url=settings.context_broker_url,
-                        context_url=settings.ngsi_ld_context)
-    try:
-        return await notify_operation(
-            orion, tenant_id=tenant_id, module_id=settings.module_id,
-            operation_id=entity["id"], operation_name=entity["name"]["value"],
-            parcel_id=(entity.get("hasAgriParcel") or {}).get("object"))
-    finally:
-        await orion.close()
+    return await notify_operation(
+        lambda: OrionClient(tenant_id, base_url=settings.context_broker_url,
+                            context_url=settings.ngsi_ld_context),
+        tenant_id=tenant_id, module_id=settings.module_id,
+        operation_id=entity["id"], operation_name=entity["name"]["value"],
+        parcel_id=(entity.get("hasAgriParcel") or {}).get("object"))
 
 
 async def _create_operation_entity(entity: dict, op_id: str, tenant_id: str, *,

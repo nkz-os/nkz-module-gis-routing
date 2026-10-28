@@ -41,15 +41,17 @@ async def parcel_label(orion, parcel_id: Optional[str]) -> str:
         return parcel_id
 
 
-async def notify_operation(orion, *, tenant_id: str, module_id: str, operation_id: str,
+async def notify_operation(orion_factory, *, tenant_id: str, module_id: str, operation_id: str,
                            operation_name: str, parcel_id: Optional[str]) -> str:
     """Returns "sent", "skipped" (setting none) or "failed". Never raises: the
     operation is already stored and the outcome is reported, not hidden."""
+    orion = None
     try:
         setting = await dispatch_setting(tenant_id)
         severity = SEVERITY.get(setting)
         if severity is None:
             return "skipped"
+        orion = orion_factory()
         label = await parcel_label(orion, parcel_id)
         description = f"Nueva ruta planificada: {operation_name} · {label}"
         await orion.create_entity(build_alert(
@@ -59,3 +61,9 @@ async def notify_operation(orion, *, tenant_id: str, module_id: str, operation_i
     except Exception:
         logger.exception("Alert failed: operation_id=%s tenant_id=%s", operation_id, tenant_id)
         return "failed"
+    finally:
+        if orion is not None:
+            try:
+                await orion.close()
+            except Exception:
+                logger.warning("Orion client close failed", exc_info=True)

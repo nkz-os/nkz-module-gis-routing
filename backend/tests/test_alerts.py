@@ -95,3 +95,28 @@ def test_generate_persist_alerts(client):
 def test_generate_without_persist_has_no_alert(client):
     _plan(client)
     assert _alerts() == []
+
+
+def test_orion_client_construction_failure_reports_failed(client, monkeypatch):
+    calls = []
+
+    def factory(*a, **k):
+        calls.append(1)
+        if len(calls) > 1:   # the first client stores the operation
+            raise RuntimeError("no client")
+        return _Orion()
+    monkeypatch.setattr("app.api.routing.OrionClient", factory)
+    r = client.post(URL, json={"kind": "plan", "plan_id": _plan(client)})
+    assert r.status_code == 200 and r.json()["persisted"] is True and r.json()["alert"] == "failed"
+    assert len(_ops()) == 1
+
+
+def test_generate_alert_is_returned_on_later_save(client):
+    r = client.post("/api/routing/generate", json={
+        "parcel_geometry": {"type": "Polygon", "coordinates": [[
+            [-2.0, 43.0], [-1.99754, 43.0], [-1.99754, 43.0009], [-2.0, 43.0009], [-2.0, 43.0]]]},
+        "parcel_id": PARCEL, "pattern": "boustrophedon",
+        "pattern_config": {"width_m": 20, "headland_passes": 1, "turning_radius_m": 6.0},
+        "persist": True}).json()
+    s = client.post(URL, json={"kind": "plan", "plan_id": r["plan_id"]}).json()
+    assert s["alert"] == "sent" and len(_alerts()) == 1

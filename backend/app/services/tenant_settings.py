@@ -47,8 +47,15 @@ class PgSettingsStore:
         async with self._lock:
             if self._pool is None:
                 pool = await asyncpg.create_pool(self._dsn, min_size=1, max_size=4)
-                async with pool.acquire() as conn:
-                    await conn.execute(DDL)
+                try:
+                    async with pool.acquire() as conn:
+                        # CREATE needs privileges on the schema even for an existing
+                        # table, so a role without them works once the table exists.
+                        if await conn.fetchval("SELECT to_regclass('tenant_settings')") is None:
+                            await conn.execute(DDL)
+                except BaseException:
+                    await pool.close()
+                    raise
                 self._pool = pool
                 logger.info("tenant_settings pool created and DDL applied")
             return self._pool
