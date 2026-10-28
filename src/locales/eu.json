@@ -398,6 +398,11 @@
       "swaths": "Pasaldiak",
       "warnings": "Abisuak",
       "vra": "VRA klaseak"
+    },
+    "legend": {
+      "gate": "Atea",
+      "nogo": "NO-GO",
+      "margin": "Segurtasun-tartea"
     }
   },
   "transit": {

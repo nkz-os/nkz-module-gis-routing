@@ -1,6 +1,7 @@
 import type { LayerSpecification } from 'maplibre-gl';
 import type { Plan, Prescription } from '../services/api';
 import { bboxOf, type Zone } from '../services/geo';
+import { GATE_IMAGE, HATCH_IMAGE, NOGO_COLOR } from './markers';
 
 export interface MapModel {
   parcel: GeoJSON.Polygon | null;
@@ -28,7 +29,7 @@ export type SourceId = (typeof SOURCE_IDS)[number];
 const C = {
   work: '#F59E0B',
   headland: '#6B7280',
-  zone: '#EF4444',
+  zone: NOGO_COLOR,
   zoneInvalid: '#FBBF24',
   route: '#111827',
   access: '#2563EB',
@@ -169,16 +170,13 @@ export function layerSpecs(): LayerSpecification[] {
     { id: 'parcel-line', type: 'line', source: 'parcel', paint: { 'line-color': C.parcel, 'line-width': 2 } },
     { id: 'rings-fill', type: 'fill', source: 'parcel-rings', paint: { 'fill-color': C.headland, 'fill-opacity': 0.25 } },
     { id: 'rings-line', type: 'line', source: 'parcel-rings', paint: { 'line-color': C.headland, 'line-width': 1.5, 'line-dasharray': [3, 2] } },
-    { id: 'zones-fill', type: 'fill', source: 'zones', paint: { 'fill-color': C.zone, 'fill-opacity': 0.3 } },
+    { id: 'zones-fill', type: 'fill', source: 'zones', paint: { 'fill-color': C.zone, 'fill-opacity': 0.18 } },
+    { id: 'zones-hatch', type: 'fill', source: 'zones', paint: { 'fill-pattern': HATCH_IMAGE } },
     {
       id: 'zones-line', type: 'line', source: 'zones',
-      paint: {
-        'line-color': ['case', ['!', ['get', 'valid']], C.zoneInvalid, C.zone],
-        'line-width': 2,
-        'line-dasharray': [2, 2],
-      },
+      paint: { 'line-color': ['case', ['!', ['get', 'valid']], C.zoneInvalid, C.zone], 'line-width': 3 },
     },
-    { id: 'zones-margin-line', type: 'line', source: 'zones-margin', paint: { 'line-color': C.zone, 'line-width': 1.5, 'line-dasharray': [2, 2], 'line-opacity': 0.7 } },
+    { id: 'zones-margin-line', type: 'line', source: 'zones-margin', paint: { 'line-color': '#FFFFFF', 'line-width': 1.5, 'line-dasharray': [3, 3] } },
     {
       id: 'vra-classes-fill', type: 'fill', source: 'vra-classes', filter: ['==', ['get', 'part'], 'fill'],
       paint: { 'fill-color': ['get', 'color'], 'fill-opacity': 0.45 },
@@ -224,7 +222,11 @@ export function layerSpecs(): LayerSpecification[] {
       paint: { 'circle-radius': 11, 'circle-color': 'rgba(0,0,0,0)', 'circle-stroke-color': C.zone, 'circle-stroke-width': 3 },
     },
     {
-      id: 'markers-circle', type: 'circle', source: 'markers',
+      id: 'markers-gate', type: 'symbol', source: 'markers', filter: ['==', ['get', 'kind'], 'access'],
+      layout: { 'icon-image': GATE_IMAGE, 'icon-anchor': 'bottom', 'icon-allow-overlap': true, 'icon-ignore-placement': true },
+    },
+    {
+      id: 'markers-circle', type: 'circle', source: 'markers', filter: ['!=', ['get', 'kind'], 'access'],
       paint: {
         'circle-radius': 7,
         'circle-color': ['match', ['get', 'kind'], 'access', C.access, C.route],

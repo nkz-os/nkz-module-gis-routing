@@ -398,6 +398,11 @@
       "swaths": "Pasadas",
       "warnings": "Avisos",
       "vra": "Clases VRA"
+    },
+    "legend": {
+      "gate": "Portón",
+      "nogo": "NO-GO",
+      "margin": "Margen de seguridad"
     }
   },
   "transit": {

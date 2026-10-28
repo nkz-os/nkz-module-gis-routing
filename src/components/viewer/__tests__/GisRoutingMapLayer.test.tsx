@@ -1,13 +1,22 @@
 import React from 'react';
 import { act, cleanup, render } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import '../../../i18n';
 import { VRA_PALETTE } from '../../../map/model';
 
 const viewer: any = {};
-vi.mock('@nekazari/sdk', async (importOriginal) => ({
-  ...(await importOriginal<Record<string, unknown>>()),
+vi.mock('@nekazari/sdk', async (importOriginal) => {
+  const actual = await importOriginal<Record<string, any>>();
+  const { createInstance } = await import('i18next');
+  const i18n = createInstance();
+  i18n.init({ lng: 'es', fallbackLng: 'en', defaultNS: 'gis-routing', resources: {}, interpolation: { escapeValue: false } });
+  return {
+  ...actual,
+  i18n,
+  useTranslation: (ns?: string) => ({ t: i18n.getFixedT(null, ns ?? 'gis-routing'), i18n }),
   useViewer: () => ({ cesiumViewer: viewer, selectedEntityId: 'parcel-1' }),
-}));
+  };
+});
 vi.mock('../../../services/api', async (importOriginal) => ({
   ...(await importOriginal<Record<string, unknown>>()),
   api: {
@@ -38,12 +47,15 @@ function installCesium() {
     PolygonHierarchy: class { constructor(public p: any, public h: any) {} },
     Color: {
       fromCssColorString: (s: string) => { colorCalls.push(s); return color(s); },
-      RED: color('red'), WHITE: color('white'),
+      RED: color('red'), WHITE: color('white'), BLACK: color('black'),
     },
     LabelStyle: { FILL_AND_OUTLINE: 1 }, VerticalOrigin: { BOTTOM: 1, TOP: 2, CENTER: 3 },
     ScreenSpaceEventHandler: Handler, ScreenSpaceEventType: { LEFT_CLICK: 'click', MOUSE_MOVE: 'move', LEFT_DOUBLE_CLICK: 'dbl' },
     defined: (x: any) => x !== undefined && x !== null,
     EllipsoidTerrainProvider: Ellipsoid,
+    StripeMaterialProperty: class { constructor(public o: any) {} },
+    StripeOrientation: { HORIZONTAL: 0, VERTICAL: 1 },
+    HeightReference: { CLAMP_TO_GROUND: 1 },
   };
   viewer.terrainProvider = new Ellipsoid();
 }
@@ -51,7 +63,10 @@ function installCesium() {
 const added: any[] = [];
 beforeEach(() => {
   added.length = 0; colorCalls.length = 0; inputActions = {};
-  viewer.entities = { add: vi.fn((o: any) => { added.push(o); return o; }), removeById: vi.fn() };
+  viewer.entities = {
+    add: vi.fn((o: any) => { added.push(o); return o; }), removeById: vi.fn(),
+    getById: (id: string) => added.find((a) => a.id === id),
+  };
   viewer.isDestroyed = () => false;
   viewer.scene = { canvas: {}, pickPosition: (p: any) => p };
   installCesium();
@@ -163,5 +178,59 @@ describe('A-B polling', () => {
     await startAB();
     await act(async () => { await vi.advanceTimersByTimeAsync(1000); });
     expect(states[states.length - 1]).toMatchObject({ state: 'done', error: { code: 'POINT_IN_ZONE', params: { point: 'A' } } });
+  });
+});
+
+const squareAt = (x: number) => [[x, 0], [x + 1, 0], [x + 1, 1], [x, 1], [x, 0]];
+const cfg = () => ({
+  accessPoint: { type: 'Point', coordinates: [0.5, 0] },
+  exclusionZones: { type: 'FeatureCollection', features: [
+    { type: 'Feature', properties: {}, geometry: { type: 'Polygon', coordinates: [squareAt(0)] } },
+    { type: 'Feature', properties: {}, geometry: { type: 'MultiPolygon', coordinates: [[squareAt(10)], [squareAt(20)]] } },
+  ] },
+}) as any;
+
+describe('gate and NO-GO on the 3D map', () => {
+  it('draws them as soon as a parcel is selected, with the gate icon, the hatch and a border', async () => {
+    vi.mocked(api.getParcelConfig).mockResolvedValue(cfg());
+    const { findByTestId } = render(<GisRoutingMapLayer />);
+    await findByTestId('map-legend');
+    expect(api.getParcelConfig).toHaveBeenCalledWith('parcel-1');
+    const gate = added.find((a) => a.id.includes('access'));
+    expect(gate.billboard.image.startsWith('data:image/svg+xml')).toBe(true);
+    expect(gate.label.text).toBe('Portón');
+    const zones = added.filter((a) => a.id.includes('zone'));
+    expect(zones).toHaveLength(3); // Polygon + both parts of the MultiPolygon
+    for (const z of zones) {
+      expect(z.polygon.material.o).toMatchObject({ repeat: expect.any(Number) });
+      expect(z.polygon.stRotation).toBeCloseTo(Math.PI / 4);
+      expect(z.polyline.width).toBeGreaterThanOrEqual(3);
+      expect(z.polyline.clampToGround).toBe(true);
+    }
+    expect(zones.filter((z) => z.label?.text === 'NO-GO')).toHaveLength(2); // one label per zone feature
+  });
+
+  it('draws no gate icon when the parcel has none', async () => {
+    vi.mocked(api.getParcelConfig).mockResolvedValue({ accessPoint: null, exclusionZones: cfg().exclusionZones } as any);
+    const { findByTestId } = render(<GisRoutingMapLayer />);
+    await findByTestId('map-legend');
+    expect(added.some((a) => a.billboard)).toBe(false);
+  });
+
+  it('hides the parcel overlay while the plan draws its own gate and zones,', async () => {
+    vi.mocked(api.getParcelConfig).mockResolvedValue(cfg());
+    vi.mocked(api.getOperationPlan).mockResolvedValue({
+      type: 'FeatureCollection', properties: { plan_version: 1 },
+      features: [feat('access_point', { type: 'Point', coordinates: [0, 0] }), feat('exclusion_zone', { type: 'Polygon', coordinates: [sq] })],
+    } as any);
+    const { findByTestId } = render(<GisRoutingMapLayer />);
+    await findByTestId('map-legend');
+    const cfgEntities = added.filter((a) => a.id.startsWith('gis-cfg'));
+    expect(cfgEntities.length).toBeGreaterThan(0);
+    await act(async () => {
+      window.dispatchEvent(new CustomEvent(EV.routeGenerated, { detail: { operation_id: 'op-1', geometry: null } }));
+    });
+    expect(cfgEntities.every((e) => e.show === false)).toBe(true);
+    expect(added.some((a) => a.id.startsWith('gis-plan-exclusion_zone'))).toBe(true);
   });
 });

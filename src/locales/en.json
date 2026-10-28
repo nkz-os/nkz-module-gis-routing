@@ -398,6 +398,11 @@
       "swaths": "Swaths",
       "warnings": "Warnings",
       "vra": "VRA classes"
+    },
+    "legend": {
+      "gate": "Gate",
+      "nogo": "NO-GO",
+      "margin": "Safety margin"
     }
   },
   "transit": {

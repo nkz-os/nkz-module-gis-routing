@@ -1,8 +1,12 @@
 import React, { useEffect, useRef, useState } from 'react';
-import type { GeoJSONSource, LayerSpecification, Map as MapLibreMap } from 'maplibre-gl';
+import type { GeoJSONSource, LayerSpecification, Map as MapLibreMap, Marker } from 'maplibre-gl';
 import type { TerraDraw } from 'terra-draw';
 import { basemapFor, rasterSource, type BasemapId } from './basemap';
+import { useTranslation } from '@nekazari/sdk';
 import { injectMapCss } from './injectMapCss';
+import { ensureMapImages } from './markers';
+import { LabelMarkers, gateLabels, zoneLabels } from './labelMarkers';
+import { MapLegend } from './MapLegend';
 import { buildSources, changedSources, layerSpecs, planBounds, type MapModel, type SourceId } from './model';
 import { ringToPolygon } from '../services/geo';
 
@@ -76,6 +80,7 @@ function toError(e: unknown): Error {
 }
 
 export const MapCanvas: React.FC<MapCanvasProps> = (props) => {
+  const { t } = useTranslation('gis-routing');
   const { model, drawMode, fitKey, visibleLayers, locked = false } = props;
   const ref = useRef<HTMLDivElement>(null);
   const mapRef = useRef<MapLibreMap | null>(null);
@@ -83,6 +88,8 @@ export const MapCanvas: React.FC<MapCanvasProps> = (props) => {
   const basemapRef = useRef<BasemapId | null>(null);
   const editKeyRef = useRef<string>('');
   const prevModelRef = useRef<MapModel | null>(null);
+  const labelsRef = useRef<LabelMarkers | null>(null);
+  const markerCtorRef = useRef<typeof Marker | null>(null);
   const [ready, setReady] = useState(false);
 
   // Latest props for the long-lived map/draw listeners.
@@ -122,6 +129,7 @@ export const MapCanvas: React.FC<MapCanvasProps> = (props) => {
       created.addControl(new maplibregl.NavigationControl({ visualizePitch: false }), 'top-right');
       created.addControl(new maplibregl.ScaleControl({ unit: 'metric' }), 'bottom-left');
       map = created;
+      markerCtorRef.current = maplibregl.Marker;
       const mapNow = created;
 
       mapNow.on('error', (ev) => {
@@ -138,6 +146,10 @@ export const MapCanvas: React.FC<MapCanvasProps> = (props) => {
       mapNow.on('load', () => {
         if (cancelled) return;
         try {
+        // Images first: the hatch and gate layers refer to them. A style reload drops them.
+        void ensureMapImages(mapNow);
+        mapNow.on('styleimagemissing', () => { void ensureMapImages(mapNow); });
+        mapNow.on('styledata', () => { void ensureMapImages(mapNow); });
         const sources = buildSources(propsRef.current.model);
         for (const id of Object.keys(sources) as SourceId[]) mapNow.addSource(id, { type: 'geojson', data: sources[id] });
         for (const spec of layerSpecs()) mapNow.addLayer(spec);
@@ -166,9 +178,11 @@ export const MapCanvas: React.FC<MapCanvasProps> = (props) => {
           adapter: new TerraDrawMapLibreGLAdapter({ map: mapNow }),
           modes: [
             new td.TerraDrawPolygonMode({
-              styles: { fillOpacity: 0, outlineColor: '#F59E0B', outlineWidth: 2 },
+              // Editable copy only: the display layers (hatch + red border) are the clear drawing.
+              styles: { fillOpacity: 0, outlineColor: '#FFFFFF', outlineWidth: 1 },
             }),
-            new td.TerraDrawPointMode({ styles: { pointColor: '#2563EB', pointWidth: 6 } }),
+            // A small anchor dot at the foot of the gate icon.
+            new td.TerraDrawPointMode({ styles: { pointColor: '#2563EB', pointWidth: 4 } }),
             // Non-interactive mode used while a request runs (features stay visible).
             new td.TerraDrawRenderMode({ modeName: 'render', styles: {} }),
             new td.TerraDrawSelectMode({
@@ -234,6 +248,8 @@ export const MapCanvas: React.FC<MapCanvasProps> = (props) => {
         console.error('[gis-routing] draw stop failed', e);
       }
       drawRef.current = null;
+      labelsRef.current?.clear();
+      labelsRef.current = null;
       mapRef.current = null;
       map?.remove();
     };
@@ -250,6 +266,23 @@ export const MapCanvas: React.FC<MapCanvasProps> = (props) => {
     const sources = buildSources(model);
     for (const id of changed) (map.getSource(id) as GeoJSONSource | undefined)?.setData(sources[id]);
   }, [model, ready]);
+
+  // Gate and NO-GO labels (DOM markers: the basemap style has no glyphs for symbol text).
+  const gateText = t('map.legend.gate');
+  const nogoText = t('map.legend.nogo');
+  const zonesVisible = visibleLayers?.zones !== false;
+  useEffect(() => {
+    const map = mapRef.current;
+    const Ctor = markerCtorRef.current;
+    if (!ready || !map || !Ctor) return;
+    if (!labelsRef.current) labelsRef.current = new LabelMarkers(map, Ctor);
+    labelsRef.current.sync(zonesVisible
+      ? [
+          ...gateLabels(model.plan?.access_point ?? model.accessPoint, gateText),
+          ...zoneLabels(model.zones.map((z) => ({ id: z.id, geometry: z.polygon })), nogoText),
+        ]
+      : []);
+  }, [model.zones, model.accessPoint, model.plan, gateText, nogoText, zonesVisible, ready]);
 
   // Parcel → basemap by region (tiles cannot be swapped in place).
   useEffect(() => {
@@ -336,6 +369,7 @@ export const MapCanvas: React.FC<MapCanvasProps> = (props) => {
   return (
     <div className="absolute inset-0" data-testid="map-canvas">
       <div ref={ref} className="h-full w-full" data-testid="map-container" />
+      <MapLegend margin={model.marginM !== null && model.zones.length > 0} />
     </div>
   );
 };

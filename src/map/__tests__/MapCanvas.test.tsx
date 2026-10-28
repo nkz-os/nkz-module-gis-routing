@@ -2,7 +2,7 @@ import React from 'react';
 import { cleanup, render, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-const h = vi.hoisted(() => ({ opts: null as any, fitBounds: vi.fn(), setMode: vi.fn(), handlers: {} as Record<string, (...a: any[]) => void> }));
+const h = vi.hoisted(() => ({ opts: null as any, fitBounds: vi.fn(), setMode: vi.fn(), handlers: {} as Record<string, (...a: any[]) => void>, images: [] as string[], markers: [] as any[] }));
 
 vi.mock('maplibre-gl', () => {
   class Map {
@@ -10,6 +10,8 @@ vi.mock('maplibre-gl', () => {
     addControl() {}
     on(ev: string, cb: (...a: any[]) => void) { if (typeof cb === 'function' && (ev === 'load' || ev === 'error')) h.handlers[ev] = cb; }
     addSource() {}
+    hasImage(n: string) { return h.images.includes(n); }
+    addImage(n: string) { h.images.push(n); }
     addLayer() {}
     getSource() { return undefined; }
     getLayer() { return undefined; }
@@ -18,8 +20,12 @@ vi.mock('maplibre-gl', () => {
     remove() {}
     getCanvas() { return { style: {} }; }
   }
+  class Marker {
+    constructor(public o: any) { h.markers.push(this); }
+    setLngLat() { return this; } addTo() { return this; } remove() {} getElement() { return this.o.element; }
+  }
   const C = class {};
-  return { default: { Map, NavigationControl: C, ScaleControl: C }, Map, NavigationControl: C, ScaleControl: C };
+  return { default: { Map, Marker, NavigationControl: C, ScaleControl: C }, Map, Marker, NavigationControl: C, ScaleControl: C };
 });
 vi.mock('terra-draw', () => {
   class M { constructor(public o?: unknown) {} }
@@ -32,6 +38,7 @@ vi.mock('terra-draw', () => {
 });
 vi.mock('terra-draw-maplibre-gl-adapter', () => ({ TerraDrawMapLibreGLAdapter: class {} }));
 
+import '../../i18n';
 import { MapCanvas } from '../MapCanvas';
 import type { MapModel } from '../model';
 
@@ -46,7 +53,7 @@ const props = {
   onZoneDrawn: vi.fn(), onZoneEdited: vi.fn(), onAccessPlaced: vi.fn(), onSwathHover: vi.fn(), onWarningClick: vi.fn(),
 };
 
-afterEach(() => { cleanup(); h.opts = null; h.fitBounds.mockClear(); h.setMode.mockClear(); h.handlers = {}; });
+afterEach(() => { cleanup(); h.opts = null; h.fitBounds.mockClear(); h.setMode.mockClear(); h.handlers = {}; h.images = []; h.markers = []; });
 
 describe('MapCanvas', () => {
   it('hands MapLibre an inner box, not the absolutely positioned wrapper', async () => {
@@ -92,5 +99,21 @@ describe('MapCanvas', () => {
     h.setMode.mockClear();
     rerender(<MapCanvas {...props} locked={false} />);
     await waitFor(() => expect(h.setMode).toHaveBeenCalledWith('select'));
+  });
+
+  it('registers the hatch before the layers and labels the gate and every NO-GO zone', async () => {
+    const zone = (id: string, x: number) => ({ id, polygon: { type: 'Polygon', coordinates: [[[x, 0], [x + 0.001, 0], [x + 0.001, 0.001], [x, 0.001], [x, 0]]] }, areaHa: 1, valid: true });
+    const m = { ...model, zones: [zone('a', 0), zone('b', 0.005)], accessPoint: { type: 'Point', coordinates: [0.002, 0.002] }, marginM: null } as unknown as MapModel;
+    render(<MapCanvas {...props} model={m} />);
+    await waitFor(() => expect(h.handlers.load).toBeTypeOf('function'));
+    h.handlers.load();
+    expect(h.images).toContain('nkz-nogo-hatch');
+    await waitFor(() => expect(h.markers).toHaveLength(3));
+    expect(h.markers.map((k) => k.o.element.textContent).sort()).toEqual(['NO-GO', 'NO-GO', 'Portón']);
+  });
+
+  it('shows a legend', async () => {
+    const { getByTestId } = render(<MapCanvas {...props} />);
+    expect(getByTestId('map-legend')).toBeInTheDocument();
   });
 });

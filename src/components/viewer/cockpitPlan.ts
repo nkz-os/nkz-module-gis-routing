@@ -40,7 +40,7 @@ const OUTLINE_STYLE: Partial<Record<PlanElement, string>> = {
 
 const UNIT: Record<string, string> = { kg_ha: 'kg/ha', l_ha: 'L/ha' };
 
-function parts(g: Geometry): PolygonPart[] {
+export function parts(g: Geometry): PolygonPart[] {
   const polys = g.type === 'Polygon' ? [g.coordinates] : g.type === 'MultiPolygon' ? g.coordinates : [];
   return polys.filter((p) => p.length > 0).map((p) => ({ outer: p[0], holes: p.slice(1) }));
 }
