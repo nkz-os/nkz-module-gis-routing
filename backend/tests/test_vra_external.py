@@ -250,3 +250,13 @@ def test_geojson_and_csv_still_work():
     r = client.post(URL, json={"format": "geojson", "content": json.dumps(
         {"type": "FeatureCollection", "features": feats})})
     assert r.status_code == 200
+
+
+def test_corrupt_zip_entry_is_400_zones_file_invalid():
+    data = bytearray(make_zip([box(0, 0, 10, 10)], [("value", ("N", 10, 3))], [(1.0,)]))
+    # Flip bytes inside the stored .shp data so the CRC no longer matches.
+    i = bytes(data).find(b"zones.shp") + len("zones.shp") + 60
+    data[i] ^= 0xFF
+    r = post("shapefile", bytes(data))
+    assert r.status_code == 400, r.text
+    assert r.json()["code"] == "ZONES_FILE_INVALID"

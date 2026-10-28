@@ -1,3 +1,5 @@
+import math
+
 import pytest
 from shapely.geometry import LineString, Polygon, box, shape
 
@@ -183,3 +185,56 @@ def test_duplicate_zone_ids_are_not_collapsed():
     r = run(zones=zs, classes=[{"min_pct": 0, "max_pct": 50, "rate": 1},
                                {"min_pct": 50, "max_pct": 100, "rate": 2}])
     assert [c["area_ha"] for c in r["classes"]] == [0.5, 0.5]
+
+
+def _staircase_prescription():
+    """48 ha (800x600 m) field, 10 m pixels, 8 diagonal bands (stair-stepped), 5 classes, real UTM."""
+    from pyproj import Transformer
+    from shapely.ops import unary_union
+
+    crs = "EPSG:32630"
+    to_utm = Transformer.from_crs("EPSG:4326", crs, always_xy=True).transform
+    to_wgs = Transformer.from_crs(crs, "EPSG:4326", always_xy=True).transform
+    x0, y0 = 500000.0, 4600000.0
+    bands: dict[int, list] = {}
+    for i in range(80):
+        for j in range(60):
+            v = (i / 80 + j / 60) / 2 + 0.12 * math.sin(i * 0.9) * math.cos(j * 1.3) + 0.08 * math.sin(i * 0.37 + j * 0.51)
+            k = max(0, min(7, int(v * 8)))
+            bands.setdefault(k, []).append(box(x0 + i * 10, y0 + j * 10, x0 + i * 10 + 10, y0 + j * 10 + 10))
+    zones = []
+    for k in range(8):
+        g = unary_union(bands[k])
+        zs = shp_transform_wgs(g, to_wgs)
+        zones.append(ZoneValue(id=f"z{k}", mean=0.1 * (k + 1), area_ha=g.area / 1e4, geometry=zs))
+    sw = [Swath(index=n, kind="work", geometry=LineString([(x0 + 3 + 6 * n, y0), (x0 + 3 + 6 * n, y0 + 600)]))
+          for n in range(133)]
+    classes = [{"min_pct": a, "max_pct": a + 20, "rate": 50 + 25 * a // 20} for a in range(0, 100, 20)]
+    return build_prescription(zones=zones, classes=classes, unit="kg_ha", product="N", invert=False,
+                              swaths_utm=sw, parcel_utm=box(x0, y0, x0 + 800, y0 + 600),
+                              to_utm=to_utm, to_wgs=to_wgs)
+
+
+def shp_transform_wgs(g, to_wgs):
+    from shapely.ops import transform
+    return transform(to_wgs, g)
+
+
+def test_persistable_prescription_is_compact_and_keeps_shape():
+    import json
+
+    from app.services.vra.prescription import persistable_prescription
+    rx = _staircase_prescription()
+    full = len(json.dumps(rx))
+    assert full > 900 * 1024  # the unpersisted form really is too big (review C2)
+    rx_copy = json.dumps(rx)
+    p = persistable_prescription(rx)
+    assert json.dumps(rx) == rx_copy  # input untouched
+    assert "swath_segments" not in p
+    assert len(json.dumps(p)) < 900 * 1024
+    assert [c["rate"] for c in p["classes"]] == [c["rate"] for c in rx["classes"]]
+    assert {f["properties"]["class_index"] for f in p["zones"]["features"]} == \
+        {f["properties"]["class_index"] for f in rx["zones"]["features"]}
+    a = sum(shape(f["geometry"]).area for f in rx["zones"]["features"])
+    b = sum(shape(f["geometry"]).area for f in p["zones"]["features"])
+    assert b == pytest.approx(a, rel=0.01)

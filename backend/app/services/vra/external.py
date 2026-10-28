@@ -12,6 +12,7 @@ import io
 import math
 import re
 import zipfile
+import zlib
 from xml.etree import ElementTree as ET
 
 from defusedxml import DefusedXmlException
@@ -94,10 +95,13 @@ def parse_shapefile(data: bytes) -> tuple[list[dict], list[str]]:
             by_ext.setdefault(ext, i)
         if "shp" not in by_ext or "dbf" not in by_ext:
             raise _invalid("zip needs .shp and .dbf files")
-        shp = io.BytesIO(zf.read(by_ext["shp"]))
-        dbf = io.BytesIO(zf.read(by_ext["dbf"]))
-        shx = io.BytesIO(zf.read(by_ext["shx"])) if "shx" in by_ext else None
-        prj = zf.read(by_ext["prj"]).decode("utf-8", "replace") if "prj" in by_ext else None
+        try:
+            shp = io.BytesIO(zf.read(by_ext["shp"]))
+            dbf = io.BytesIO(zf.read(by_ext["dbf"]))
+            shx = io.BytesIO(zf.read(by_ext["shx"])) if "shx" in by_ext else None
+            prj = zf.read(by_ext["prj"]).decode("utf-8", "replace") if "prj" in by_ext else None
+        except (zipfile.BadZipFile, zlib.error, EOFError, NotImplementedError, RuntimeError) as exc:
+            raise _invalid("corrupt zip entry") from exc
 
     warnings: list[str] = []
     project = None

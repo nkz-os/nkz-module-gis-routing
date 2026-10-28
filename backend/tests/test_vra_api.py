@@ -286,3 +286,40 @@ def test_persisted_vra_config_drops_external_features():
             classes=[{"min_pct": 0, "max_pct": 50, "rate": 10}, {"min_pct": 50, "max_pct": 100, "rate": 20}])
     assert gen(vra=v, persist=True).status_code == 200
     assert "external_features" not in FakeOrion.created[0]["vraConfig"]["value"]
+
+
+def test_orion_zone_read_error_is_coded_502(monkeypatch):
+    async def boom(self, *a, **k):
+        raise RuntimeError("orion down")
+    monkeypatch.setattr(FakeOrion, "query_entities", boom)
+    r = gen(vra=vra())
+    assert r.status_code == 502, r.text
+    assert r.json()["code"] == "ZONES_UNAVAILABLE"
+
+
+def test_persisted_prescription_has_no_swath_segments_but_response_does():
+    r = gen(vra=vra(), persist=True)
+    assert r.status_code == 200, r.text
+    assert r.json()["plan"]["prescription"]["swath_segments"]["features"]
+    stored = FakeOrion.created[0]["prescription"]["value"]
+    assert "swath_segments" not in stored
+    assert stored["zones"]["features"] and stored["classes"]
+
+
+def test_export_isoxml_works_from_persisted_shape():
+    from app.services.export_service import RouteExporter
+    gen(vra=vra(), persist=True)
+    stored = FakeOrion.created[0]["prescription"]["value"]
+    xml = RouteExporter().to_isoxml({"id": "x", "name": "n", "operation_type": "spraying",
+                                     "ab_line_geojson": "{}", "implement_width": 4,
+                                     "prescription": stored})
+    assert xml.count("<TZN") == 3
+
+
+def test_too_large_entity_is_422_plan_too_large(monkeypatch):
+    monkeypatch.setattr("app.services.operation_store.MAX_ENTITY_BYTES", 2000)
+    r = gen(vra=vra(), persist=True)
+    assert r.status_code == 422, r.text
+    body = r.json()
+    assert body["code"] == "PLAN_TOO_LARGE" and body["params"]["size_kb"] >= 2
+    assert FakeOrion.created == []

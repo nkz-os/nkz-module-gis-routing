@@ -55,9 +55,15 @@ async def _fetch_entities(tenant_id: str, parcel_id: str) -> list[dict]:
     seen: set[str] = set()
     try:
         for page in range(_MAX_PAGES):
-            batch = await orion.query_entities(
-                ZONE_TYPE, q=f'hasAgriParcel=="{parcel_id}"',
-                limit=_PAGE, offset=page * _PAGE, options="sysAttrs")
+            try:
+                batch = await orion.query_entities(
+                    ZONE_TYPE, q=f'hasAgriParcel=="{parcel_id}"',
+                    limit=_PAGE, offset=page * _PAGE, options="sysAttrs")
+            except Exception as exc:
+                logger.exception("zone read failed: tenant_id=%s parcel_id=%s page=%d",
+                                 tenant_id, parcel_id, page)
+                raise PlanError("ZONES_UNAVAILABLE", "management zones could not be read",
+                                {}) from exc
             for e in batch:
                 eid = e.get("id")
                 if eid in seen:

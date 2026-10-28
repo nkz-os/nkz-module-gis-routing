@@ -177,3 +177,41 @@ def _seg(swath_index, class_index, rate, line, to_wgs) -> dict:
         "properties": {"swath_index": swath_index, "class_index": class_index,
                        "rate": rate, "length_m": round(line.length, 2)},
     }
+
+
+_SIMPLIFY_M = 0.25
+_COORD_DECIMALS = 7
+
+
+def _round_geom(geom):
+    return shp_transform(
+        lambda x, y, z=None: (round(x, _COORD_DECIMALS), round(y, _COORD_DECIMALS)), geom)
+
+
+def persistable_prescription(rx: dict) -> dict:
+    """Compact copy of a prescription for storage in the operation entity.
+
+    Drops ``swath_segments`` (recomputable from the stored swaths and zones) and
+    simplifies the class polygons by 0.25 m in UTM (topology preserved) so the
+    entity stays under the broker's body limit. The input is not modified.
+    """
+    from pyproj import Transformer
+    from shapely.geometry import shape
+
+    from app.services.routing.base import get_utm_crs
+
+    out = {k: v for k, v in rx.items() if k != "swath_segments"}
+    feats = []
+    for f in (rx.get("zones") or {}).get("features", []):
+        g = shape(f["geometry"])
+        if g.is_empty:
+            feats.append(f)
+            continue
+        c = g.centroid
+        crs = get_utm_crs(c.x, c.y)
+        to_utm = Transformer.from_crs("EPSG:4326", crs, always_xy=True).transform
+        to_wgs = Transformer.from_crs(crs, "EPSG:4326", always_xy=True).transform
+        simple = shp_transform(to_utm, g).simplify(_SIMPLIFY_M, preserve_topology=True)
+        feats.append({**f, "geometry": mapping(_round_geom(shp_transform(to_wgs, simple)))})
+    out["zones"] = {"type": "FeatureCollection", "features": feats}
+    return out

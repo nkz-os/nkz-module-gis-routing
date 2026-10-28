@@ -704,6 +704,10 @@ async def _persist_operation(result, body: GenerateRequest, auth: AuthContext,
         prescription_map=prescription_map, is_template=False, plan=plan_dict,
         planned_start_at=_iso_utc(body.planned_start_at), planned_end_at=_iso_utc(body.planned_end_at),
     )
+    size = len(json.dumps(entity, separators=(",", ":")).encode("utf-8"))
+    if size > operation_store.MAX_ENTITY_BYTES:
+        raise PlanError("PLAN_TOO_LARGE", "operation is too large to store",
+                        {"size_kb": round(size / 1024)})
     orion = OrionClient(tenant_id, base_url=settings.context_broker_url,
                        context_url=settings.ngsi_ld_context)
     try:

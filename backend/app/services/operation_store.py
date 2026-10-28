@@ -15,10 +15,15 @@ from typing import Optional
 
 from shapely.geometry import mapping
 
+from app.services.vra.prescription import persistable_prescription
 from nkz_platform_sdk.orion import OrionClient
 
 
 # ----- pure helpers ---------------------------------------------------------
+
+# Orion-LD rejects bodies over 1 MiB (413); stay well under it.
+MAX_ENTITY_BYTES = 900 * 1024
+
 
 def _prop(entity: dict, name: str, default=None):
     node = entity.get(name)
@@ -182,7 +187,8 @@ def build_operation_entity(*, op_id, body, result, prescription_map, is_template
     if body.vra is not None:
         entity["vraConfig"] = {"type": "Property", "value": body.vra.model_dump(exclude_none=True, exclude={"external_features"})}
     if plan is not None and plan.get("prescription") is not None:
-        entity["prescription"] = {"type": "Property", "value": plan["prescription"]}
+        entity["prescription"] = {"type": "Property",
+                                  "value": persistable_prescription(plan["prescription"])}
     if prescription_map:
         entity["prescriptionMap"] = {"type": "Property", "value": prescription_map}
     # Orion rejects a Property/GeoProperty whose value is null.
