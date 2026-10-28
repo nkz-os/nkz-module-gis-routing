@@ -90,6 +90,14 @@ describe('save confirmation and alert status', () => {
   });
 });
 
+describe('export errors', () => {
+  it('shows a refused export translated by its code', () => {
+    const base = withResult({ phase: 'saved' }, 'urn:ngsi-ld:Op:abcdefgh12345678');
+    bar(base, { exportError: { code: 'IMPLEMENT_WIDTH_MISSING', detail: '', params: {} } });
+    expect(screen.getByRole('alert').textContent).toMatch(/ancho/i);
+  });
+});
+
 describe('result strip and actions bar', () => {
   it('ResultStrip renders metrics, warnings with show-on-map, stale badge and translated fallbacks', () => {
     const onWarningSelect = vi.fn();

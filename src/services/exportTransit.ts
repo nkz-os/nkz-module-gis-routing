@@ -45,7 +45,12 @@ export function toGeoJson(alt: PathAlternative): GeoJSON.Feature<GeoJSON.LineStr
 
 /** Browser download of a text file through a Blob. */
 export function downloadText(filename: string, mime: string, content: string): void {
-  const url = URL.createObjectURL(new Blob([content], { type: mime }));
+  downloadBlob(filename, new Blob([content], { type: mime }));
+}
+
+/** Browser download of a Blob under a file name. */
+export function downloadBlob(filename: string, blob: Blob): void {
+  const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
   a.download = filename;

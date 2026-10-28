@@ -338,7 +338,9 @@
       "ZONES_UNAVAILABLE": "No s'han pogut llegir les zones de maneig. Torna-ho a provar.",
       "PLAN_TOO_LARGE_TO_SAVE": "El pla és massa gran per desar-lo. Fes servir menys zones o més grans, o una àrea menor.",
       "EXPORT_EMPTY": "No hi ha res per exportar en aquesta operació.",
-      "PARCEL_READ_FAILED": "No s'ha pogut llegir la parcel·la. Torna-ho a provar."
+      "PARCEL_READ_FAILED": "No s'ha pogut llegir la parcel·la. Torna-ho a provar.",
+      "IMPLEMENT_WIDTH_MISSING": "Aquesta operació es va desar sense amplada de treball i no es pot exportar a ISOXML. Planifica-la de nou.",
+      "EXPORT_NOT_SUPPORTED": "Aquest format d'exportació no està disponible per a trànsits."
     },
     "actions": {
       "regenerate": "Regenerar",

@@ -11,12 +11,8 @@ function resolveOrigin(): string {
 export const API_ORIGIN: string = resolveOrigin();
 const BASE_URL = `${API_ORIGIN}/api/routing`;
 
-async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
-  const headers: Record<string, string> = {
-    'Content-Type': 'application/json',
-    ...(options.headers as Record<string, string> || {}),
-  };
-
+async function authHeaders(extra: Record<string, string> = {}): Promise<Record<string, string>> {
+  const headers: Record<string, string> = { ...extra };
   if (typeof window !== 'undefined') {
     const ctx = (window as any).__nekazariAuthContext;
     let token = ctx?.token || (window as any).keycloak?.token;
@@ -26,7 +22,14 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
     }
     if (token) headers['Authorization'] = `Bearer ${token}`;
   }
+  return headers;
+}
 
+async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
+  const headers = await authHeaders({
+    'Content-Type': 'application/json',
+    ...(options.headers as Record<string, string> || {}),
+  });
   const resp = await fetch(`${BASE_URL}${path}`, { ...options, headers, credentials: 'include' });
   if (!resp.ok) {
     const error = await resp.json().catch(() => ({ detail: resp.statusText }));
@@ -325,8 +328,19 @@ export const api = {
   },
 
   // Export
-  getExportUrl(operationId: string, format: 'isoxml' | 'geojson' | 'gpx'): string {
-    return `${BASE_URL}/export/${encodeURIComponent(operationId)}?format=${format}`;
+  /** The exported file. A refusal (coded 4xx/5xx) throws ApiError instead of downloading its JSON body. */
+  async downloadExport(
+    operationId: string, format: 'isoxml' | 'geojson' | 'gpx',
+  ): Promise<{ blob: Blob; filename: string }> {
+    const resp = await fetch(`${BASE_URL}/export/${encodeURIComponent(operationId)}?format=${format}`, {
+      headers: await authHeaders(), credentials: 'include',
+    });
+    if (!resp.ok) {
+      const error = await resp.json().catch(() => ({ detail: resp.statusText }));
+      throw new ApiError(resp.status, error);
+    }
+    const named = /filename="?([^";]+)"?/.exec(resp.headers.get('Content-Disposition') ?? '')?.[1];
+    return { blob: await resp.blob(), filename: named ?? `${operationId.split(':').pop()}.${format === 'isoxml' ? 'xml' : format}` };
   },
 
   // Patterns

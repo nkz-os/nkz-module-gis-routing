@@ -338,7 +338,9 @@
       "ZONES_UNAVAILABLE": "No se pudieron leer las zonas de manejo. Inténtalo de nuevo.",
       "PLAN_TOO_LARGE_TO_SAVE": "El plan es demasiado grande para guardarlo. Usa menos zonas o más grandes, o un área menor.",
       "EXPORT_EMPTY": "No hay nada que exportar en esta operación.",
-      "PARCEL_READ_FAILED": "No se pudo leer la parcela. Inténtalo de nuevo."
+      "PARCEL_READ_FAILED": "No se pudo leer la parcela. Inténtalo de nuevo.",
+      "IMPLEMENT_WIDTH_MISSING": "Esta operación se guardó sin ancho de trabajo y no se puede exportar a ISOXML. Planifícala de nuevo.",
+      "EXPORT_NOT_SUPPORTED": "Este formato de exportación no está disponible para tránsitos."
     },
     "actions": {
       "regenerate": "Regenerar",

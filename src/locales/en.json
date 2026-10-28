@@ -338,7 +338,9 @@
       "ZONES_UNAVAILABLE": "The management zones could not be read. Try again.",
       "PLAN_TOO_LARGE_TO_SAVE": "The plan is too large to save. Use fewer or larger zones or a smaller area.",
       "EXPORT_EMPTY": "There is nothing to export for this operation.",
-      "PARCEL_READ_FAILED": "The parcel could not be read. Try again."
+      "PARCEL_READ_FAILED": "The parcel could not be read. Try again.",
+      "IMPLEMENT_WIDTH_MISSING": "This operation was saved without a working width and cannot be exported to ISOXML. Plan it again.",
+      "EXPORT_NOT_SUPPORTED": "This export format is not available for transits."
     },
     "actions": {
       "regenerate": "Regenerate",

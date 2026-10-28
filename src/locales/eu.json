@@ -338,7 +338,9 @@
       "ZONES_UNAVAILABLE": "Ezin izan dira kudeaketa-eremuak irakurri. Saiatu berriro.",
       "PLAN_TOO_LARGE_TO_SAVE": "Plana handiegia da gordetzeko. Erabili zona gutxiago eta handiagoak, edo eremu txikiagoa.",
       "EXPORT_EMPTY": "Eragiketa honetan ez dago esportatzeko ezer.",
-      "PARCEL_READ_FAILED": "Ezin izan da partzela irakurri. Saiatu berriro."
+      "PARCEL_READ_FAILED": "Ezin izan da partzela irakurri. Saiatu berriro.",
+      "IMPLEMENT_WIDTH_MISSING": "Eragiketa hau lan-zabalerarik gabe gorde zen eta ezin da ISOXMLra esportatu. Planifikatu berriro.",
+      "EXPORT_NOT_SUPPORTED": "Esportazio-formatu hau ez dago erabilgarri igarobideetarako."
     },
     "actions": {
       "regenerate": "Birsortu",

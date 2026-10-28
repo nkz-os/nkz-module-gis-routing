@@ -21,6 +21,8 @@ interface Props {
   onGenerate: () => void;
   onSave: () => void;
   onExport: (format: ExportFormat) => void;
+  /** A refused export (coded by the backend), shown instead of a downloaded error file. */
+  exportError?: WorkState['error'];
   onShowError: (geometry: GeoJSON.Geometry) => void;
   plan: Plan | null;
 }
@@ -46,7 +48,7 @@ function errorGeometry(params: Record<string, unknown>): GeoJSON.Geometry | null
 }
 
 export const ActionsBar: React.FC<Props> = ({
-  state, dispatch, onGenerate, onSave, onExport, onShowError, plan,
+  state, dispatch, onGenerate, onSave, onExport, exportError, onShowError, plan,
 }) => {
   const { t } = useTranslation(NS);
   const [format, setFormat] = useState<ExportFormat>('isoxml');
@@ -153,6 +155,13 @@ export const ActionsBar: React.FC<Props> = ({
           {t('work.actions.saveTemplate')}
         </Button>
       </div>
+
+      {exportError && (
+        <p role="alert" className="text-nkz-sm text-nkz-danger">
+          {t(`work.errors.${exportError.code}`, { ...exportError.params, detail: exportError.detail, defaultValue: '' })
+            || t('work.errors.UNKNOWN', { detail: exportError.detail })}
+        </p>
+      )}
 
       <SettingsBlock />
 

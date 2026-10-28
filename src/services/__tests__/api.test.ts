@@ -70,3 +70,32 @@ describe('api VRA calls', () => {
     expect(r.prescription.unit).toBe('kg_ha');
   });
 });
+
+
+describe('api export download', () => {
+  afterEach(() => { vi.unstubAllGlobals(); vi.resetModules(); });
+
+  it('fetches with credentials and returns the file with the server filename', async () => {
+    (window as any).__ENV__ = { VITE_API_URL: 'http://api.test' };
+    const f = vi.fn().mockResolvedValue(new Response('<xml/>', {
+      status: 200, headers: { 'Content-Disposition': 'attachment; filename="abc.xml"' } }));
+    vi.stubGlobal('fetch', f);
+    const { api } = await import('../api');
+    const got = await api.downloadExport('urn:ngsi-ld:Op:t:abc', 'isoxml');
+    const [url, init] = f.mock.calls[0];
+    expect(url).toBe('http://api.test/api/routing/export/urn%3Angsi-ld%3AOp%3At%3Aabc?format=isoxml');
+    expect(init.credentials).toBe('include');
+    expect(got.filename).toBe('abc.xml');
+    expect(await got.blob.text()).toBe('<xml/>');
+  });
+
+  it('a coded refusal becomes an ApiError with the code, not a downloaded JSON file', async () => {
+    (window as any).__ENV__ = { VITE_API_URL: 'http://api.test' };
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(
+      JSON.stringify({ code: 'IMPLEMENT_WIDTH_MISSING', detail: 'x', params: {} }), { status: 422 })));
+    const { api, ApiError } = await import('../api');
+    const err = await api.downloadExport('op', 'isoxml').catch((e) => e);
+    expect(err).toBeInstanceOf(ApiError);
+    expect(err.code).toBe('IMPLEMENT_WIDTH_MISSING');
+  });
+});

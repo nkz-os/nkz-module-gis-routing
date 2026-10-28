@@ -14,6 +14,7 @@ import {
   type WorkState,
 } from '../../state/workMachine';
 import { savePlan } from '../../state/savePlan';
+import { downloadBlob } from '../../services/exportTransit';
 import { useConfigAutosave } from '../../state/useConfigAutosave';
 import { useVraSync } from '../../state/useVraSync';
 import { MapCanvas, type DrawMode, type LayerGroup } from '../../map/MapCanvas';
@@ -268,9 +269,17 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({ onContextChange }) => {
   const onGenerate = useCallback(() => { void run(false); }, [run]);
   const onSave = useCallback(() => { void run(true); }, [run]);
 
-  const onExport = useCallback((format: 'isoxml' | 'geojson' | 'gpx') => {
+  const [exportError, setExportError] = useState<NonNullable<WorkState['error']> | null>(null);
+  const onExport = useCallback(async (format: 'isoxml' | 'geojson' | 'gpx') => {
     const id = stateRef.current.result?.operationId;
-    if (id) window.open(api.getExportUrl(id, format), '_blank', 'noopener');
+    if (!id) return;
+    setExportError(null);
+    try {
+      const file = await api.downloadExport(id, format);
+      downloadBlob(file.filename, file.blob);
+    } catch (e) {
+      setExportError(toWorkError(e));
+    }
   }, []);
 
   const refit = () => {
@@ -305,7 +314,8 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({ onContextChange }) => {
           dispatch={dispatch}
           onGenerate={onGenerate}
           onSave={onSave}
-          onExport={onExport}
+          onExport={(f) => { void onExport(f); }}
+          exportError={exportError}
           onShowError={onShowError}
           plan={plan}
         />
