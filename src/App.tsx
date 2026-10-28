@@ -396,7 +396,8 @@ const App: React.FC = () => {
               />
               {savedResult && (
                 <PatternSaveLoad
-                  result={savedResult}
+                  plan={savedResult?.plan ?? null}
+                  operationId={savedResult?.operation_id ?? undefined}
                   parcelId={wizard.parcelId}
                   tractorId={wizard.tractorId}
                   implementId={wizard.implementId}
