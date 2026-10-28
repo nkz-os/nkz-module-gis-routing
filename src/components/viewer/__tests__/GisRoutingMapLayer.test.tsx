@@ -217,7 +217,7 @@ describe('gate and NO-GO on the 3D map', () => {
     expect(added.some((a) => a.billboard)).toBe(false);
   });
 
-  it('hides the parcel overlay while the plan draws its own gate and zones,', async () => {
+  it('keeps the current gate and zones visible after a plan is drawn; the plan snapshot is not drawn over them', async () => {
     vi.mocked(api.getParcelConfig).mockResolvedValue(cfg());
     vi.mocked(api.getOperationPlan).mockResolvedValue({
       type: 'FeatureCollection', properties: { plan_version: 1 },
@@ -230,7 +230,52 @@ describe('gate and NO-GO on the 3D map', () => {
     await act(async () => {
       window.dispatchEvent(new CustomEvent(EV.routeGenerated, { detail: { operation_id: 'op-1', geometry: null } }));
     });
-    expect(cfgEntities.every((e) => e.show === false)).toBe(true);
-    expect(added.some((a) => a.id.startsWith('gis-plan-exclusion_zone'))).toBe(true);
+    expect(cfgEntities.every((e) => e.show !== false)).toBe(true);
+    for (const e of added.filter((a) => a.id.startsWith('gis-plan-exclusion_zone') || a.id.startsWith('gis-plan-access_point'))) {
+      expect(e.show).toBe(false);
+    }
+    // A zone added to the parcel afterwards is shown too.
+    vi.mocked(api.getParcelConfig).mockResolvedValue(cfg());
+    await act(async () => { window.dispatchEvent(new CustomEvent('nekazari:gis-routing:parcelConfig:hide')); });
+    await act(async () => {});
+    expect(added.filter((a) => a.id.startsWith('gis-cfg')).every((e) => e.show !== false)).toBe(true);
+  });
+
+  it('draws the plan snapshot of the gate and zones when the parcel config cannot be read', async () => {
+    vi.mocked(api.getParcelConfig).mockRejectedValue(new Error('down'));
+    vi.mocked(api.getOperationPlan).mockResolvedValue({
+      type: 'FeatureCollection', properties: { plan_version: 1 },
+      features: [feat('access_point', { type: 'Point', coordinates: [0, 0] }), feat('exclusion_zone', { type: 'Polygon', coordinates: [sq] })],
+    } as any);
+    render(<GisRoutingMapLayer />);
+    await act(async () => {
+      window.dispatchEvent(new CustomEvent(EV.routeGenerated, { detail: { operation_id: 'op-1', geometry: null } }));
+    });
+    const snapshot = added.filter((a) => a.id.startsWith('gis-plan-exclusion_zone') || a.id.startsWith('gis-plan-access_point'));
+    expect(snapshot.length).toBeGreaterThan(0);
+    expect(snapshot.every((e) => e.show !== false)).toBe(true);
   });
 });
+
+describe('language change', () => {
+  it('does not clear a drawn plan or the parcel overlay', async () => {
+    const { i18n } = await import('@nekazari/sdk');
+    vi.mocked(api.getParcelConfig).mockResolvedValue(cfg());
+    vi.mocked(api.getOperationPlan).mockResolvedValue({
+      type: 'FeatureCollection', properties: { plan_version: 1 },
+      features: [feat('swath', { type: 'LineString', coordinates: [[0, 0], [1, 1]] })],
+    } as any);
+    const { rerender, findByTestId } = render(<GisRoutingMapLayer />);
+    await findByTestId('map-legend');
+    await act(async () => {
+      window.dispatchEvent(new CustomEvent(EV.routeGenerated, { detail: { operation_id: 'op-1', geometry: null } }));
+    });
+    vi.mocked(viewer.entities.removeById).mockClear();
+    await act(async () => { await i18n.changeLanguage('en'); });
+    rerender(<GisRoutingMapLayer />);
+    await act(async () => {});
+    expect(viewer.entities.removeById).not.toHaveBeenCalled();
+    await act(async () => { await i18n.changeLanguage('es'); });
+  });
+});
+

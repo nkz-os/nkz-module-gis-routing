@@ -12,7 +12,7 @@ import { api, ApiError } from '../../services/api';
 import { parts, planEntitySpecs, type PlanSpec } from './cockpitPlan';
 import { MapLegend } from '../../map/MapLegend';
 import { labelAnchor } from '../../map/markers';
-import { gateEntityOptions, noGoEntityOptions } from './cesiumStyle';
+import { gateEntityOptions, noGoEntityOptions, noGoHoleEntities } from './cesiumStyle';
 
 interface Props {
   viewer?: any;
@@ -29,11 +29,14 @@ interface PfError { code: string; params?: Record<string, unknown>; detail?: str
 export const GisRoutingMapLayer: React.FC<Props> = ({ viewer: propViewer }) => {
   const { cesiumViewer, selectedEntityId } = useViewer();
   const { t } = useTranslation('gis-routing');
-  const gateText = t('map.legend.gate');
-  const nogoText = t('map.legend.nogo');
-  // The gate and the NO-GO zones are drawn by the parcel overlay and by the plan: one at a time.
-  const planShowsConstraintsRef = useRef(false);
-  const applyCfgVisibilityRef = useRef<() => void>(() => {});
+  // Read when something is drawn: a language change must not clear what is already on the globe.
+  const textsRef = useRef({ gate: '', nogo: '' });
+  textsRef.current = { gate: t('map.legend.gate'), nogo: t('map.legend.nogo') };
+  // The parcel's current gate and NO-GO zones are always shown. The plan carries its own snapshot of
+  // them (what the route was computed with): it is drawn only while the current ones are not.
+  const planConstraintIdsRef = useRef<string[]>([]);
+  const cfgDrawnRef = useRef(false);
+  const applyPlanSnapshotVisibilityRef = useRef<() => void>(() => {});
   const redrawCfgRef = useRef<() => void>(() => {});
   const selectedRef = useRef<string | null>(null);
   selectedRef.current = selectedEntityId || null;
@@ -95,14 +98,25 @@ export const GisRoutingMapLayer: React.FC<Props> = ({ viewer: propViewer }) => {
         if (!viewer.isDestroyed?.()) viewer.entities.removeById(id);
       });
       routeEntitiesRef.current = [];
-      planShowsConstraintsRef.current = false;
+      planConstraintIdsRef.current = [];
       setPlanDrawn(false);
-      applyCfgVisibilityRef.current();
+    };
+
+    applyPlanSnapshotVisibilityRef.current = () => {
+      if (viewer.isDestroyed?.()) return;
+      for (const id of planConstraintIdsRef.current) {
+        const e = viewer.entities.getById?.(id);
+        if (e) e.show = !cfgDrawnRef.current;
+      }
     };
 
     const addEntity = (opts: any) => {
       routeEntitiesRef.current.push(opts.id);
       try { viewer.entities.add(opts); } catch { /* skip */ }
+    };
+    const addSnapshotEntity = (opts: any) => {
+      planConstraintIdsRef.current.push(opts.id);
+      addEntity(opts);
     };
 
     const drawSpec = (spec: PlanSpec) => {
@@ -118,7 +132,7 @@ export const GisRoutingMapLayer: React.FC<Props> = ({ viewer: propViewer }) => {
         }));
       } else if (spec.kind === 'point' && spec.point) {
         const [lon, lat] = spec.point;
-        if (spec.element === 'access_point') addEntity(gateEntityOptions(Cesium, spec.id, lon, lat, gateText));
+        if (spec.element === 'access_point') addSnapshotEntity(gateEntityOptions(Cesium, spec.id, lon, lat, textsRef.current.gate));
         else addEntity({
           id: spec.id, position: Cesium.Cartesian3.fromDegrees(lon, lat),
           point: { pixelSize: 12, color: css('#ef4444'), outlineColor: Cesium.Color.WHITE, outlineWidth: 2 },
@@ -127,7 +141,8 @@ export const GisRoutingMapLayer: React.FC<Props> = ({ viewer: propViewer }) => {
         (spec.polygons ?? []).forEach((part, n) => {
           const id = `${spec.id}-${n}`;
           if (spec.element === 'exclusion_zone') {
-            addEntity(noGoEntityOptions(Cesium, id, part, n === 0 ? labelAnchor({ type: 'Polygon', coordinates: [part.outer] }) : undefined, nogoText));
+            addSnapshotEntity(noGoEntityOptions(Cesium, id, part, n === 0 ? labelAnchor({ type: 'Polygon', coordinates: [part.outer] }) : undefined, textsRef.current.nogo));
+            noGoHoleEntities(Cesium, id, part).forEach(addSnapshotEntity);
             return;
           }
           const hierarchy = new Cesium.PolygonHierarchy(
@@ -209,9 +224,8 @@ export const GisRoutingMapLayer: React.FC<Props> = ({ viewer: propViewer }) => {
         if (specs.length === 0) { drawLegacy(geometry, prescriptionMap); return; }
         specs.forEach(drawSpec);
         if (specs.some((sp) => sp.element === 'access_point' || sp.element === 'exclusion_zone')) {
-          planShowsConstraintsRef.current = true;
           setPlanDrawn(true);
-          applyCfgVisibilityRef.current();
+          applyPlanSnapshotVisibilityRef.current();
         }
       }).catch(() => {
         if (token !== drawToken || viewer.isDestroyed?.()) return;
@@ -237,7 +251,7 @@ export const GisRoutingMapLayer: React.FC<Props> = ({ viewer: propViewer }) => {
       drawToken++;
       clearRoute();
     };
-  }, [viewer, gateText, nogoText]);
+  }, [viewer]);
 
   // ---- Parcel config overlay (access point + no-go zones) ----
   useEffect(() => {
@@ -252,22 +266,15 @@ export const GisRoutingMapLayer: React.FC<Props> = ({ viewer: propViewer }) => {
         if (!viewer.isDestroyed?.()) viewer.entities.removeById(id);
       });
       parcelCfgEntitiesRef.current = [];
+      cfgDrawnRef.current = false;
       setCfgDrawn(false);
-    };
-
-    applyCfgVisibilityRef.current = () => {
-      if (viewer.isDestroyed?.()) return;
-      for (const id of parcelCfgEntitiesRef.current) {
-        const e = viewer.entities.getById?.(id);
-        if (e) e.show = !planShowsConstraintsRef.current;
-      }
+      applyPlanSnapshotVisibilityRef.current();
     };
 
     const addCfg = (opts: any) => {
       try {
-        const e = viewer.entities.add(opts);
+        viewer.entities.add(opts);
         parcelCfgEntitiesRef.current.push(opts.id);
-        if (planShowsConstraintsRef.current && e) e.show = false;
       } catch { /* skip */ }
     };
 
@@ -278,18 +285,21 @@ export const GisRoutingMapLayer: React.FC<Props> = ({ viewer: propViewer }) => {
         if (token !== drawToken || viewer.isDestroyed?.()) return;
         const coords = d?.accessPoint?.coordinates;
         if (Array.isArray(coords) && coords.length >= 2) {
-          addCfg(gateEntityOptions(Cesium, `gis-cfg-access-${parcelId}`, coords[0], coords[1], gateText));
+          addCfg(gateEntityOptions(Cesium, `gis-cfg-access-${parcelId}`, coords[0], coords[1], textsRef.current.gate));
         }
         ((d?.exclusionZones?.features ?? []) as any[]).forEach((feat: any, idx: number) => {
           if (!feat?.geometry) return;
           parts(feat.geometry).forEach((part, n) => {
             addCfg(noGoEntityOptions(
               Cesium, `gis-cfg-zone-${parcelId}-${idx}-${n}`, part,
-              n === 0 ? labelAnchor({ type: 'Polygon', coordinates: [part.outer] }) : undefined, nogoText,
+              n === 0 ? labelAnchor({ type: 'Polygon', coordinates: [part.outer] }) : undefined, textsRef.current.nogo,
             ));
+            noGoHoleEntities(Cesium, `gis-cfg-zone-${parcelId}-${idx}-${n}`, part).forEach(addCfg);
           });
         });
-        setCfgDrawn(parcelCfgEntitiesRef.current.length > 0);
+        cfgDrawnRef.current = parcelCfgEntitiesRef.current.length > 0;
+        setCfgDrawn(cfgDrawnRef.current);
+        applyPlanSnapshotVisibilityRef.current();
       }).catch(() => { /* ignore fetch errors */ });
     };
     redrawCfgRef.current = () => { if (selectedRef.current) drawParcel(selectedRef.current); else clearCfgEntities(); };
@@ -310,7 +320,7 @@ export const GisRoutingMapLayer: React.FC<Props> = ({ viewer: propViewer }) => {
       window.removeEventListener('nekazari:gis-routing:parcelConfig:hide', onHide);
       clearCfgEntities();
     };
-  }, [viewer, selectedEntityId, gateText, nogoText]);
+  }, [viewer, selectedEntityId]);
 
   // ---- Pathfinding pick mode (single consolidated effect) ----
   useEffect(() => {
