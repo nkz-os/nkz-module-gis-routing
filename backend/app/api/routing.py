@@ -638,8 +638,9 @@ async def generate_routing_plan(request: Request, body: GenerateRequest, auth: A
             for w in prescription["warnings"])
 
     operation_id = None
+    alert = None
     if body.persist and body.parcel_id:
-        operation_id = await _persist_operation(result, body, auth, None, plan_dict)
+        operation_id, alert = await _persist_operation(result, body, auth, None, plan_dict)
     persisted = operation_id is not None
 
     plan_id = None
@@ -668,6 +669,7 @@ async def generate_routing_plan(request: Request, body: GenerateRequest, auth: A
         "success": True,
         "operation_id": operation_id,
         "persisted": persisted,
+        "alert": alert,
         "plan": plan_dict,
         "plan_id": plan_id,
     }
@@ -828,8 +830,8 @@ def _zones_from_orion(zones: list[dict], parcel_id: str, zone_ids: list[str] | N
 
 async def _persist_operation(result, body: GenerateRequest, auth: AuthContext,
                              prescription_map: dict | None, plan_dict: dict | None = None,
-                             *, strict: bool = False) -> Optional[str]:
-    """Persist route as AgriParcelOperation in Orion-LD. Returns operation URN.
+                             *, strict: bool = False) -> tuple[Optional[str], Optional[str]]:
+    """Persist route as AgriParcelOperation in Orion-LD. Returns (operation URN, alert outcome).
 
     Orion failure: None (reported as persisted=false) unless strict, which raises
     PERSIST_FAILED.
@@ -842,7 +844,25 @@ async def _persist_operation(result, body: GenerateRequest, auth: AuthContext,
         prescription_map=prescription_map, is_template=False, plan=plan_dict,
         planned_start_at=_iso_utc(body.planned_start_at), planned_end_at=_iso_utc(body.planned_end_at),
     )
-    return await _create_operation_entity(entity, op_id, tenant_id, strict=strict)
+    created = await _create_operation_entity(entity, op_id, tenant_id, strict=strict)
+    if created is None:
+        return None, None
+    return created, await _send_alert(entity, tenant_id)
+
+
+async def _send_alert(entity: dict, tenant_id: str) -> str:
+    """Alert for a just-stored operation per the tenant setting: sent | skipped | failed."""
+    from app.services.alerts import notify_operation
+    settings = get_settings()
+    orion = OrionClient(tenant_id, base_url=settings.context_broker_url,
+                        context_url=settings.ngsi_ld_context)
+    try:
+        return await notify_operation(
+            orion, tenant_id=tenant_id, module_id=settings.module_id,
+            operation_id=entity["id"], operation_name=entity["name"]["value"],
+            parcel_id=(entity.get("hasAgriParcel") or {}).get("object"))
+    finally:
+        await orion.close()
 
 
 async def _create_operation_entity(entity: dict, op_id: str, tenant_id: str, *,
@@ -911,7 +931,8 @@ async def save_operation(body: SaveOperationRequest, auth: AuthContext = require
             raise PlanError("PLAN_EXPIRED", "plan not found or expired; generate it again")
         async with _save_lock(("plan", auth.tenant_id, body.plan_id)):
             if rec.get("operation_id"):
-                return {"success": True, "operation_id": rec["operation_id"], "persisted": True}
+                return {"success": True, "operation_id": rec["operation_id"], "persisted": True,
+                        "alert": rec.get("alert")}
             stored = GenerateRequest(**rec["body"])
             if not stored.parcel_id:
                 raise PlanError("PARCEL_REQUIRED", "a parcel is required to save an operation")
@@ -921,10 +942,11 @@ async def save_operation(body: SaveOperationRequest, auth: AuthContext = require
             if body.planned_end_at is not None:
                 update["planned_end_at"] = body.planned_end_at
             gen = stored.model_copy(update=update)
-            op_id = await _persist_operation(rec["result"], gen, auth, None, rec["plan_dict"],
-                                             strict=True)
+            op_id, alert = await _persist_operation(rec["result"], gen, auth, None,
+                                                    rec["plan_dict"], strict=True)
             rec["operation_id"] = op_id
-        return {"success": True, "operation_id": op_id, "persisted": True}
+            rec["alert"] = alert
+        return {"success": True, "operation_id": op_id, "persisted": True, "alert": alert}
 
     if not body.parcel_id:
         raise PlanError("PARCEL_REQUIRED", "a destination parcel is required to save a transit")
@@ -942,7 +964,8 @@ async def save_operation(body: SaveOperationRequest, auth: AuthContext = require
         # Idempotent per destination parcel: saving the same route for another parcel is a new operation.
         saved = alt.setdefault("operation_ids", {})
         if saved.get(body.parcel_id):
-            return {"success": True, "operation_id": saved[body.parcel_id], "persisted": True}
+            return {"success": True, "operation_id": saved[body.parcel_id], "persisted": True,
+                    "alert": alt.get("alerts", {}).get(body.parcel_id)}
         await _require_parcel(body.parcel_id, auth.tenant_id)
         op_id = operation_store.new_operation_id(auth.tenant_id)
         entity = operation_store.build_transit_entity(
@@ -952,7 +975,9 @@ async def save_operation(body: SaveOperationRequest, auth: AuthContext = require
             constraints_used=(job.get("report") or {}).get("constraints_used"))
         await _create_operation_entity(entity, op_id, auth.tenant_id, strict=True)
         saved[body.parcel_id] = op_id
-    return {"success": True, "operation_id": op_id, "persisted": True}
+        alert = await _send_alert(entity, auth.tenant_id)
+        alt.setdefault("alerts", {})[body.parcel_id] = alert
+    return {"success": True, "operation_id": op_id, "persisted": True, "alert": alert}
 
 
 _SAVE_LOCKS: dict[tuple, list] = {}   # key -> [lock, holders and waiters]

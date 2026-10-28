@@ -32,6 +32,8 @@ CODES = (
     "PARCEL_NOT_FOUND",
     "JOBS_LIMIT",
     "OPERATION_NOT_FOUND",
+    "FORBIDDEN",
+    "INVALID_SETTING",
 )
 
 
@@ -58,6 +60,8 @@ class PlanError(ValueError):
             return 502
         if self.code in ("JOB_NOT_FOUND", "PARCEL_NOT_FOUND", "OPERATION_NOT_FOUND"):
             return 404
+        if self.code == "FORBIDDEN":
+            return 403
         if self.code == "JOBS_LIMIT":
             return 429
         if self.code == "PLAN_EXPIRED":

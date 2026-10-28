@@ -18,6 +18,7 @@ URL = "/api/routing/operations"
 
 class _Orion:
     created: list = []
+    alerts: list = []   # Alerts are kept apart so operation counts stay exact
     fail = False
 
     def __init__(self, *a, **k):
@@ -26,7 +27,7 @@ class _Orion:
     async def create_entity(self, entity):
         if _Orion.fail:
             raise RuntimeError("down")
-        _Orion.created.append(entity)
+        (_Orion.alerts if entity["type"] == "Alert" else _Orion.created).append(entity)
 
     async def get_entity(self, *a, **k):
         if _Orion.stored is None:
@@ -43,6 +44,7 @@ class _Orion:
 @pytest.fixture
 def client(monkeypatch):
     _Orion.created = []
+    _Orion.alerts = []
     _Orion.fail = False
     _Orion.stored = {"id": PARCEL}
     monkeypatch.setattr("app.api.routing.OrionClient", _Orion)
