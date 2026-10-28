@@ -35,6 +35,9 @@ class _FakeOrion:
     async def append_entity_attrs(self, eid, attrs):
         self.patched = (eid, attrs)
 
+    async def delete_entity_attr(self, eid, attr):
+        self.deleted = getattr(self, "deleted", []) + [(eid, attr)]
+
     async def close(self):
         pass
 
@@ -207,3 +210,70 @@ def test_put_parcel_config_multi_status_returns_502(monkeypatch):
     )
     assert resp.status_code == 502
     assert resp.json()["detail"] == "Orion-LD error"
+
+
+_URL = "/api/routing/parcels/urn:ngsi-ld:AgriParcel:t1:p1/config"
+
+
+def test_put_null_access_point_deletes_attribute(monkeypatch):
+    fake = _FakeOrion()
+    monkeypatch.setattr("app.api.parcel_config.OrionClient", lambda *a, **k: fake)
+    client = TestClient(create_app())
+
+    resp = client.put(_URL, json={
+        "accessPoint": None,
+        "exclusionZones": {"type": "FeatureCollection", "features": []},
+    })
+
+    assert resp.status_code == 200
+    assert fake.deleted == [("urn:ngsi-ld:AgriParcel:t1:p1", "accessPoint")]
+    assert "accessPoint" not in fake.patched[1]
+    assert "exclusionZones" in fake.patched[1]
+    assert resp.json()["removed"] == ["accessPoint"]
+
+
+def test_put_null_access_point_alone_is_valid(monkeypatch):
+    fake = _FakeOrion()
+    monkeypatch.setattr("app.api.parcel_config.OrionClient", lambda *a, **k: fake)
+    client = TestClient(create_app())
+
+    resp = client.put(_URL, json={"accessPoint": None})
+
+    assert resp.status_code == 200
+    assert fake.patched is None
+    assert len(fake.deleted) == 1
+
+
+def test_put_absent_access_point_does_not_delete(monkeypatch):
+    fake = _FakeOrion()
+    monkeypatch.setattr("app.api.parcel_config.OrionClient", lambda *a, **k: fake)
+    client = TestClient(create_app())
+
+    resp = client.put(_URL, json={"exclusionZones": {"type": "FeatureCollection", "features": []}})
+
+    assert resp.status_code == 200
+    assert getattr(fake, "deleted", []) == []
+
+
+def test_put_null_access_point_tolerates_404(monkeypatch):
+    class _Fake404(_FakeOrion):
+        async def delete_entity_attr(self, eid, attr):
+            req = httpx.Request("DELETE", "http://orion/x")
+            raise httpx.HTTPStatusError("404", request=req, response=httpx.Response(404, request=req))
+
+    monkeypatch.setattr("app.api.parcel_config.OrionClient", lambda *a, **k: _Fake404())
+    client = TestClient(create_app())
+
+    assert client.put(_URL, json={"accessPoint": None}).status_code == 200
+
+
+def test_put_null_access_point_orion_error_returns_502(monkeypatch):
+    class _Fake500(_FakeOrion):
+        async def delete_entity_attr(self, eid, attr):
+            req = httpx.Request("DELETE", "http://orion/x")
+            raise httpx.HTTPStatusError("500", request=req, response=httpx.Response(500, request=req))
+
+    monkeypatch.setattr("app.api.parcel_config.OrionClient", lambda *a, **k: _Fake500())
+    client = TestClient(create_app())
+
+    assert client.put(_URL, json={"accessPoint": None}).status_code == 502

@@ -5,6 +5,7 @@ Stored as attributes on the AgriParcel entity in Orion-LD (source of truth).
 NGSI-LD strict; writes go only through OrionClient (no direct DB writes).
 """
 import logging
+import httpx
 from fastapi import APIRouter, Request, HTTPException
 from pydantic import BaseModel
 
@@ -60,6 +61,8 @@ async def put_parcel_config(request: Request, parcel_id: str, body: ParcelConfig
     if not parcel_id.startswith("urn:ngsi-ld:"):
         raise HTTPException(status_code=400, detail="parcel_id must be an NGSI-LD URN")
     attrs: dict = {}
+    # Explicit null (present in the body) removes the attribute; absent leaves it.
+    remove_access = "accessPoint" in body.model_fields_set and body.accessPoint is None
     if body.accessPoint is not None:
         if body.accessPoint.get("type") != "Point":
             raise HTTPException(
@@ -79,15 +82,28 @@ async def put_parcel_config(request: Request, parcel_id: str, body: ParcelConfig
                 detail="exclusionZones must be a GeoJSON FeatureCollection",
             )
         attrs["exclusionZones"] = {"type": "Property", "value": body.exclusionZones}
-    if not attrs:
+    if not attrs and not remove_access:
         raise HTTPException(status_code=400, detail="Nothing to update")
     orion = _orion(auth.tenant_id)
     try:
-        try:
-            await orion.append_entity_attrs(parcel_id, attrs)
-        except Exception as exc:
-            logger.error("Orion-LD append_entity_attrs failed for %s: %s", parcel_id, exc)
-            raise HTTPException(status_code=502, detail="Orion-LD error")
-        return {"success": True, "updated": list(attrs.keys())}
+        if attrs:
+            try:
+                await orion.append_entity_attrs(parcel_id, attrs)
+            except Exception as exc:
+                logger.error("Orion-LD append_entity_attrs failed for %s: %s", parcel_id, exc)
+                raise HTTPException(status_code=502, detail="Orion-LD error")
+        removed: list[str] = []
+        if remove_access:
+            try:
+                await orion.delete_entity_attr(parcel_id, "accessPoint")
+                removed.append("accessPoint")
+            except httpx.HTTPStatusError as exc:
+                if exc.response.status_code != 404:  # already absent is fine
+                    logger.error("Orion-LD delete accessPoint failed for %s: %s", parcel_id, exc)
+                    raise HTTPException(status_code=502, detail="Orion-LD error")
+            except Exception as exc:
+                logger.error("Orion-LD delete accessPoint failed for %s: %s", parcel_id, exc)
+                raise HTTPException(status_code=502, detail="Orion-LD error")
+        return {"success": True, "updated": list(attrs.keys()), "removed": removed}
     finally:
         await orion.close()
