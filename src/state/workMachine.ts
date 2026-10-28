@@ -1,0 +1,223 @@
+import type { GenerateRequest, GenerateResponse, ParcelConfig, Plan } from '../services/api';
+import { featureCollectionToZones, type Zone } from '../services/geo';
+
+export type StepId = 'parcel' | 'zones' | 'access' | 'machine' | 'pattern' | 'vra';
+export type Phase =
+  | 'empty' | 'parcel_loaded' | 'configuring' | 'ready'
+  | 'generating' | 'generated' | 'saving' | 'saved' | 'failed';
+
+export interface MachineConfig {
+  tractorId: string | null;
+  implementId: string | null;
+  operationType: string;
+  widthM: number | null;
+  widthSource: 'machine' | 'manual' | null;
+  turningRadiusM: number | null;
+  radiusSource: 'machine' | 'manual' | null;
+  overlapPct: number;
+}
+
+export interface PatternConfig {
+  pattern: 'auto' | 'boustrophedon' | 'snake' | 'spiral' | 'headland-only';
+  headingMode: 'auto' | 'contour' | 'manual';
+  headingDeg: number;
+  headlandPasses: 1 | 2 | 3;
+  returnToAccess: boolean;
+}
+
+export interface WorkState {
+  phase: Phase;
+  activeStep: StepId;
+  stale: boolean;
+  parcel: { id: string; name: string; geometry: GeoJSON.Polygon } | null;
+  parcelRequestId: number;
+  zones: Zone[];
+  accessPoint: GeoJSON.Point | null;
+  accessIssue: 'outside' | 'in_zone' | null;
+  machine: MachineConfig;
+  pattern: PatternConfig;
+  result: { plan: Plan; kind: 'valid' | 'with_warnings'; operationId: string | null } | null;
+  error: { code: string; detail: string; params: Record<string, unknown> } | null;
+}
+
+export type WorkEvent =
+  | { type: 'PARCEL_SELECTED'; id: string; requestId: number }
+  | { type: 'PARCEL_LOADED'; requestId: number; id: string; name: string; geometry: GeoJSON.Polygon; config: ParcelConfig }
+  | { type: 'STEP_ACTIVATED'; step: StepId }
+  | { type: 'ZONES_CHANGED'; zones: Zone[] }
+  | { type: 'ACCESS_CHANGED'; point: GeoJSON.Point | null; issue: 'outside' | 'in_zone' | null }
+  | { type: 'MACHINE_CHANGED'; machine: Partial<MachineConfig> }
+  | { type: 'PATTERN_CHANGED'; pattern: Partial<PatternConfig> }
+  | { type: 'GENERATE_REQUESTED' }
+  | { type: 'GENERATED'; response: GenerateResponse }
+  | { type: 'GENERATE_FAILED'; error: WorkState['error'] }
+  | { type: 'SAVE_REQUESTED' }
+  | { type: 'SAVE_RESULT'; response: GenerateResponse }
+  | { type: 'SAVE_FAILED'; error: WorkState['error'] }
+  | { type: 'DISMISS_ERROR' };
+
+export const initialWorkState: WorkState = {
+  phase: 'empty',
+  activeStep: 'parcel',
+  stale: false,
+  parcel: null,
+  parcelRequestId: 0,
+  zones: [],
+  accessPoint: null,
+  accessIssue: null,
+  machine: {
+    tractorId: null, implementId: null, operationType: 'spraying',
+    widthM: null, widthSource: null, turningRadiusM: null, radiusSource: null, overlapPct: 0,
+  },
+  pattern: { pattern: 'auto', headingMode: 'auto', headingDeg: 0, headlandPasses: 1, returnToAccess: false },
+  result: null,
+  error: null,
+};
+
+export function canGenerate(s: WorkState): boolean {
+  return (
+    s.parcel !== null &&
+    (s.machine.widthM ?? 0) > 0 &&
+    (s.machine.turningRadiusM ?? 0) > 0 &&
+    s.accessIssue === null &&
+    s.zones.every((z) => z.valid) &&
+    s.phase !== 'generating' &&
+    s.phase !== 'saving'
+  );
+}
+
+// Phases in which configuration edits are accepted.
+// ASSUMPTION: 'saved' behaves like 'generated' (editing after save makes the result stale).
+const EDITABLE: ReadonlySet<Phase> = new Set<Phase>(['configuring', 'ready', 'generated', 'failed', 'saved']);
+
+function afterEdit(prev: WorkState, next: WorkState): WorkState {
+  if (!EDITABLE.has(prev.phase)) return prev;
+  const phase: Phase = canGenerate(next) ? 'ready' : 'configuring';
+  return { ...next, phase, stale: prev.result !== null ? true : next.stale, error: null };
+}
+
+function resultFrom(response: GenerateResponse): NonNullable<WorkState['result']> {
+  const v = response.plan.validation;
+  const clean = v !== null && v.ok && v.warnings.length === 0;
+  return { plan: response.plan, kind: clean ? 'valid' : 'with_warnings', operationId: response.operation_id };
+}
+
+export function workReducer(state: WorkState, event: WorkEvent): WorkState {
+  switch (event.type) {
+    case 'PARCEL_SELECTED':
+      return {
+        ...state, phase: 'empty', activeStep: 'parcel', parcelRequestId: event.requestId,
+        parcel: null, result: null, error: null, stale: false,
+      };
+    case 'PARCEL_LOADED': {
+      if (event.requestId !== state.parcelRequestId) return state;
+      return {
+        ...state, phase: 'configuring', activeStep: 'zones', stale: false,
+        parcel: { id: event.id, name: event.name, geometry: event.geometry },
+        zones: featureCollectionToZones(event.config.exclusionZones),
+        accessPoint: event.config.accessPoint, accessIssue: null,
+        result: null, error: null,
+      };
+    }
+    case 'STEP_ACTIVATED':
+      return { ...state, activeStep: event.step };
+    case 'ZONES_CHANGED':
+      return afterEdit(state, { ...state, zones: [...event.zones] });
+    case 'ACCESS_CHANGED':
+      return afterEdit(state, { ...state, accessPoint: event.point, accessIssue: event.issue });
+    case 'MACHINE_CHANGED':
+      return afterEdit(state, { ...state, machine: { ...state.machine, ...event.machine } });
+    case 'PATTERN_CHANGED':
+      return afterEdit(state, { ...state, pattern: { ...state.pattern, ...event.pattern } });
+    case 'GENERATE_REQUESTED':
+      // Any non-busy phase with a complete configuration may (re)generate.
+      if (!canGenerate(state)) return state;
+      return { ...state, phase: 'generating', error: null };
+    case 'GENERATED':
+      if (state.phase !== 'generating') return state;
+      return { ...state, phase: 'generated', stale: false, result: resultFrom(event.response), error: null };
+    case 'GENERATE_FAILED':
+      if (state.phase !== 'generating') return state;
+      return { ...state, phase: 'failed', error: event.error };
+    case 'SAVE_REQUESTED':
+      if (state.phase !== 'generated') return state;
+      return { ...state, phase: 'saving', error: null };
+    case 'SAVE_RESULT': {
+      if (state.phase !== 'saving') return state;
+      const { response } = event;
+      if (response.persisted && response.operation_id) {
+        // Show the plan that was persisted: the save request recomputes it.
+        return { ...state, phase: 'saved', stale: false, result: resultFrom(response), error: null };
+      }
+      return {
+        ...state, phase: 'failed',
+        error: { code: 'PERSIST_FAILED', detail: 'Plan was not persisted', params: {} },
+      };
+    }
+    case 'SAVE_FAILED':
+      if (state.phase !== 'saving') return state;
+      return { ...state, phase: 'failed', error: event.error };
+    case 'DISMISS_ERROR': {
+      if (state.phase !== 'failed') return state;
+      const phase: Phase = state.result ? 'generated' : canGenerate(state) ? 'ready' : 'configuring';
+      return { ...state, phase, error: null };
+    }
+    default: {
+      const _exhaustive: never = event;
+      return _exhaustive;
+    }
+  }
+}
+
+export function stepStatus(
+  s: WorkState,
+  step: StepId,
+): 'pending' | 'active' | 'done' | 'warning' | 'disabled' {
+  if (step === 'vra') return 'disabled';
+  if (step === 'zones' && s.zones.some((z) => !z.valid)) return 'warning';
+  if (step === 'access' && s.accessIssue !== null) return 'warning';
+  if (s.activeStep === step) return 'active';
+  if (s.parcel === null) return 'pending';
+  switch (step) {
+    case 'parcel':
+    case 'pattern':
+      return 'done';
+    case 'zones':
+      return s.zones.length > 0 ? 'done' : 'pending';
+    case 'access':
+      return s.accessPoint !== null ? 'done' : 'pending';
+    case 'machine':
+      return (s.machine.widthM ?? 0) > 0 && (s.machine.turningRadiusM ?? 0) > 0 ? 'done' : 'pending';
+    default: {
+      const _exhaustive: never = step;
+      return _exhaustive;
+    }
+  }
+}
+
+/**
+ * Build the request from the state BEFORE dispatching GENERATE_REQUESTED/SAVE_REQUESTED:
+ * once the phase is generating/saving, canGenerate is false and this throws.
+ */
+export function buildGenerateRequest(s: WorkState, persist: boolean): GenerateRequest {
+  if (!canGenerate(s) || s.parcel === null) throw new Error('not ready');
+  const { machine, pattern, parcel } = s;
+  return {
+    parcel_geometry: parcel.geometry,
+    parcel_id: parcel.id,
+    tractor_id: machine.tractorId,
+    implement_id: machine.implementId,
+    pattern: pattern.pattern,
+    pattern_config: {
+      width_m: machine.widthM!,
+      overlap_pct: machine.overlapPct,
+      headland_passes: pattern.headlandPasses,
+      heading_objective: pattern.headingMode === 'contour' ? 'contour' : 'efficiency',
+      turning_radius_m: machine.turningRadiusM!,
+      ...(pattern.headingMode === 'manual' ? { heading_deg: pattern.headingDeg } : {}),
+    },
+    operation_type: machine.operationType,
+    return_to_access: pattern.returnToAccess,
+    persist,
+  };
+}

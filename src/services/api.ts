@@ -1,20 +1,22 @@
-const API_BASE = (import.meta as any).env?.VITE_API_URL || '';
-const BASE_URL = `${API_BASE}/api/routing`;
+import type {
+  Geometry, FeatureCollection, LineString, MultiLineString, Point, Polygon, MultiPolygon,
+} from 'geojson';
 
-function getTenantId(): string | undefined {
-  if (typeof window === 'undefined') return undefined;
-  const ctx = (window as any).__nekazariAuthContext;
-  return ctx?.tenantId || ctx?.tenantProfile?.id || undefined;
+function resolveOrigin(): string {
+  const runtime = typeof window !== 'undefined' ? (window as any).__ENV__?.VITE_API_URL : undefined;
+  const raw = runtime ?? (import.meta as any).env?.VITE_API_URL ?? '';
+  return String(raw).replace(/\/$/, '');
 }
+
+export const API_ORIGIN: string = resolveOrigin();
+const BASE_URL = `${API_ORIGIN}/api/routing`;
 
 async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
     ...(options.headers as Record<string, string> || {}),
   };
-  const tid = getTenantId();
-  if (tid) headers['X-Tenant-ID'] = tid;
-  
+
   if (typeof window !== 'undefined') {
     const ctx = (window as any).__nekazariAuthContext;
     let token = ctx?.token || (window as any).keycloak?.token;
@@ -24,7 +26,7 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
     }
     if (token) headers['Authorization'] = `Bearer ${token}`;
   }
-  
+
   const resp = await fetch(`${BASE_URL}${path}`, { ...options, headers, credentials: 'include' });
   if (!resp.ok) {
     const error = await resp.json().catch(() => ({ detail: resp.statusText }));
@@ -35,41 +37,92 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
 
 export class ApiError extends Error {
   status: number;
+  code: string | null;
+  detail: string;
+  params: Record<string, unknown>;
   body: any;
   constructor(status: number, body: any) {
-    const detail = body?.detail;
-    const msg = typeof detail === 'string' ? detail
-      : detail?.error?.message || `HTTP ${status}`;
-    super(msg);
+    const detail: string = typeof body?.detail === 'string'
+      ? body.detail
+      : body?.detail?.error?.message ?? body?.detail?.message ?? `HTTP ${status}`;
+    super(detail);
+    this.name = 'ApiError';
     this.status = status;
     this.body = body;
+    this.code = typeof body?.code === 'string' ? body.code : null;
+    this.detail = detail;
+    this.params = body?.params ?? {};
   }
 }
 
-export interface RouteMetrics {
+export interface PlanMetrics {
   worked_distance_m: number;
   non_working_distance_m: number;
+  access_distance_m: number;
+  access_leg_distance_m: number;
+  return_distance_m: number;
   field_efficiency: number;
   covered_area_ha: number;
   parcel_area_ha: number;
+  working_area_ha: number;
 }
 
-export interface GenerateSelected {
+export interface ValidationCheck {
+  id: string; ok: boolean; value: number; limit: number; geometry: Geometry | null;
+}
+export interface ValidationWarning {
+  code: string; geometry: Geometry | null; params: Record<string, unknown>;
+}
+export interface ValidationReport {
+  ok: boolean; checks: ValidationCheck[]; fallbacks_applied: string[]; warnings: ValidationWarning[];
+}
+
+export interface Plan {
   pattern: string;
-  route: { type: string; coordinates: any };
+  curve_type: string;
   swath_count: number;
-  headland_count: number;
-  total_distance_m: number;
-  pass_order: number[][];
-  metrics: RouteMetrics;
-  metadata: Record<string, any>;
+  headland_passes: number;
+  route: LineString | MultiLineString;
+  swaths: { index: number; kind: 'work' | 'headland'; geometry: LineString }[];
+  access_path: LineString | null;
+  return_path: LineString | null;
+  access_point: Point | null;
+  exit_point: Point;
+  working_area: Polygon | MultiPolygon;
+  unreached_parts: { geometry: Polygon; area_ha: number }[];
+  metrics: PlanMetrics;
+  validation: ValidationReport | null;
+  exclusion_zones: FeatureCollection;
+  prescription: unknown | null;
 }
 
-export interface GenerateResult {
+export interface GenerateResponse {
   success: boolean;
-  selected: GenerateSelected;
-  prescription_map: any;
   operation_id: string | null;
+  persisted: boolean;
+  plan: Plan;
+}
+
+export interface GenerateRequest {
+  parcel_geometry: Polygon;
+  parcel_id: string | null;
+  tractor_id: string | null;
+  implement_id: string | null;
+  pattern: 'auto' | 'boustrophedon' | 'snake' | 'spiral' | 'headland-only';
+  pattern_config: {
+    heading_deg?: number; width_m: number; overlap_pct: number; headland_passes: number;
+    heading_objective: 'efficiency' | 'contour'; turning_radius_m?: number;
+  };
+  operation_type: string;
+  return_to_access: boolean;
+  persist: boolean;
+  planned_start_at?: string;
+  planned_end_at?: string;
+}
+
+export interface ParcelConfig {
+  accessPoint: Point | null;
+  exclusionZones: FeatureCollection | null;
 }
 
 export interface PathAlternative {
@@ -87,17 +140,6 @@ export interface PathResult {
   error?: string;
 }
 
-// Response selectors — single source of truth for the new contract shape.
-export function routeOf(res: GenerateResult): any {
-  return res?.selected?.route ?? null;
-}
-export function operationIdOf(res: GenerateResult): string | null {
-  return res?.operation_id ?? null;
-}
-export function metricsOf(res: GenerateResult): RouteMetrics | null {
-  return res?.selected?.metrics ?? null;
-}
-
 export interface PatternSummary {
   id: string;
   name: string;
@@ -108,7 +150,7 @@ export interface PatternSummary {
 
 export const api = {
   // Generation
-  generate(body: any): Promise<GenerateResult> {
+  generate(body: GenerateRequest): Promise<GenerateResponse> {
     return request('/generate', { method: 'POST', body: JSON.stringify(body) });
   },
 
@@ -118,12 +160,12 @@ export const api = {
     return request<{ id: string; name: string; geometry: any }>(`/parcels/${encodeURIComponent(parcelId)}/geometry`);
   },
   getParcelConfig(parcelId: string) {
-    return request<{ accessPoint: any; exclusionZones: any }>(
+    return request<ParcelConfig>(
       `/parcels/${encodeURIComponent(parcelId)}/config`);
   },
   saveParcelConfig(parcelId: string,
-                   body: { accessPoint: any; exclusionZones: any }) {
-    return request(`/parcels/${encodeURIComponent(parcelId)}/config`,
+                   body: ParcelConfig) {
+    return request<{ success: boolean; updated: string[] }>(`/parcels/${encodeURIComponent(parcelId)}/config`,
       { method: 'PUT', body: JSON.stringify(body) });
   },
 

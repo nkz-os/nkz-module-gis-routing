@@ -40,15 +40,15 @@ Request additions:
 - `return_to_access`: return to the access point at the end of the route.
 - `planned_start_at`, `planned_end_at`: ISO 8601 with a timezone offset (e.g. `Z`);
   stored in UTC. A date without offset is rejected with 422.
-- `pattern_config.headland_passes`: integer >= 1. A value of 0 is coerced to 1 (logged).
-- Deprecated but accepted (ignored and logged; removed in the next major contract version):
-  `selected_alternative_id`, `base_pattern_id`, `pattern_config.direction`, `coupling_model`.
+- `pattern_config.headland_passes`: integer >= 1. A value of 0 is rejected with 422.
+- Unknown fields (including the removed `selected_alternative_id`, `base_pattern_id`,
+  `coupling_model`, `pattern_config.direction`) are rejected with 422.
+- `vra` is accepted but ignored (logged) until the prescription contract lands.
 
-Response: `{success, operation_id, persisted, plan, selected, prescription_map}`.
+Response: `{success, operation_id, persisted, plan}`.
 `persisted` is `true` only when persistence was requested (`persist` and `parcel_id`)
 and the operation was written; on a write failure it is `false`, `operation_id` is
 `null` and the plan is still returned.
-`selected` and `prescription_map` are legacy and deprecated.
 
 `plan` keys:
 

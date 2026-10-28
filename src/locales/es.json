@@ -1,11 +1,5 @@
 {
   "loading": "Cargando...",
-  "tabs": {
-    "routing": "Guiado",
-    "pathfinding": "Rutas A-B",
-    "zoning": "Zonas VRA",
-    "parcelConfig": "Configuración de parcela"
-  },
   "title": "GIS Routing",
   "subtitle": "Guiado por líneas A-B para agricultura de precisión",
   "parcel": {
@@ -50,14 +44,8 @@
     "width": "Ancho de trabajo (m)",
     "swaths": "Franjas",
     "operationType": "Tipo de operación",
-    "couplingModel": "Modelo de acople",
-    "couplingModelRigid": "Conjunto rígido (tractor + apero)",
-    "couplingModelArticulated": "Conjunto articulado (tractor + apero)",
-    "couplingModelRigidHelp": "El cálculo actual está validado para conjunto rígido.",
-    "couplingModelArticulatedNotSupported": "El modo articulado aún no está soportado en el cálculo. Selecciona conjunto rígido.",
     "overlap": "Solapamiento (%)",
     "headlandPasses": "Pasadas de cabecera",
-    "direction": "Dirección",
     "headingMode": "Rumbo"
   },
   "operationType": {
@@ -75,11 +63,6 @@
     "ended": "Cerrada",
     "finished": "Finalizada"
   },
-  "workflow": {
-    "plan": "1) Planificar",
-    "validate": "2) Validar",
-    "execute": "3) Ejecutar"
-  },
   "validation": {
     "parcelReady": "Parcela seleccionada",
     "parcelMissing": "Selecciona una parcela",
@@ -89,15 +72,7 @@
     "widthMissing": "Ancho de trabajo no válido",
     "equipmentReady": "Maquinaria seleccionada",
     "equipmentOptional": "Maquinaria opcional (recomendado)",
-    "equipmentMissing": "Selecciona tractor y apero",
-    "couplingReady": "Acople rígido seleccionado",
-    "couplingNotSupported": "Acople articulado no soportado todavía",
-    "sdmTitle": "Completitud SDM (recomendado)",
-    "sdmGpsOffsets": "Faltan offsets GPS del tractor (X/Y/Z) en el Context Broker",
-    "sdmImplementWidth": "Falta el ancho efectivo del apero (necesario para pulverización/fertilización)",
-    "sdmTrackWidth": "Falta el ancho de vía del tractor (recomendado para labranza)",
-    "sdmWheelbase": "Falta la batalla del tractor (recomendado para labranza)",
-    "sdmHitchOffset": "Falta el offset de enganche X del apero (recomendado para siembra)"
+    "equipmentMissing": "Selecciona tractor y apero"
   },
   "common": {
     "enabled": "Activado",
@@ -131,16 +106,7 @@
     "traceImplement": "Apero"
   },
   "stats": {
-    "title": "Resultados",
-    "swaths": "Franjas",
-    "distance": "Distancia",
-    "area": "Área",
-    "pattern": "Patrón",
-    "vra": "VRA",
-    "fieldEfficiency": "Eficiencia de campo",
-    "workedDistance": "Distancia trabajada",
-    "nonWorkingDistance": "Distancia improductiva",
-    "curveType": "Tipo de giro"
+    "fieldEfficiency": "Eficiencia de campo"
   },
   "actions": {
     "generate": "Generar Ruta",
@@ -152,34 +118,6 @@
     "viewInCesium": "Ver en Cesium",
     "cancel": "Cancelar"
   },
-  "export": {
-    "isoxml": "ISOXML",
-    "geojson": "GeoJSON",
-    "gpx": "GPX"
-  },
-  "vra": {
-    "sourceHealth": "Vegetation Health",
-    "label": "VRA",
-    "enabled": "Prescripción VRA",
-    "sourceLabel": "Fuente VRA",
-    "sourceOrion": "Zonas en Orion-LD",
-    "sourceExternal": "Subida externa",
-    "externalUploadLabel": "Archivo externo (GeoJSON/CSV)",
-    "externalUploadError": "No se pudo procesar el archivo externo",
-    "externalLoaded": "Archivo cargado: {{file}} ({{count}} zonas)",
-    "externalPending": "Sube un archivo externo para usar prescripción VRA",
-    "baseRate": "Dosis Base",
-    "rateUnit": "Unidad",
-    "zoneSelection": "Selección de zonas",
-    "selectAll": "Seleccionar todas",
-    "clearAll": "Limpiar selección",
-    "noZonesForParcel": "Sin zonas disponibles para la parcela seleccionada",
-    "prescriptionSummary": "Resumen de prescripción",
-    "summarySegments": "Segmentos",
-    "summaryZones": "Zonas aplicadas",
-    "summaryLength": "Longitud total",
-    "summaryRate": "Dosis media"
-  },
   "errors": {
     "title": "Error",
     "unexpected": "An unexpected error occurred",
@@ -187,7 +125,7 @@
     "pathfindingFailed": "Pathfinding failed",
     "pathfindingTimeout": "Pathfinding timed out",
     "pathCalculationFailed": "Path calculation failed",
-    "geoFailed": "Geometry loading failed",
+    "geoFailed": "Error al cargar la geometría",
     "authRequired": "Autenticación requerida",
     "generateFailed": "Error al generar la ruta",
     "missingTurningRadius": "Falta el radio de giro de la máquina. Introduce uno o configúralo en el editor de entidades."
@@ -218,27 +156,18 @@
     "jobTimeout": "No se detectaron zonas nuevas a tiempo. Reintenta o revisa el estado del servicio.",
     "openModule": "Abrir GIS Routing"
   },
-  "trajectory": {
-    "title": "Alternativas de trayectoria",
-    "hint": "Compara rumbos de franja. Aplica la selección para regenerar el plan almacenado con esa variante.",
-    "optionLabel": "Rumbo {{heading}}° · {{swaths}} franjas",
-    "applySelection": "Aplicar trayectoria seleccionada"
-  },
   "panels": {
     "emptyState": "Genera una ruta para ver resultados",
     "emptyStateHint": "Configura la maquinaria, los parámetros de ancho de trabajo y el patrón para comenzar"
   },
   "patterns": {
-    "deleteConfirm": "Confirm delete",
-    "loading": "Loading patterns",
-    "delete": "Delete pattern",
     "saveTitle": "Guardar Patrón",
     "saved": "Patrón guardado",
     "namePlaceholder": "Nombre del patrón...",
     "save": "Guardar",
-    "savedListTitle": "Patrones guardados",
     "noSaved": "No hay patrones guardados en esta parcela",
-    "loadFromContext": "Cargar desde Orion-LD"
+    "loadFromContext": "Cargar desde Orion-LD",
+    "saveFailed": "No se pudo guardar la plantilla"
   },
   "patternLabels": {
     "spiral": "Espiral",
@@ -260,20 +189,6 @@
     "distance": "Distancia",
     "climb": "Desnivel acumulado",
     "results": "Resultados"
-  },
-  "handoff": {
-    "title": "Continuar en el móvil",
-    "body": "Abre NKZ Mobile → Operaciones, sincroniza si hace falta y pulsa Iniciar sesión con este ID de operación.",
-    "copyId": "Copiar ID de operación",
-    "copied": "¡Copiado!"
-  },
-  "preview": {
-    "selectParcelHint": "Selecciona una parcela en el panel izquierdo para comenzar",
-    "configureHint": "Configura el patrón para ver la previsualización",
-    "savedHint": "Ruta guardada. Ve al visor unificado para verla en el mapa 3D.",
-    "interactiveHint": "Haz clic en una línea para seleccionarla. Pasa el ratón para identificarla.",
-    "internalPasses": "Pasadas internas",
-    "headlandPasses": "Cabeceras"
   },
   "headingMode": {
     "auto": "Óptimo",
@@ -307,8 +222,134 @@
     "generate": "Generar ruta de trabajo",
     "generateError": "No se pudo generar la ruta"
   },
-  "direction": {
-    "outsideIn": "Outside → In",
-    "insideOut": "Inside → Out"
+  "work": {
+    "steps": {
+      "parcel": "Parcela",
+      "zones": "Zonas excluidas",
+      "access": "Entrada",
+      "machine": "Máquina",
+      "pattern": "Patrón",
+      "vra": "VRA",
+      "status": {
+        "pending": "Pendiente",
+        "active": "Paso activo",
+        "done": "Completado",
+        "warning": "Requiere atención",
+        "disabled": "No disponible"
+      }
+    },
+    "zones": {
+      "summary": "{{count}} zonas · {{ha}} ha",
+      "draw": "Dibujar zona",
+      "drawing": "Dibujando… pulsa para terminar",
+      "invalid": "Inválida",
+      "fixedRing": "Anillo fijo de la parcela",
+      "delete": "Eliminar zona",
+      "empty": "Sin zonas excluidas",
+      "zoneN": "Zona {{n}}"
+    },
+    "access": {
+      "set": "Entrada marcada",
+      "unset": "Sin entrada",
+      "issue_outside": "Entrada fuera de la parcela",
+      "issue_in_zone": "Entrada dentro de una zona excluida",
+      "place": "Marcar entrada",
+      "placing": "Marcando… pulsa para cancelar",
+      "remove": "Quitar entrada",
+      "returnToAccess": "Volver a la entrada al terminar"
+    },
+    "machine": {
+      "incomplete": "Falta ancho o radio",
+      "fromMachine": "De la máquina",
+      "manual": "Manual",
+      "effectiveWidth": "Ancho efectivo: {{w}} m",
+      "width": "Ancho de trabajo (m)",
+      "radius": "Radio de giro (m)",
+      "overlap": "Solape (%)",
+      "summary": "{{w}} m · R {{r}} m"
+    },
+    "pattern": {
+      "auto": "Automático",
+      "summary": "{{pattern}} · cabeceras: {{n}}"
+    },
+    "vra": {
+      "nextPhase": "Prescripción variable: próxima fase"
+    },
+    "warnings": {
+      "UNREACHED_AREA": "Zona sin cubrir de {{ha}} ha",
+      "HEADLAND_WIDENED": "Cabecera ensanchada de {{requested}} a {{applied}} pasadas",
+      "MANUAL_TURN": "Giro manual entre las pasadas {{from_swath}} y {{to_swath}}",
+      "ACCESS_PATH_UNAVAILABLE": "No se pudo trazar el camino de acceso",
+      "UNKNOWN": "Aviso {{code}}"
+    },
+    "fallbacks": {
+      "headland": "Pasadas de cabecera ajustadas de {{a}} a {{b}}",
+      "reedsShepp": "Giros de Reeds-Shepp",
+      "pattern": "Patrón cambiado a {{pattern}}",
+      "manualTurns_one": "{{count}} giro manual",
+      "manualTurns_other": "{{count}} giros manuales",
+      "timeBudget": "Límite de tiempo alcanzado"
+    },
+    "errors": {
+      "NO_DRIVABLE_AREA": "No hay superficie transitable en la parcela",
+      "ACCESS_OUTSIDE_PARCEL": "El punto de acceso está fuera de la parcela",
+      "ACCESS_IN_ZONE": "El punto de acceso está dentro de una zona excluida",
+      "MACHINE_WIDTH_MISSING": "Falta el ancho de trabajo de la máquina",
+      "TURNING_RADIUS_MISSING": "Falta el radio de giro de la máquina",
+      "INVALID_GEOMETRY": "La geometría no es válida",
+      "ENGINE_FAILURE": "Error interno del motor de rutas",
+      "PERSIST_FAILED": "No se pudo guardar la operación",
+      "UNKNOWN": "No se pudo generar la ruta: {{detail}}",
+      "CONFIG_UNVERIFIED": "No se pudo verificar la configuración guardada. No se ha generado nada; reintenta."
+    },
+    "actions": {
+      "regenerate": "Regenerar",
+      "sendToTractor": "Enviar al tractor",
+      "sent": "Enviada ({{id}})",
+      "copyId": "Copiar ID",
+      "copied": "¡Copiado!",
+      "saveTemplate": "Guardar como plantilla",
+      "exportFormat": "Formato de exportación"
+    },
+    "title": "Rutas GIS",
+    "tabs": {
+      "work": "Trabajo",
+      "transit": "Tránsito A-B"
+    },
+    "empty": "Selecciona una parcela para empezar"
+  },
+  "autosave": {
+    "saved": "Guardado {{time}}",
+    "saving": "Guardando…",
+    "error": "Error al guardar",
+    "retry": "Reintentar",
+    "dirty": "Cambios sin guardar",
+    "restored": "Configuración enviada de nuevo al servidor",
+    "verifyFailed": "No se pudo verificar la configuración guardada"
+  },
+  "result": {
+    "swaths_one": "{{count}} pasada",
+    "swaths_other": "{{count}} pasadas",
+    "distance": "{{value}} km",
+    "efficiency": "{{value}} %",
+    "coverage": "{{covered}} / {{parcel}} ha",
+    "warnings_one": "{{count}} aviso",
+    "warnings_other": "{{count}} avisos",
+    "stale": "Obsoleto",
+    "showOnMap": "Ver en el mapa",
+    "fallbacksTitle": "Ajustes aplicados",
+    "collapse": "Contraer",
+    "expand": "Expandir"
+  },
+  "map": {
+    "refit": "Reencuadrar",
+    "loadError": "No se pudo cargar el mapa",
+    "layers": {
+      "zones": "Zonas",
+      "access": "Acceso",
+      "route": "Ruta",
+      "swaths": "Pasadas",
+      "warnings": "Avisos"
+    }
   }
 }

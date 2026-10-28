@@ -12,6 +12,7 @@ function parseArgs(argv) {
     if (argv[i] === '--css') out.css = argv[++i] || '';
     else if (argv[i] === '--allow') out.allow.push(...(argv[++i] || '').split(',').filter(Boolean));
     else if (argv[i] === '--allow-empty') out.allowEmpty = true;
+    else if (argv[i] === '--') continue;
     else out.files.push(argv[i]);
   }
   return out;

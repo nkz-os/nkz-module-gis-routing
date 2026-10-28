@@ -24,9 +24,8 @@ def test_generate_boustrophedon_returns_ordered_route():
     assert resp.status_code == 200
     body = resp.json()
     assert body["success"] is True
-    chosen = body["selected"]
-    assert chosen["metrics"]["field_efficiency"] > 0
-    assert chosen["route"]["type"] in ("MultiLineString", "LineString")
+    assert body["plan"]["metrics"]["field_efficiency"] > 0
+    assert body["plan"]["route"]["type"] in ("MultiLineString", "LineString")
 
 
 def test_legacy_alias_ab_line_maps_to_boustrophedon():
@@ -38,7 +37,7 @@ def test_legacy_alias_ab_line_maps_to_boustrophedon():
         "persist": False,
     })
     assert resp.status_code == 200
-    assert resp.json()["selected"]["pattern"] == "boustrophedon"
+    assert resp.json()["plan"]["pattern"] == "boustrophedon"
 
 
 def test_headland_compose_does_not_crash():
@@ -77,26 +76,25 @@ def test_missing_turning_radius_returns_coded_422():
     assert resp.json()["code"] == "TURNING_RADIUS_MISSING"
 
 
-def test_deprecated_fields_are_accepted_and_logged(caplog):
-    import logging
-    with caplog.at_level(logging.WARNING, logger="app.api.routing"):
-        resp = client.post("/api/routing/generate", json={
-            "parcel_geometry": _POLY, "pattern": "boustrophedon",
-            "pattern_config": {"width_m": 20, "headland_passes": 1, "turning_radius_m": 6.0,
-                               "direction": "outside-in"},
-            "coupling_model": "rigid", "selected_alternative_id": "x", "persist": False})
-    assert resp.status_code == 200
-    assert "deprecated fields ignored" in caplog.text
-    for name in ("direction", "coupling_model", "selected_alternative_id"):
-        assert name in caplog.text
+def test_unknown_or_removed_fields_are_rejected():
+    resp = client.post("/api/routing/generate", json={"parcel_geometry": _POLY, "pattern": "boustrophedon",
+        "pattern_config": {"width_m": 20, "turning_radius_m": 6.0, "direction": "outside-in"}, "persist": False})
+    assert resp.status_code == 422
+    resp = client.post("/api/routing/generate", json={"parcel_geometry": _POLY, "coupling_model": "rigid",
+        "pattern_config": {"width_m": 20, "turning_radius_m": 6.0}, "persist": False})
+    assert resp.status_code == 422
 
 
-def test_headland_passes_zero_is_coerced_to_one():
-    resp = client.post("/api/routing/generate", json={
-        "parcel_geometry": _POLY, "pattern": "boustrophedon",
+def test_headland_passes_zero_is_rejected():
+    resp = client.post("/api/routing/generate", json={"parcel_geometry": _POLY,
         "pattern_config": {"width_m": 20, "headland_passes": 0, "turning_radius_m": 6.0}, "persist": False})
+    assert resp.status_code == 422
+
+
+def test_response_has_plan_only(monkeypatch):
+    resp = _gen(monkeypatch)
     assert resp.status_code == 200
-    assert resp.json()["plan"]["headland_passes"] >= 1
+    assert set(resp.json()) == {"success", "operation_id", "persisted", "plan"}
 
 
 def test_external_ingest_requires_auth():
@@ -161,7 +159,6 @@ def test_plan_body_shape(monkeypatch):
             "working_area_ha"} <= set(plan["metrics"])
     assert plan["access_path"]["coordinates"][0] == pytest.approx(list(wgs84_point(GATE)), abs=1e-6)
     assert plan["return_path"] is None
-    assert resp.json()["selected"]["route"]["type"] in ("MultiLineString", "LineString")   # legado conservado
 
 
 def test_gate_in_zone_returns_access_in_zone(monkeypatch):

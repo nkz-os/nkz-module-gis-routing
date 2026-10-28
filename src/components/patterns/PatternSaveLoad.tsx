@@ -1,13 +1,14 @@
 import React, { useState } from 'react';
 import { useTranslation } from '@nekazari/sdk';
 import { Save, Loader2 } from 'lucide-react';
-import { api } from '../../services/api';
+import { api, type Plan } from '../../services/api';
 import { Input, Button } from '@nekazari/ui-kit';
 
 const NS = 'gis-routing';
 
 interface Props {
-  result: any;
+  plan: Plan | null;
+  operationId?: string | null;
   parcelId: string | null;
   tractorId: string | null;
   implementId: string | null;
@@ -16,32 +17,37 @@ interface Props {
 }
 
 export const PatternSaveLoad: React.FC<Props> = ({
-  result, parcelId, tractorId, implementId, pattern, patternConfig,
+  plan, operationId, parcelId, tractorId, implementId, pattern, patternConfig,
 }) => {
   const { t } = useTranslation(NS);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [failed, setFailed] = useState(false);
   const [name, setName] = useState('');
 
-  if (!result || !parcelId) return null;
+  if (!plan || !parcelId) return null;
 
   const handleSave = async () => {
     if (!name.trim()) return;
     setSaving(true);
+    setFailed(false);
     try {
       await api.savePattern({
         parcel_id: parcelId,
         name: name.trim(),
         pattern_type: pattern,
         pattern_config: patternConfig,
-        route_geojson: JSON.stringify(result?.selected?.route),
-        vra_prescription_map: result.prescription_map || null,
+        route_geojson: JSON.stringify(plan.route),
+        vra_prescription_map: null,
         equipment_tractor_id: tractorId,
         equipment_implement_id: implementId,
-        source_operation_id: result?.operation_id || null,
+        source_operation_id: operationId ?? null,
       });
       setSaved(true);
-    } catch {} finally { setSaving(false); }
+    } catch (e) {
+      console.error('[gis-routing] template save failed', e);
+      setFailed(true);
+    } finally { setSaving(false); }
   };
 
   return (
@@ -60,6 +66,7 @@ export const PatternSaveLoad: React.FC<Props> = ({
             placeholder={t('patterns.namePlaceholder')}
             className="w-full"
           />
+          {failed && <p role="alert" className="text-nkz-xs text-nkz-danger">{t('patterns.saveFailed')}</p>}
           <Button onClick={handleSave} disabled={saving || !name.trim()}
             className="w-full py-2 flex justify-center items-center">
             {saving ? <Loader2 className="w-3 h-3 animate-spin inline mr-1" /> : null}

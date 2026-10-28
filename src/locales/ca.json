@@ -1,11 +1,5 @@
 {
   "loading": "S'està carregant...",
-  "tabs": {
-    "routing": "Guiatge",
-    "zoning": "Zones VRA",
-    "pathfinding": "Pathfinding",
-    "parcelConfig": "Configuració de parcel·la"
-  },
   "title": "GIS Routing",
   "subtitle": "Guiatge per línies A-B per a agricultura de precisió",
   "parcel": {
@@ -50,14 +44,8 @@
     "width": "Amplada de treball (m)",
     "swaths": "Franges",
     "operationType": "Operation Type",
-    "couplingModel": "Coupling model",
-    "couplingModelRigid": "Rigid set (tractor + implement)",
-    "couplingModelArticulated": "Articulated set (tractor + implement)",
-    "couplingModelRigidHelp": "Current computation is validated for rigid coupling.",
-    "couplingModelArticulatedNotSupported": "Articulated mode is not supported yet in computation. Select rigid coupling.",
     "overlap": "Overlap (%)",
     "headlandPasses": "Headland passes",
-    "direction": "Direction",
     "headingMode": "Rumb"
   },
   "actions": {
@@ -70,34 +58,6 @@
     "viewInCesium": "View in Cesium",
     "cancel": "Cancel·lar"
   },
-  "export": {
-    "isoxml": "ISOXML",
-    "geojson": "GeoJSON",
-    "gpx": "GPX"
-  },
-  "vra": {
-    "sourceHealth": "Vegetation Health",
-    "label": "VRA",
-    "enabled": "Prescripción VRA",
-    "sourceLabel": "Fuente VRA",
-    "sourceOrion": "Zonas en Orion-LD",
-    "sourceExternal": "Subida externa",
-    "externalUploadLabel": "Archivo externo (GeoJSON/CSV)",
-    "externalUploadError": "No se pudo procesar el archivo externo",
-    "externalLoaded": "Archivo cargado: {{file}} ({{count}} zonas)",
-    "externalPending": "Sube un archivo externo para usar prescripción VRA",
-    "baseRate": "Dosis Base",
-    "rateUnit": "Unidad",
-    "zoneSelection": "Selección de zonas",
-    "selectAll": "Seleccionar todas",
-    "clearAll": "Limpiar selección",
-    "noZonesForParcel": "Sin zonas disponibles para la parcela seleccionada",
-    "prescriptionSummary": "Resumen de prescripción",
-    "summarySegments": "Segmentos",
-    "summaryZones": "Zonas aplicadas",
-    "summaryLength": "Longitud total",
-    "summaryRate": "Dosis media"
-  },
   "errors": {
     "title": "Error",
     "unexpected": "An unexpected error occurred",
@@ -105,7 +65,7 @@
     "pathfindingFailed": "Pathfinding failed",
     "pathfindingTimeout": "Pathfinding timed out",
     "pathCalculationFailed": "Path calculation failed",
-    "geoFailed": "Geometry loading failed",
+    "geoFailed": "Error en carregar la geometria",
     "authRequired": "Autenticación requerida",
     "generateFailed": "Error al generar la ruta",
     "missingTurningRadius": "Falta el radio de giro de la máquina. Introduce uno o configúralo en el editor de entidades."
@@ -151,11 +111,6 @@
     "ended": "Ended",
     "finished": "Finished"
   },
-  "workflow": {
-    "plan": "1) Plan",
-    "validate": "2) Validate",
-    "execute": "3) Execute"
-  },
   "validation": {
     "parcelReady": "Parcel selected",
     "parcelMissing": "Select a parcel",
@@ -165,15 +120,7 @@
     "widthMissing": "Working width is not valid",
     "equipmentReady": "Equipment selected",
     "equipmentOptional": "Equipment optional (recommended)",
-    "equipmentMissing": "Select tractor and implement",
-    "couplingReady": "Rigid coupling selected",
-    "couplingNotSupported": "Articulated coupling not supported yet",
-    "sdmTitle": "SDM completeness (recommended)",
-    "sdmGpsOffsets": "Tractor GPS offsets (X/Y/Z) are missing in the Context Broker",
-    "sdmImplementWidth": "Implement effective width is missing (needed for spraying/fertilizing)",
-    "sdmTrackWidth": "Tractor track width is missing (recommended for tillage)",
-    "sdmWheelbase": "Tractor wheelbase is missing (recommended for tillage)",
-    "sdmHitchOffset": "Implement hitch offset X is missing (recommended for seeding)"
+    "equipmentMissing": "Select tractor and implement"
   },
   "common": {
     "enabled": "Enabled",
@@ -207,34 +154,16 @@
     "traceImplement": "Implement"
   },
   "stats": {
-    "title": "Results",
-    "swaths": "Swaths",
-    "distance": "Distance",
-    "area": "Area",
-    "pattern": "Pattern",
-    "vra": "VRA",
-    "fieldEfficiency": "Eficiència de camp",
-    "workedDistance": "Distància treballada",
-    "nonWorkingDistance": "Distància improductiva",
-    "curveType": "Tipus de gir"
-  },
-  "trajectory": {
-    "title": "Trajectory alternatives",
-    "hint": "Compare swath headings. Apply selection to regenerate the stored plan with that variant.",
-    "optionLabel": "{{heading}}° heading · {{swaths}} swaths",
-    "applySelection": "Apply selected trajectory"
+    "fieldEfficiency": "Eficiència de camp"
   },
   "patterns": {
-    "deleteConfirm": "Confirm delete",
-    "loading": "Loading patterns",
-    "delete": "Delete pattern",
     "saveTitle": "Guardar Patrón",
     "saved": "Patrón guardado",
     "namePlaceholder": "Nombre del patrón...",
     "save": "Guardar",
-    "savedListTitle": "Patrones guardados",
     "noSaved": "No hay patrones guardados en esta parcela",
-    "loadFromContext": "Cargar desde Orion-LD"
+    "loadFromContext": "Cargar desde Orion-LD",
+    "saveFailed": "No s'ha pogut desar la plantilla"
   },
   "patternLabels": {
     "spiral": "Spiral",
@@ -260,20 +189,6 @@
   "panels": {
     "emptyState": "Generate a route to see results",
     "emptyStateHint": "Configure the pattern and press Generate"
-  },
-  "handoff": {
-    "title": "Continue on mobile",
-    "body": "Open NKZ Mobile → Operations, run sync if needed, then Start session for this operation ID.",
-    "copyId": "Copy operation ID",
-    "copied": "¡Copiado!"
-  },
-  "preview": {
-    "selectParcelHint": "Select a parcel in the left panel to start",
-    "configureHint": "Configure the pattern to see the preview",
-    "savedHint": "Route saved. Go to the unified viewer to see it on the 3D map.",
-    "interactiveHint": "Click a line to select it. Hover to identify it.",
-    "internalPasses": "Internal passes",
-    "headlandPasses": "Headlands"
   },
   "headingMode": {
     "auto": "Òptim",
@@ -307,8 +222,134 @@
     "generate": "Generar ruta de treball",
     "generateError": "No s'ha pogut generar la ruta"
   },
-  "direction": {
-    "outsideIn": "Outside → In",
-    "insideOut": "Inside → Out"
+  "work": {
+    "steps": {
+      "parcel": "Parcel·la",
+      "zones": "Zones excloses",
+      "access": "Entrada",
+      "machine": "Màquina",
+      "pattern": "Patró",
+      "vra": "VRA",
+      "status": {
+        "pending": "Pendent",
+        "active": "Pas actiu",
+        "done": "Completat",
+        "warning": "Requereix atenció",
+        "disabled": "No disponible"
+      }
+    },
+    "zones": {
+      "summary": "{{count}} zones · {{ha}} ha",
+      "draw": "Dibuixar zona",
+      "drawing": "Dibuixant… clica per acabar",
+      "invalid": "Invàlida",
+      "fixedRing": "Anell fix de la parcel·la",
+      "delete": "Eliminar zona",
+      "empty": "Sense zones excloses",
+      "zoneN": "Zona {{n}}"
+    },
+    "access": {
+      "set": "Entrada marcada",
+      "unset": "Sense entrada",
+      "issue_outside": "L'entrada és fora de la parcel·la",
+      "issue_in_zone": "L'entrada és dins d'una zona exclosa",
+      "place": "Marcar entrada",
+      "placing": "Marcant… clica per cancel·lar",
+      "remove": "Treure entrada",
+      "returnToAccess": "Tornar a l'entrada en acabar"
+    },
+    "machine": {
+      "incomplete": "Falta l'amplada o el radi",
+      "fromMachine": "De la màquina",
+      "manual": "Manual",
+      "effectiveWidth": "Amplada efectiva: {{w}} m",
+      "width": "Amplada de treball (m)",
+      "radius": "Radi de gir (m)",
+      "overlap": "Solapament (%)",
+      "summary": "{{w}} m · R {{r}} m"
+    },
+    "pattern": {
+      "auto": "Automàtic",
+      "summary": "{{pattern}} · capçaleres: {{n}}"
+    },
+    "vra": {
+      "nextPhase": "Prescripció variable: propera fase"
+    },
+    "warnings": {
+      "UNREACHED_AREA": "Zona sense cobrir de {{ha}} ha",
+      "HEADLAND_WIDENED": "Capçalera eixamplada de {{requested}} a {{applied}} passades",
+      "MANUAL_TURN": "Gir manual entre les passades {{from_swath}} i {{to_swath}}",
+      "ACCESS_PATH_UNAVAILABLE": "No s'ha pogut traçar el camí d'accés",
+      "UNKNOWN": "Avís {{code}}"
+    },
+    "fallbacks": {
+      "headland": "Passades de capçalera ajustades de {{a}} a {{b}}",
+      "reedsShepp": "Girs de Reeds-Shepp",
+      "pattern": "Patró canviat a {{pattern}}",
+      "manualTurns_one": "{{count}} gir manual",
+      "manualTurns_other": "{{count}} girs manuals",
+      "timeBudget": "Límit de temps assolit"
+    },
+    "errors": {
+      "NO_DRIVABLE_AREA": "No hi ha superfície transitable a la parcel·la",
+      "ACCESS_OUTSIDE_PARCEL": "El punt d'accés és fora de la parcel·la",
+      "ACCESS_IN_ZONE": "El punt d'accés és dins d'una zona exclosa",
+      "MACHINE_WIDTH_MISSING": "Falta l'amplada de treball de la màquina",
+      "TURNING_RADIUS_MISSING": "Falta el radi de gir de la màquina",
+      "INVALID_GEOMETRY": "La geometria no és vàlida",
+      "ENGINE_FAILURE": "Error intern del motor de rutes",
+      "PERSIST_FAILED": "No s'ha pogut desar l'operació",
+      "UNKNOWN": "No s'ha pogut generar la ruta: {{detail}}",
+      "CONFIG_UNVERIFIED": "No s'ha pogut verificar la configuració desada. No s'ha generat res; torna-ho a provar."
+    },
+    "actions": {
+      "regenerate": "Regenerar",
+      "sendToTractor": "Enviar al tractor",
+      "sent": "Enviada ({{id}})",
+      "copyId": "Copiar ID",
+      "copied": "Copiat!",
+      "saveTemplate": "Desar com a plantilla",
+      "exportFormat": "Format d'exportació"
+    },
+    "title": "Rutes GIS",
+    "tabs": {
+      "work": "Treball",
+      "transit": "Trànsit A-B"
+    },
+    "empty": "Selecciona una parcel·la per començar"
+  },
+  "autosave": {
+    "saved": "Desat {{time}}",
+    "saving": "Desant…",
+    "error": "Error en desar",
+    "retry": "Reintentar",
+    "dirty": "Canvis sense desar",
+    "restored": "Configuració reenviada al servidor",
+    "verifyFailed": "No s'ha pogut verificar la configuració desada"
+  },
+  "result": {
+    "swaths_one": "{{count}} passada",
+    "swaths_other": "{{count}} passades",
+    "distance": "{{value}} km",
+    "efficiency": "{{value}} %",
+    "coverage": "{{covered}} / {{parcel}} ha",
+    "warnings_one": "{{count}} avís",
+    "warnings_other": "{{count}} avisos",
+    "stale": "Obsolet",
+    "showOnMap": "Veure al mapa",
+    "fallbacksTitle": "Ajustos aplicats",
+    "collapse": "Contreure",
+    "expand": "Expandir"
+  },
+  "map": {
+    "refit": "Reencuadrar",
+    "loadError": "No s'ha pogut carregar el mapa",
+    "layers": {
+      "zones": "Zones",
+      "access": "Accés",
+      "route": "Ruta",
+      "swaths": "Passades",
+      "warnings": "Avisos"
+    }
   }
 }
