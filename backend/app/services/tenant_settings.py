@@ -19,7 +19,7 @@ DISPATCH_VALUES = ("immediate", "digest", "none")
 DEFAULT_DISPATCH = "immediate"
 
 DDL = """
-CREATE TABLE IF NOT EXISTS tenant_settings (
+CREATE TABLE IF NOT EXISTS gis_routing_tenant_settings (
     tenant_id TEXT PRIMARY KEY,
     dispatch_notification TEXT NOT NULL DEFAULT 'immediate'
         CHECK (dispatch_notification IN ('immediate', 'digest', 'none')),
@@ -33,6 +33,8 @@ class SettingsStore(Protocol):
     async def get_dispatch(self, tenant_id: str) -> Optional[str]: ...
 
     async def put_dispatch(self, tenant_id: str, value: str, user_id: str) -> None: ...
+
+    async def close(self) -> None: ...
 
 
 class PgSettingsStore:
@@ -51,13 +53,13 @@ class PgSettingsStore:
                     async with pool.acquire() as conn:
                         # CREATE needs privileges on the schema even for an existing
                         # table, so a role without them works once the table exists.
-                        if await conn.fetchval("SELECT to_regclass('tenant_settings')") is None:
+                        if await conn.fetchval("SELECT to_regclass('gis_routing_tenant_settings')") is None:
                             await conn.execute(DDL)
                 except BaseException:
                     await pool.close()
                     raise
                 self._pool = pool
-                logger.info("tenant_settings pool created and DDL applied")
+                logger.info("gis_routing_tenant_settings pool created and DDL applied")
             return self._pool
 
     async def close(self) -> None:
@@ -69,14 +71,14 @@ class PgSettingsStore:
         pool = await self._acquire_pool()
         async with pool.acquire() as conn:
             return await conn.fetchval(
-                "SELECT dispatch_notification FROM tenant_settings WHERE tenant_id = $1",
+                "SELECT dispatch_notification FROM gis_routing_tenant_settings WHERE tenant_id = $1",
                 tenant_id)
 
     async def put_dispatch(self, tenant_id: str, value: str, user_id: str) -> None:
         pool = await self._acquire_pool()
         async with pool.acquire() as conn:
             await conn.execute(
-                """INSERT INTO tenant_settings (tenant_id, dispatch_notification, updated_by)
+                """INSERT INTO gis_routing_tenant_settings (tenant_id, dispatch_notification, updated_by)
                    VALUES ($1, $2, $3)
                    ON CONFLICT (tenant_id) DO UPDATE
                    SET dispatch_notification = EXCLUDED.dispatch_notification,
@@ -103,3 +105,12 @@ def set_store(store: Optional[SettingsStore]) -> None:
 async def dispatch_setting(tenant_id: str) -> str:
     """The tenant's setting; a tenant without a row gets the default."""
     return (await get_store().get_dispatch(tenant_id)) or DEFAULT_DISPATCH
+
+
+async def close_store() -> None:
+    """Close the store's pool (application shutdown)."""
+    if _STORE is not None:
+        try:
+            await _STORE.close()
+        except Exception:
+            logger.warning("settings store close failed", exc_info=True)

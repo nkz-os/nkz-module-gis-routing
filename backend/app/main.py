@@ -15,6 +15,7 @@ from app.config import get_settings
 from app.logging_setup import configure_logging
 from app.api import router as api_router
 from app.services.coverage.errors import PlanError
+from app.services.tenant_settings import close_store as close_settings_store
 from app.services.subscriptions import reconcile_once, run_subscription_reconciler
 from nkz_platform_sdk.lifecycle import lifecycle_hint_router
 
@@ -34,6 +35,7 @@ async def lifespan(app: FastAPI):
     )
     yield
     reconciler.cancel()
+    await close_settings_store()
     logger.info("%s shutting down", settings.app_name)
 
 

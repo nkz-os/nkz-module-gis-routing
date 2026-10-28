@@ -59,3 +59,9 @@ def test_postgres_roundtrip_and_ddl_twice():
         await a.close()
         await b.close()
     asyncio.run(run())
+
+
+def test_table_is_module_prefixed():
+    from app.services.tenant_settings import DDL
+    assert "gis_routing_tenant_settings" in DDL
+    assert "TABLE IF NOT EXISTS tenant_settings" not in DDL

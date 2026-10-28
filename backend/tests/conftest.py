@@ -67,6 +67,10 @@ class MemorySettingsStore:
     def __init__(self):
         self.rows = {}
         self.fail = False
+        self.closed = False
+
+    async def close(self):
+        self.closed = True
 
     async def get_dispatch(self, tenant_id):
         if self.fail:
@@ -74,6 +78,8 @@ class MemorySettingsStore:
         return self.rows.get(tenant_id)
 
     async def put_dispatch(self, tenant_id, value, user_id):
+        if self.fail:
+            raise RuntimeError("db down")
         self.rows[tenant_id] = value
 
 

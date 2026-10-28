@@ -10,6 +10,7 @@ from fastapi import APIRouter, Request, HTTPException
 from pydantic import BaseModel
 
 from app.config import get_settings
+from app.services.parcel_constraints import _attr_value
 from nkz_platform_sdk.orion import OrionClient
 
 
@@ -46,9 +47,10 @@ async def get_parcel_config(request: Request, parcel_id: str, auth: AuthContext 
             raise HTTPException(status_code=502, detail="Orion-LD error")
         if not entity:
             raise HTTPException(status_code=404, detail="Parcel not found")
+        # Orion may return the module's terms as nkz: or full-IRI names.
         return {
-            "accessPoint": (entity.get("accessPoint") or {}).get("value"),
-            "exclusionZones": (entity.get("exclusionZones") or {}).get("value"),
+            "accessPoint": _attr_value(entity, "accessPoint"),
+            "exclusionZones": _attr_value(entity, "exclusionZones"),
         }
     finally:
         await orion.close()

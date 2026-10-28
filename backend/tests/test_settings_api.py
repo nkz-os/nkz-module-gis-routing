@@ -47,3 +47,30 @@ def test_settings_are_per_tenant(client):
     client.put(URL, json={"dispatch_notification": "none"}, headers=ADMIN)
     other = client.get(URL, headers={"X-Tenant-ID": "tenant-b"})
     assert other.json() == {"dispatch_notification": "immediate"}
+
+
+def test_get_settings_db_failure_is_503_coded(client, settings_store):
+    settings_store.fail = True
+    r = client.get(URL)
+    assert r.status_code == 503 and r.json()["code"] == "SETTINGS_UNAVAILABLE"
+
+
+def test_put_settings_db_failure_is_503_coded(client, settings_store):
+    settings_store.fail = True
+    r = client.put(URL, json={"dispatch_notification": "none"}, headers=ADMIN)
+    assert r.status_code == 503 and r.json()["code"] == "SETTINGS_UNAVAILABLE"
+
+
+def test_lifespan_closes_the_settings_pool(settings_store, monkeypatch):
+    import asyncio
+    from app import main
+
+    async def idle(*a, **k):
+        await asyncio.sleep(3600)
+    monkeypatch.setattr(main, "run_subscription_reconciler", idle)
+
+    async def run():
+        async with main.lifespan(main.app):
+            assert settings_store.closed is False
+    asyncio.run(run())
+    assert settings_store.closed is True
