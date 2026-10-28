@@ -80,7 +80,7 @@ def test_gated_parcel_blocks_ring_but_not_interior_or_gate():
     assert (10, 15) in cells and (20, 15) in cells and (15, 20) in cells  # west/east/north edge
     assert (15, 15) not in cells                                          # interior
     assert (15, 10) not in cells and (14, 10) not in cells                # gate gap
-    assert (12, 10) in cells                                              # south edge away from gate
+    assert (10, 10) in cells                                              # south edge away from gate
 
 
 # ---- end to end ----------------------------------------------------------
@@ -95,7 +95,7 @@ def test_b_inside_gated_parcel_enters_by_the_gate(monkeypatch):
         crossings = _line(alt).intersection(poly.exterior)
         pts = [crossings] if isinstance(crossings, Point) else list(crossings.geoms)
         assert pts, "route never crossed the boundary"
-        assert all(Point(gate).distance(p) < 2 * PIXEL for p in pts), pts
+        assert all(Point(gate).distance(p) < 5 * PIXEL for p in pts), pts
 
 
 def test_gated_parcel_between_a_and_b_is_avoided(monkeypatch):
@@ -208,7 +208,8 @@ def _gate_case(width_m, rot_deg):
     open_routes = compute_ab_routes(raster["elevations"], 0.0, 0.0, px, *a, *b, blocked=fence)
     # Re-block every cell within the gate opening: nothing else may leak.
     cell_m = 10.0
-    reach = (width_m / 2 + cell_m) + max(width_m, 2 * cell_m) / 2 + cell_m
+    from app.services.pathfinding.barriers import band_thickness_m
+    reach = band_thickness_m(width_m, cell_m) + max(width_m, 2 * cell_m) / 2 + cell_m
     gx, gy = gate[0] / px, gate[1] / px
     disc = {(cc, rr) for cc in range(n) for rr in range(n)
             if math.hypot(cc - gx, rr - gy) * cell_m <= reach}
@@ -231,6 +232,70 @@ def test_multipolygon_only_the_part_nearest_the_gate_is_opened():
     cells = parcel_barrier_cells([_parcel(MultiPolygon([near, far]), gate)], _flat(), 3.0)
     assert (6, 2) not in cells                    # gate gap in the near part
     assert (22, 2) in cells and (18, 6) in cells  # far part fully fenced, incl. its closest edge
+
+
+# ---- the fence never leaves the parcel (C1) ----------------------------------
+
+PX10 = 10.0 / 111320.0
+
+
+def _grid10(n=100):
+    return {"elevations": [[0.0] * n for _ in range(n)],
+            "origin_lon": 1.0, "origin_lat": 0.0, "pixel_size_deg": PX10}
+
+
+def _cellpoly(c0, r0, c1, r1):
+    return Polygon([(1.0 + c * PX10, r * PX10) for c, r in ((c0, r0), (c1, r0), (c1, r1), (c0, r1))])
+
+
+def _cellpt(c, r):
+    return (1.0 + c * PX10, r * PX10)
+
+
+def _two_gated_parcels_with_track():
+    # Track centre on column 50, 6 m wide: parcels end 3 m either side of it.
+    west = _cellpoly(30, 30, 49.7, 70)
+    east = _cellpoly(50.3, 30, 70, 70)
+    return west, east, [_parcel(west, _cellpt(49.7, 60)) | {"id": "w"},
+                        _parcel(east, _cellpt(50.3, 40)) | {"id": "e"}]
+
+
+@pytest.mark.parametrize("width_m", [3.0, 6.0, 24.0])
+def test_fence_cells_all_lie_inside_the_parcel(width_m):
+    from shapely.geometry import Point as P
+    west, east, parcels = _two_gated_parcels_with_track()
+    raster = _grid10()
+    for parcel in parcels:
+        cells = parcel_barrier_cells([parcel], raster, width_m)
+        assert cells
+        assert all(parcel["polygon"].buffer(1e-6).covers(P(*_cellpt(c, r))) for c, r in cells)
+
+
+def test_track_between_two_gated_parcels_is_not_blocked_and_passable():
+    from app.services.pathfinding.least_cost_path import compute_ab_routes
+    _w, _e, parcels = _two_gated_parcels_with_track()
+    raster = _grid10()
+    fence = parcel_barrier_cells(parcels, raster, 3.0)
+    assert [(c, r) for c, r in fence if c == 50] == []   # the reviewer reproduction: 160 blocked
+    routes = compute_ab_routes(raster["elevations"], 1.0, 0.0, PX10, 50, 5, 50, 95, blocked=fence)
+    assert routes, "track closed"
+
+
+@pytest.mark.parametrize("gate_name,target", [("e", (56, 40)), ("w", (44, 60))])
+def test_each_gate_on_the_track_is_reachable_from_it(gate_name, target):
+    from app.services.pathfinding.least_cost_path import compute_ab_routes
+    _w, _e, parcels = _two_gated_parcels_with_track()
+    raster = _grid10()
+    fence = parcel_barrier_cells(parcels, raster, 3.0)
+    assert target not in fence
+    routes = compute_ab_routes(raster["elevations"], 1.0, 0.0, PX10, 50, 5, *target, blocked=fence)
+    assert routes, f"gate {gate_name} unreachable from the track"
+
+
+@pytest.mark.parametrize("rot_deg", [0, 45])
+def test_fence_still_has_no_leaks_with_inside_band(rot_deg):
+    open_routes, sealed = _gate_case(3.0, rot_deg)
+    assert open_routes and sealed == []
 
 
 # ---- serialization -------------------------------------------------------

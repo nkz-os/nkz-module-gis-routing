@@ -1,8 +1,9 @@
 """Gated parcels as barriers for A-B routes.
 
-A parcel with an access point (gate) is a fence: its boundary ring is blocked
-except for an opening centred on the gate, so a route enters or leaves only
-through it. A parcel without a gate is open ground and contributes nothing.
+A parcel with an access point (gate) is a fence: a band just INSIDE its boundary
+is blocked except for an opening centred on the gate, so a route enters or leaves
+only through it. Nothing outside the parcel is ever blocked (farm tracks between
+parcels stay open). A parcel without a gate is open ground and contributes nothing.
 """
 from __future__ import annotations
 
@@ -18,6 +19,12 @@ from app.services.routing.base import project_polygon_to_utm
 logger = logging.getLogger(__name__)
 
 _M_PER_DEG_LAT = 111320.0
+_EDGE_TOL_M = 0.05  # centimetres: far below any cell, only absorbs round-off
+
+
+def band_thickness_m(width_m: float, cell_m: float) -> float:
+    """Thickness of the fence band, measured inwards from the boundary."""
+    return max(2.0 * cell_m, width_m / 2.0 + cell_m)
 
 
 def _parts(geom) -> list[Polygon]:
@@ -29,10 +36,12 @@ def _parts(geom) -> list[Polygon]:
 
 
 def _ring_wgs84(poly: Polygon, gate: tuple[float, float] | None, width_m: float, cell_m: float):
-    """Boundary ring of poly (WGS84) minus a gate opening (none when gate is None), or None if empty."""
+    """Inner boundary band of poly (WGS84) minus a gate opening (none when gate is None), or None if empty."""
     utm_poly, _crs, to_utm, to_wgs84 = project_polygon_to_utm(poly)
-    half = width_m / 2.0 + cell_m
-    ring = utm_poly.exterior.buffer(half)
+    half = band_thickness_m(width_m, cell_m)
+    # Strictly inside the parcel, at least 2 cells thick (no 8-connected or diagonal leak).
+    # _EDGE_TOL_M keeps a cell centred exactly on the boundary (float round-off) in the fence.
+    ring = utm_poly.buffer(_EDGE_TOL_M).difference(utm_poly.buffer(-half))
     if gate is not None:
         gx, gy = to_utm(gate[0], gate[1])
         # Snap the gate onto the boundary: an access point slightly inside or outside
@@ -59,7 +68,7 @@ def _rasterize(geom, raster: dict, cols: int, rows: int) -> set:
     if c1 < c0 or r1 < r0:
         return cells
     cs, rs = np.meshgrid(np.arange(c0, c1 + 1), np.arange(r0, r1 + 1))
-    inside = shapely.contains_xy(geom, o_lon + cs * px, o_lat + rs * px)
+    inside = shapely.intersects_xy(geom, o_lon + cs * px, o_lat + rs * px)
     return {(int(c), int(r)) for c, r in zip(cs[inside], rs[inside])}
 
 
@@ -68,7 +77,7 @@ def parcel_barrier_map(parcels: list[dict], raster: dict, machine_width_m: float
     """Blocked (col, row) cells of each gated parcel's fence, keyed by parcel id.
 
     parcels: [{id, polygon (WGS84 shapely)|None, access_point (lon, lat)|None}].
-    The ring is the boundary widened by machine_width/2 + one cell; the opening
+    The band lies inside the boundary, max(2 cells, machine_width/2 + 1 cell) thick; the opening
     around the gate has radius max(machine_width, 2 cells). Ungated parcels (and
     parcels without a readable polygon) have no fence.
     """
