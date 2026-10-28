@@ -12,6 +12,8 @@ const HEADLANDS = [1, 2, 3] as const;
 export const StepPattern: React.FC<StepProps> = ({ state, dispatch }) => {
   const { t } = useTranslation(NS);
   const p = state.pattern;
+  // Edits are blocked while a request runs: the reducer would drop them and the inputs would revert.
+  const locked = state.phase === 'generating' || state.phase === 'saving';
   const change = (pattern: Partial<PatternConfig>) => dispatch({ type: 'PATTERN_CHANGED', pattern });
   return (
     <div className="space-y-3">
@@ -24,6 +26,7 @@ export const StepPattern: React.FC<StepProps> = ({ state, dispatch }) => {
             { value: 'auto', label: t('work.pattern.auto') },
             ...PATTERNS.map((id) => ({ value: id, label: t(`patternLabels.${id}`) })),
           ]}
+          disabled={locked}
           className="w-full mt-1"
         />
       </div>
@@ -33,6 +36,7 @@ export const StepPattern: React.FC<StepProps> = ({ state, dispatch }) => {
           value={p.headingMode}
           onValueChange={(v) => change({ headingMode: v as PatternConfig['headingMode'] })}
           options={HEADING_MODES.map((m) => ({ value: m, label: t(`headingMode.${m}`) }))}
+          disabled={locked}
           className="w-full mt-1"
         />
         {p.headingMode === 'manual' && (
@@ -43,6 +47,7 @@ export const StepPattern: React.FC<StepProps> = ({ state, dispatch }) => {
               const n = Math.round(Number(e.target.value));
               change({ headingDeg: Number.isFinite(n) ? ((n % 360) + 360) % 360 : 0 });
             }}
+            disabled={locked}
             className="w-full mt-1"
           />
         )}
@@ -53,6 +58,7 @@ export const StepPattern: React.FC<StepProps> = ({ state, dispatch }) => {
           value={String(p.headlandPasses)}
           onValueChange={(v) => change({ headlandPasses: Number(v) as PatternConfig['headlandPasses'] })}
           options={HEADLANDS.map((n) => ({ value: String(n), label: String(n) }))}
+          disabled={locked}
           className="w-full mt-1"
         />
       </div>

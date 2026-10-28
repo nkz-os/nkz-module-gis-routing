@@ -210,6 +210,23 @@ describe('work steps', () => {
     expect(screen.getByRole('button', { name: 'Quitar entrada' })).toBeDisabled();
   });
 
+  it('StepMachine and StepPattern disable their inputs while a request runs', async () => {
+    (api.listEquipment as any).mockResolvedValue([]);
+    const busy = parcelState({ phase: 'saving' });
+    render(
+      <>
+        <StepMachine state={busy} dispatch={vi.fn()} />
+        <StepPattern state={busy} dispatch={vi.fn()} />
+      </>,
+    );
+    await waitFor(() => expect(screen.getAllByRole('spinbutton')).toHaveLength(2));
+    for (const el of [...screen.getAllByRole('spinbutton'), ...screen.getAllByRole('combobox')]) {
+      expect(el).toBeDisabled();
+    }
+    // Radix marks a disabled slider thumb with data-disabled instead of the disabled attribute.
+    expect(screen.getByRole('slider')).toHaveAttribute('data-disabled');
+  });
+
   it('StepParcel links back to the entities view with the parcel query', async () => {
     (api.listParcels as any).mockResolvedValue([{ id: 'urn:p 1', name: 'Alpha' }]);
     render(<StepParcel state={parcelState({ parcel: { id: 'urn:p 1', name: 'Alpha', geometry: poly(0, 0.01) } })} dispatch={vi.fn()} />);

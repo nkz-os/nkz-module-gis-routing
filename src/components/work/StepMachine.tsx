@@ -15,7 +15,7 @@ const num = (v: unknown): number | null => {
 
 // Keeps the typed text locally so partial input ("0.", "0.5") is never rewritten;
 // the draft only follows the state when the value changes from outside (prefill).
-const NumberField: React.FC<{ id?: string; value: number | null; onValue: (v: number | null) => void }> = ({ id, value, onValue }) => {
+const NumberField: React.FC<{ id?: string; value: number | null; onValue: (v: number | null) => void; disabled?: boolean }> = ({ id, value, onValue, disabled }) => {
   const [draft, setDraft] = useState<string>(value === null ? '' : String(value));
   useEffect(() => {
     if (num(draft) !== value) setDraft(value === null ? '' : String(value));
@@ -26,6 +26,7 @@ const NumberField: React.FC<{ id?: string; value: number | null; onValue: (v: nu
       id={id}
       type="number" min={0.1} step={0.1}
       value={draft}
+      disabled={disabled}
       onChange={(e) => { setDraft(e.target.value); onValue(num(e.target.value)); }}
       className="w-full mt-1"
     />
@@ -39,6 +40,8 @@ export const StepMachine: React.FC<StepProps> = ({ state, dispatch }) => {
   const m = state.machine;
   const widthId = useId();
   const radiusId = useId();
+  // Edits are blocked while a request runs: the reducer would drop them and the inputs would revert.
+  const locked = state.phase === 'generating' || state.phase === 'saving';
 
   useEffect(() => {
     let cancelled = false;
@@ -111,6 +114,7 @@ export const StepMachine: React.FC<StepProps> = ({ state, dispatch }) => {
           value={m.operationType}
           onValueChange={(v) => dispatch({ type: 'MACHINE_CHANGED', machine: { operationType: v } })}
           options={OPERATIONS.map((o) => ({ value: o, label: t(`operationType.${o}`) }))}
+          disabled={locked}
           className="w-full mt-1"
         />
       </label>
@@ -121,6 +125,7 @@ export const StepMachine: React.FC<StepProps> = ({ state, dispatch }) => {
           onValueChange={(v) => pick('tractor', v)}
           options={[{ value: '', label: t('equipment.selectTractor') }, ...tractors.map((e) => ({ value: e.id, label: e.name }))]}
           placeholder={t('equipment.selectTractor')}
+          disabled={locked}
           className="w-full mt-1"
         />
       </label>
@@ -131,6 +136,7 @@ export const StepMachine: React.FC<StepProps> = ({ state, dispatch }) => {
           onValueChange={(v) => pick('implement', v)}
           options={[{ value: '', label: t('equipment.selectImplement') }, ...implementsList.map((e) => ({ value: e.id, label: e.name }))]}
           placeholder={t('equipment.selectImplement')}
+          disabled={locked}
           className="w-full mt-1"
         />
       </label>
@@ -139,20 +145,21 @@ export const StepMachine: React.FC<StepProps> = ({ state, dispatch }) => {
           <label htmlFor={widthId} className="text-nkz-sm text-nkz-text-secondary">{t('work.machine.width')}</label>
           {source(m.widthSource)}
         </div>
-        <NumberField id={widthId} value={m.widthM} onValue={(v) => dispatch({ type: 'MACHINE_CHANGED', machine: { widthM: v, widthSource: 'manual' } })} />
+        <NumberField id={widthId} value={m.widthM} disabled={locked} onValue={(v) => dispatch({ type: 'MACHINE_CHANGED', machine: { widthM: v, widthSource: 'manual' } })} />
       </div>
       <div>
         <div className="flex items-center justify-between">
           <label htmlFor={radiusId} className="text-nkz-sm text-nkz-text-secondary">{t('work.machine.radius')}</label>
           {source(m.radiusSource)}
         </div>
-        <NumberField id={radiusId} value={m.turningRadiusM} onValue={(v) => dispatch({ type: 'MACHINE_CHANGED', machine: { turningRadiusM: v, radiusSource: 'manual' } })} />
+        <NumberField id={radiusId} value={m.turningRadiusM} disabled={locked} onValue={(v) => dispatch({ type: 'MACHINE_CHANGED', machine: { turningRadiusM: v, radiusSource: 'manual' } })} />
       </div>
       <Slider
         label={t('work.machine.overlap')}
         unit="%"
         min={0} max={30} step={1}
         value={m.overlapPct}
+        disabled={locked}
         onChange={(v) => dispatch({ type: 'MACHINE_CHANGED', machine: { overlapPct: v } })}
       />
       {effective !== null && (
