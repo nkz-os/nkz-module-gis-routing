@@ -17,11 +17,14 @@ class ZoneValue:
     geometry: BaseGeometry  # Polygon | MultiPolygon, WGS84
 
 
+def _usable(z: ZoneValue) -> bool:
+    return (z.mean is not None and math.isfinite(z.mean)
+            and math.isfinite(z.area_ha) and z.area_ha > 0)
+
+
 def valid_zones(zones: list[ZoneValue]) -> list[ZoneValue]:
     """Zones with a usable mean and positive weight."""
-    return [z for z in zones
-            if z.mean is not None and math.isfinite(z.mean)
-            and math.isfinite(z.area_ha) and z.area_ha > 0]
+    return [z for z in zones if _usable(z)]
 
 
 def _cumulative(zones: list[ZoneValue]) -> list[tuple[float, float]]:
@@ -58,37 +61,51 @@ def weighted_percentiles(zones: list[ZoneValue], step: int = 5) -> list[float]:
     return [_percentile(rows, p) for p in range(0, 101, step)]
 
 
-def midpoint_ranks(zones: list[ZoneValue]) -> dict[str, float]:
-    """Area-weighted midpoint rank (0-100) per zone; equal means share a rank."""
-    zs = valid_zones(zones)
-    total = sum(z.area_ha for z in zs)
-    if not zs or total <= 0:
+def _ranks_by_position(zones: list[ZoneValue]) -> dict[int, float]:
+    """Area-weighted midpoint rank (0-100) per zone position; equal means share a rank."""
+    idx = [i for i, z in enumerate(zones) if _usable(z)]
+    total = sum(zones[i].area_ha for i in idx)
+    if not idx or total <= 0:
         return {}
-    blocks: dict[float, list[ZoneValue]] = {}
-    for z in zs:
-        blocks.setdefault(z.mean, []).append(z)
-    ranks: dict[str, float] = {}
+    blocks: dict[float, list[int]] = {}
+    for i in idx:
+        blocks.setdefault(zones[i].mean, []).append(i)
+    ranks: dict[int, float] = {}
     below = 0.0
     for m in sorted(blocks):
-        area = sum(z.area_ha for z in blocks[m])
+        area = sum(zones[i].area_ha for i in blocks[m])
         rank = (below + area / 2.0) / total * 100.0
-        for z in blocks[m]:
-            ranks[z.id] = rank
+        for i in blocks[m]:
+            ranks[i] = rank
         below += area
     return ranks
 
 
-def assign_classes(zones: list[ZoneValue], classes: list[dict]) -> dict[str, int]:
-    """Class k where min_pct <= rank < max_pct; the last class also takes rank 100."""
+def assign_by_position(zones: list[ZoneValue], classes: list[dict]) -> dict[int, int]:
+    """Class index per zone position (duplicate ids stay distinct).
+
+    Class k where min_pct <= rank < max_pct; the last class also takes rank 100.
+    All-equal means (no spread) go to class 0.
+    """
+    ranks = _ranks_by_position(zones)
+    if len({zones[i].mean for i in ranks}) == 1:
+        return {i: 0 for i in ranks}
     last = len(classes) - 1
-    out: dict[str, int] = {}
-    if len({z.mean for z in valid_zones(zones)}) == 1:  # degenerate: no spread to rank
-        return {z.id: 0 for z in valid_zones(zones)}
-    for zid, rank in midpoint_ranks(zones).items():
+    out: dict[int, int] = {}
+    for i, rank in ranks.items():
         k = last
-        for i, c in enumerate(classes[:-1]):
+        for j, c in enumerate(classes[:-1]):
             if rank < c["max_pct"]:
-                k = i
+                k = j
                 break
-        out[zid] = k
+        out[i] = k
     return out
+
+
+def midpoint_ranks(zones: list[ZoneValue]) -> dict[str, float]:
+    """Ranks keyed by zone id (ids are expected unique; use the position API otherwise)."""
+    return {zones[i].id: r for i, r in _ranks_by_position(zones).items()}
+
+
+def assign_classes(zones: list[ZoneValue], classes: list[dict]) -> dict[str, int]:
+    return {zones[i].id: k for i, k in assign_by_position(zones, classes).items()}

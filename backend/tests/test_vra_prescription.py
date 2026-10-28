@@ -1,5 +1,5 @@
 import pytest
-from shapely.geometry import LineString, box, shape
+from shapely.geometry import LineString, Polygon, box, shape
 
 from app.services.coverage.errors import PlanError
 from app.services.coverage.plan import Swath
@@ -134,3 +134,52 @@ def test_zone_without_mean_ignored_but_all_without_is_invalid():
     assert run(zones=zs)["classes"][0]["area_ha"] == 0.3
     with pytest.raises(PlanError):
         run(zones=[ZoneValue(id="x", mean=None, area_ha=1, geometry=box(0, 0, 1, 1))])
+
+
+def test_bowtie_zone_is_repaired_not_a_500():
+    bow = Polygon([(0, 0), (100, 100), (100, 0), (0, 100)])
+    zs = [ZoneValue(id="b", mean=0.1, area_ha=0.5, geometry=bow),
+          ZoneValue(id="o", mean=0.9, area_ha=0.5, geometry=box(0, 0, 100, 100))]
+    r = run(zones=zs, classes=[{"min_pct": 0, "max_pct": 50, "rate": 1},
+                               {"min_pct": 50, "max_pct": 100, "rate": 2}])
+    assert r["classes"][0]["area_ha"] > 0
+
+
+def test_zone_without_area_is_skipped_with_warning():
+    zs = zones4() + [ZoneValue(id="e", mean=0.5, area_ha=0.1, geometry=LineString([(0, 0), (1, 1)]))]
+    r = run(zones=zs)
+    assert {"code": "VRA_ZONE_INVALID", "params": {"zone_id": "e"}} in r["warnings"]
+    assert [c["area_ha"] for c in r["classes"]] == [0.3, 0.3, 0.4]
+
+
+def test_zones_output_is_polygons_only_when_zones_share_edges():
+    r = run()
+    for f in r["zones"]["features"]:
+        assert shape(f["geometry"]).geom_type in ("Polygon", "MultiPolygon")
+
+
+def test_percent_bounds_use_tolerance():
+    cl = [{"min_pct": 1e-9, "max_pct": 100 / 3, "rate": 1},
+          {"min_pct": 33.33333333333333, "max_pct": 66.66666666666667, "rate": 2},
+          {"min_pct": 66.66666666666666, "max_pct": 100.0000000001, "rate": 3}]
+    assert len(run(classes=cl)["classes"]) == 3
+
+
+@pytest.mark.parametrize("bad", [
+    {"min_pct": 0, "max_pct": 50},
+    {"min_pct": 0, "max_pct": None, "rate": 1},
+    {"min_pct": 0, "max_pct": 50, "rate": "x"},
+])
+def test_missing_or_bad_class_fields_are_invalid_vra(bad):
+    cl = [bad, {"min_pct": 50, "max_pct": 100, "rate": 2}]
+    with pytest.raises(PlanError) as e:
+        run(classes=cl)
+    assert e.value.code == "INVALID_VRA"
+
+
+def test_duplicate_zone_ids_are_not_collapsed():
+    zs = [ZoneValue(id="d", mean=0.1, area_ha=0.5, geometry=box(0, 0, 50, 100)),
+          ZoneValue(id="d", mean=0.9, area_ha=0.5, geometry=box(50, 0, 100, 100))]
+    r = run(zones=zs, classes=[{"min_pct": 0, "max_pct": 50, "rate": 1},
+                               {"min_pct": 50, "max_pct": 100, "rate": 2}])
+    assert [c["area_ha"] for c in r["classes"]] == [0.5, 0.5]
