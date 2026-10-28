@@ -136,6 +136,15 @@ export const StepVra: React.FC<Props> = ({ state, dispatch, sync }) => {
             </div>
           )}
 
+          {config.source === 'orion' && zones.length > 0 && sync.job === 'timeout' && (
+            <div className="space-y-2" data-testid="vra-timeout">
+              <p className="text-nkz-sm text-nkz-danger" role="alert">{t('work.vra.timeout')}</p>
+              <Button variant="secondary" size="sm" disabled={locked} onClick={sync.generateZones}>
+                {t('work.vra.retry')}
+              </Button>
+            </div>
+          )}
+
           {missing.length > 0 && (
             <div className="space-y-1" data-testid="vra-missing">
               <p className="text-nkz-sm font-semibold">{t('work.vra.missingTitle')}</p>

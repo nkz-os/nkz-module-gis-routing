@@ -127,16 +127,26 @@ def _zone_from_entity(e: dict) -> tuple[ZoneValue | None, str | None]:
     return ZoneValue(id=e.get("id", ""), mean=mean, area_ha=area, geometry=geom), None
 
 
-async def load_zones(tenant_id: str, parcel_id: str) -> tuple[list[ZoneValue], list[dict]]:
+def run_id_of(entities: list[dict]) -> str | None:
+    """zoningRunId of the (already latest-run filtered) zones, or None when they carry none."""
+    ids = sorted({str(_prop(e, "zoningRunId")) for e in entities if _prop(e, "zoningRunId")})
+    return ids[-1] if ids else None
+
+
+def zones_from_entities(entities: list[dict]) -> tuple[list[ZoneValue], list[dict]]:
     zones: list[ZoneValue] = []
     missing: list[dict] = []
-    for e in await load_zone_entities(tenant_id, parcel_id):
+    for e in entities:
         z, reason = _zone_from_entity(e)
         if z is None:
             missing.append({"id": e.get("id", ""), "reason": reason})
         else:
             zones.append(z)
     return zones, missing
+
+
+async def load_zones(tenant_id: str, parcel_id: str) -> tuple[list[ZoneValue], list[dict]]:
+    return zones_from_entities(await load_zone_entities(tenant_id, parcel_id))
 
 
 def external_value(props: dict) -> float | None:

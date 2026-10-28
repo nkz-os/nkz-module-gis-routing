@@ -91,8 +91,10 @@ export function useVraSync(state: WorkState, dispatch: React.Dispatch<WorkEvent>
     setJob('polling');
     setPollError(null);
     let ticks = 0;
-    // The run is published zone by zone: only two consecutive polls with the same count mean it is done.
-    let prevCount = -1;
+    // A run is done when a run id that differs from the one before the request is seen in two
+    // consecutive polls; the old zones (or a failed job) never end the wait.
+    let baseRun: string | null = null;
+    let prevRun: string | null = null;
     let last: Distribution | null = null;
     const tick = () => {
       pollRef.current = setTimeout(async () => {
@@ -101,29 +103,30 @@ export function useVraSync(state: WorkState, dispatch: React.Dispatch<WorkEvent>
         try {
           const distribution = await api.getDistribution(id);
           if (token !== jobToken.current) return;
-          last = distribution;
-          const count = distribution.zones.length + distribution.missing.length;
-          if (count > 0 && count === prevCount) {
-            dispatch({ type: 'VRA_DISTRIBUTION_LOADED', parcelRequestId: prId, distribution });
-            setJob('idle');
-            setPollError(null);
-            return;
+          const run = distribution.run_id ?? null;
+          if (run !== null && run !== baseRun) {
+            last = distribution;
+            if (run === prevRun) {
+              dispatch({ type: 'VRA_DISTRIBUTION_LOADED', parcelRequestId: prId, distribution });
+              setJob('idle');
+              setPollError(null);
+              return;
+            }
           }
-          prevCount = count;
+          prevRun = run;
         } catch (e) {
           // transient: shown, and polling continues until the deadline
-          prevCount = -1;
+          prevRun = null;
           if (token === jobToken.current) setPollError(vraError(e));
         }
         if (ticks >= ZONES_POLL_MAX_TICKS) {
-          // Keep what the last poll saw (partial but real) instead of discarding it.
-          if (last && last.zones.length + last.missing.length > 0) {
-            dispatch({ type: 'VRA_DISTRIBUTION_LOADED', parcelRequestId: prId, distribution: last });
-          }
+          // Only a partial NEW run is worth keeping; the old zones were already on screen.
+          if (last) dispatch({ type: 'VRA_DISTRIBUTION_LOADED', parcelRequestId: prId, distribution: last });
           setJob('timeout');
         } else tick();
       }, ZONES_POLL_MS);
     };
+    baseRun = stateRef.current.vra.distribution?.run_id ?? null;
     api.requestZones(id, DEFAULT_N_ZONES)
       .then(() => { if (token === jobToken.current) tick(); })
       .catch((e) => {

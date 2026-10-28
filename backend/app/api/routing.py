@@ -827,9 +827,12 @@ async def zone_distribution(parcel_id: str, source: Literal["orion"] = "orion",
                             variable: str = Query("NDVI", max_length=40),
                             auth: AuthContext = require_auth()):
     """Area-weighted value distribution of the parcel's current zones (5 % steps)."""
-    from app.services.vra.zones import distribution, load_zones
-    zones, missing = await load_zones(auth.tenant_id, parcel_id)
-    return distribution(zones, missing, source=source, variable=variable)
+    from app.services.vra.zones import (
+        distribution, load_zone_entities, run_id_of, zones_from_entities)
+    entities = await load_zone_entities(auth.tenant_id, parcel_id)
+    zones, missing = zones_from_entities(entities)
+    return {**distribution(zones, missing, source=source, variable=variable),
+            "run_id": run_id_of(entities)}
 
 
 @router.post("/zones/{parcel_id}/generate")

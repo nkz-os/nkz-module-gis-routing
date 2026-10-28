@@ -323,3 +323,17 @@ def test_too_large_entity_is_422_plan_too_large(monkeypatch):
     body = r.json()
     assert body["code"] == "PLAN_TOO_LARGE" and body["params"]["size_kb"] >= 2
     assert FakeOrion.created == []
+
+
+def test_distribution_reports_latest_run_id():
+    FakeOrion.entities = [
+        _zone("old1", 0, 100, 0.1, run="r1", stamp="2026-01-01T00:00:00Z"),
+        _zone("new1", 0, 100, 0.3, run="r2", stamp="2026-02-01T00:00:00Z"),
+    ]
+    assert client.get(f"/api/routing/zones/{PARCEL}/distribution").json()["run_id"] == "r2"
+
+
+def test_distribution_run_id_null_without_run():
+    assert client.get(f"/api/routing/zones/{PARCEL}/distribution").json()["run_id"] is None
+    FakeOrion.entities = []
+    assert client.get(f"/api/routing/zones/{PARCEL}/distribution").json()["run_id"] is None

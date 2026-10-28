@@ -91,6 +91,8 @@ export interface Distribution {
   zones: DistributionZone[];
   missing: { id: string; reason: string }[];
   percentiles: number[]; // 21 values, p0..p100 step 5
+  /** zoningRunId of the zones returned (latest run); null when they carry none. */
+  run_id?: string | null;
 }
 
 export interface PrescriptionClass {

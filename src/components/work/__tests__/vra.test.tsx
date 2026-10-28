@@ -312,7 +312,9 @@ describe('StepVra', () => {
 describe('zone generation polling', () => {
   const empty = { source: 'orion' as const, variable: 'NDVI', zones: [], missing: [], percentiles: [] };
 
-  it('requests 8 zones, polls every 5 s and shows the zones once they exist', async () => {
+  const withRun = (d: any, run: string | null) => ({ ...d, run_id: run });
+
+  it('requests 8 zones, polls every 5 s and loads the new run once seen twice', async () => {
     (api.getDistribution as any).mockResolvedValue(empty);
     (api.requestZones as any).mockResolvedValue({});
     await mount(baseState());
@@ -326,42 +328,45 @@ describe('zone generation polling', () => {
     expect((api.getDistribution as any).mock.calls.length).toBe(before);
     await flush(1);
     expect((api.getDistribution as any).mock.calls.length).toBe(before + 1);
-    (api.getDistribution as any).mockResolvedValue(dist([0.3, 0.6]));
+    (api.getDistribution as any).mockResolvedValue(withRun(dist([0.3, 0.6]), 'r1'));
     await flush(5000);
-    // one poll with zones is not enough: the run may still be publishing
     expect(screen.getByText('Generando zonas…')).toBeTruthy();
     await flush(5000);
     expect(screen.getAllByTestId('vra-row')).toHaveLength(3);
     expect(screen.queryByText('Generando zonas…')).toBeNull();
   });
 
-  it('keeps polling while the zone count still grows', async () => {
-    (api.getDistribution as any).mockResolvedValue(empty);
+  it('regenerate: the old run never ends the wait; the new run seen twice does', async () => {
+    const old = withRun(dist([0.3, 0.6], [{ id: 'zx', reason: 'no_mean_value' }]), 'old');
+    (api.getDistribution as any).mockResolvedValue(old);
     (api.requestZones as any).mockResolvedValue({});
     await mount(baseState());
-    fireEvent.click(screen.getByRole('button', { name: 'Generar zonas (8)' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Regenerar zonas' }));
     await flush(0);
-    (api.getDistribution as any).mockResolvedValue(dist([0.3, 0.6]));
-    await flush(5000);
-    (api.getDistribution as any).mockResolvedValue(dist([0.3, 0.6, 0.7, 0.8]));
+    await flush(15000);
+    expect(screen.getByText('Generando zonas…')).toBeTruthy();
+    expect(latest.vra.distribution?.run_id).toBe('old');
+    (api.getDistribution as any).mockResolvedValue(withRun(dist([0.1, 0.2, 0.3, 0.4]), 'new'));
     await flush(5000);
     expect(screen.getByText('Generando zonas…')).toBeTruthy();
+    expect(latest.vra.distribution?.run_id).toBe('old');
     await flush(5000);
     expect(screen.queryByText('Generando zonas…')).toBeNull();
+    expect(latest.vra.distribution?.run_id).toBe('new');
     expect(latest.vra.distribution?.zones).toHaveLength(4);
   });
 
-  it('on timeout the last distribution is kept', async () => {
-    (api.getDistribution as any).mockResolvedValue(empty);
+  it('failed job: only the old run until the timeout shows the translated error with retry', async () => {
+    const old = withRun(dist([0.3, 0.6], [{ id: 'zx', reason: 'no_mean_value' }]), 'old');
+    (api.getDistribution as any).mockResolvedValue(old);
     (api.requestZones as any).mockResolvedValue({});
     await mount(baseState());
-    fireEvent.click(screen.getByRole('button', { name: 'Generar zonas (8)' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Regenerar zonas' }));
     await flush(0);
-    let n = 0;
-    (api.getDistribution as any).mockImplementation(async () => dist(Array.from({ length: ++n }, (_, i) => 0.1 * (i + 1))));
-    expect(latest.vra.distribution?.zones ?? []).toHaveLength(0);
     await flush(120_000);
-    expect(latest.vra.distribution?.zones.length).toBeGreaterThan(0);
+    expect(screen.getByTestId('vra-timeout').textContent).toContain('La generación de zonas tarda demasiado.');
+    expect(screen.getAllByRole('button', { name: 'Reintentar' }).length).toBeGreaterThan(0);
+    expect(latest.vra.distribution?.run_id).toBe('old');
   });
 
   it('gives up after 2 minutes and offers a retry', async () => {
