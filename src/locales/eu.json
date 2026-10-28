@@ -333,7 +333,9 @@
       "ZONES_FILE_TOO_LARGE": "Zonen fitxategia 5 MB baino handiagoa da",
       "PLAN_TOO_LARGE": "Plana handiegia da gordetzeko ({{size_kb}} KB). Erabili eremu gutxiago, eremu handiagoak edo azalera txikiagoa.",
       "ZONES_UNAVAILABLE": "Ezin izan dira kudeaketa-eremuak irakurri. Saiatu berriro.",
-      "PLAN_TOO_LARGE_TO_SAVE": "Plana handiegia da gordetzeko. Erabili zona gutxiago eta handiagoak, edo eremu txikiagoa."
+      "PLAN_TOO_LARGE_TO_SAVE": "Plana handiegia da gordetzeko. Erabili zona gutxiago eta handiagoak, edo eremu txikiagoa.",
+      "EXPORT_EMPTY": "Eragiketa honetan ez dago esportatzeko ezer.",
+      "PARCEL_READ_FAILED": "Ezin izan da partzela irakurri. Saiatu berriro."
     },
     "actions": {
       "regenerate": "Birsortu",
@@ -345,7 +347,8 @@
       "saveTemplate": "Gorde txantiloi gisa",
       "exportFormat": "Esportazio formatua",
       "vraIncomplete": "Bete klase guztien dosiak (edo kanpoko eremuen fitxategia), edo desaktibatu dosi aldakorra, bidaltzeko.",
-      "vraPending": "Errezeta kalkulatu arte itxaroten, bidali aurretik."
+      "vraPending": "Errezeta kalkulatu arte itxaroten, bidali aurretik.",
+      "availableInApp": "Aplikazioan eskuragarri · eragiketa #{{id}}"
     },
     "title": "GIS ibilbideak",
     "tabs": {
@@ -353,7 +356,12 @@
       "transit": "A-B igarotzea"
     },
     "empty": "Hautatu lur-sail bat hasteko",
-    "regeneratedOnSave": "Plana berriro sortu da uneko dosiarekin gorde aurretik"
+    "regeneratedOnSave": "Plana berriro sortu da uneko dosiarekin gorde aurretik",
+    "alert": {
+      "sent": "Abisua jakinarazpenetara bidali da",
+      "skipped": "Abisurik ez: ezarpenetan desaktibatuta",
+      "failed": "Ezin izan da abisua bidali"
+    }
   },
   "autosave": {
     "saved": "Gordeta {{time}}",
@@ -466,11 +474,26 @@
       "PERSIST_FAILED": "Ezin izan da eragiketa gorde.",
       "JOB_TIMEOUT": "Kalkuluak luze jo du. Saiatu berriro.",
       "UNKNOWN": "Ezin izan da ibilbidea kalkulatu: {{detail}}",
-      "JOBS_LIMIT": "Kalkulu gehiegi martxan daude ({{max_jobs}}). Itxaron bat amaitu arte."
+      "JOBS_LIMIT": "Kalkulu gehiegi martxan daude ({{max_jobs}}). Itxaron bat amaitu arte.",
+      "EXPORT_EMPTY": "Eragiketa honetan ez dago esportatzeko ezer.",
+      "PARCEL_READ_FAILED": "Ezin izan da partzela irakurri. Saiatu berriro."
     },
     "warnings": {
       "PARCELS_UNREADABLE": "Eremuko {{count}} lursailek ez dute muga irakurgarririk: haien ateak ez dira aplikatzen.",
       "UNKNOWN": "Abisua {{code}}"
     }
+  },
+  "settings": {
+    "title": "Ezarpenak",
+    "dispatch": {
+      "label": "Abisua ibilbide bat gordetzean",
+      "immediate": "Berehala",
+      "digest": "Laburpena 12 orduro",
+      "none": "Bat ere ez"
+    },
+    "saved": "Ezarpena gorde da",
+    "saveFailed": "Ezin izan da ezarpena gorde",
+    "loadFailed": "Ezin izan da ezarpena kargatu",
+    "forbidden": "Administratzaileek bakarrik alda dezakete ezarpen hau"
   }
 }

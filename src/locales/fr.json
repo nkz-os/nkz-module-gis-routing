@@ -333,7 +333,9 @@
       "ZONES_FILE_TOO_LARGE": "Le fichier de zones dépasse 5 Mo",
       "PLAN_TOO_LARGE": "Le plan est trop volumineux pour être enregistré ({{size_kb}} Ko). Utilisez moins de zones, des zones plus grandes ou une surface plus petite.",
       "ZONES_UNAVAILABLE": "Les zones de gestion n'ont pas pu être lues. Réessayez.",
-      "PLAN_TOO_LARGE_TO_SAVE": "Le plan est trop volumineux pour être enregistré. Utilisez moins de zones, plus grandes, ou une zone plus petite."
+      "PLAN_TOO_LARGE_TO_SAVE": "Le plan est trop volumineux pour être enregistré. Utilisez moins de zones, plus grandes, ou une zone plus petite.",
+      "EXPORT_EMPTY": "Il n'y a rien à exporter pour cette opération.",
+      "PARCEL_READ_FAILED": "La parcelle n'a pas pu être lue. Réessayez."
     },
     "actions": {
       "regenerate": "Régénérer",
@@ -345,7 +347,8 @@
       "saveTemplate": "Enregistrer comme modèle",
       "exportFormat": "Format d'export",
       "vraIncomplete": "Renseignez les doses de toutes les classes (ou le fichier de zones externe), ou désactivez la dose variable, pour envoyer.",
-      "vraPending": "En attente du calcul de la prescription avant l'envoi."
+      "vraPending": "En attente du calcul de la prescription avant l'envoi.",
+      "availableInApp": "Disponible dans l'app · opération #{{id}}"
     },
     "title": "Itinéraires SIG",
     "tabs": {
@@ -353,7 +356,12 @@
       "transit": "Transit A-B"
     },
     "empty": "Sélectionnez une parcelle pour commencer",
-    "regeneratedOnSave": "Plan régénéré avec la dose actuelle avant l'enregistrement"
+    "regeneratedOnSave": "Plan régénéré avec la dose actuelle avant l'enregistrement",
+    "alert": {
+      "sent": "Alerte envoyée aux notifications",
+      "skipped": "Pas d'alerte : désactivée dans les réglages",
+      "failed": "L'alerte n'a pas pu être envoyée"
+    }
   },
   "autosave": {
     "saved": "Enregistré {{time}}",
@@ -466,11 +474,26 @@
       "PERSIST_FAILED": "Impossible d'enregistrer l'opération.",
       "JOB_TIMEOUT": "Le calcul a pris trop de temps. Réessayez.",
       "UNKNOWN": "Impossible de calculer l'itinéraire : {{detail}}",
-      "JOBS_LIMIT": "Trop de calculs sont en cours ({{max_jobs}}). Attendez qu'un se termine."
+      "JOBS_LIMIT": "Trop de calculs sont en cours ({{max_jobs}}). Attendez qu'un se termine.",
+      "EXPORT_EMPTY": "Il n'y a rien à exporter pour cette opération.",
+      "PARCEL_READ_FAILED": "La parcelle n'a pas pu être lue. Réessayez."
     },
     "warnings": {
       "PARCELS_UNREADABLE": "{{count}} parcelle(s) de la zone n'ont pas de limite lisible : leurs portails ne sont pas appliqués.",
       "UNKNOWN": "Avertissement {{code}}"
     }
+  },
+  "settings": {
+    "title": "Réglages",
+    "dispatch": {
+      "label": "Alerte à l'enregistrement d'un itinéraire",
+      "immediate": "Immédiate",
+      "digest": "Résumé toutes les 12 h",
+      "none": "Aucune"
+    },
+    "saved": "Réglage enregistré",
+    "saveFailed": "Le réglage n'a pas pu être enregistré",
+    "loadFailed": "Le réglage n'a pas pu être chargé",
+    "forbidden": "Seuls les administrateurs peuvent modifier ce réglage"
   }
 }

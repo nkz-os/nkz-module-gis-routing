@@ -1,4 +1,4 @@
-import type { PathAlternative, PathAlternativeId, PathRequest } from '../services/api';
+import type { AlertStatus, PathAlternative, PathAlternativeId, PathRequest } from '../services/api';
 
 export type LonLat = [number, number];
 
@@ -35,6 +35,8 @@ export interface TransitState {
   parcelManual: boolean;
   /** Saved operation id per alternative of the current result. */
   saved: Partial<Record<PathAlternativeId, string>>;
+  /** Alert outcome of each saved route. */
+  savedAlert: Partial<Record<PathAlternativeId, AlertStatus>>;
   /** Destination parcel each saved route was saved for: a route may be saved again for another parcel. */
   savedParcel: Partial<Record<PathAlternativeId, string>>;
 }
@@ -52,14 +54,14 @@ export type TransitEvent =
   | { type: 'SELECT'; id: PathAlternativeId }
   | { type: 'PARCEL_SET'; parcelId: string | null; auto?: boolean }
   | { type: 'SAVE_STARTED' }
-  | { type: 'SAVE_DONE'; operationId: string }
+  | { type: 'SAVE_DONE'; operationId: string; alert?: AlertStatus }
   | { type: 'SAVE_FAILED'; error: TransitError }
   | { type: 'DISMISS_ERROR' };
 
 export const initialTransitState: TransitState = {
   a: null, b: null, machineId: null, widthM: null, maxSlopeDeg: DEFAULT_MAX_SLOPE_DEG,
   picking: null, phase: 'idle', jobStatus: null, result: null, selected: null, stale: false,
-  error: null, parcelId: null, parcelManual: false, saved: {}, savedParcel: {},
+  error: null, parcelId: null, parcelManual: false, saved: {}, savedAlert: {}, savedParcel: {},
 };
 
 const busy = (s: TransitState) => s.phase === 'calculating' || s.phase === 'saving';
@@ -110,7 +112,7 @@ export function transitReducer(s: TransitState, e: TransitEvent): TransitState {
     }
     case 'CALC_STARTED':
       if (!canCalculate(s)) return s;
-      return { ...s, phase: 'calculating', jobStatus: 'queued', result: null, selected: null, stale: false, error: null, saved: {}, savedParcel: {}, picking: null };
+      return { ...s, phase: 'calculating', jobStatus: 'queued', result: null, selected: null, stale: false, error: null, saved: {}, savedAlert: {}, savedParcel: {}, picking: null };
     case 'JOB_STATUS':
       return s.phase === 'calculating' ? { ...s, jobStatus: e.status } : s;
     case 'CALC_DONE': {
@@ -129,6 +131,7 @@ export function transitReducer(s: TransitState, e: TransitEvent): TransitState {
       return canSave(s) ? { ...s, phase: 'saving', error: null } : s;
     case 'SAVE_DONE':
       return s.phase === 'saving' && s.selected ? { ...s, phase: 'ready', saved: { ...s.saved, [s.selected]: e.operationId },
+        savedAlert: { ...s.savedAlert, [s.selected]: e.alert },
         savedParcel: { ...s.savedParcel, [s.selected]: s.parcelId ?? '' } } : s;
     case 'SAVE_FAILED':
       return s.phase === 'saving' ? { ...s, phase: 'ready', error: e.error } : s;

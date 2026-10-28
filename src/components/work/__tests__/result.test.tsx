@@ -79,6 +79,17 @@ const bar = (state: WorkState, over: Record<string, unknown> = {}) => {
   return props;
 };
 
+describe('save confirmation and alert status', () => {
+  it.each([
+    ['sent', /Aviso enviado/], ['skipped', /Sin aviso: desactivado en ajustes/], ['failed', /No se pudo enviar el aviso/],
+  ])('ActionsBar shows availability and alert %s after saving', (alert, text) => {
+    const base = withResult({ phase: 'saved' }, 'urn:ngsi-ld:Op:abcdefgh12345678');
+    bar({ ...base, result: { ...base.result!, alert } as any });
+    expect(screen.getByText('Disponible en la app · operación #12345678')).toBeInTheDocument();
+    expect(screen.getByText(text)).toBeInTheDocument();
+  });
+});
+
 describe('result strip and actions bar', () => {
   it('ResultStrip renders metrics, warnings with show-on-map, stale badge and translated fallbacks', () => {
     const onWarningSelect = vi.fn();

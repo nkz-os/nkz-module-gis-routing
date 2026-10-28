@@ -4,6 +4,8 @@ import { Badge, Button, Select } from '@nekazari/ui-kit';
 import { canGenerate, vraSaveBlocker, type WorkEvent, type WorkState } from '../../state/workMachine';
 import type { Plan } from '../../services/api';
 import { PatternSaveLoad } from '../patterns/PatternSaveLoad';
+import { SavedNotice } from './AlertLine';
+import { SettingsBlock } from './SettingsBlock';
 
 const NS = 'gis-routing';
 
@@ -121,6 +123,8 @@ export const ActionsBar: React.FC<Props> = ({
         )}
       </div>
 
+      {phase === 'saved' && operationId && <SavedNotice operationId={operationId} alert={state.result?.alert} />}
+
       {phase === 'generated' && vraBlocker !== null && (
         <p className="text-nkz-sm text-nkz-danger" role="status" data-testid="vra-save-blocked">
           {t(vraBlocker === 'incomplete' ? 'work.actions.vraIncomplete' : 'work.actions.vraPending')}
@@ -149,6 +153,8 @@ export const ActionsBar: React.FC<Props> = ({
           {t('work.actions.saveTemplate')}
         </Button>
       </div>
+
+      <SettingsBlock />
 
       {templateOpen && plan && (
         <PatternSaveLoad

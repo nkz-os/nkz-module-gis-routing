@@ -333,7 +333,9 @@
       "ZONES_FILE_TOO_LARGE": "El fichero de zonas supera los 5 MB",
       "PLAN_TOO_LARGE": "El plan es demasiado grande para guardarlo ({{size_kb}} KB). Usa menos zonas, zonas más grandes o una superficie menor.",
       "ZONES_UNAVAILABLE": "No se pudieron leer las zonas de manejo. Inténtalo de nuevo.",
-      "PLAN_TOO_LARGE_TO_SAVE": "El plan es demasiado grande para guardarlo. Usa menos zonas o más grandes, o un área menor."
+      "PLAN_TOO_LARGE_TO_SAVE": "El plan es demasiado grande para guardarlo. Usa menos zonas o más grandes, o un área menor.",
+      "EXPORT_EMPTY": "No hay nada que exportar en esta operación.",
+      "PARCEL_READ_FAILED": "No se pudo leer la parcela. Inténtalo de nuevo."
     },
     "actions": {
       "regenerate": "Regenerar",
@@ -345,7 +347,8 @@
       "saveTemplate": "Guardar como plantilla",
       "exportFormat": "Formato de exportación",
       "vraIncomplete": "Completa las dosis de todas las clases (o el fichero de zonas externo), o desactiva la dosis variable, para enviar.",
-      "vraPending": "Esperando a que se calcule la prescripción antes de enviar."
+      "vraPending": "Esperando a que se calcule la prescripción antes de enviar.",
+      "availableInApp": "Disponible en la app · operación #{{id}}"
     },
     "title": "Rutas GIS",
     "tabs": {
@@ -353,7 +356,12 @@
       "transit": "Tránsito A-B"
     },
     "empty": "Selecciona una parcela para empezar",
-    "regeneratedOnSave": "Plan regenerado con la dosis actual antes de guardar"
+    "regeneratedOnSave": "Plan regenerado con la dosis actual antes de guardar",
+    "alert": {
+      "sent": "Aviso enviado a notificaciones",
+      "skipped": "Sin aviso: desactivado en ajustes",
+      "failed": "No se pudo enviar el aviso"
+    }
   },
   "autosave": {
     "saved": "Guardado {{time}}",
@@ -466,11 +474,26 @@
       "PERSIST_FAILED": "No se pudo guardar la operación.",
       "JOB_TIMEOUT": "El cálculo ha tardado demasiado. Inténtalo de nuevo.",
       "UNKNOWN": "No se pudo calcular la ruta: {{detail}}",
-      "JOBS_LIMIT": "Hay demasiados cálculos en curso ({{max_jobs}}). Espera a que termine alguno."
+      "JOBS_LIMIT": "Hay demasiados cálculos en curso ({{max_jobs}}). Espera a que termine alguno.",
+      "EXPORT_EMPTY": "No hay nada que exportar en esta operación.",
+      "PARCEL_READ_FAILED": "No se pudo leer la parcela. Inténtalo de nuevo."
     },
     "warnings": {
       "PARCELS_UNREADABLE": "{{count}} parcela(s) de la zona no tienen límite legible: sus portones no se aplican.",
       "UNKNOWN": "Aviso {{code}}"
     }
+  },
+  "settings": {
+    "title": "Ajustes",
+    "dispatch": {
+      "label": "Aviso al guardar una ruta",
+      "immediate": "Inmediato",
+      "digest": "Resumen cada 12 h",
+      "none": "Ninguno"
+    },
+    "saved": "Ajuste guardado",
+    "saveFailed": "No se pudo guardar el ajuste",
+    "loadFailed": "No se pudo cargar el ajuste",
+    "forbidden": "Solo los administradores pueden cambiar este ajuste"
   }
 }

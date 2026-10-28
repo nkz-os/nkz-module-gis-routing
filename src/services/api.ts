@@ -155,12 +155,19 @@ export interface GenerateResponse {
   plan: Plan;
   /** Id of the stored plan; save it with api.saveOperation. Null when the plan is too large to save. */
   plan_id: string | null;
+  alert?: AlertStatus;
 }
+
+/** Outcome of the alert raised when an operation is saved. */
+export type AlertStatus = 'sent' | 'skipped' | 'failed';
+export type DispatchNotification = 'immediate' | 'digest' | 'none';
+export interface TenantSettings { dispatch_notification: DispatchNotification }
 
 export interface SaveOperationResponse {
   success: boolean;
   operation_id: string;
   persisted: boolean;
+  alert?: AlertStatus;
 }
 
 export interface GenerateRequest {
@@ -248,6 +255,14 @@ export const api = {
       { kind: 'transit'; job_id: string; alternative_id: PathAlternativeId; parcel_id: string; name?: string },
   ): Promise<SaveOperationResponse> {
     return request('/operations', { method: 'POST', body: JSON.stringify(body) });
+  },
+
+  // Settings
+  getSettings() { return request<TenantSettings>('/settings'); },
+  putSettings(dispatch: DispatchNotification) {
+    return request<TenantSettings>('/settings', {
+      method: 'PUT', body: JSON.stringify({ dispatch_notification: dispatch }),
+    });
   },
 
   // Parcels

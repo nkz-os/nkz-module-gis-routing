@@ -11,6 +11,7 @@ import {
 import { TransitMapCanvas, type TransitViewChange } from '../../map/TransitMapCanvas';
 import { contextBboxOk, type TransitMapModel } from '../../map/transitModel';
 import { ElevationProfile } from './ElevationProfile';
+import { SavedNotice } from '../work/AlertLine';
 import type { WorkContext } from '../work/WorkScreen';
 
 const NS = 'gis-routing';
@@ -248,7 +249,7 @@ export const TransitScreen: React.FC<Props> = ({ workContext }) => {
       const r = await api.saveOperation({
         kind: 'transit', job_id: s.result.jobId, alternative_id: s.selected, parcel_id: s.parcelId,
       });
-      dispatch({ type: 'SAVE_DONE', operationId: r.operation_id });
+      dispatch({ type: 'SAVE_DONE', operationId: r.operation_id, alert: r.alert });
     } catch (e) {
       dispatch({ type: 'SAVE_FAILED', error: toTransitError(e) });
     } finally {
@@ -443,7 +444,7 @@ export const TransitScreen: React.FC<Props> = ({ workContext }) => {
                 {t(state.phase === 'saving' ? 'transit.save.saving' : 'transit.save.button')}
               </Button>
               {savedId && (
-                <p role="status" className="text-nkz-xs">{t('transit.save.saved', { id: savedId.slice(-8) })}</p>
+                <SavedNotice operationId={savedId} alert={state.selected ? state.savedAlert[state.selected] : undefined} />
               )}
             </div>
 

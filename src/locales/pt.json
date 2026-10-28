@@ -333,7 +333,9 @@
       "ZONES_FILE_TOO_LARGE": "O ficheiro de zonas excede 5 MB",
       "PLAN_TOO_LARGE": "O plano é demasiado grande para ser guardado ({{size_kb}} KB). Use menos zonas, zonas maiores ou uma área menor.",
       "ZONES_UNAVAILABLE": "Não foi possível ler as zonas de gestão. Tente novamente.",
-      "PLAN_TOO_LARGE_TO_SAVE": "O plano é demasiado grande para ser guardado. Use menos zonas, maiores, ou uma área menor."
+      "PLAN_TOO_LARGE_TO_SAVE": "O plano é demasiado grande para ser guardado. Use menos zonas, maiores, ou uma área menor.",
+      "EXPORT_EMPTY": "Não há nada para exportar nesta operação.",
+      "PARCEL_READ_FAILED": "Não foi possível ler a parcela. Tente novamente."
     },
     "actions": {
       "regenerate": "Regenerar",
@@ -345,7 +347,8 @@
       "saveTemplate": "Guardar como modelo",
       "exportFormat": "Formato de exportação",
       "vraIncomplete": "Preencha as doses de todas as classes (ou o ficheiro de zonas externo), ou desative a dose variável, para enviar.",
-      "vraPending": "A aguardar o cálculo da prescrição antes de enviar."
+      "vraPending": "A aguardar o cálculo da prescrição antes de enviar.",
+      "availableInApp": "Disponível na app · operação #{{id}}"
     },
     "title": "Rotas SIG",
     "tabs": {
@@ -353,7 +356,12 @@
       "transit": "Trânsito A-B"
     },
     "empty": "Selecione uma parcela para começar",
-    "regeneratedOnSave": "Plano regenerado com a dose atual antes de guardar"
+    "regeneratedOnSave": "Plano regenerado com a dose atual antes de guardar",
+    "alert": {
+      "sent": "Alerta enviado para as notificações",
+      "skipped": "Sem alerta: desativado nas definições",
+      "failed": "Não foi possível enviar o alerta"
+    }
   },
   "autosave": {
     "saved": "Guardado {{time}}",
@@ -466,11 +474,26 @@
       "PERSIST_FAILED": "Não foi possível guardar a operação.",
       "JOB_TIMEOUT": "O cálculo demorou demasiado. Tente de novo.",
       "UNKNOWN": "Não foi possível calcular a rota: {{detail}}",
-      "JOBS_LIMIT": "Há demasiados cálculos em curso ({{max_jobs}}). Aguarde que um termine."
+      "JOBS_LIMIT": "Há demasiados cálculos em curso ({{max_jobs}}). Aguarde que um termine.",
+      "EXPORT_EMPTY": "Não há nada para exportar nesta operação.",
+      "PARCEL_READ_FAILED": "Não foi possível ler a parcela. Tente novamente."
     },
     "warnings": {
       "PARCELS_UNREADABLE": "{{count}} parcela(s) da zona não têm limite legível: os seus portões não são aplicados.",
       "UNKNOWN": "Aviso {{code}}"
     }
+  },
+  "settings": {
+    "title": "Definições",
+    "dispatch": {
+      "label": "Alerta ao guardar uma rota",
+      "immediate": "Imediato",
+      "digest": "Resumo a cada 12 h",
+      "none": "Nenhum"
+    },
+    "saved": "Definição guardada",
+    "saveFailed": "Não foi possível guardar a definição",
+    "loadFailed": "Não foi possível carregar a definição",
+    "forbidden": "Só os administradores podem alterar esta definição"
   }
 }
