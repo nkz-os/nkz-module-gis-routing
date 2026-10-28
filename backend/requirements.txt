@@ -15,6 +15,8 @@ asyncpg>=0.29.0
 # GIS Routing Engine
 shapely>=2.0.0
 pyproj>=3.6.0
+pyshp==2.3.1  # shapefile import (MIT, pure Python)
+defusedxml==0.7.1  # safe ISOXML parsing (PSF-2.0, pure Python)
 numpy>=1.24.0
 
 # Testing

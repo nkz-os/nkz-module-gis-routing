@@ -15,10 +15,15 @@ from typing import Optional
 
 from shapely.geometry import mapping
 
+from app.services.vra.prescription import persistable_prescription
 from nkz_platform_sdk.orion import OrionClient
 
 
 # ----- pure helpers ---------------------------------------------------------
+
+# Orion-LD rejects bodies over 1 MiB (413); stay well under it.
+MAX_ENTITY_BYTES = 900 * 1024
+
 
 def _prop(entity: dict, name: str, default=None):
     node = entity.get(name)
@@ -83,6 +88,7 @@ def operation_to_detail(entity: dict) -> dict:
     row["generation_config"] = _prop(entity, "generationConfig")
     row["vra_config"] = _prop(entity, "vraConfig")
     row["prescription_map"] = _prop(entity, "prescriptionMap")
+    row["prescription"] = _prop(entity, "prescription")
     row["tractor_id"] = _rel(entity, "usesTractor")
     row["implement_id"] = _rel(entity, "usesImplement")
     row["source_operation_id"] = _rel(entity, "derivedFrom")
@@ -179,13 +185,10 @@ def build_operation_entity(*, op_id, body, result, prescription_map, is_template
     if body.implement_id:
         entity["usesImplement"] = {"type": "Relationship", "object": body.implement_id}
     if body.vra is not None:
-        entity["vraConfig"] = {"type": "Property", "value": {
-            "enabled": body.vra.enabled,
-            "source": body.vra.source,
-            "base_rate": body.vra.base_rate,
-            "rate_unit": body.vra.rate_unit,
-            "zone_ids": body.vra.zone_ids,
-        }}
+        entity["vraConfig"] = {"type": "Property", "value": body.vra.model_dump(exclude_none=True, exclude={"external_features"})}
+    if plan is not None and plan.get("prescription") is not None:
+        entity["prescription"] = {"type": "Property",
+                                  "value": persistable_prescription(plan["prescription"])}
     if prescription_map:
         entity["prescriptionMap"] = {"type": "Property", "value": prescription_map}
     # Orion rejects a Property/GeoProperty whose value is null.

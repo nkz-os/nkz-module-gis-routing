@@ -1,5 +1,5 @@
 import type { LayerSpecification } from 'maplibre-gl';
-import type { Plan } from '../services/api';
+import type { Plan, Prescription } from '../services/api';
 import { bboxOf, type Zone } from '../services/geo';
 
 export interface MapModel {
@@ -15,9 +15,13 @@ export interface MapModel {
   selectedWarning: number | null;
   /** Geometry of a failed request (no plan): drawn as a synthetic warning and used for fitting. */
   focus?: GeoJSON.Geometry | null;
+  /** Active VRA prescription; classes are drawn and swath segments recoloured. */
+  vra?: Prescription | null;
+  /** Pre-formatted dose label per rate (unit text comes from i18n in the UI). */
+  vraRateLabel?: (rate: number) => string;
 }
 
-export const SOURCE_IDS = ['parcel', 'parcel-rings', 'zones', 'zones-margin', 'swaths', 'route', 'access', 'markers', 'warnings'] as const;
+export const SOURCE_IDS = ['parcel', 'parcel-rings', 'zones', 'zones-margin', 'vra-classes', 'swaths', 'route', 'access', 'markers', 'warnings'] as const;
 export type SourceId = (typeof SOURCE_IDS)[number];
 
 // The map is not DOM: design tokens do not apply, so colours are constants.
@@ -32,6 +36,17 @@ const C = {
   warning: '#FBBF24',
   parcel: '#10B981',
 } as const;
+
+/** Sequential 5-step ramp (low to high dose), legible over aerial imagery. */
+export const VRA_PALETTE = ['#FDE725', '#7AD151', '#22A884', '#2A788E', '#414487'] as const;
+export const VRA_UNCOVERED_COLOR = '#9CA3AF';
+
+/** The n first steps of the ramp, spread evenly (2 to 5 classes). */
+export function vraClassColors(n: number): string[] {
+  const k = Math.max(1, Math.min(VRA_PALETTE.length, Math.floor(n)));
+  if (k === 1) return [VRA_PALETTE[0]];
+  return Array.from({ length: k }, (_, i) => VRA_PALETTE[Math.round((i * (VRA_PALETTE.length - 1)) / (k - 1))]);
+}
 
 type Feature = GeoJSON.Feature;
 const feature = (geometry: GeoJSON.Geometry, properties: GeoJSON.GeoJsonProperties): Feature => ({ type: 'Feature', geometry, properties });
@@ -91,12 +106,36 @@ export function buildSources(m: MapModel): Record<SourceId, GeoJSON.FeatureColle
     warnings.push(feature(anchorOf(m.focus), { ...props, part: 'anchor' }));
   }
 
+  const presc = m.vra ?? null;
+  const classColors = presc ? vraClassColors(presc.classes.length) : [];
+  const colorOf = (ci: unknown): string =>
+    typeof ci === 'number' && classColors[ci] ? classColors[ci] : VRA_UNCOVERED_COLOR;
+  const labelOf = m.vraRateLabel ?? ((r: number) => String(r));
+
+  const vraClasses: Feature[] = [];
+  for (const z of presc?.zones.features ?? []) {
+    const ci = z.properties?.class_index;
+    const rate = z.properties?.rate;
+    const color = colorOf(ci);
+    vraClasses.push(feature(z.geometry, { part: 'fill', class_index: ci, rate, color }));
+    vraClasses.push(feature(anchorOf(z.geometry), { part: 'label', class_index: ci, rate, color, label: typeof rate === 'number' ? labelOf(rate) : '' }));
+  }
+
+  const kindOf = new Map((plan?.swaths ?? []).map((sw) => [sw.index, sw.kind] as const));
+  const swaths: Feature[] = presc
+    ? presc.swath_segments.features.map((s) => feature(s.geometry, {
+        index: s.properties?.swath_index, kind: kindOf.get(s.properties?.swath_index) ?? 'work', hovered: m.hoveredSwath === s.properties?.swath_index,
+        class_index: s.properties?.class_index ?? null, color: colorOf(s.properties?.class_index),
+      }))
+    : (plan?.swaths ?? []).map((s) => feature(s.geometry, { index: s.index, kind: s.kind, hovered: m.hoveredSwath === s.index }));
+
   return {
     parcel: fc(m.parcel ? [feature(m.parcel, {})] : []),
     'parcel-rings': fc(rings),
     zones: fc(m.zones.map((z) => feature(z.polygon, { id: z.id, valid: z.valid, areaHa: z.areaHa }))),
     'zones-margin': fc(margin),
-    swaths: fc((plan?.swaths ?? []).map((s) => feature(s.geometry, { index: s.index, kind: s.kind, hovered: m.hoveredSwath === s.index }))),
+    'vra-classes': fc(vraClasses),
+    swaths: fc(swaths),
     route: fc(plan ? [feature(plan.route, { stale: m.stale })] : []),
     access: fc(access),
     markers: fc(markers),
@@ -115,7 +154,8 @@ export function changedSources(prev: MapModel | null, next: MapModel): SourceId[
   if (ch('parcel')) out.push('parcel', 'parcel-rings');
   if (ch('zones')) out.push('zones');
   if (ch('zones', 'marginM')) out.push('zones-margin');
-  if (ch('plan', 'hoveredSwath')) out.push('swaths');
+  if (ch('vra', 'vraRateLabel')) out.push('vra-classes');
+  if (ch('plan', 'hoveredSwath', 'vra')) out.push('swaths');
   if (ch('plan', 'stale')) out.push('route');
   if (ch('plan')) out.push('access');
   if (ch('plan', 'accessPoint', 'accessIssue')) out.push('markers');
@@ -140,10 +180,31 @@ export function layerSpecs(): LayerSpecification[] {
     },
     { id: 'zones-margin-line', type: 'line', source: 'zones-margin', paint: { 'line-color': C.zone, 'line-width': 1.5, 'line-dasharray': [2, 2], 'line-opacity': 0.7 } },
     {
+      id: 'vra-classes-fill', type: 'fill', source: 'vra-classes', filter: ['==', ['get', 'part'], 'fill'],
+      paint: { 'fill-color': ['get', 'color'], 'fill-opacity': 0.45 },
+    },
+    {
+      id: 'vra-classes-line', type: 'line', source: 'vra-classes', filter: ['==', ['get', 'part'], 'fill'],
+      paint: { 'line-color': ['get', 'color'], 'line-width': 1.5 },
+    },
+    {
+      id: 'vra-classes-label', type: 'symbol', source: 'vra-classes', filter: ['==', ['get', 'part'], 'label'],
+      layout: { 'text-field': ['get', 'label'], 'text-size': 12, 'text-allow-overlap': false },
+      paint: { 'text-color': '#FFFFFF', 'text-halo-color': C.route, 'text-halo-width': 1.5 },
+    },
+    {
+      // Dark casing under class-coloured segments so they stand out over the class fill.
+      id: 'swaths-casing', type: 'line', source: 'swaths', filter: ['has', 'color'],
+      paint: {
+        'line-color': '#111827',
+        'line-width': ['case', ['get', 'hovered'], 7, ['==', ['get', 'kind'], 'headland'], 3, 5],
+      },
+    },
+    {
       id: 'swaths-line', type: 'line', source: 'swaths',
       paint: {
-        'line-color': ['match', ['get', 'kind'], 'headland', C.headland, C.work],
-        'line-width': ['case', ['get', 'hovered'], 5, 3],
+        'line-color': ['case', ['has', 'color'], ['get', 'color'], ['match', ['get', 'kind'], 'headland', C.headland, C.work]],
+        'line-width': ['case', ['get', 'hovered'], 5, ['==', ['get', 'kind'], 'headland'], 1.5, 3],
       },
     },
     {

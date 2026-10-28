@@ -1,5 +1,5 @@
 import type {
-  Geometry, FeatureCollection, LineString, MultiLineString, Point, Polygon, MultiPolygon,
+  Feature, Geometry, FeatureCollection, LineString, MultiLineString, Point, Polygon, MultiPolygon,
 } from 'geojson';
 
 function resolveOrigin(): string {
@@ -55,6 +55,58 @@ export class ApiError extends Error {
   }
 }
 
+// Client-side VRA configuration (camelCase); sent to the backend as VraRequest.
+export interface VraClass { minPct: number; maxPct: number; rate: number | null; label?: string }
+export interface VraConfig {
+  enabled: boolean;
+  source: 'orion' | 'external';
+  variable: string;
+  classes: VraClass[];
+  unit: 'kg_ha' | 'l_ha';
+  product: string;
+  externalFeatures?: FeatureCollection;
+}
+
+// Backend shapes (snake_case, as returned).
+export interface VraRequest {
+  enabled: boolean;
+  source: 'orion' | 'external';
+  variable: string;
+  classes: { min_pct: number; max_pct: number; rate: number; label?: string }[];
+  unit: 'kg_ha' | 'l_ha';
+  product: string;
+  invert: boolean;
+  external_features?: FeatureCollection;
+}
+
+/** Response of the zoning job proxy; only the fields the client may show are typed. */
+export interface ZoningJobResponse { job_id?: string; status?: string; [key: string]: unknown }
+
+export type IngestedZone = Feature<Geometry, Record<string, unknown> | null>;
+
+export interface DistributionZone { id: string; mean: number; area_ha: number; geometry: Geometry }
+export interface Distribution {
+  source: 'orion' | 'external';
+  variable: string;
+  zones: DistributionZone[];
+  missing: { id: string; reason: string }[];
+  percentiles: number[]; // 21 values, p0..p100 step 5
+  /** zoningRunId of the zones returned (latest run); null when they carry none. */
+  run_id?: string | null;
+}
+
+export interface PrescriptionClass {
+  index: number; min_pct: number; max_pct: number; rate: number; area_ha: number; product_total: number;
+}
+export interface Prescription {
+  unit: 'kg_ha' | 'l_ha';
+  product: string;
+  classes: PrescriptionClass[];
+  zones: FeatureCollection;
+  swath_segments: FeatureCollection;
+  warnings: { code: string; params: Record<string, unknown> }[];
+}
+
 export interface PlanMetrics {
   worked_distance_m: number;
   non_working_distance_m: number;
@@ -93,7 +145,7 @@ export interface Plan {
   metrics: PlanMetrics;
   validation: ValidationReport | null;
   exclusion_zones: FeatureCollection;
-  prescription: unknown | null;
+  prescription: Prescription | null;
 }
 
 export interface GenerateResponse {
@@ -118,6 +170,7 @@ export interface GenerateRequest {
   persist: boolean;
   planned_start_at?: string;
   planned_end_at?: string;
+  vra?: VraRequest;
 }
 
 export interface ParcelConfig {
@@ -223,9 +276,25 @@ export const api = {
     return request<PathResult>(`/path/${encodeURIComponent(jobId)}`);
   },
 
+  // VRA by classes
+  getDistribution(parcelId: string) {
+    return request<Distribution>(`/zones/${encodeURIComponent(parcelId)}/distribution?source=orion`);
+  },
+  requestZones(parcelId: string, nZones = 8) {
+    return request<ZoningJobResponse>(`/zones/${encodeURIComponent(parcelId)}/generate`, {
+      method: 'POST', body: JSON.stringify({ n_zones: nZones }),
+    });
+  },
+  prescription(args: { parcelId: string; swaths: Plan['swaths']; vra: VraRequest }) {
+    return request<{ prescription: Prescription }>('/prescription', {
+      method: 'POST',
+      body: JSON.stringify({ parcel_id: args.parcelId, swaths: args.swaths, vra: args.vra }),
+    });
+  },
+
   // External zones
-  ingestExternalZones(format: 'geojson' | 'csv', content: string) {
-    return request<any>('/zones/external/ingest', {
+  ingestExternalZones(format: 'geojson' | 'csv' | 'shapefile' | 'isoxml', content: string) {
+    return request<{ success: boolean; data: { count: number; zones: IngestedZone[]; warnings?: string[]; distribution: Distribution } }>('/zones/external/ingest', {
       method: 'POST', body: JSON.stringify({ format, content }),
     });
   },

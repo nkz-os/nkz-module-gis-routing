@@ -7,7 +7,7 @@ import { buildSources, changedSources, layerSpecs, planBounds, type MapModel, ty
 import { ringToPolygon } from '../services/geo';
 
 export type DrawMode = 'none' | 'zone' | 'access';
-export type LayerGroup = 'zones' | 'access' | 'route' | 'swaths' | 'warnings';
+export type LayerGroup = 'zones' | 'access' | 'route' | 'swaths' | 'warnings' | 'vra';
 
 export interface MapCanvasProps {
   model: MapModel;
@@ -41,6 +41,7 @@ const GROUP_SOURCES: Record<LayerGroup, SourceId[]> = {
   access: ['access'],
   route: ['route'],
   swaths: ['swaths'],
+  vra: ['vra-classes'],
   warnings: ['warnings'],
 };
 const GROUPS = Object.keys(GROUP_SOURCES) as LayerGroup[];

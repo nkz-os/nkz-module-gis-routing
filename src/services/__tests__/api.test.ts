@@ -39,3 +39,34 @@ describe('api client', () => {
     expect(err.code).toBeNull(); expect(err.message).toBe('Operation not found');
   });
 });
+
+describe('api VRA calls', () => {
+  afterEach(() => { vi.unstubAllGlobals(); vi.resetModules(); });
+  const setup = async (body: unknown = {}) => {
+    (window as any).__ENV__ = { VITE_API_URL: 'http://api.test' };
+    const f = vi.fn().mockImplementation(async () => new Response(JSON.stringify(body), { status: 200 }));
+    vi.stubGlobal('fetch', f);
+    return { f, ...(await import('../api')) };
+  };
+  it('getDistribution hits the distribution route', async () => {
+    const { f, api } = await setup();
+    await api.getDistribution('urn:p 1');
+    expect(f.mock.calls[0][0]).toBe('http://api.test/api/routing/zones/urn%3Ap%201/distribution?source=orion');
+  });
+  it('requestZones posts n_zones, default 8', async () => {
+    const { f, api } = await setup();
+    await api.requestZones('p1');
+    expect(f.mock.calls[0][0]).toBe('http://api.test/api/routing/zones/p1/generate');
+    expect(JSON.parse(f.mock.calls[0][1].body)).toEqual({ n_zones: 8 });
+    await api.requestZones('p1', 5);
+    expect(JSON.parse(f.mock.calls[1][1].body)).toEqual({ n_zones: 5 });
+  });
+  it('prescription posts and returns the prescription', async () => {
+    const { f, api } = await setup({ prescription: { unit: 'kg_ha' } });
+    const vra = { enabled: true } as any;
+    const r = await api.prescription({ parcelId: 'p1', swaths: [], vra });
+    expect(f.mock.calls[0][0]).toBe('http://api.test/api/routing/prescription');
+    expect(JSON.parse(f.mock.calls[0][1].body)).toEqual({ parcel_id: 'p1', swaths: [], vra });
+    expect(r.prescription.unit).toBe('kg_ha');
+  });
+});

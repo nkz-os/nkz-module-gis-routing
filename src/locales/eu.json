@@ -235,7 +235,9 @@
         "active": "Urrats aktiboa",
         "done": "Osatuta",
         "warning": "Arreta behar du",
-        "disabled": "Ez dago erabilgarri"
+        "disabled": "Ez dago erabilgarri",
+        "complete": "Osatuta",
+        "optional": "Aukerakoa"
       }
     },
     "zones": {
@@ -273,14 +275,47 @@
       "summary": "{{pattern}} · burualdeak: {{n}}"
     },
     "vra": {
-      "nextPhase": "Dosi aldakorreko preskripzioa: hurrengo fasea"
+      "enable": "Dosi aldakorra aplikatu",
+      "source": "Zonen jatorria",
+      "sourceOrion": "Partzelaren kudeaketa-zonak",
+      "sourceExternal": "Kanpoko fitxategia",
+      "upload": "Zonen fitxategia (GeoJSON, CSV, shapefile .zip edo ISOXML .xml)",
+      "noZones": "Partzelak ez du kudeaketa-zonarik.",
+      "generateZones": "Zonak sortu ({{n}})",
+      "polling": "Zonak sortzen…",
+      "timeout": "Zonak sortzeak luze jotzen du.",
+      "retry": "Berriro saiatu",
+      "missingTitle": "Baliorik gabeko zonak",
+      "missingZone": "{{id}}: baliorik gabe; birsortu zonak",
+      "regenerateZones": "Zonak birsortu",
+      "histogram": "Azalera zonaren balioaren arabera, klase-mozketekin",
+      "classCount": "Klase kopurua",
+      "cut": "{{n}}. mozketa",
+      "product": "Produktua",
+      "unit": "Unitatea",
+      "colClass": "Klasea",
+      "colRange": "Tartea",
+      "colHa": "ha",
+      "colRate": "Dosia ({{unit}})",
+      "colTotal": "Produktua",
+      "rateOfClass": "{{n}}. klasearen dosia",
+      "total": "Guztira",
+      "invert": "Alderantzikatu",
+      "calculating": "Preskripzioa kalkulatzen…",
+      "summaryOn": "{{n}} klase",
+      "summaryOff": "Aplikatu gabe",
+      "uploadPrompt": "Igo zonen fitxategi bat jarraitzeko."
     },
     "warnings": {
       "UNREACHED_AREA": "{{ha}} ha-ko eremu estali gabea",
       "HEADLAND_WIDENED": "Muga zabaldua: {{requested}} pasadatik {{applied}} pasadara",
       "MANUAL_TURN": "Eskuzko biraketa {{from_swath}} eta {{to_swath}} pasaden artean",
       "ACCESS_PATH_UNAVAILABLE": "Sarbide bidea ezin izan da trazatu",
-      "UNKNOWN": "{{code}} abisua"
+      "UNKNOWN": "{{code}} abisua",
+      "VRA_UNCOVERED": "Ibilbidearen {{length_m}} m kudeaketa-zonetatik kanpo daude: ez da dosirik aplikatzen",
+      "VRA_DEGENERATE": "Zona guztiek balio bera dute: klase bakar bat aplikatzen da",
+      "VRA_ZONE_INVALID": "{{zone_id}} zonaren geometria ez da baliozkoa eta ez ikusi egin zaio",
+      "ZONES_NO_PRJ": "Shapefile .prj gabe: WGS84 (EPSG:4326) koordenatuak suposatzen dira"
     },
     "fallbacks": {
       "headland": "Muga-pasadak doituta: {{a}} -> {{b}}",
@@ -300,7 +335,13 @@
       "ENGINE_FAILURE": "Bide-motorraren barne errorea",
       "PERSIST_FAILED": "Eragiketa ezin izan da gorde",
       "UNKNOWN": "Ibilbidea ezin izan da sortu: {{detail}}",
-      "CONFIG_UNVERIFIED": "Ezin izan da gordetako konfigurazioa egiaztatu. Ez da ezer sortu; saiatu berriro."
+      "CONFIG_UNVERIFIED": "Ezin izan da gordetako konfigurazioa egiaztatu. Ez da ezer sortu; saiatu berriro.",
+      "INVALID_VRA": "Dosi aldakorraren konfigurazioa ez da baliozkoa",
+      "ZONES_FILE_INVALID": "Zonen fitxategia ez da baliozkoa edo ezin izan da irakurri",
+      "ZONES_NO_VALUE": "Ez dago balio-atributurik (value, mean, ndvi edo rate). Fitxategiko atributuak: {{attributes}}",
+      "ZONES_FILE_TOO_LARGE": "Zonen fitxategia 5 MB baino handiagoa da",
+      "PLAN_TOO_LARGE": "Plana handiegia da gordetzeko ({{size_kb}} KB). Erabili eremu gutxiago, eremu handiagoak edo azalera txikiagoa.",
+      "ZONES_UNAVAILABLE": "Ezin izan dira kudeaketa-eremuak irakurri. Saiatu berriro."
     },
     "actions": {
       "regenerate": "Birsortu",
@@ -309,7 +350,9 @@
       "copyId": "Kopiatu ID",
       "copied": "Kopiatuta!",
       "saveTemplate": "Gorde txantiloi gisa",
-      "exportFormat": "Esportazio formatua"
+      "exportFormat": "Esportazio formatua",
+      "vraIncomplete": "Bete klase guztien dosiak (edo kanpoko eremuen fitxategia), edo desaktibatu dosi aldakorra, bidaltzeko.",
+      "vraPending": "Errezeta kalkulatu arte itxaroten, bidali aurretik."
     },
     "title": "GIS ibilbideak",
     "tabs": {
@@ -349,7 +392,8 @@
       "access": "Sarbidea",
       "route": "Ibilbidea",
       "swaths": "Pasaldiak",
-      "warnings": "Abisuak"
+      "warnings": "Abisuak",
+      "vra": "VRA klaseak"
     }
   }
 }

@@ -13,6 +13,12 @@ CODES = (
     "TURNING_RADIUS_MISSING",
     "INVALID_GEOMETRY",
     "ENGINE_FAILURE",
+    "INVALID_VRA",
+    "ZONES_FILE_INVALID",
+    "ZONES_NO_VALUE",
+    "ZONES_FILE_TOO_LARGE",
+    "PLAN_TOO_LARGE",
+    "ZONES_UNAVAILABLE",
 )
 
 
@@ -29,10 +35,14 @@ class PlanError(ValueError):
 
     @property
     def status(self) -> int:
-        if self.code == "INVALID_GEOMETRY":
+        if self.code in ("INVALID_GEOMETRY", "ZONES_FILE_INVALID", "ZONES_NO_VALUE"):
             return 400
+        if self.code == "ZONES_FILE_TOO_LARGE":
+            return 413
         if self.code == "ENGINE_FAILURE":
             return 500
+        if self.code == "ZONES_UNAVAILABLE":
+            return 502
         return 422
 
     def to_body(self) -> dict:

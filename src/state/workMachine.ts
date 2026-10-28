@@ -1,4 +1,6 @@
-import type { GenerateRequest, GenerateResponse, ParcelConfig, Plan } from '../services/api';
+import type {
+  Distribution, GenerateRequest, GenerateResponse, ParcelConfig, Plan, Prescription, VraConfig, VraRequest,
+} from '../services/api';
 import { featureCollectionToZones, type Zone } from '../services/geo';
 
 export type StepId = 'parcel' | 'zones' | 'access' | 'machine' | 'pattern' | 'vra';
@@ -25,6 +27,16 @@ export interface PatternConfig {
   returnToAccess: boolean;
 }
 
+export interface VraState {
+  config: VraConfig;
+  distribution: Distribution | null;
+  prescription: Prescription | null;
+  status: 'idle' | 'loading' | 'ready' | 'error';
+  /** Id of the latest prescription request; older in-flight results are ignored. */
+  requestId: number;
+  error: { code: string; detail: string; params: Record<string, unknown> } | null;
+}
+
 export interface WorkState {
   phase: Phase;
   activeStep: StepId;
@@ -37,6 +49,7 @@ export interface WorkState {
   machine: MachineConfig;
   pattern: PatternConfig;
   result: { plan: Plan; kind: 'valid' | 'with_warnings'; operationId: string | null } | null;
+  vra: VraState;
   error: { code: string; detail: string; params: Record<string, unknown> } | null;
 }
 
@@ -48,6 +61,11 @@ export type WorkEvent =
   | { type: 'ACCESS_CHANGED'; point: GeoJSON.Point | null; issue: 'outside' | 'in_zone' | null }
   | { type: 'MACHINE_CHANGED'; machine: Partial<MachineConfig> }
   | { type: 'PATTERN_CHANGED'; pattern: Partial<PatternConfig> }
+  | { type: 'VRA_CONFIG_CHANGED'; config: Partial<VraConfig> }
+  | { type: 'VRA_REQUESTED'; parcelRequestId: number; requestId: number }
+  | { type: 'VRA_DISTRIBUTION_LOADED'; parcelRequestId: number; distribution: Distribution }
+  | { type: 'VRA_PRESCRIPTION_RESULT'; parcelRequestId: number; requestId: number; prescription: Prescription }
+  | { type: 'VRA_FAILED'; parcelRequestId: number; requestId?: number; error: NonNullable<WorkState['error']> }
   | { type: 'GENERATE_REQUESTED' }
   | { type: 'GENERATED'; response: GenerateResponse }
   | { type: 'GENERATE_FAILED'; error: WorkState['error'] }
@@ -55,6 +73,18 @@ export type WorkEvent =
   | { type: 'SAVE_RESULT'; response: GenerateResponse }
   | { type: 'SAVE_FAILED'; error: WorkState['error'] }
   | { type: 'DISMISS_ERROR' };
+
+export const initialVraState: VraState = {
+  config: {
+    enabled: false, source: 'orion', variable: 'NDVI', unit: 'kg_ha', product: '',
+    classes: [
+      { minPct: 0, maxPct: 33, rate: null },
+      { minPct: 33, maxPct: 67, rate: null },
+      { minPct: 67, maxPct: 100, rate: null },
+    ],
+  },
+  distribution: null, prescription: null, status: 'idle', requestId: 0, error: null,
+};
 
 export const initialWorkState: WorkState = {
   phase: 'empty',
@@ -71,6 +101,7 @@ export const initialWorkState: WorkState = {
   },
   pattern: { pattern: 'auto', headingMode: 'auto', headingDeg: 0, headlandPasses: 1, returnToAccess: false },
   result: null,
+  vra: initialVraState,
   error: null,
 };
 
@@ -102,12 +133,55 @@ function resultFrom(response: GenerateResponse): NonNullable<WorkState['result']
   return { plan: response.plan, kind: clean ? 'valid' : 'with_warnings', operationId: response.operation_id };
 }
 
+// Request form of the VRA config, or null when disabled or any rate is not a number >= 0.
+export function toVraRequest(c: VraConfig): VraRequest | null {
+  if (!c.enabled) return null;
+  if (c.source === 'external' && !c.externalFeatures) return null;
+  const ok = c.classes.length > 0
+    && c.classes.every((k) => typeof k.rate === 'number' && Number.isFinite(k.rate) && k.rate >= 0);
+  if (!ok) return null;
+  return {
+    enabled: true, source: c.source, variable: c.variable, unit: c.unit, product: c.product,
+    // Inversion is applied to the entered rates (StepVra); the backend never inverts.
+    invert: false,
+    classes: c.classes.map((k) => ({
+      min_pct: k.minPct, max_pct: k.maxPct, rate: k.rate as number, ...(k.label ? { label: k.label } : {}),
+    })),
+    ...(c.source === 'external' && c.externalFeatures ? { external_features: c.externalFeatures } : {}),
+  };
+}
+
+/**
+ * Why Save would drop or misstate the VRA, or null when it is safe: enabled but incomplete
+ * (a rate missing, external source without features), or enabled and complete but with no
+ * prescription yet (still computing or failed). Never save a plan without the VRA the user sees.
+ */
+export function vraSaveBlocker(s: WorkState): 'incomplete' | 'pending' | null {
+  if (!s.vra.config.enabled) return null;
+  if (toVraRequest(s.vra.config) === null) return 'incomplete';
+  return s.vra.prescription === null ? 'pending' : null;
+}
+
+function withPlanPrescription(s: WorkState, plan: Plan): VraState {
+  const prescription = plan.prescription ?? null;
+  return { ...s.vra, prescription, status: prescription ? 'ready' : 'idle', error: null };
+}
+
+// A new parcel keeps the user's classes/rates but never the previous parcel's external zones.
+function vraForNewParcel(v: VraState): VraState {
+  return {
+    ...initialVraState, requestId: v.requestId,
+    config: { ...v.config, source: 'orion', externalFeatures: undefined },
+  };
+}
+
 export function workReducer(state: WorkState, event: WorkEvent): WorkState {
   switch (event.type) {
     case 'PARCEL_SELECTED':
       return {
         ...state, phase: 'empty', activeStep: 'parcel', parcelRequestId: event.requestId,
         parcel: null, result: null, error: null, stale: false,
+        vra: vraForNewParcel(state.vra),
       };
     case 'PARCEL_LOADED': {
       if (event.requestId !== state.parcelRequestId) return state;
@@ -116,7 +190,7 @@ export function workReducer(state: WorkState, event: WorkEvent): WorkState {
         parcel: { id: event.id, name: event.name, geometry: event.geometry },
         zones: featureCollectionToZones(event.config.exclusionZones),
         accessPoint: event.config.accessPoint, accessIssue: null,
-        result: null, error: null,
+        result: null, error: null, vra: vraForNewParcel(state.vra),
       };
     }
     case 'STEP_ACTIVATED':
@@ -129,25 +203,57 @@ export function workReducer(state: WorkState, event: WorkEvent): WorkState {
       return afterEdit(state, { ...state, machine: { ...state.machine, ...event.machine } });
     case 'PATTERN_CHANGED':
       return afterEdit(state, { ...state, pattern: { ...state.pattern, ...event.pattern } });
+    case 'VRA_CONFIG_CHANGED': {
+      // Deliberately not an "edit": changing the VRA config never marks the route stale.
+      const config = { ...state.vra.config, ...event.config };
+      const status = state.vra.status === 'error' ? 'idle' : state.vra.status;
+      const sameCount = config.classes.length === state.vra.config.classes.length;
+      if (config.enabled && toVraRequest(config) !== null && sameCount) {
+        return { ...state, vra: { ...state.vra, config, error: null, status } };
+      }
+      // Disabled, incomplete or a different class count: what Save would send is "no VRA", so no prescription may stay
+      // visible, and a result still in flight must be ignored (new requestId).
+      return { ...state, vra: { ...state.vra, config, error: null, prescription: null,
+        requestId: state.vra.requestId + 1, status: status === 'loading' ? 'idle' : status } };
+    }
+    case 'VRA_REQUESTED':
+      if (event.parcelRequestId !== state.parcelRequestId) return state;
+      return { ...state, vra: { ...state.vra, requestId: event.requestId, status: 'loading', error: null } };
+    case 'VRA_DISTRIBUTION_LOADED':
+      if (event.parcelRequestId !== state.parcelRequestId) return state;
+      return { ...state, vra: { ...state.vra, distribution: event.distribution } };
+    case 'VRA_PRESCRIPTION_RESULT':
+      if (event.parcelRequestId !== state.parcelRequestId || event.requestId !== state.vra.requestId) return state;
+      return { ...state, vra: { ...state.vra, prescription: event.prescription, status: 'ready', error: null } };
+    case 'VRA_FAILED':
+      if (event.parcelRequestId !== state.parcelRequestId) return state;
+      if (event.requestId !== undefined && event.requestId !== state.vra.requestId) return state;
+      return { ...state, vra: { ...state.vra, status: 'error', error: event.error } };
     case 'GENERATE_REQUESTED':
       // Any non-busy phase with a complete configuration may (re)generate.
       if (!canGenerate(state)) return state;
       return { ...state, phase: 'generating', error: null };
     case 'GENERATED':
       if (state.phase !== 'generating') return state;
-      return { ...state, phase: 'generated', stale: false, result: resultFrom(event.response), error: null };
+      return {
+        ...state, phase: 'generated', stale: false, result: resultFrom(event.response), error: null,
+        vra: withPlanPrescription(state, event.response.plan),
+      };
     case 'GENERATE_FAILED':
       if (state.phase !== 'generating') return state;
       return { ...state, phase: 'failed', error: event.error };
     case 'SAVE_REQUESTED':
-      if (state.phase !== 'generated') return state;
+      if (state.phase !== 'generated' || vraSaveBlocker(state) !== null) return state;
       return { ...state, phase: 'saving', error: null };
     case 'SAVE_RESULT': {
       if (state.phase !== 'saving') return state;
       const { response } = event;
       if (response.persisted && response.operation_id) {
         // Show the plan that was persisted: the save request recomputes it.
-        return { ...state, phase: 'saved', stale: false, result: resultFrom(response), error: null };
+        return {
+          ...state, phase: 'saved', stale: false, result: resultFrom(response), error: null,
+          vra: withPlanPrescription(state, response.plan),
+        };
       }
       return {
         ...state, phase: 'failed',
@@ -172,8 +278,12 @@ export function workReducer(state: WorkState, event: WorkEvent): WorkState {
 export function stepStatus(
   s: WorkState,
   step: StepId,
-): 'pending' | 'active' | 'done' | 'warning' | 'disabled' {
-  if (step === 'vra') return 'disabled';
+): 'pending' | 'active' | 'done' | 'warning' | 'disabled' | 'complete' | 'optional' {
+  if (step === 'vra') {
+    if (s.result === null) return 'disabled';
+    if (!s.vra.config.enabled) return 'optional';
+    return s.vra.prescription !== null && toVraRequest(s.vra.config) !== null ? 'complete' : 'pending';
+  }
   if (step === 'zones' && s.zones.some((z) => !z.valid)) return 'warning';
   if (step === 'access' && s.accessIssue !== null) return 'warning';
   if (s.activeStep === step) return 'active';
@@ -202,6 +312,8 @@ export function stepStatus(
 export function buildGenerateRequest(s: WorkState, persist: boolean): GenerateRequest {
   if (!canGenerate(s) || s.parcel === null) throw new Error('not ready');
   const { machine, pattern, parcel } = s;
+  // Only when a prescription exists for the current plan: a parcel change must not lock generation.
+  const vra = s.vra.prescription !== null ? toVraRequest(s.vra.config) : null;
   return {
     parcel_geometry: parcel.geometry,
     parcel_id: parcel.id,
@@ -219,5 +331,6 @@ export function buildGenerateRequest(s: WorkState, persist: boolean): GenerateRe
     operation_type: machine.operationType,
     return_to_access: pattern.returnToAccess,
     persist,
+    ...(vra ? { vra } : {}),
   };
 }

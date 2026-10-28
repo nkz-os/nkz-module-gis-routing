@@ -235,7 +235,9 @@
         "active": "Passo ativo",
         "done": "Concluído",
         "warning": "Requer atenção",
-        "disabled": "Indisponível"
+        "disabled": "Indisponível",
+        "complete": "Completo",
+        "optional": "Opcional"
       }
     },
     "zones": {
@@ -273,14 +275,47 @@
       "summary": "{{pattern}} · cabeceiras: {{n}}"
     },
     "vra": {
-      "nextPhase": "Prescrição variável: próxima fase"
+      "enable": "Aplicar dose variável",
+      "source": "Origem das zonas",
+      "sourceOrion": "Zonas de gestão da parcela",
+      "sourceExternal": "Ficheiro externo",
+      "upload": "Ficheiro de zonas (GeoJSON, CSV, shapefile .zip ou ISOXML .xml)",
+      "noZones": "A parcela não tem zonas de gestão.",
+      "generateZones": "Gerar zonas ({{n}})",
+      "polling": "A gerar zonas…",
+      "timeout": "A geração de zonas está a demorar demasiado.",
+      "retry": "Tentar novamente",
+      "missingTitle": "Zonas sem valor",
+      "missingZone": "{{id}}: sem valor; regenere as zonas",
+      "regenerateZones": "Regenerar zonas",
+      "histogram": "Área por valor de zona, com os cortes de classe",
+      "classCount": "Número de classes",
+      "cut": "Corte {{n}}",
+      "product": "Produto",
+      "unit": "Unidade",
+      "colClass": "Classe",
+      "colRange": "Intervalo",
+      "colHa": "ha",
+      "colRate": "Dose ({{unit}})",
+      "colTotal": "Produto",
+      "rateOfClass": "Dose da classe {{n}}",
+      "total": "Total",
+      "invert": "Inverter",
+      "calculating": "A calcular a prescrição…",
+      "summaryOn": "{{n}} classes",
+      "summaryOff": "Não aplicada",
+      "uploadPrompt": "Carregue um ficheiro de zonas para continuar."
     },
     "warnings": {
       "UNREACHED_AREA": "Zona não coberta de {{ha}} ha",
       "HEADLAND_WIDENED": "Cabeceira alargada de {{requested}} para {{applied}} passagens",
       "MANUAL_TURN": "Curva manual entre as passagens {{from_swath}} e {{to_swath}}",
       "ACCESS_PATH_UNAVAILABLE": "Não foi possível traçar o caminho de acesso",
-      "UNKNOWN": "Aviso {{code}}"
+      "UNKNOWN": "Aviso {{code}}",
+      "VRA_UNCOVERED": "{{length_m}} m do percurso ficam fora das zonas de gestão: nenhuma dose aplicada",
+      "VRA_DEGENERATE": "Todas as zonas têm o mesmo valor: aplica-se uma única classe",
+      "VRA_ZONE_INVALID": "A zona {{zone_id}} tem uma geometria inválida e foi ignorada",
+      "ZONES_NO_PRJ": "Shapefile sem .prj: assumem-se coordenadas WGS84 (EPSG:4326)"
     },
     "fallbacks": {
       "headland": "Passagens de cabeceira ajustadas de {{a}} para {{b}}",
@@ -300,7 +335,13 @@
       "ENGINE_FAILURE": "Erro interno do motor de rotas",
       "PERSIST_FAILED": "Não foi possível guardar a operação",
       "UNKNOWN": "Não foi possível gerar a rota: {{detail}}",
-      "CONFIG_UNVERIFIED": "Não foi possível verificar a configuração guardada. Nada foi gerado; tente novamente."
+      "CONFIG_UNVERIFIED": "Não foi possível verificar a configuração guardada. Nada foi gerado; tente novamente.",
+      "INVALID_VRA": "A configuração de dose variável não é válida",
+      "ZONES_FILE_INVALID": "O ficheiro de zonas não é válido ou não foi possível lê-lo",
+      "ZONES_NO_VALUE": "Não há atributo de valor (value, mean, ndvi ou rate). Atributos do ficheiro: {{attributes}}",
+      "ZONES_FILE_TOO_LARGE": "O ficheiro de zonas excede 5 MB",
+      "PLAN_TOO_LARGE": "O plano é demasiado grande para ser guardado ({{size_kb}} KB). Use menos zonas, zonas maiores ou uma área menor.",
+      "ZONES_UNAVAILABLE": "Não foi possível ler as zonas de gestão. Tente novamente."
     },
     "actions": {
       "regenerate": "Regenerar",
@@ -309,7 +350,9 @@
       "copyId": "Copiar ID",
       "copied": "Copiado!",
       "saveTemplate": "Guardar como modelo",
-      "exportFormat": "Formato de exportação"
+      "exportFormat": "Formato de exportação",
+      "vraIncomplete": "Preencha as doses de todas as classes (ou o ficheiro de zonas externo), ou desative a dose variável, para enviar.",
+      "vraPending": "A aguardar o cálculo da prescrição antes de enviar."
     },
     "title": "Rotas SIG",
     "tabs": {
@@ -349,7 +392,8 @@
       "access": "Acesso",
       "route": "Rota",
       "swaths": "Passagens",
-      "warnings": "Avisos"
+      "warnings": "Avisos",
+      "vra": "Classes VRA"
     }
   }
 }
