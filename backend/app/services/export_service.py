@@ -53,7 +53,7 @@ class RouteExporter:
     #   root: VersionMajor=4 VersionMinor=3 DataTransferOrigin=1 (FMIS)
     #   PFD A id, C designator, D area m2 | PLN A=1 boundary, 2 treatment zone
     #   LSG A=1 exterior, 2 interior, 5 guidance pattern | PNT A=2 other, 6 guidance A,
-    #   7 guidance B, C north, D east (9 decimals) | GPN A id, B designator, C=1 AB
+    #   7 guidance B, 9 guidance point (curve), C north, D east (9 decimals) | GPN A id, B designator, C=1 AB, 3 Curve
     #   TSK A id, B designator, C/D/E refs, G=1 planned
     # ASSUMPTION: LSG C (guidance line width) is in millimetres, as the XSD names it
     # LineStringWidth without a unit; ISO 11783-10 gives mm for lengths.
@@ -80,14 +80,15 @@ class RouteExporter:
         out.append('    <GGP A="GGP1" B="Guidance lines">')
         for i, (label, pts) in enumerate(lines):
             w = f' C="{width_mm}"' if width_mm else ""
-            out += [
-                f'      <GPN A="GPN{i + 1}" B="{self._xml_escape(self._cut(label))}" C="1">',
-                f'        <LSG A="5"{w}>',
-                f'          <PNT A="6" C="{self._f(pts[0][1])}" D="{self._f(pts[0][0])}"/>',
-                f'          <PNT A="7" C="{self._f(pts[1][1])}" D="{self._f(pts[1][0])}"/>',
-                "        </LSG>",
-                "      </GPN>",
-            ]
+            if len(pts) == 2:
+                gtype, pnts = 1, [(6, pts[0]), (7, pts[1])]
+            else:
+                # GPN C=3 Curve: every vertex kept as PNT A=9 (Guidance Point)
+                gtype, pnts = 3, [(9, p) for p in pts]
+            out += [f'      <GPN A="GPN{i + 1}" B="{self._xml_escape(self._cut(label))}" C="{gtype}">',
+                    f'        <LSG A="5"{w}>']
+            out += [f'          <PNT A="{t}" C="{self._f(p[1])}" D="{self._f(p[0])}"/>' for t, p in pnts]
+            out += ["        </LSG>", "      </GPN>"]
         out.append("    </GGP>")
         out.append("  </PFD>")
         out.append(f'  <TSK A="TSK1" B="{self._xml_escape(self._cut(op_type + " - " + parcel_name))}" '
@@ -123,11 +124,11 @@ class RouteExporter:
                 props = (f or {}).get("properties") or {} if isinstance(f, dict) else {}
                 for c in self._line_parts(geom):
                     idx = props.get("index", n)
-                    out.append((f"{props.get('kind') or 'swath'} {idx}", [c[0], c[-1]]))
+                    out.append((f"{props.get('kind') or 'swath'} {idx}", c))
             return out
         ab = self._parse_geojson(operation.get("ab_line_geojson", "{}"))
         for i, c in enumerate(self._line_parts(ab)):
-            out.append((f"{operation.get('operation_type', '')} A-B {i + 1}", [c[0], c[-1]]))
+            out.append((f"{operation.get('operation_type', '')} A-B {i + 1}", c))
         return out
 
     @staticmethod

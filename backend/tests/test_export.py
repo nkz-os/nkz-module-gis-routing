@@ -245,14 +245,18 @@ def test_isoxml_one_guidance_line_per_swath(sample_op):
     gpns = root.findall("PFD/GGP/GPN")
     assert len(gpns) == 3  # swaths, not the 2 route lines
     for g in gpns:
-        assert g.get("C") == "1"
+        assert g.get("C") in ("1", "3")
         lsg = g.findall("LSG")
         assert len(lsg) == 1 and lsg[0].get("A") == "5"
         pnts = lsg[0].findall("PNT")
-        assert [p.get("A") for p in pnts] == ["6", "7"]
+        assert len(pnts) == (3 if g.get("C") == "3" else 2)
     p = gpns[0].find("LSG").findall("PNT")
     assert p[0].get("C") == "42.000100000" and p[0].get("D") == "-0.999500000"
-    assert p[1].get("C") == "42.000900000"  # B = last vertex
+    ab = gpns[1].find("LSG").findall("PNT")
+    assert [x.get("A") for x in ab] == ["6", "7"] and ab[1].get("C") == "42.000100000"
+    assert gpns[0].get("C") == "3" and len(gpns[0].find("LSG").findall("PNT")) == 3  # curved: all vertices
+    assert [x.get("A") for x in gpns[0].find("LSG").findall("PNT")] == ["9", "9", "9"]
+    assert gpns[1].get("C") == "1"  # 2 points stay AB
     assert len({g.get("A") for g in gpns}) == 3
     assert "headland" in gpns[2].get("B")
 
@@ -327,3 +331,15 @@ def test_export_route_isoxml_uses_stored_swaths_and_parcel(monkeypatch):
     r = TestClient(create_app()).get("/api/routing/export/op1?format=isoxml")
     assert r.status_code == 200
     assert r.text.count("<GPN") == 3 and 'A="1"' in r.text and "Norte" in r.text
+
+
+def test_isoxml_mixed_straight_and_curved_validates(sample_op):
+    import os
+    sample_op["swaths"] = _swaths()[:2]
+    root = _rootx(sample_op)
+    assert [g.get("C") for g in root.findall("PFD/GGP/GPN")] == ["3", "1"]
+    path = os.environ.get("NKZ_ISOXML_XSD")
+    if path:
+        from lxml import etree
+        schema = etree.XMLSchema(etree.parse(path))
+        assert schema.validate(etree.fromstring(_iso(sample_op).encode())), schema.error_log
