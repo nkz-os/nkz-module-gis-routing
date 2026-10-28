@@ -62,9 +62,6 @@
     "title": "Error",
     "unexpected": "An unexpected error occurred",
     "retry": "Retry",
-    "pathfindingFailed": "Pathfinding failed",
-    "pathfindingTimeout": "Pathfinding timed out",
-    "pathCalculationFailed": "Path calculation failed",
     "geoFailed": "Error en carregar la geometria",
     "authRequired": "Autenticación requerida",
     "generateFailed": "Error al generar la ruta",
@@ -172,19 +169,9 @@
     "snake": "Salts alterns"
   },
   "pathfinding": {
-    "pickOnMap": "Pick A-B path on map",
     "pickPointA": "Click point A on the map",
     "pickPointB": "Click point B on the map",
-    "calculating": "Calculating alternatives...",
-    "selectAndSave": "Selected path:",
-    "alternatives": "Alternatives",
-    "title": "Rutes A-B",
-    "calculate": "Calcula la ruta",
-    "pointA": "Punt A",
-    "pointB": "Punt B",
-    "distance": "Distància",
-    "climb": "Desnivell acumulat",
-    "results": "Resultats"
+    "calculating": "Calculating alternatives..."
   },
   "panels": {
     "emptyState": "Generate a route to see results",
@@ -398,6 +385,81 @@
       "swaths": "Passades",
       "warnings": "Avisos",
       "vra": "Classes VRA"
+    }
+  },
+  "transit": {
+    "points": "Punts",
+    "pointA": "Punt A (lat, lon)",
+    "pointB": "Punt B (lat, lon)",
+    "markA": "Marcar A",
+    "markB": "Marcar B",
+    "pickingA": "Fes clic al mapa per col·locar A. Després pots arrossegar el marcador.",
+    "pickingB": "Fes clic al mapa per col·locar B. Després pots arrossegar el marcador.",
+    "useEntrance": "Usar l'entrada de {{parcel}} com a B",
+    "exportName": "Trànsit",
+    "machine": {
+      "title": "Màquina",
+      "manual": "Amplada manual",
+      "width": "Amplada de treball (m)",
+      "slope": "Pendent màxim (°)",
+      "slopeHelp": "Entre 0 i 45°. La ruta evita el terreny més inclinat (per defecte 15°).",
+      "noWidth": "Aquesta màquina no té amplada de treball: escriu-la."
+    },
+    "calculate": "Calcular ruta",
+    "status": {
+      "queued": "Esperant a la cua...",
+      "running": "Calculant les rutes..."
+    },
+    "results": "Resultats",
+    "stale": "Desactualitzat: han canviat les dades. Calcula de nou per desar.",
+    "alt": {
+      "least_slope": "Menys pendent",
+      "fastest": "Més ràpida"
+    },
+    "distance": "Distància",
+    "climb": "Desnivell acumulat",
+    "maxSlopeFound": "Pendent màx.",
+    "profile": {
+      "label": "Perfil d'elevació de la ruta triada",
+      "at": "{{dist}} m · {{z}} m s. n. m."
+    },
+    "save": {
+      "title": "Desar",
+      "noParcel": "Sense parcel·la",
+      "needParcel": "Tria una parcel·la de destinació per desar. Sense ella només pots exportar.",
+      "button": "Desar com a operació",
+      "saving": "Desant...",
+      "saved": "Disponible a l'app · operació #{{id}}"
+    },
+    "export": {
+      "title": "Exportar",
+      "gpx": "GPX",
+      "geojson": "GeoJSON"
+    },
+    "context": {
+      "zoomIn": "Acosta't per veure parcel·les, portes i zones NO-GO",
+      "error": "No s'ha pogut carregar el context de parcel·les"
+    },
+    "errors": {
+      "DEM_UNAVAILABLE": "No hi ha dades d'elevació per a aquesta zona.",
+      "POINT_IN_ZONE": "El punt {{point}} és dins d'una zona NO-GO. Mou-lo.",
+      "POINT_ON_BARRIER": "El punt {{point}} és a la tanca d'una parcel·la amb porta. Mou-lo o usa la porta.",
+      "NO_PATH": "Cap ruta evita les zones NO-GO i les parcel·les amb porta.",
+      "NO_PATH_MARGIN": "Cap ruta evita les zones NO-GO i les parcel·les amb porta (s'ha cercat a {{search_margin_m}} m al voltant d'A-B).",
+      "MACHINE_WIDTH_MISSING": "La màquina no té amplada de treball. Escriu-la.",
+      "AREA_TOO_LARGE": "A i B són massa lluny per calcular la ruta.",
+      "ENGINE_FAILURE": "Error intern del motor de rutes.",
+      "PLAN_EXPIRED": "La ruta calculada ha caducat. Torna a calcular-la.",
+      "PARCEL_REQUIRED": "Tria una parcel·la de destinació per desar.",
+      "PARCEL_NOT_FOUND": "No s'ha trobat la parcel·la de destinació.",
+      "JOB_NOT_FOUND": "El càlcul ja no està disponible. Torna a calcular-lo.",
+      "JOB_NOT_READY": "El càlcul encara no ha acabat.",
+      "ALTERNATIVE_NOT_FOUND": "Aquesta ruta no és al resultat. Calcula de nou.",
+      "INVALID_DATES": "Les dates no són vàlides.",
+      "EXPORT_NOT_SUPPORTED": "Aquest format d'exportació no està disponible per a trànsits.",
+      "PERSIST_FAILED": "No s'ha pogut desar l'operació.",
+      "JOB_TIMEOUT": "El càlcul ha trigat massa. Torna-ho a provar.",
+      "UNKNOWN": "No s'ha pogut calcular la ruta: {{detail}}"
     }
   }
 }

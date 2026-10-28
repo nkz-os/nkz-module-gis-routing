@@ -122,9 +122,6 @@
     "title": "Error",
     "unexpected": "An unexpected error occurred",
     "retry": "Retry",
-    "pathfindingFailed": "Pathfinding failed",
-    "pathfindingTimeout": "Pathfinding timed out",
-    "pathCalculationFailed": "Path calculation failed",
     "geoFailed": "Error al cargar la geometría",
     "authRequired": "Autenticación requerida",
     "generateFailed": "Error al generar la ruta",
@@ -176,19 +173,9 @@
     "snake": "Saltos alternos"
   },
   "pathfinding": {
-    "pickOnMap": "Trazar ruta A-B en el mapa",
     "pickPointA": "Haz clic en el punto A del mapa",
     "pickPointB": "Haz clic en el punto B del mapa",
-    "calculating": "Calculando alternativas...",
-    "selectAndSave": "Ruta seleccionada:",
-    "alternatives": "Alternativas",
-    "title": "Rutas A-B",
-    "calculate": "Calcular ruta",
-    "pointA": "Punto A",
-    "pointB": "Punto B",
-    "distance": "Distancia",
-    "climb": "Desnivel acumulado",
-    "results": "Resultados"
+    "calculating": "Calculando alternativas..."
   },
   "headingMode": {
     "auto": "Óptimo",
@@ -398,6 +385,81 @@
       "swaths": "Pasadas",
       "warnings": "Avisos",
       "vra": "Clases VRA"
+    }
+  },
+  "transit": {
+    "points": "Puntos",
+    "pointA": "Punto A (lat, lon)",
+    "pointB": "Punto B (lat, lon)",
+    "markA": "Marcar A",
+    "markB": "Marcar B",
+    "pickingA": "Haz clic en el mapa para colocar A. Después puedes arrastrar el marcador.",
+    "pickingB": "Haz clic en el mapa para colocar B. Después puedes arrastrar el marcador.",
+    "useEntrance": "Usar la entrada de {{parcel}} como B",
+    "exportName": "Tránsito",
+    "machine": {
+      "title": "Máquina",
+      "manual": "Ancho manual",
+      "width": "Ancho de trabajo (m)",
+      "slope": "Pendiente máxima (°)",
+      "slopeHelp": "Entre 0 y 45°. La ruta evita terreno más pendiente (por defecto 15°).",
+      "noWidth": "Esta máquina no tiene ancho de trabajo: escríbelo."
+    },
+    "calculate": "Calcular ruta",
+    "status": {
+      "queued": "Esperando en la cola...",
+      "running": "Calculando las rutas..."
+    },
+    "results": "Resultados",
+    "stale": "Desactualizado: han cambiado los datos. Calcula de nuevo para guardar.",
+    "alt": {
+      "least_slope": "Menos pendiente",
+      "fastest": "Más rápida"
+    },
+    "distance": "Distancia",
+    "climb": "Desnivel acumulado",
+    "maxSlopeFound": "Pendiente máx.",
+    "profile": {
+      "label": "Perfil de elevación de la ruta elegida",
+      "at": "{{dist}} m · {{z}} m s. n. m."
+    },
+    "save": {
+      "title": "Guardar",
+      "noParcel": "Sin parcela",
+      "needParcel": "Elige una parcela de destino para guardar. Sin ella solo puedes exportar.",
+      "button": "Guardar como operación",
+      "saving": "Guardando...",
+      "saved": "Disponible en la app · operación #{{id}}"
+    },
+    "export": {
+      "title": "Exportar",
+      "gpx": "GPX",
+      "geojson": "GeoJSON"
+    },
+    "context": {
+      "zoomIn": "Acércate para ver parcelas, portones y zonas NO-GO",
+      "error": "No se pudo cargar el contexto de parcelas"
+    },
+    "errors": {
+      "DEM_UNAVAILABLE": "No hay datos de elevación para esta zona.",
+      "POINT_IN_ZONE": "El punto {{point}} está dentro de una zona NO-GO. Muévelo.",
+      "POINT_ON_BARRIER": "El punto {{point}} está en el cercado de una parcela con portón. Muévelo o usa el portón.",
+      "NO_PATH": "Ninguna ruta evita las zonas NO-GO y las parcelas con portón.",
+      "NO_PATH_MARGIN": "Ninguna ruta evita las zonas NO-GO y las parcelas con portón (se buscó en {{search_margin_m}} m alrededor de A-B).",
+      "MACHINE_WIDTH_MISSING": "La máquina no tiene ancho de trabajo. Escríbelo.",
+      "AREA_TOO_LARGE": "A y B están demasiado lejos para calcular la ruta.",
+      "ENGINE_FAILURE": "Error interno del motor de rutas.",
+      "PLAN_EXPIRED": "La ruta calculada ha caducado. Vuelve a calcularla.",
+      "PARCEL_REQUIRED": "Elige una parcela de destino para guardar.",
+      "PARCEL_NOT_FOUND": "No se encontró la parcela de destino.",
+      "JOB_NOT_FOUND": "El cálculo ya no está disponible. Vuelve a calcularlo.",
+      "JOB_NOT_READY": "El cálculo aún no ha terminado.",
+      "ALTERNATIVE_NOT_FOUND": "Esa ruta no está en el resultado. Calcula de nuevo.",
+      "INVALID_DATES": "Las fechas no son válidas.",
+      "EXPORT_NOT_SUPPORTED": "Este formato de exportación no está disponible para tránsitos.",
+      "PERSIST_FAILED": "No se pudo guardar la operación.",
+      "JOB_TIMEOUT": "El cálculo ha tardado demasiado. Inténtalo de nuevo.",
+      "UNKNOWN": "No se pudo calcular la ruta: {{detail}}"
     }
   }
 }
