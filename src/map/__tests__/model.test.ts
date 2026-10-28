@@ -118,6 +118,13 @@ describe('changedSources', () => {
       expect(f[0].properties).toMatchObject({ index: 3, kind: 'work', hovered: true, color: vraClassColors(3)[0] });
       expect(f[1].properties).toMatchObject({ index: 3, color: VRA_UNCOVERED_COLOR });
     });
+    it('segments keep the plan swath kind (headland) with a fallback to work', () => {
+      const p2: any = { ...plan, swaths: [{ index: 3, kind: 'headland', geometry: plan.swaths[0].geometry }] };
+      const f = buildSources({ ...withVra, plan: p2 }).swaths.features;
+      expect(f.map(x => x.properties?.kind)).toEqual(['headland', 'headland']);
+      const g = buildSources({ ...withVra, plan: { ...plan, swaths: [] } }).swaths.features;
+      expect(g.map(x => x.properties?.kind)).toEqual(['work', 'work']);
+    });
     it('changedSources reacts to the prescription and drives swaths', () => {
       const a = { ...base, plan };
       expect(changedSources(a, withVra)).toEqual(expect.arrayContaining(['vra-classes', 'swaths']));

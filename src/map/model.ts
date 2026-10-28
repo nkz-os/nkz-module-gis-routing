@@ -121,9 +121,10 @@ export function buildSources(m: MapModel): Record<SourceId, GeoJSON.FeatureColle
     vraClasses.push(feature(anchorOf(z.geometry), { part: 'label', class_index: ci, rate, color, label: typeof rate === 'number' ? labelOf(rate) : '' }));
   }
 
+  const kindOf = new Map((plan?.swaths ?? []).map((sw) => [sw.index, sw.kind] as const));
   const swaths: Feature[] = presc
     ? presc.swath_segments.features.map((s) => feature(s.geometry, {
-        index: s.properties?.swath_index, kind: 'work', hovered: m.hoveredSwath === s.properties?.swath_index,
+        index: s.properties?.swath_index, kind: kindOf.get(s.properties?.swath_index) ?? 'work', hovered: m.hoveredSwath === s.properties?.swath_index,
         class_index: s.properties?.class_index ?? null, color: colorOf(s.properties?.class_index),
       }))
     : (plan?.swaths ?? []).map((s) => feature(s.geometry, { index: s.index, kind: s.kind, hovered: m.hoveredSwath === s.index }));
@@ -195,7 +196,7 @@ export function layerSpecs(): LayerSpecification[] {
       id: 'swaths-line', type: 'line', source: 'swaths',
       paint: {
         'line-color': ['case', ['has', 'color'], ['get', 'color'], ['match', ['get', 'kind'], 'headland', C.headland, C.work]],
-        'line-width': ['case', ['get', 'hovered'], 5, 3],
+        'line-width': ['case', ['get', 'hovered'], 5, ['==', ['get', 'kind'], 'headland'], 1.5, 3],
       },
     },
     {
