@@ -46,7 +46,18 @@ function toWorkError(e: unknown): NonNullable<WorkState['error']> {
   };
 }
 
-export const WorkScreen: React.FC = () => {
+export interface WorkContext {
+  parcelId: string | null;
+  parcelGeometry: GeoJSON.Polygon | null;
+  machineWidthM: number | null;
+  turningRadiusM: number | null;
+}
+
+interface WorkScreenProps {
+  onContextChange?: (ctx: WorkContext) => void;
+}
+
+export const WorkScreen: React.FC<WorkScreenProps> = ({ onContextChange }) => {
   const { t } = useTranslation(NS);
   const [state, dispatch] = useReducer(workReducer, initialWorkState);
   const [drawMode, setDrawMode] = useState<DrawMode>('none');
@@ -74,6 +85,17 @@ export const WorkScreen: React.FC = () => {
   }, [toast]);
 
   const parcelId = state.parcel?.id ?? null;
+  const parcelGeometry = state.parcel?.geometry ?? null;
+  const { widthM, turningRadiusM } = state.machine;
+  useEffect(() => {
+    onContextChange?.({ parcelId, parcelGeometry, machineWidthM: widthM, turningRadiusM });
+  }, [onContextChange, parcelId, parcelGeometry, widthM, turningRadiusM]);
+
+  // A focus geometry only outlives the failed phase when it comes from a selected warning.
+  useEffect(() => {
+    if (state.phase !== 'failed') setFocus(null);
+  }, [state.phase]);
+
   useEffect(() => {
     setFocus(null);
     setSelectedWarning(null);
@@ -93,6 +115,7 @@ export const WorkScreen: React.FC = () => {
     () => ({
       parcel: state.parcel?.geometry ?? null,
       zones: state.zones,
+      // Margin shown is cov_width/2, mirroring the backend's default exclusion buffer (f2c_engine.py); overlap is already inside cov_width.
       marginM: state.machine.widthM !== null && state.machine.widthM > 0 ? state.machine.widthM / 2 : null,
       accessPoint: state.accessPoint,
       accessIssue: state.accessIssue,
@@ -100,7 +123,7 @@ export const WorkScreen: React.FC = () => {
       stale: state.stale,
       hoveredSwath,
       selectedWarning,
-      focus: state.phase === 'failed' ? focus : null,
+      focus,
     }),
     [state.parcel, state.zones, state.machine.widthM, state.accessPoint, state.accessIssue,
       plan, state.stale, state.phase, hoveredSwath, selectedWarning, focus],
@@ -152,7 +175,9 @@ export const WorkScreen: React.FC = () => {
   }, []);
 
   const onWarningSelect = useCallback((n: number) => {
+    const geometry = stateRef.current.result?.plan.validation?.warnings[n - 1]?.geometry ?? null;
     setSelectedWarning(n);
+    setFocus(geometry ?? stateRef.current.parcel?.geometry ?? null);
     setFocusCounter((c) => c + 1);
   }, []);
 

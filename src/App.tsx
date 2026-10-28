@@ -9,12 +9,13 @@ import { useTranslation } from '@nekazari/sdk';
 import { Tabs } from '@nekazari/ui-kit';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { PathfindingTab } from './components/pathfinding/PathfindingTab';
-import { WorkScreen } from './components/work/WorkScreen';
+import { WorkScreen, type WorkContext } from './components/work/WorkScreen';
 
 const NS = 'gis-routing';
 
 const App: React.FC = () => {
   const { t } = useTranslation(NS);
+  const [ctx, setCtx] = useState<WorkContext>({ parcelId: null, parcelGeometry: null, machineWidthM: null, turningRadiusM: null });
   const [tab, setTab] = useState<'work' | 'transit'>('work');
 
   return (
@@ -30,9 +31,16 @@ const App: React.FC = () => {
           </Tabs>
         </div>
         <div className={tab === 'work' ? undefined : 'hidden'}>
-          <WorkScreen />
+          <WorkScreen onContextChange={setCtx} />
         </div>
-        {tab === 'transit' && <PathfindingTab />}
+        {tab === 'transit' && (
+          <PathfindingTab
+            parcelGeometry={ctx.parcelGeometry}
+            machineWidthM={ctx.machineWidthM ?? undefined}
+            turningRadiusM={ctx.turningRadiusM}
+            parcelId={ctx.parcelId}
+          />
+        )}
       </div>
     </ErrorBoundary>
   );

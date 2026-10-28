@@ -26,6 +26,12 @@ vi.mock('../../../map/MapCanvas', () => ({
   },
 }));
 
+vi.mock('../../pathfinding/PathfindingTab', () => ({
+  PathfindingTab: (props: any) => (
+    <div data-testid="pf">Rutas A-B|{String(props.parcelId)}|{String(props.machineWidthM)}|{String(props.turningRadiusM)}</div>
+  ),
+}));
+
 vi.mock('../../../services/api', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../../../services/api')>();
   return {
@@ -151,6 +157,20 @@ describe('WorkScreen', () => {
     expect(screen.getByText('op-12345678')).toBeTruthy();
   });
 
+  it('clicking a warning on the strip focuses its geometry and bumps fitKey', async () => {
+    const turn: GeoJSON.LineString = { type: 'LineString', coordinates: [[0.001, 0.001], [0.002, 0.002]] };
+    const plan = planFixture();
+    plan.validation.warnings = [{ code: 'MANUAL_TURN', geometry: turn, params: { from_swath: 1, to_swath: 2 } }];
+    (api.generate as any).mockResolvedValue({ success: true, operation_id: null, persisted: false, plan });
+    await loadAndConfigure();
+    fireEvent.click(screen.getByRole('button', { name: /Generar ruta/i }));
+    await screen.findByText(/12 pasadas/);
+    const before = mapProps().fitKey;
+    fireEvent.click(screen.getByRole('button', { name: 'Ver en el mapa' }));
+    await waitFor(() => expect(mapProps().model.focus).toEqual(turn));
+    expect(mapProps().fitKey).not.toBe(before);
+  });
+
   it('map callbacks: a drawn zone containing the gate flags the access issue', async () => {
     render(<WorkScreen />);
     const select = await parcelSelect();
@@ -166,10 +186,12 @@ describe('WorkScreen', () => {
 });
 
 describe('App', () => {
-  it('switching to the transit tab renders the existing pathfinding panel', async () => {
+  it('switching to the transit tab passes the work context to the pathfinding panel', async () => {
     render(<App />);
-    expect(screen.queryByText('Rutas A-B')).toBeNull();
+    expect(screen.queryByTestId('pf')).toBeNull();
+    fireEvent.change(await parcelSelect(), { target: { value: 'p1' } });
+    await waitFor(() => expect(mapProps().model.parcel).not.toBeNull());
     fireEvent.mouseDown(screen.getByRole('tab', { name: 'Tránsito A-B' }), { button: 0, ctrlKey: false }); // Radix activates on mousedown
-    expect(await screen.findByText('Rutas A-B')).toBeTruthy();
+    expect((await screen.findByTestId('pf')).textContent).toBe('Rutas A-B|p1|undefined|null');
   });
 });

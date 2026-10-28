@@ -242,6 +242,15 @@ export const MapCanvas: React.FC<MapCanvasProps> = (props) => {
     map.addLayer({ id: 'basemap', type: 'raster', source: 'basemap' }, firstOwn);
   }, [model.parcel, ready]);
 
+  // A map initialised or kept under a hidden tab regains its size when shown.
+  useEffect(() => {
+    const el = ref.current;
+    if (!ready || !el || typeof ResizeObserver === 'undefined') return undefined;
+    const ro = new ResizeObserver(() => mapRef.current?.resize());
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [ready]);
+
   useEffect(() => {
     const map = mapRef.current;
     if (!ready || !map || fitKey === null) return;
