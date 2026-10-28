@@ -45,6 +45,7 @@ vi.mock('../../../services/api', async (importOriginal) => {
       saveOperation: vi.fn(),
       saveParcelConfig: vi.fn(),
       getExportUrl: vi.fn(() => 'http://export.test/x'),
+      getDistribution: vi.fn(), prescription: vi.fn(), requestZones: vi.fn(),
     },
   };
 });
@@ -263,6 +264,40 @@ describe('WorkScreen request flow', () => {
     await act(async () => { resolve({ success: true, operation_id: 'op-12345678', persisted: true }); });
     await screen.findByText('Enviada (12345678)');
     expect(api.saveOperation).toHaveBeenCalledTimes(1);
+  });
+
+  it('Save regenerates once when the VRA changed since generating, saves the new plan and announces it', async () => {
+    const presc = {
+      unit: 'kg_ha', product: 'N',
+      classes: [0, 1, 2].map((i) => ({ index: i, min_pct: 0, max_pct: 0, rate: 1, area_ha: 1, product_total: 1 })),
+      zones: emptyFc, swath_segments: emptyFc, warnings: [],
+    };
+    (api.getDistribution as any).mockResolvedValue({
+      source: 'orion', variable: 'NDVI', missing: [], percentiles: Array.from({ length: 21 }, (_, i) => 0.2 + i * 0.03),
+      zones: [0.3, 0.5, 0.7, 0.9].map((m, i) => ({ id: `z${i}`, mean: m, area_ha: 1, geometry: poly() })),
+    });
+    (api.prescription as any).mockResolvedValue({ prescription: presc });
+    (api.generate as any)
+      .mockResolvedValueOnce({ success: true, operation_id: null, persisted: false, plan_id: 'plan-1', plan: planFixture() })
+      .mockResolvedValueOnce({ success: true, operation_id: null, persisted: false, plan_id: 'plan-2', plan: { ...planFixture(), prescription: presc } });
+    (api.saveOperation as any).mockResolvedValue({ success: true, operation_id: 'op-12345678', persisted: true });
+    await loadAndConfigure();
+    clickGenerate();
+    await screen.findByText(/12 pasadas/);
+
+    fireEvent.click(screen.getByRole('button', { name: /VRA/ }));
+    fireEvent.click(await screen.findByLabelText('Aplicar dosis variable'));
+    for (const n of [1, 2, 3]) fireEvent.change(await screen.findByLabelText(`Dosis de la clase ${n}`), { target: { value: String(n) } });
+    await waitFor(() => expect(api.prescription).toHaveBeenCalled(), { timeout: 3000 });
+    await waitFor(() => expect((screen.getByRole('button', { name: 'Enviar al tractor' }) as HTMLButtonElement).disabled).toBe(false));
+
+    fireEvent.click(screen.getByRole('button', { name: 'Enviar al tractor' }));
+    await screen.findByText('Enviada (12345678)');
+    expect(api.generate).toHaveBeenCalledTimes(2);
+    expect((api.generate as any).mock.calls[1][0]).toMatchObject({ persist: false, vra: expect.objectContaining({ enabled: true }) });
+    expect(api.saveOperation).toHaveBeenCalledTimes(1);
+    expect(api.saveOperation).toHaveBeenCalledWith({ kind: 'plan', plan_id: 'plan-2' });
+    expect(screen.getByText('Plan regenerado con la dosis actual antes de guardar')).toBeTruthy();
   });
 
   it('an expired plan shows the translated error and Generar de nuevo regenerates', async () => {

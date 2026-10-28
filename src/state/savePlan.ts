@@ -1,6 +1,6 @@
 import type { GenerateRequest, GenerateResponse, SaveOperationResponse } from '../services/api';
 import { ApiError } from '../services/api';
-import { buildGenerateRequest, savedPlanVraDiffers, type WorkState } from './workMachine';
+import { buildGenerateRequest, currentVraKey, savedPlanVraDiffers, type WorkState } from './workMachine';
 
 export interface SavePlanDeps {
   generate(body: GenerateRequest): Promise<GenerateResponse>;
@@ -14,7 +14,7 @@ export interface SavePlanDeps {
  */
 export async function savePlan(
   s: WorkState, deps: SavePlanDeps,
-): Promise<{ operationId: string; regenerated?: GenerateResponse }> {
+): Promise<{ operationId: string; regenerated?: GenerateResponse; vraKey?: string | null }> {
   if (s.result === null) throw new Error('no plan to save');
   let regenerated: GenerateResponse | undefined;
   let planId = s.result.planId;
@@ -26,5 +26,8 @@ export async function savePlan(
   if (!saved.persisted || !saved.operation_id) {
     throw new ApiError(502, { code: 'PERSIST_FAILED', detail: 'Plan was not persisted' });
   }
-  return regenerated ? { operationId: saved.operation_id, regenerated } : { operationId: saved.operation_id };
+  // The key of the VRA actually sent, taken from the snapshot (the live config may change while saving).
+  return regenerated
+    ? { operationId: saved.operation_id, regenerated, vraKey: currentVraKey(s) }
+    : { operationId: saved.operation_id };
 }

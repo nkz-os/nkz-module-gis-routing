@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { workReducer, initialWorkState } from '../workMachine';
+import { workReducer, initialWorkState, currentVraKey } from '../workMachine';
 import { savePlan } from '../savePlan';
 
 const geom = { type: 'Polygon', coordinates: [[[0, 0], [1, 0], [1, 1], [0, 1], [0, 0]]] } as const;
@@ -38,7 +38,16 @@ describe('savePlan', () => {
     expect(generate.mock.calls[0][0]).toMatchObject({ persist: false });
     expect(generate.mock.calls[0][0].vra).toBeTruthy();
     expect(saveOperation).toHaveBeenCalledWith({ kind: 'plan', plan_id: 'plan-2' });
-    expect(out).toEqual({ operationId: 'op-2', regenerated: regen });
+    expect(out.operationId).toBe('op-2');
+    expect(out.regenerated).toBe(regen);
+    // The key is that of the request sent (the snapshot), so a later config edit cannot relabel the result.
+    expect(out.vraKey).toBe(currentVraKey(s));
+    expect(out.vraKey).not.toBeNull();
+    const edited = { ...s, vra: { ...s.vra, prescription: null } };
+    const next = workReducer({ ...s, phase: 'saving' }, { type: 'SAVE_RESULT', ...out });
+    const afterEdit = workReducer({ ...edited, phase: 'saving' }, { type: 'SAVE_RESULT', ...out });
+    expect(next.result?.vraKey).toBe(out.vraKey);
+    expect(afterEdit.result?.vraKey).toBe(out.vraKey);
   });
 
   it('does not regenerate when the VRA is unchanged since generating', async () => {

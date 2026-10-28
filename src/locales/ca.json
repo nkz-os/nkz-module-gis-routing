@@ -350,7 +350,8 @@
       "work": "Treball",
       "transit": "Trànsit A-B"
     },
-    "empty": "Selecciona una parcel·la per començar"
+    "empty": "Selecciona una parcel·la per començar",
+    "regeneratedOnSave": "Pla regenerat amb la dosi actual abans de desar"
   },
   "autosave": {
     "saved": "Desat {{time}}",

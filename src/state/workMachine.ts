@@ -78,7 +78,7 @@ export type WorkEvent =
   | { type: 'GENERATED'; response: GenerateResponse }
   | { type: 'GENERATE_FAILED'; error: WorkState['error'] }
   | { type: 'SAVE_REQUESTED' }
-  | { type: 'SAVE_RESULT'; operationId: string; regenerated?: GenerateResponse }
+  | { type: 'SAVE_RESULT'; operationId: string; regenerated?: GenerateResponse; vraKey?: string | null }
   | { type: 'SAVE_FAILED'; error: WorkState['error'] }
   | { type: 'DISMISS_ERROR' };
 
@@ -270,10 +270,10 @@ export function workReducer(state: WorkState, event: WorkEvent): WorkState {
       return { ...state, phase: 'saving', error: null };
     case 'SAVE_RESULT': {
       if (state.phase !== 'saving' || state.result === null) return state;
-      const { regenerated, operationId } = event;
+      const { regenerated, operationId, vraKey } = event;
       // A regenerated plan (VRA changed after generating) replaces the displayed one: it is the one stored.
       const result = regenerated
-        ? { ...resultFrom(regenerated, currentVraKey(state)), operationId }
+        ? { ...resultFrom(regenerated, vraKey !== undefined ? vraKey : currentVraKey(state)), operationId }
         : { ...state.result, operationId };
       return {
         ...state, phase: 'saved', stale: false, result, error: null,

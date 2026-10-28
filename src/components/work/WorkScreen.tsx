@@ -9,6 +9,7 @@ import {
   canGenerate,
   initialWorkState,
   toVraRequest,
+  vraSaveBlocker,
   workReducer,
   type WorkState,
 } from '../../state/workMachine';
@@ -231,7 +232,7 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({ onContextChange }) => {
     // The state machine decides whether a request may start; the ref covers the same tick.
     const cur = stateRef.current;
     if (inFlight.current) return;
-    if (persist ? cur.phase !== 'generated' : !canGenerate(cur)) return;
+    if (persist ? cur.phase !== 'generated' || vraSaveBlocker(cur) !== null : !canGenerate(cur)) return;
     const body = persist ? null : buildGenerateRequest(cur, false);
     inFlight.current = true;
     setDrawMode('none');
@@ -253,6 +254,7 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({ onContextChange }) => {
         // Save the plan under review by id; no recomputation unless the VRA changed since generating.
         const saved = await savePlan(cur, api);
         dispatch({ type: 'SAVE_RESULT', ...saved });
+        if (saved.regenerated) setToast(t('work.regeneratedOnSave'));
       } else {
         dispatch({ type: 'GENERATED', response: await api.generate(body!) });
       }

@@ -350,7 +350,8 @@
       "work": "Lana",
       "transit": "A-B igarotzea"
     },
-    "empty": "Hautatu lur-sail bat hasteko"
+    "empty": "Hautatu lur-sail bat hasteko",
+    "regeneratedOnSave": "Plana berriro sortu da uneko dosiarekin gorde aurretik"
   },
   "autosave": {
     "saved": "Gordeta {{time}}",

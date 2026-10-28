@@ -350,7 +350,8 @@
       "work": "Travail",
       "transit": "Transit A-B"
     },
-    "empty": "Sélectionnez une parcelle pour commencer"
+    "empty": "Sélectionnez une parcelle pour commencer",
+    "regeneratedOnSave": "Plan régénéré avec la dose actuelle avant l'enregistrement"
   },
   "autosave": {
     "saved": "Enregistré {{time}}",

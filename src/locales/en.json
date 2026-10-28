@@ -350,7 +350,8 @@
       "work": "Work",
       "transit": "Transit A-B"
     },
-    "empty": "Select a parcel to start"
+    "empty": "Select a parcel to start",
+    "regeneratedOnSave": "Plan regenerated with the current dose before saving"
   },
   "autosave": {
     "saved": "Saved {{time}}",
