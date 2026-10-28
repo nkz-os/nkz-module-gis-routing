@@ -351,6 +351,43 @@ async def list_operations(request: Request, limit: int = 20, parcel_id: Optional
         await orion.close()
 
 
+@router.get("/operations/{operation_id}/plan")
+async def get_operation_plan(operation_id: str, auth: AuthContext = require_auth()):
+    """The whole operation (route, swaths, gate, zones, VRA, parcel boundary) as a FeatureCollection."""
+    from app.services.plan_export import plan_feature_collection
+    from app.services.operation_store import _parcel_rel
+    tenant_id = auth.tenant_id
+    settings = get_settings()
+    orion = OrionClient(tenant_id, base_url=settings.context_broker_url,
+                        context_url=settings.ngsi_ld_context)
+    try:
+        try:
+            entity = await orion.get_entity(operation_id)
+        except httpx.HTTPStatusError as e:
+            if e.response.status_code != 404:
+                logger.error("Failed to get operation %s: %s", operation_id, e)
+                raise HTTPException(status_code=502, detail="Operation store unavailable")
+            entity = None
+        except Exception as e:
+            logger.error("Failed to get operation %s: %s", operation_id, e)
+            raise HTTPException(status_code=502, detail="Operation store unavailable")
+        if not entity:
+            raise PlanError("OPERATION_NOT_FOUND", "Operation not found", {"operation_id": operation_id})
+        parcel_geometry = None
+        parcel_id = _parcel_rel(entity)
+        if parcel_id:
+            try:
+                parcel = await orion.get_entity(parcel_id)
+                loc = ((parcel or {}).get("location") or {}).get("value")
+                if isinstance(loc, dict) and loc.get("type") in ("Polygon", "MultiPolygon"):
+                    parcel_geometry = loc
+            except Exception as e:
+                logger.warning("Parcel boundary unavailable for plan %s: %s", operation_id, e)
+    finally:
+        await orion.close()
+    return plan_feature_collection(entity, parcel_geometry=parcel_geometry)
+
+
 @router.get("/operations/{operation_id}")
 async def get_operation(request: Request, operation_id: str, auth: AuthContext = require_auth()):
     """Full operation detail incl. geometry and the inputs needed to re-run."""
