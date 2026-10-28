@@ -97,7 +97,10 @@ def test_isoxml_liquid_uses_volume_ddi(sample_op):
     import xml.etree.ElementTree as ET
     sample_op["prescription"] = _rx("l_ha")
     root = ET.fromstring(RouteExporter().to_isoxml(sample_op))
-    assert root.find(f"{NS}TSK/{NS}TZN/{NS}PDV").get("A") == "0001"
+    pdv = root.find(f"{NS}TSK/{NS}TZN/{NS}PDV")
+    assert pdv.get("A") == "0001"
+    # 120.5 l/ha = 12050 mm3/m2 at resolution 0.01 -> raw 1205000
+    assert pdv.get("B") == "1205000"
 
 
 def test_isoxml_without_prescription_has_no_tzn(sample_op):

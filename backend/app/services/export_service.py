@@ -70,11 +70,15 @@ class RouteExporter:
             f"  </TSK>\n</ISO11783TaskData>"
         )
 
-    # ASSUMPTION: DDI numbers/units per ISO 11783-11 DDI database
-    # (DDI 1 volume/area mm3/m2, DDI 6 mass/area mg/m2); PDV B = rate * 100
-    # for both (1 l/ha = 100 mm3/m2, 1 kg/ha = 100 mg/m2). PLN A=2 treatment
-    # zone, LSG A=1 exterior / 2 interior, PNT A=2 other (ISO 11783-10).
+    # ISO 11783-11 DDI database: DDI 1 Setpoint Volume Per Area, mm3/m2,
+    # resolution 0.01; DDI 6 Setpoint Mass Per Area, mg/m2, resolution 1.
+    # PDV B is the raw value (physical / resolution):
+    #   1 l/ha  = 100 mm3/m2 -> 100 / 0.01 = 10000 per l/ha
+    #   1 kg/ha = 100 mg/m2  -> 100 / 1    = 100 per kg/ha
+    # ASSUMPTION: PLN A=2 treatment zone, LSG A=1 exterior / 2 interior,
+    # PNT A=2 other (ISO 11783-10, not checked against the XSD yet).
     _DDI = {"l_ha": "0001", "kg_ha": "0006"}
+    _PDV_PER_UNIT = {"l_ha": 10000, "kg_ha": 100}
 
     def _treatment_zones(self, rx) -> str:
         rx = self._parse_geojson(rx) if rx else {}
@@ -90,7 +94,7 @@ class RouteExporter:
         out = []
         for cls in sorted(rx.get("classes") or [], key=lambda c: c["index"]):
             idx = int(cls["index"])
-            value = int(round(float(cls["rate"]) * 100))
+            value = int(round(float(cls["rate"]) * self._PDV_PER_UNIT[rx["unit"]]))
             label = self._xml_escape(f"Class {idx + 1} ({cls.get('min_pct')}-{cls.get('max_pct')}%)")
             out.append(f'    <TZN A="{idx}" B="{label}">')
             out.append(f'      <PDV A="{ddi}" B="{value}"/>')
