@@ -214,11 +214,38 @@ describe('StepVra', () => {
     await mount(baseState({}, {}, { source: 'external' }));
     const file = new File(['{"type":"FeatureCollection"}'], 'z.geojson', { type: 'application/json' });
     (file as any).text = () => Promise.resolve('{"type":"FeatureCollection"}');
-    fireEvent.change(screen.getByLabelText('Fichero de zonas (GeoJSON o CSV)'), { target: { files: [file] } });
+    fireEvent.change(screen.getByLabelText('Fichero de zonas (GeoJSON, CSV, shapefile .zip o ISOXML .xml)'), { target: { files: [file] } });
     await flush(0);
     expect(api.ingestExternalZones).toHaveBeenCalledWith('geojson', '{"type":"FeatureCollection"}');
     expect(latest.vra.config.externalFeatures?.features).toEqual([feature]);
     expect(latest.vra.distribution?.source).toBe('external');
+  });
+
+  it.each([['z.zip', 'shapefile'], ['Z.XML', 'isoxml']])('sends %s as base64 %s', async (name, format) => {
+    const feature = { type: 'Feature', geometry: poly(0), properties: { zone_id: 'e1' } };
+    (api.ingestExternalZones as any).mockResolvedValue({
+      success: true,
+      data: { count: 1, zones: [feature], warnings: ['ZONES_NO_PRJ'], distribution: { ...dist([0.4, 0.8]), source: 'external' } },
+    });
+    await mount(baseState({}, {}, { source: 'external' }));
+    const file = new File([new Uint8Array([0, 1, 250, 255])], name);
+    (file as any).arrayBuffer = () => Promise.resolve(new Uint8Array([0, 1, 250, 255]).buffer);
+    fireEvent.change(screen.getByLabelText('Fichero de zonas (GeoJSON, CSV, shapefile .zip o ISOXML .xml)'), { target: { files: [file] } });
+    await flush(0);
+    expect(api.ingestExternalZones).toHaveBeenCalledWith(format, 'AAH6/w==');
+    expect(screen.getByTestId('vra-uploadwarning').textContent).toContain('EPSG:4326');
+  });
+
+  it('shows the coded error of a rejected upload', async () => {
+    const { ApiError } = await vi.importActual<typeof import('../../../services/api')>('../../../services/api');
+    (api.ingestExternalZones as any).mockRejectedValue(
+      new ApiError(400, { code: 'ZONES_NO_VALUE', detail: 'x', params: { attributes: ['name', 'area'] } }));
+    await mount(baseState({}, {}, { source: 'external' }));
+    const file = new File(['x'], 'z.zip');
+    (file as any).arrayBuffer = () => Promise.resolve(new Uint8Array([1]).buffer);
+    fireEvent.change(screen.getByLabelText('Fichero de zonas (GeoJSON, CSV, shapefile .zip o ISOXML .xml)'), { target: { files: [file] } });
+    await flush(0);
+    expect(latest.vra.error?.code).toBe('ZONES_NO_VALUE');
   });
 });
 

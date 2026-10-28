@@ -279,7 +279,7 @@
       "source": "Zonen jatorria",
       "sourceOrion": "Partzelaren kudeaketa-zonak",
       "sourceExternal": "Kanpoko fitxategia",
-      "upload": "Zonen fitxategia (GeoJSON edo CSV)",
+      "upload": "Zonen fitxategia (GeoJSON, CSV, shapefile .zip edo ISOXML .xml)",
       "noZones": "Partzelak ez du kudeaketa-zonarik.",
       "generateZones": "Zonak sortu ({{n}})",
       "polling": "Zonak sortzen…",
@@ -314,7 +314,8 @@
       "UNKNOWN": "{{code}} abisua",
       "VRA_UNCOVERED": "Ibilbidearen {{length_m}} m kudeaketa-zonetatik kanpo daude: ez da dosirik aplikatzen",
       "VRA_DEGENERATE": "Zona guztiek balio bera dute: klase bakar bat aplikatzen da",
-      "VRA_ZONE_INVALID": "{{zone_id}} zonaren geometria ez da baliozkoa eta ez ikusi egin zaio"
+      "VRA_ZONE_INVALID": "{{zone_id}} zonaren geometria ez da baliozkoa eta ez ikusi egin zaio",
+      "ZONES_NO_PRJ": "Shapefile .prj gabe: WGS84 (EPSG:4326) koordenatuak suposatzen dira"
     },
     "fallbacks": {
       "headland": "Muga-pasadak doituta: {{a}} -> {{b}}",
@@ -335,7 +336,10 @@
       "PERSIST_FAILED": "Eragiketa ezin izan da gorde",
       "UNKNOWN": "Ibilbidea ezin izan da sortu: {{detail}}",
       "CONFIG_UNVERIFIED": "Ezin izan da gordetako konfigurazioa egiaztatu. Ez da ezer sortu; saiatu berriro.",
-      "INVALID_VRA": "Dosi aldakorraren konfigurazioa ez da baliozkoa"
+      "INVALID_VRA": "Dosi aldakorraren konfigurazioa ez da baliozkoa",
+      "ZONES_FILE_INVALID": "Zonen fitxategia ez da baliozkoa edo ezin izan da irakurri",
+      "ZONES_NO_VALUE": "Ez dago balio-atributurik (value, mean, ndvi edo rate). Fitxategiko atributuak: {{attributes}}",
+      "ZONES_FILE_TOO_LARGE": "Zonen fitxategia 5 MB baino handiagoa da"
     },
     "actions": {
       "regenerate": "Birsortu",

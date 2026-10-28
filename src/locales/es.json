@@ -279,7 +279,7 @@
       "source": "Origen de las zonas",
       "sourceOrion": "Zonas de manejo de la parcela",
       "sourceExternal": "Fichero externo",
-      "upload": "Fichero de zonas (GeoJSON o CSV)",
+      "upload": "Fichero de zonas (GeoJSON, CSV, shapefile .zip o ISOXML .xml)",
       "noZones": "La parcela no tiene zonas de manejo.",
       "generateZones": "Generar zonas ({{n}})",
       "polling": "Generando zonas…",
@@ -314,7 +314,8 @@
       "UNKNOWN": "Aviso {{code}}",
       "VRA_UNCOVERED": "{{length_m}} m de ruta quedan fuera de las zonas de manejo: no se aplica dosis",
       "VRA_DEGENERATE": "Todas las zonas tienen el mismo valor: se aplica una sola clase",
-      "VRA_ZONE_INVALID": "La zona {{zone_id}} tiene una geometría no válida y se ignoró"
+      "VRA_ZONE_INVALID": "La zona {{zone_id}} tiene una geometría no válida y se ignoró",
+      "ZONES_NO_PRJ": "Shapefile sin .prj: se asumen coordenadas WGS84 (EPSG:4326)"
     },
     "fallbacks": {
       "headland": "Pasadas de cabecera ajustadas de {{a}} a {{b}}",
@@ -335,7 +336,10 @@
       "PERSIST_FAILED": "No se pudo guardar la operación",
       "UNKNOWN": "No se pudo generar la ruta: {{detail}}",
       "CONFIG_UNVERIFIED": "No se pudo verificar la configuración guardada. No se ha generado nada; reintenta.",
-      "INVALID_VRA": "La configuración de dosis variable no es válida"
+      "INVALID_VRA": "La configuración de dosis variable no es válida",
+      "ZONES_FILE_INVALID": "El fichero de zonas no es válido o no se ha podido leer",
+      "ZONES_NO_VALUE": "No hay atributo de valor (value, mean, ndvi o rate). Atributos del fichero: {{attributes}}",
+      "ZONES_FILE_TOO_LARGE": "El fichero de zonas supera los 5 MB"
     },
     "actions": {
       "regenerate": "Regenerar",

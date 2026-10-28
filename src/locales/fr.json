@@ -279,7 +279,7 @@
       "source": "Origine des zones",
       "sourceOrion": "Zones de gestion de la parcelle",
       "sourceExternal": "Fichier externe",
-      "upload": "Fichier de zones (GeoJSON ou CSV)",
+      "upload": "Fichier de zones (GeoJSON, CSV, shapefile .zip ou ISOXML .xml)",
       "noZones": "La parcelle n'a pas de zones de gestion.",
       "generateZones": "Générer les zones ({{n}})",
       "polling": "Génération des zones…",
@@ -314,7 +314,8 @@
       "UNKNOWN": "Alerte {{code}}",
       "VRA_UNCOVERED": "{{length_m}} m de parcours sont hors des zones de gestion : aucune dose appliquée",
       "VRA_DEGENERATE": "Toutes les zones ont la même valeur : une seule classe s'applique",
-      "VRA_ZONE_INVALID": "La zone {{zone_id}} a une géométrie invalide et a été ignorée"
+      "VRA_ZONE_INVALID": "La zone {{zone_id}} a une géométrie invalide et a été ignorée",
+      "ZONES_NO_PRJ": "Shapefile sans .prj : coordonnées supposées en WGS84 (EPSG:4326)"
     },
     "fallbacks": {
       "headland": "Passages de fourrière ajustés de {{a}} à {{b}}",
@@ -335,7 +336,10 @@
       "PERSIST_FAILED": "L'opération n'a pas pu être enregistrée",
       "UNKNOWN": "L'itinéraire n'a pas pu être généré : {{detail}}",
       "CONFIG_UNVERIFIED": "Impossible de vérifier la configuration enregistrée. Rien n'a été généré ; réessayez.",
-      "INVALID_VRA": "La configuration de dose variable n'est pas valide"
+      "INVALID_VRA": "La configuration de dose variable n'est pas valide",
+      "ZONES_FILE_INVALID": "Le fichier de zones n'est pas valide ou n'a pas pu être lu",
+      "ZONES_NO_VALUE": "Aucun attribut de valeur (value, mean, ndvi ou rate). Attributs du fichier : {{attributes}}",
+      "ZONES_FILE_TOO_LARGE": "Le fichier de zones dépasse 5 Mo"
     },
     "actions": {
       "regenerate": "Régénérer",

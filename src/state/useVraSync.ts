@@ -18,6 +18,8 @@ export interface VraSync {
   retry: () => void;
   generateZones: () => void;
   uploadFile: (file: File) => Promise<void>;
+  /** Warning codes of the last accepted upload (e.g. a shapefile without .prj). */
+  uploadWarnings: string[];
 }
 
 function vraError(e: unknown): NonNullable<WorkState['error']> {
@@ -33,6 +35,13 @@ function vraError(e: unknown): NonNullable<WorkState['error']> {
  * Side effects of the VRA step: distribution load on activation, zone generation polling,
  * external zone upload and the debounced prescription request. State lives in the reducer.
  */
+function toBase64(buf: ArrayBuffer): string {
+  const bytes = new Uint8Array(buf);
+  let bin = '';
+  for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+  return btoa(bin);
+}
+
 export function useVraSync(state: WorkState, dispatch: React.Dispatch<WorkEvent>): VraSync {
   const stateRef = useRef(state);
   stateRef.current = state;
@@ -40,6 +49,7 @@ export function useVraSync(state: WorkState, dispatch: React.Dispatch<WorkEvent>
   const pollRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const jobToken = useRef(0);
   const [pollError, setPollError] = useState<VraSync['pollError']>(null);
+  const [uploadWarnings, setUploadWarnings] = useState<string[]>([]);
   const [retryTick, setRetryTick] = useState(0);
 
   const parcelId = state.parcel?.id ?? null;
@@ -112,14 +122,19 @@ export function useVraSync(state: WorkState, dispatch: React.Dispatch<WorkEvent>
   const uploadFile = useCallback(async (file: File) => {
     const prId = stateRef.current.parcelRequestId;
     try {
-      const content = await file.text();
-      const format = file.name.toLowerCase().endsWith('.csv') ? 'csv' : 'geojson';
+      const name = file.name.toLowerCase();
+      const format = name.endsWith('.zip') ? 'shapefile' : name.endsWith('.xml') ? 'isoxml'
+        : name.endsWith('.csv') ? 'csv' : 'geojson';
+      const content = format === 'shapefile' || format === 'isoxml'
+        ? toBase64(await file.arrayBuffer()) : await file.text();
       const res = await api.ingestExternalZones(format, content);
       if (stateRef.current.parcelRequestId !== prId) return;
+      setUploadWarnings(res.data.warnings ?? []);
       const features: FeatureCollection = { type: 'FeatureCollection', features: res.data.zones };
       dispatch({ type: 'VRA_CONFIG_CHANGED', config: { source: 'external', externalFeatures: features } });
       dispatch({ type: 'VRA_DISTRIBUTION_LOADED', parcelRequestId: prId, distribution: res.data.distribution });
     } catch (e) {
+      setUploadWarnings([]);
       dispatch({ type: 'VRA_FAILED', parcelRequestId: prId, error: vraError(e) });
     }
   }, [dispatch]);
@@ -159,5 +174,5 @@ export function useVraSync(state: WorkState, dispatch: React.Dispatch<WorkEvent>
     setRetryTick((n) => n + 1);
   }, [dispatch]);
 
-  return { job, pollError, retry, generateZones, uploadFile };
+  return { job, pollError, retry, generateZones, uploadFile, uploadWarnings };
 }

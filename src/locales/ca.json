@@ -279,7 +279,7 @@
       "source": "Origen de les zones",
       "sourceOrion": "Zones de maneig de la parcel·la",
       "sourceExternal": "Fitxer extern",
-      "upload": "Fitxer de zones (GeoJSON o CSV)",
+      "upload": "Fitxer de zones (GeoJSON, CSV, shapefile .zip o ISOXML .xml)",
       "noZones": "La parcel·la no té zones de maneig.",
       "generateZones": "Generar zones ({{n}})",
       "polling": "Generant zones…",
@@ -314,7 +314,8 @@
       "UNKNOWN": "Avís {{code}}",
       "VRA_UNCOVERED": "{{length_m}} m de ruta queden fora de les zones de maneig: no s'aplica dosi",
       "VRA_DEGENERATE": "Totes les zones tenen el mateix valor: s'aplica una sola classe",
-      "VRA_ZONE_INVALID": "La zona {{zone_id}} té una geometria no vàlida i s'ha ignorat"
+      "VRA_ZONE_INVALID": "La zona {{zone_id}} té una geometria no vàlida i s'ha ignorat",
+      "ZONES_NO_PRJ": "Shapefile sense .prj: s'assumeixen coordenades WGS84 (EPSG:4326)"
     },
     "fallbacks": {
       "headland": "Passades de capçalera ajustades de {{a}} a {{b}}",
@@ -335,7 +336,10 @@
       "PERSIST_FAILED": "No s'ha pogut desar l'operació",
       "UNKNOWN": "No s'ha pogut generar la ruta: {{detail}}",
       "CONFIG_UNVERIFIED": "No s'ha pogut verificar la configuració desada. No s'ha generat res; torna-ho a provar.",
-      "INVALID_VRA": "La configuració de dosi variable no és vàlida"
+      "INVALID_VRA": "La configuració de dosi variable no és vàlida",
+      "ZONES_FILE_INVALID": "El fitxer de zones no és vàlid o no s'ha pogut llegir",
+      "ZONES_NO_VALUE": "No hi ha cap atribut de valor (value, mean, ndvi o rate). Atributs del fitxer: {{attributes}}",
+      "ZONES_FILE_TOO_LARGE": "El fitxer de zones supera els 5 MB"
     },
     "actions": {
       "regenerate": "Regenerar",

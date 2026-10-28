@@ -279,7 +279,7 @@
       "source": "Zone source",
       "sourceOrion": "Parcel management zones",
       "sourceExternal": "External file",
-      "upload": "Zones file (GeoJSON or CSV)",
+      "upload": "Zones file (GeoJSON, CSV, shapefile .zip or ISOXML .xml)",
       "noZones": "This parcel has no management zones.",
       "generateZones": "Generate zones ({{n}})",
       "polling": "Generating zones…",
@@ -314,7 +314,8 @@
       "UNKNOWN": "Warning {{code}}",
       "VRA_UNCOVERED": "{{length_m}} m of route lie outside the management zones: no rate applied",
       "VRA_DEGENERATE": "All zones have the same value: a single class applies",
-      "VRA_ZONE_INVALID": "Zone {{zone_id}} has an invalid geometry and was ignored"
+      "VRA_ZONE_INVALID": "Zone {{zone_id}} has an invalid geometry and was ignored",
+      "ZONES_NO_PRJ": "Shapefile without .prj: coordinates assumed to be WGS84 (EPSG:4326)"
     },
     "fallbacks": {
       "headland": "Headland passes adjusted from {{a}} to {{b}}",
@@ -335,7 +336,10 @@
       "PERSIST_FAILED": "The operation could not be saved",
       "UNKNOWN": "The route could not be generated: {{detail}}",
       "CONFIG_UNVERIFIED": "The saved configuration could not be verified. Nothing was generated; retry.",
-      "INVALID_VRA": "The variable-rate configuration is not valid"
+      "INVALID_VRA": "The variable-rate configuration is not valid",
+      "ZONES_FILE_INVALID": "The zones file is not valid or could not be read",
+      "ZONES_NO_VALUE": "No value attribute found (value, mean, ndvi or rate). Attributes in the file: {{attributes}}",
+      "ZONES_FILE_TOO_LARGE": "The zones file is larger than 5 MB"
     },
     "actions": {
       "regenerate": "Regenerate",

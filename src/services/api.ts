@@ -292,8 +292,8 @@ export const api = {
   },
 
   // External zones
-  ingestExternalZones(format: 'geojson' | 'csv', content: string) {
-    return request<{ success: boolean; data: { count: number; zones: IngestedZone[]; distribution: Distribution } }>('/zones/external/ingest', {
+  ingestExternalZones(format: 'geojson' | 'csv' | 'shapefile' | 'isoxml', content: string) {
+    return request<{ success: boolean; data: { count: number; zones: IngestedZone[]; warnings?: string[]; distribution: Distribution } }>('/zones/external/ingest', {
       method: 'POST', body: JSON.stringify({ format, content }),
     });
   },

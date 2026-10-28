@@ -96,7 +96,7 @@ export const StepVra: React.FC<Props> = ({ state, dispatch, sync }) => {
               <label className="text-nkz-sm text-nkz-text-secondary">{t('work.vra.upload')}</label>
               <input
                 type="file"
-                accept=".geojson,.json,.csv"
+                accept=".geojson,.json,.csv,.zip,.xml"
                 aria-label={t('work.vra.upload')}
                 disabled={locked}
                 className="block w-full text-nkz-sm mt-1"
@@ -106,6 +106,11 @@ export const StepVra: React.FC<Props> = ({ state, dispatch, sync }) => {
                   e.target.value = '';
                 }}
               />
+              {sync.uploadWarnings.map((w) => (
+                <p key={w} className="text-nkz-sm text-nkz-text-secondary" data-testid="vra-uploadwarning">
+                  {tr('warnings', w, {})}
+                </p>
+              ))}
               {zones.length === 0 && (
                 <p className="text-nkz-sm text-nkz-text-secondary" data-testid="vra-uploadprompt">{t('work.vra.uploadPrompt')}</p>
               )}
