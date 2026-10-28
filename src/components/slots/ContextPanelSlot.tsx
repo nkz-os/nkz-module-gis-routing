@@ -2,7 +2,7 @@
  * ContextPanelSlot — Viewer cockpit: mode FSM driving gate/no-go, work-route
  * generation, and A→B transit via window-event bridge to GisRoutingMapLayer.
  */
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { SlotShell } from '@nekazari/viewer-kit';
 import { useViewer, useTranslation } from '@nekazari/sdk';
 import { ExternalLink, Eye, Loader2, MapPin, Flag, Ban, Save, Trash2 } from 'lucide-react';
@@ -14,6 +14,7 @@ import { WorkRoutePanel } from '../viewer/WorkRoutePanel';
 import { TransitPanel, startTransit } from '../viewer/TransitPanel';
 import { EV, emitMode, type RoutingMode } from '../viewer/routingMode';
 import { Button } from '@nekazari/ui-kit';
+import { buildConfigPatch, type CfgSnapshot, type CfgZone } from '../../state/configPatch';
 
 const NS = 'gis-routing';
 
@@ -142,9 +143,12 @@ export const ContextPanelSlot: React.FC = () => {
   // Pathfinding state (driven by events from GisRoutingMapLayer)
   const [pfState, setPfState] = useState<string>('idle');
   const [pfAlt, setPfAlt] = useState<any>(null);
+  const [pfError, setPfError] = useState<{ code: string; params?: Record<string, unknown>; detail?: string } | null>(null);
   // Parcel-config state (access point + no-go zones), drawn via ParcelConfigDrawTool
   const [accessPoint, setAccessPoint] = useState<[number, number] | null>(null);
-  const [zones, setZones] = useState<Array<{ id: string; ring: number[][] }>>([]);
+  const [zones, setZones] = useState<CfgZone[]>([]);
+  // What the backend holds, as last loaded or saved: saving sends only the difference from it.
+  const loadedCfg = useRef<CfgSnapshot>({ gate: null, zones: [] });
   const [cfgSaving, setCfgSaving] = useState(false);
   const [cfgStatus, setCfgStatus] = useState<'idle' | 'saved' | 'error'>('idle');
   // Cockpit mode FSM
@@ -176,13 +180,20 @@ export const ContextPanelSlot: React.FC = () => {
     api.getParcelConfig(selectedEntityId)
       .then((d: any) => {
         if (cancelled) return;
-        setAccessPoint(d?.accessPoint?.coordinates ?? null);
-        setZones((d?.exclusionZones?.features ?? []).map((f: any, i: number) => ({
+        const gate = d?.accessPoint?.coordinates ?? null;
+        const loadedZones: CfgZone[] = (d?.exclusionZones?.features ?? []).map((f: any, i: number) => ({
           id: f?.properties?.id ?? `z${i}`,
-          ring: f?.geometry?.coordinates?.[0] ?? [],
-        })));
+          ring: (f?.geometry?.type === 'MultiPolygon'
+            ? f.geometry.coordinates?.[0]?.[0] : f?.geometry?.coordinates?.[0]) ?? [],
+          geometry: f?.geometry,
+        }));
+        loadedCfg.current = { gate, zones: loadedZones };
+        setAccessPoint(gate);
+        setZones(loadedZones);
       })
-      .catch(() => { if (!cancelled) { setAccessPoint(null); setZones([]); } });
+      .catch(() => {
+        if (!cancelled) { loadedCfg.current = { gate: null, zones: [] }; setAccessPoint(null); setZones([]); }
+      });
     window.dispatchEvent(new CustomEvent('nekazari:gis-routing:parcelConfig:show',
       { detail: { parcelId: selectedEntityId } }));
     return () => {
@@ -211,7 +222,11 @@ export const ContextPanelSlot: React.FC = () => {
 
   // Listen for pathfinding events from GisRoutingMapLayer
   useEffect(() => {
-    const onState = (e: Event) => setPfState((e as CustomEvent).detail?.state || 'idle');
+    const onState = (e: Event) => {
+      const d = (e as CustomEvent).detail;
+      setPfState(d?.state || 'idle');
+      setPfError(d?.error ?? null);
+    };
     const onAlt = (e: Event) => { setPfAlt((e as CustomEvent).detail); setPfState('done'); };
     window.addEventListener('nekazari:pf:stateChange', onState);
     window.addEventListener(EV.transitAltSelected, onAlt);
@@ -272,16 +287,12 @@ export const ContextPanelSlot: React.FC = () => {
     if (!selectedEntityId) return;
     setCfgSaving(true); setCfgStatus('idle');
     try {
-      await api.saveParcelConfig(selectedEntityId, {
-        accessPoint: accessPoint ? { type: 'Point', coordinates: accessPoint } : null,
-        exclusionZones: {
-          type: 'FeatureCollection',
-          features: zones.map(z => ({
-            type: 'Feature', properties: { id: z.id },
-            geometry: { type: 'Polygon', coordinates: [z.ring] },
-          })),
-        },
-      });
+      const current: CfgSnapshot = { gate: accessPoint, zones };
+      const patch = buildConfigPatch(loadedCfg.current, current);
+      if (Object.keys(patch).length > 0) {
+        await api.saveParcelConfig(selectedEntityId, patch);
+        loadedCfg.current = current;
+      }
       setCfgStatus('saved');
     } catch {
       setCfgStatus('error');
@@ -322,7 +333,7 @@ export const ContextPanelSlot: React.FC = () => {
           {mode === 'work-route' && <WorkRoutePanel parcelId={selectedEntityId} />}
           {(mode === 'picking-a' || mode === 'picking-b' ||
             mode === 'calculating' || mode === 'done') && (
-            <TransitPanel pfState={pfState} alt={pfAlt}
+            <TransitPanel pfState={pfState} alt={pfAlt} error={pfError}
               onSave={handleSavePfAlt}
               onCancel={() => selectMode('idle')} />
           )}
