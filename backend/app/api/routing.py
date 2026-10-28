@@ -722,16 +722,26 @@ def _iso_utc(value: Optional[datetime]) -> Optional[str]:
 
 
 class ExternalZonesIngestRequest(BaseModel):
-    format: str = Field(default="geojson", description="Supported: geojson, csv")
-    content: str = Field(..., description="Raw file contents")
+    format: str = Field(default="geojson", description="Supported: geojson, csv, shapefile, isoxml")
+    content: str = Field(..., description="File contents; base64 for shapefile (zip) and isoxml")
 
 
 @router.post("/zones/external/ingest")
 async def ingest_external_zones(body: ExternalZonesIngestRequest, auth: AuthContext = require_auth()):
     fmt = (body.format or "geojson").strip().lower()
-    if fmt not in {"geojson", "csv"}:
-        raise HTTPException(status_code=400, detail="Unsupported format. Use geojson or csv.")
-    if fmt == "geojson":
+    if fmt not in {"geojson", "csv", "shapefile", "isoxml"}:
+        raise HTTPException(status_code=400, detail="Unsupported format. Use geojson, csv, shapefile or isoxml.")
+    warnings: list[str] = []
+    if fmt in {"shapefile", "isoxml"}:
+        from app.services.vra import external as ext
+        data = ext.decode_content(body.content)
+        raw, warnings = ext.parse_shapefile(data) if fmt == "shapefile" else ext.parse_isoxml(data)
+        out = _normalize_external_zone_features(raw)
+        for f in out:
+            # a zone the file gives no value for must not get the normalizer's default rate
+            if "value" not in f["properties"]:
+                f["properties"].pop("prescription_rate", None)
+    elif fmt == "geojson":
         try:
             parsed = json.loads(body.content)
         except json.JSONDecodeError as exc:
@@ -749,6 +759,7 @@ async def ingest_external_zones(body: ExternalZonesIngestRequest, auth: AuthCont
         "data": {
             "count": len(out),
             "zones": out,
+            "warnings": warnings,
             "distribution": distribution(zones, missing, source="external", variable="value"),
         },
     }
