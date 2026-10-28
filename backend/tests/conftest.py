@@ -9,7 +9,28 @@ import fastapi.testclient
 
 original_request = fastapi.testclient.TestClient.request
 
+_PORTALS = []
+
+
+def _keep_event_loop_alive(client):
+    """A-B jobs are background tasks that hop to worker threads. With one portal per request the
+    loop is torn down as soon as the response is sent and an unfinished job is abandoned; one
+    portal for the client's lifetime lets jobs finish between the polls (like the real server).
+    No lifespan is run (it would start the Orion reconciler)."""
+    if client.portal is None:
+        import anyio.from_thread
+        cm = anyio.from_thread.start_blocking_portal(**client.async_backend)
+        client.portal = cm.__enter__()
+        _PORTALS.append(cm)
+
+
+def pytest_sessionfinish(session, exitstatus):
+    while _PORTALS:
+        _PORTALS.pop().__exit__(None, None, None)
+
+
 def patched_request(self, method, url, **kwargs):
+    _keep_event_loop_alive(self)
     headers = kwargs.get("headers") or {}
     headers.setdefault("X-Tenant-ID", "tenant-a")
     headers.setdefault("X-User-ID", "user-1")

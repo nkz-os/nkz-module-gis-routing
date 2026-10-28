@@ -73,14 +73,28 @@ def _grow_zones(zones, buffer_m):
     return buffered_zones(grown, 0.0)  # union (already buffered)
 
 
-async def _resolve_path_constraints(parcel_id, tenant_id, raster, cols, rows, machine_width_m, bbox):
+def _rasterize_constraints(zones, parcels, raster, cols, rows, machine_width_m):
+    """CPU part of an attempt (zone growing + rasterization, fences): runs in a worker thread."""
+    block_wgs84 = _grow_zones(zones, machine_width_m / 2.0)
+    zone_cells = rasterize_blocked_cells(
+        block_wgs84, raster["origin_lon"], raster["origin_lat"],
+        raster["pixel_size_deg"], cols, rows)
+    fences = parcel_barrier_map(parcels, raster, machine_width_m, cols=cols, rows=rows)
+    return zone_cells, fences
+
+
+async def _resolve_path_constraints(parcel_id, tenant_id, raster, cols, rows, machine_width_m, bbox,
+                                    report: dict | None = None):
     """Return (default_origin_or_None, zone_cells, fences).
 
     One read of the tenant's parcels in bbox gives both parts. The zones of every
     parcel are always blocked (an A-B route can leave the parcel); with parcel_id,
     that parcel's own zones are added and its access point is the default origin.
     fences maps each gated parcel id to its fence cells (crossable only at the gate);
-    ungated parcels are open ground.
+    ungated parcels are open ground. The Orion reads are async; all geometry and
+    raster work runs in a thread so the event loop keeps serving other requests.
+    When report is given, parcels whose location is unreadable are counted in
+    report["unreadable_parcels"] (their zones still count; they get no fence).
     """
     parcels = await fetch_tenant_parcels_in_bbox(tenant_id, bbox)
     zones = [z for p in parcels for z in p["zones"]]
@@ -89,11 +103,12 @@ async def _resolve_path_constraints(parcel_id, tenant_id, raster, cols, rows, ma
         c = await _fetch_parcel_constraints(parcel_id, tenant_id)
         zones += list(c["zones"])
         default_origin = c["access_point"]
-    block_wgs84 = _grow_zones(zones, machine_width_m / 2.0)
-    zone_cells = rasterize_blocked_cells(
-        block_wgs84, raster["origin_lon"], raster["origin_lat"],
-        raster["pixel_size_deg"], cols, rows)
-    fences = parcel_barrier_map(parcels, raster, machine_width_m, cols=cols, rows=rows)
+    if report is not None:
+        report["unreadable_parcels"] = sum(1 for p in parcels if p.get("polygon") is None and p.get("geometry") is None)
+    zone_cells, fences = await asyncio.to_thread(
+        _rasterize_constraints, zones, parcels, raster, cols, rows, machine_width_m)
+    if report is not None:
+        report["constraints_used"] = {"parcels": len(parcels), "gated": len(fences), "zones": len(zones)}
     return default_origin, zone_cells, fences
 
 
@@ -134,10 +149,11 @@ def _search_bbox(a: list[float], b: list[float], margin_m: float) -> tuple[float
 
 
 def _planned_cells(bbox: tuple[float, float, float, float]) -> int:
-    mid_lat = (bbox[1] + bbox[3]) / 2.0
-    w_m = (bbox[2] - bbox[0]) * _M_PER_DEG_LAT * math.cos(math.radians(mid_lat))
-    h_m = (bbox[3] - bbox[1]) * _M_PER_DEG_LAT
-    return math.ceil(w_m / DEM_RESOLUTION_M) * math.ceil(h_m / DEM_RESOLUTION_M)
+    """Cells of the DEM grid for bbox. The grid has square degrees (pixel = 10 m / 111320 on both
+    axes), so longitude cells are narrower than 10 m away from the equator and there are more."""
+    cols = math.ceil((bbox[2] - bbox[0]) * _M_PER_DEG_LAT / DEM_RESOLUTION_M)
+    rows = math.ceil((bbox[3] - bbox[1]) * _M_PER_DEG_LAT / DEM_RESOLUTION_M)
+    return cols * rows
 
 
 async def _run_pathfinding(job_id: str, body: PathRequest, tenant_id: str):
@@ -211,9 +227,10 @@ async def _search(job_id: str, body: PathRequest, tenant_id: str, machine_width_
         end_col = max(0, min(int((lon_b - origin_lon) / pixel_size), cols - 1))
         end_row = max(0, min(int((lat_b - origin_lat) / pixel_size), rows - 1))
 
+        prep: dict = {}
         _default_origin, zone_cells, fences = await _resolve_path_constraints(
             parcel_id=body.parcel_id, tenant_id=tenant_id, raster=raster,
-            cols=cols, rows=rows, machine_width_m=machine_width_m, bbox=bbox)
+            cols=cols, rows=rows, machine_width_m=machine_width_m, bbox=bbox, report=prep)
         fence_cells: set = set().union(*fences.values()) if fences else set()
         blocked = zone_cells | fence_cells
 
@@ -250,6 +267,10 @@ async def _search(job_id: str, body: PathRequest, tenant_id: str, machine_width_
                     "max_slope_deg_found": max(a["max_slope_deg_found"] for a in alternatives),
                     "blocked_cells_hit": sum(a["blocked_cells_hit"] for a in alternatives),
                     "search_margin_m": margin_m,
+                    "warnings": ([{"code": "PARCELS_UNREADABLE", "params": {"count": prep["unreadable_parcels"]}}]
+                                 if prep.get("unreadable_parcels") else []),
+                    "constraints_used": prep.get("constraints_used",
+                                                 {"parcels": 0, "gated": 0, "zones": 0}),
                 },
             })
             return

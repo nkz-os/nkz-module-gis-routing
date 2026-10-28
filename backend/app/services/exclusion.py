@@ -8,6 +8,9 @@ from __future__ import annotations
 
 from typing import Callable
 
+import numpy as np
+import shapely
+
 from shapely.geometry import Point, Polygon, mapping
 from shapely.geometry.base import BaseGeometry
 from shapely.ops import unary_union
@@ -85,27 +88,36 @@ def validate_access_point(point: Point, parcel: Polygon, zones: list[Polygon],
                              code="ACCESS_IN_ZONE", params=_params())
 
 
+def _polygon_parts(geom) -> list:
+    if geom.is_empty:
+        return []
+    if hasattr(geom, "geoms"):
+        return [q for g in geom.geoms for q in _polygon_parts(g)]
+    return [geom]
+
+
 def rasterize_blocked_cells(block: "BaseGeometry | None", origin_lon: float,
                             origin_lat: float, pixel_size_deg: float,
                             cols: int, rows: int) -> set:
     """Return {(col, row)} whose cell centre falls inside `block`.
 
     `block` is a shapely geometry already in the grid's coordinate space.
-    Uses a bounding-box window to avoid scanning the full grid.
-    Returns an empty set if block is None or empty.
+    Each part is tested over its own bounding window with a vectorised point test,
+    so distant zones do not cost the area between them. Returns an empty set if
+    block is None or empty.
     """
     blocked: set = set()
     if block is None or block.is_empty:
         return blocked
-    minx, miny, maxx, maxy = block.bounds
-    c0 = max(0, int((minx - origin_lon) / pixel_size_deg))
-    c1 = min(cols - 1, int((maxx - origin_lon) / pixel_size_deg) + 1)
-    r0 = max(0, int((miny - origin_lat) / pixel_size_deg))
-    r1 = min(rows - 1, int((maxy - origin_lat) / pixel_size_deg) + 1)
-    for r in range(r0, r1 + 1):
-        lat = origin_lat + r * pixel_size_deg
-        for c in range(c0, c1 + 1):
-            lon = origin_lon + c * pixel_size_deg
-            if block.contains(Point(lon, lat)):
-                blocked.add((c, r))
+    for part in _polygon_parts(block):
+        minx, miny, maxx, maxy = part.bounds
+        c0 = max(0, int((minx - origin_lon) / pixel_size_deg))
+        c1 = min(cols - 1, int((maxx - origin_lon) / pixel_size_deg) + 1)
+        r0 = max(0, int((miny - origin_lat) / pixel_size_deg))
+        r1 = min(rows - 1, int((maxy - origin_lat) / pixel_size_deg) + 1)
+        if c1 < c0 or r1 < r0:
+            continue
+        cs, rs = np.meshgrid(np.arange(c0, c1 + 1), np.arange(r0, r1 + 1))
+        inside = shapely.contains_xy(part, origin_lon + cs * pixel_size_deg, origin_lat + rs * pixel_size_deg)
+        blocked.update((int(c), int(r)) for c, r in zip(cs[inside], rs[inside]))
     return blocked

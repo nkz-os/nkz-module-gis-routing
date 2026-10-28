@@ -108,7 +108,7 @@ def test_machine_id_sets_width(monkeypatch):
     async def fake_machine(machine_id, tenant_id):
         return {"implementWidth": 5.5}
 
-    async def fake_constraints(parcel_id, tenant_id, raster, cols, rows, machine_width_m, bbox):
+    async def fake_constraints(parcel_id, tenant_id, raster, cols, rows, machine_width_m, bbox, report=None):
         seen["w"] = machine_width_m
         return None, set(), {}
 
