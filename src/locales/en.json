@@ -334,6 +334,9 @@
       "INVALID_GEOMETRY": "The geometry is not valid",
       "ENGINE_FAILURE": "Internal routing engine error",
       "PERSIST_FAILED": "The operation could not be saved",
+      "PLAN_EXPIRED": "The reviewed plan has expired. Generate it again.",
+      "PARCEL_REQUIRED": "The operation needs a parcel to be saved",
+      "INVALID_DATES": "The planned dates are not valid",
       "UNKNOWN": "The route could not be generated: {{detail}}",
       "CONFIG_UNVERIFIED": "The saved configuration could not be verified. Nothing was generated; retry.",
       "INVALID_VRA": "The variable-rate configuration is not valid",
@@ -345,6 +348,7 @@
     },
     "actions": {
       "regenerate": "Regenerate",
+      "generateAgain": "Generate again",
       "sendToTractor": "Send to tractor",
       "sent": "Sent ({{id}})",
       "copyId": "Copy ID",

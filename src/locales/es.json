@@ -334,6 +334,9 @@
       "INVALID_GEOMETRY": "La geometría no es válida",
       "ENGINE_FAILURE": "Error interno del motor de rutas",
       "PERSIST_FAILED": "No se pudo guardar la operación",
+      "PLAN_EXPIRED": "El plan revisado ha caducado. Vuelve a generarlo.",
+      "PARCEL_REQUIRED": "La operación necesita una parcela para guardarse",
+      "INVALID_DATES": "Las fechas previstas no son válidas",
       "UNKNOWN": "No se pudo generar la ruta: {{detail}}",
       "CONFIG_UNVERIFIED": "No se pudo verificar la configuración guardada. No se ha generado nada; reintenta.",
       "INVALID_VRA": "La configuración de dosis variable no es válida",
@@ -345,6 +348,7 @@
     },
     "actions": {
       "regenerate": "Regenerar",
+      "generateAgain": "Generar de nuevo",
       "sendToTractor": "Enviar al tractor",
       "sent": "Enviada ({{id}})",
       "copyId": "Copiar ID",

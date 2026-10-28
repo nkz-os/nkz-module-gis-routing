@@ -48,7 +48,15 @@ export interface WorkState {
   accessIssue: 'outside' | 'in_zone' | null;
   machine: MachineConfig;
   pattern: PatternConfig;
-  result: { plan: Plan; kind: 'valid' | 'with_warnings'; operationId: string | null } | null;
+  result: {
+    plan: Plan; kind: 'valid' | 'with_warnings'; operationId: string | null;
+    /** Stored plan this result displays; Save persists it by id. */
+    planId: string | null;
+    /** VRA request the plan was generated with (null = none); Save regenerates when it differs. */
+    vraKey: string | null;
+  } | null;
+  /** vraKey of the generate request in flight. */
+  generatingVraKey: string | null;
   vra: VraState;
   error: { code: string; detail: string; params: Record<string, unknown> } | null;
 }
@@ -70,7 +78,7 @@ export type WorkEvent =
   | { type: 'GENERATED'; response: GenerateResponse }
   | { type: 'GENERATE_FAILED'; error: WorkState['error'] }
   | { type: 'SAVE_REQUESTED' }
-  | { type: 'SAVE_RESULT'; response: GenerateResponse }
+  | { type: 'SAVE_RESULT'; operationId: string; regenerated?: GenerateResponse }
   | { type: 'SAVE_FAILED'; error: WorkState['error'] }
   | { type: 'DISMISS_ERROR' };
 
@@ -101,6 +109,7 @@ export const initialWorkState: WorkState = {
   },
   pattern: { pattern: 'auto', headingMode: 'auto', headingDeg: 0, headlandPasses: 1, returnToAccess: false },
   result: null,
+  generatingVraKey: null,
   vra: initialVraState,
   error: null,
 };
@@ -127,10 +136,24 @@ function afterEdit(prev: WorkState, next: WorkState): WorkState {
   return { ...next, phase, stale: prev.result !== null ? true : next.stale, error: null };
 }
 
-function resultFrom(response: GenerateResponse): NonNullable<WorkState['result']> {
+function resultFrom(response: GenerateResponse, vraKey: string | null): NonNullable<WorkState['result']> {
   const v = response.plan.validation;
   const clean = v !== null && v.ok && v.warnings.length === 0;
-  return { plan: response.plan, kind: clean ? 'valid' : 'with_warnings', operationId: response.operation_id };
+  return {
+    plan: response.plan, kind: clean ? 'valid' : 'with_warnings', operationId: response.operation_id,
+    planId: response.plan_id ?? null, vraKey,
+  };
+}
+
+/** The VRA request a generate would carry now (see buildGenerateRequest), serialised for comparison. */
+export function currentVraKey(s: WorkState): string | null {
+  const vra = s.vra.prescription !== null ? toVraRequest(s.vra.config) : null;
+  return vra ? JSON.stringify(vra) : null;
+}
+
+/** True when the stored plan was generated with a different VRA than the one on screen. */
+export function savedPlanVraDiffers(s: WorkState): boolean {
+  return s.result !== null && s.result.vraKey !== currentVraKey(s);
 }
 
 // Request form of the VRA config, or null when disabled or any rate is not a number >= 0.
@@ -232,11 +255,11 @@ export function workReducer(state: WorkState, event: WorkEvent): WorkState {
     case 'GENERATE_REQUESTED':
       // Any non-busy phase with a complete configuration may (re)generate.
       if (!canGenerate(state)) return state;
-      return { ...state, phase: 'generating', error: null };
+      return { ...state, phase: 'generating', error: null, generatingVraKey: currentVraKey(state) };
     case 'GENERATED':
       if (state.phase !== 'generating') return state;
       return {
-        ...state, phase: 'generated', stale: false, result: resultFrom(event.response), error: null,
+        ...state, phase: 'generated', stale: false, result: resultFrom(event.response, state.generatingVraKey), error: null,
         vra: withPlanPrescription(state, event.response.plan),
       };
     case 'GENERATE_FAILED':
@@ -246,18 +269,15 @@ export function workReducer(state: WorkState, event: WorkEvent): WorkState {
       if (state.phase !== 'generated' || vraSaveBlocker(state) !== null) return state;
       return { ...state, phase: 'saving', error: null };
     case 'SAVE_RESULT': {
-      if (state.phase !== 'saving') return state;
-      const { response } = event;
-      if (response.persisted && response.operation_id) {
-        // Show the plan that was persisted: the save request recomputes it.
-        return {
-          ...state, phase: 'saved', stale: false, result: resultFrom(response), error: null,
-          vra: withPlanPrescription(state, response.plan),
-        };
-      }
+      if (state.phase !== 'saving' || state.result === null) return state;
+      const { regenerated, operationId } = event;
+      // A regenerated plan (VRA changed after generating) replaces the displayed one: it is the one stored.
+      const result = regenerated
+        ? { ...resultFrom(regenerated, currentVraKey(state)), operationId }
+        : { ...state.result, operationId };
       return {
-        ...state, phase: 'failed',
-        error: { code: 'PERSIST_FAILED', detail: 'Plan was not persisted', params: {} },
+        ...state, phase: 'saved', stale: false, result, error: null,
+        vra: regenerated ? withPlanPrescription(state, regenerated.plan) : state.vra,
       };
     }
     case 'SAVE_FAILED':

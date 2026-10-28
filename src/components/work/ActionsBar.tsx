@@ -79,6 +79,11 @@ export const ActionsBar: React.FC<Props> = ({
             <Button variant="ghost" onClick={() => dispatch({ type: 'DISMISS_ERROR' })}>
               {t('actions.retry')}
             </Button>
+            {error.code === 'PLAN_EXPIRED' && (
+              <Button variant="primary" onClick={onGenerate} disabled={!canGenerate(state)}>
+                {t('work.actions.generateAgain')}
+              </Button>
+            )}
             {errGeometry && (
               <Button variant="ghost" onClick={() => onShowError(errGeometry)}>
                 {t('result.showOnMap')}

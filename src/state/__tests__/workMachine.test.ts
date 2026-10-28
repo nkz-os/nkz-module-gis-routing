@@ -1,11 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { workReducer, initialWorkState, canGenerate, stepStatus, buildGenerateRequest, vraSaveBlocker } from '../workMachine';
+import { workReducer, initialWorkState, canGenerate, stepStatus, buildGenerateRequest, vraSaveBlocker, savedPlanVraDiffers } from '../workMachine';
 const geom = { type: 'Polygon', coordinates: [[[0, 0], [1, 0], [1, 1], [0, 1], [0, 0]]] } as const;
 const loaded = (s = initialWorkState, requestId = 1) => workReducer(
   workReducer(s, { type: 'PARCEL_SELECTED', id: 'p1', requestId }),
   { type: 'PARCEL_LOADED', requestId, id: 'p1', name: 'P1', geometry: geom as any, config: { accessPoint: null, exclusionZones: null } });
 const machineReady = (s: any) => workReducer(s, { type: 'MACHINE_CHANGED', machine: { widthM: 24, widthSource: 'manual', turningRadiusM: 6, radiusSource: 'manual' } });
-const plan = (ok: boolean, warnings: any[] = []) => ({ success: true, operation_id: null, persisted: false,
+const plan = (ok: boolean, warnings: any[] = []) => ({ success: true, operation_id: null, persisted: false, plan_id: 'plan-1',
   plan: { pattern: 'boustrophedon', validation: { ok, checks: [], fallbacks_applied: [], warnings }, route: { type: 'LineString', coordinates: [] }, swaths: [], metrics: {} } as any });
 
 describe('workReducer', () => {
@@ -41,12 +41,12 @@ describe('workReducer', () => {
     const s = workReducer(g, { type: 'PATTERN_CHANGED', pattern: { pattern: 'snake' } });
     expect(s.phase).toBe('ready'); expect(s.stale).toBe(true); expect(s.result).not.toBeNull();
   });
-  it('SAVE_RESULT persisted=false → failed(PERSIST_FAILED) keeping the plan', () => {
+  it('SAVE_RESULT keeps the displayed plan and records the operation id and its plan id', () => {
     const g = workReducer(workReducer(machineReady(loaded()), { type: 'GENERATE_REQUESTED' }), { type: 'GENERATED', response: plan(true) });
-    const s = workReducer(workReducer(g, { type: 'SAVE_REQUESTED' }), { type: 'SAVE_RESULT', response: { ...plan(true), persisted: false, operation_id: null } });
-    expect(s.phase).toBe('failed'); expect(s.error?.code).toBe('PERSIST_FAILED'); expect(s.result).not.toBeNull();
-    const ok = workReducer(workReducer(g, { type: 'SAVE_REQUESTED' }), { type: 'SAVE_RESULT', response: { ...plan(true), persisted: true, operation_id: 'urn:op:1' } });
-    expect(ok.phase).toBe('saved'); expect(ok.result?.operationId).toBe('urn:op:1');
+    expect(g.result?.planId).toBe('plan-1');
+    const s = workReducer(workReducer(g, { type: 'SAVE_REQUESTED' }), { type: 'SAVE_RESULT', operationId: 'urn:op:1' });
+    expect(s.phase).toBe('saved'); expect(s.result?.operationId).toBe('urn:op:1');
+    expect(s.result?.plan).toBe(g.result?.plan); expect(s.result?.planId).toBe('plan-1');
   });
   it('GENERATE_REQUESTED is ignored unless ready; DISMISS_ERROR returns to generated when a plan exists', () => {
     const c = loaded();
@@ -77,7 +77,7 @@ describe('workReducer', () => {
   });
   it('SAVE_RESULT outside saving is ignored', () => {
     const g = workReducer(workReducer(machineReady(loaded()), { type: 'GENERATE_REQUESTED' }), { type: 'GENERATED', response: plan(true) });
-    const s = workReducer(g, { type: 'SAVE_RESULT', response: { ...plan(true), persisted: true, operation_id: 'urn:op:1' } });
+    const s = workReducer(g, { type: 'SAVE_RESULT', operationId: 'urn:op:1' });
     expect(s).toBe(g);
   });
   it('buildGenerateRequest throws once generating', () => {
@@ -110,12 +110,12 @@ describe('workReducer', () => {
     expect(canGenerate(busy)).toBe(false);
     expect(workReducer(busy, { type: 'GENERATE_REQUESTED' })).toBe(busy);
   });
-  it('SAVE_RESULT shows the persisted plan, not the previously reviewed one', () => {
+  it('SAVE_RESULT with a regenerated plan shows that plan and its id', () => {
     const g = workReducer(workReducer(machineReady(loaded()), { type: 'GENERATE_REQUESTED' }), { type: 'GENERATED', response: plan(true) });
-    const persisted = { ...plan(true), persisted: true, operation_id: 'urn:op:2' };
-    persisted.plan = { ...persisted.plan, pattern: 'spiral' };
-    const s = workReducer(workReducer(g, { type: 'SAVE_REQUESTED' }), { type: 'SAVE_RESULT', response: persisted });
-    expect(s.result?.plan.pattern).toBe('spiral'); expect(s.result?.operationId).toBe('urn:op:2');
+    const regen = { ...plan(true), plan_id: 'plan-2' };
+    regen.plan = { ...regen.plan, pattern: 'spiral' };
+    const s = workReducer(workReducer(g, { type: 'SAVE_REQUESTED' }), { type: 'SAVE_RESULT', operationId: 'urn:op:2', regenerated: regen });
+    expect(s.result?.plan.pattern).toBe('spiral'); expect(s.result?.planId).toBe('plan-2'); expect(s.result?.operationId).toBe('urn:op:2');
   });
 });
 
@@ -147,8 +147,20 @@ describe('VRA slice', () => {
   });
   it('SAVE_RESULT takes the plan prescription', () => {
     const g = generated(machineReady(loaded()), null);
-    const s = workReducer(workReducer(g, { type: 'SAVE_REQUESTED' }), { type: 'SAVE_RESULT', response: { ...planWith(prescription), persisted: true, operation_id: 'urn:op:1' } });
+    const s = workReducer(workReducer(g, { type: 'SAVE_REQUESTED' }), { type: 'SAVE_RESULT', operationId: 'urn:op:1', regenerated: { ...planWith(prescription), plan_id: 'plan-2' } });
     expect(s.vra.prescription).toBe(prescription);
+  });
+  it('savedPlanVraDiffers: a prescription computed after generating needs a regenerate; an unchanged one does not', () => {
+    const none = generated(full(machineReady(loaded())), null);
+    expect(savedPlanVraDiffers(none)).toBe(false);
+    const withRx = workReducer(none, { type: 'VRA_PRESCRIPTION_RESULT', parcelRequestId: none.parcelRequestId, requestId: none.vra.requestId, prescription: prescription as any });
+    expect(savedPlanVraDiffers(withRx)).toBe(true);
+    const base = full(machineReady(loaded()));
+    const rx = workReducer(base, { type: 'VRA_PRESCRIPTION_RESULT', parcelRequestId: base.parcelRequestId, requestId: base.vra.requestId, prescription: prescription as any });
+    const withVra = generated(rx, prescription);
+    expect(savedPlanVraDiffers(withVra)).toBe(false);
+    const off = workReducer(withVra, { type: 'VRA_CONFIG_CHANGED', config: { enabled: false } });
+    expect(savedPlanVraDiffers(off)).toBe(true);
   });
   it('distribution / prescription / failure events drive status', () => {
     const dist = { source: 'orion', variable: 'NDVI', zones: [], missing: [], percentiles: [] } as any;

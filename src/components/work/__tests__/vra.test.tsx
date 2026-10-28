@@ -58,7 +58,7 @@ function baseState(over: Partial<WorkState> = {}, vra: Partial<WorkState['vra']>
     activeStep: 'vra',
     parcel: { id: 'p1', name: 'Alpha', geometry: poly(0, 0.01) },
     parcelRequestId: 1,
-    result: { plan: { swaths: [], prescription: null } as any, kind: 'valid', operationId: null },
+    result: { plan: { swaths: [], prescription: null } as any, kind: 'valid', operationId: null, planId: null, vraKey: null },
     ...over,
     vra: {
       ...initialWorkState.vra, ...vra,
@@ -225,7 +225,7 @@ describe('StepVra', () => {
       classes: [{ minPct: 0, maxPct: 33, rate: 1 }, { minPct: 33, maxPct: 67, rate: 2 }, { minPct: 67, maxPct: 100, rate: 3 }],
     };
     const s = baseState({}, { prescription: presc() }, cfg);
-    s.result = { plan: { swaths: [], prescription: presc() } as any, kind: 'valid', operationId: null };
+    s.result = { plan: { swaths: [], prescription: presc() } as any, kind: 'valid', operationId: null, planId: null, vraKey: null };
     await mount(s);
     await flush(1000);
     expect(api.prescription).not.toHaveBeenCalled();

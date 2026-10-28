@@ -42,6 +42,7 @@ vi.mock('../../../services/api', async (importOriginal) => {
       getParcelConfig: vi.fn(),
       listEquipment: vi.fn(),
       generate: vi.fn(),
+      saveOperation: vi.fn(),
       saveParcelConfig: vi.fn(),
       getExportUrl: vi.fn(() => 'http://export.test/x'),
     },
@@ -123,7 +124,7 @@ describe('WorkScreen', () => {
   });
 
   it('generate: verifies config, calls api.generate with persist:false and renders the result strip', async () => {
-    (api.generate as any).mockResolvedValue({ success: true, operation_id: null, persisted: false, plan: planFixture() });
+    (api.generate as any).mockResolvedValue({ success: true, operation_id: null, persisted: false, plan_id: 'plan-1', plan: planFixture() });
     await loadAndConfigure();
     fireEvent.click(screen.getByRole('button', { name: /Generar ruta/i }));
     await screen.findByText(/12 pasadas/);
@@ -144,16 +145,17 @@ describe('WorkScreen', () => {
     await waitFor(() => expect(mapProps().model.focus).toEqual(point));
   });
 
-  it('save: calls api.generate with persist:true and shows the operation id when persisted', async () => {
-    (api.generate as any)
-      .mockResolvedValueOnce({ success: true, operation_id: null, persisted: false, plan: planFixture() })
-      .mockResolvedValueOnce({ success: true, operation_id: 'op-12345678', persisted: true, plan: planFixture() });
+  it('save: persists the reviewed plan by id without a second /generate', async () => {
+    (api.generate as any).mockResolvedValue({ success: true, operation_id: null, persisted: false, plan_id: 'plan-1', plan: planFixture() });
+    (api.saveOperation as any).mockResolvedValue({ success: true, operation_id: 'op-12345678', persisted: true });
     await loadAndConfigure();
     fireEvent.click(screen.getByRole('button', { name: /Generar ruta/i }));
     await screen.findByText(/12 pasadas/);
     fireEvent.click(screen.getByRole('button', { name: 'Enviar al tractor' }));
     await screen.findByText('Enviada (12345678)');
-    expect((api.generate as any).mock.calls.map((c: any[]) => c[0].persist)).toEqual([false, true]);
+    expect(api.generate).toHaveBeenCalledTimes(1);
+    expect((api.generate as any).mock.calls[0][0].persist).toBe(false);
+    expect(api.saveOperation).toHaveBeenCalledWith({ kind: 'plan', plan_id: 'plan-1' });
     expect(screen.getByText('op-12345678')).toBeTruthy();
   });
 
@@ -186,7 +188,7 @@ describe('WorkScreen', () => {
 });
 
 describe('WorkScreen request flow', () => {
-  const okResponse = () => ({ success: true, operation_id: null, persisted: false, plan: planFixture() });
+  const okResponse = () => ({ success: true, operation_id: null, persisted: false, plan_id: 'plan-1', plan: planFixture() });
   const clickGenerate = () => fireEvent.click(screen.getByRole('button', { name: /Generar ruta|Regenerar/i }));
 
   it('a double click on Generar sends one request (state machine locks before any await)', async () => {
@@ -247,16 +249,33 @@ describe('WorkScreen request flow', () => {
     expect(alert.textContent).not.toContain('Error interno del motor');
   });
 
-  it('save shows the persisted plan returned by the server', async () => {
-    const second = planFixture(); second.swath_count = 7;
-    (api.generate as any)
-      .mockResolvedValueOnce(okResponse())
-      .mockResolvedValueOnce({ success: true, operation_id: 'op-12345678', persisted: true, plan: second });
+  it('a double click on Enviar sends one save', async () => {
+    let resolve!: (v: unknown) => void;
+    (api.generate as any).mockResolvedValue(okResponse());
+    (api.saveOperation as any).mockImplementation(() => new Promise((r) => { resolve = r; }));
+    await loadAndConfigure();
+    clickGenerate();
+    await screen.findByText(/12 pasadas/);
+    const btn = screen.getByRole('button', { name: 'Enviar al tractor' });
+    fireEvent.click(btn);
+    fireEvent.click(btn);
+    await waitFor(() => expect(api.saveOperation).toHaveBeenCalledTimes(1));
+    await act(async () => { resolve({ success: true, operation_id: 'op-12345678', persisted: true }); });
+    await screen.findByText('Enviada (12345678)');
+    expect(api.saveOperation).toHaveBeenCalledTimes(1);
+  });
+
+  it('an expired plan shows the translated error and Generar de nuevo regenerates', async () => {
+    (api.generate as any).mockResolvedValue(okResponse());
+    (api.saveOperation as any).mockRejectedValue(new ApiError(410, { code: 'PLAN_EXPIRED', detail: 'gone' }));
     await loadAndConfigure();
     clickGenerate();
     await screen.findByText(/12 pasadas/);
     fireEvent.click(screen.getByRole('button', { name: 'Enviar al tractor' }));
-    await screen.findByText(/7 pasadas/);
+    const alert = await screen.findByRole('alert');
+    expect(alert.textContent).toContain('caducado');
+    fireEvent.click(screen.getByRole('button', { name: 'Generar de nuevo' }));
+    await waitFor(() => expect(api.generate).toHaveBeenCalledTimes(2));
   });
 
   it('removing the entrance: verify sees a cleared broker (no re-PUT); a stale broker gets an explicit null', async () => {

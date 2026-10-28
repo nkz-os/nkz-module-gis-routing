@@ -334,6 +334,9 @@
       "INVALID_GEOMETRY": "A geometria não é válida",
       "ENGINE_FAILURE": "Erro interno do motor de rotas",
       "PERSIST_FAILED": "Não foi possível guardar a operação",
+      "PLAN_EXPIRED": "O plano revisto expirou. Gere-o novamente.",
+      "PARCEL_REQUIRED": "A operação precisa de uma parcela para ser guardada",
+      "INVALID_DATES": "As datas previstas não são válidas",
       "UNKNOWN": "Não foi possível gerar a rota: {{detail}}",
       "CONFIG_UNVERIFIED": "Não foi possível verificar a configuração guardada. Nada foi gerado; tente novamente.",
       "INVALID_VRA": "A configuração de dose variável não é válida",
@@ -345,6 +348,7 @@
     },
     "actions": {
       "regenerate": "Regenerar",
+      "generateAgain": "Gerar novamente",
       "sendToTractor": "Enviar ao trator",
       "sent": "Enviada ({{id}})",
       "copyId": "Copiar ID",

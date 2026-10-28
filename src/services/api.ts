@@ -153,6 +153,14 @@ export interface GenerateResponse {
   operation_id: string | null;
   persisted: boolean;
   plan: Plan;
+  /** Id of the stored plan; save it with api.saveOperation. */
+  plan_id: string;
+}
+
+export interface SaveOperationResponse {
+  success: boolean;
+  operation_id: string;
+  persisted: boolean;
 }
 
 export interface GenerateRequest {
@@ -205,6 +213,10 @@ export const api = {
   // Generation
   generate(body: GenerateRequest): Promise<GenerateResponse> {
     return request('/generate', { method: 'POST', body: JSON.stringify(body) });
+  },
+
+  saveOperation(body: { kind: 'plan'; plan_id: string }): Promise<SaveOperationResponse> {
+    return request('/operations', { method: 'POST', body: JSON.stringify(body) });
   },
 
   // Parcels

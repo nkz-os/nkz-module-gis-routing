@@ -334,6 +334,9 @@
       "INVALID_GEOMETRY": "La géométrie n'est pas valide",
       "ENGINE_FAILURE": "Erreur interne du moteur d'itinéraires",
       "PERSIST_FAILED": "L'opération n'a pas pu être enregistrée",
+      "PLAN_EXPIRED": "Le plan révisé a expiré. Générez-le à nouveau.",
+      "PARCEL_REQUIRED": "L'opération nécessite une parcelle pour être enregistrée",
+      "INVALID_DATES": "Les dates prévues ne sont pas valides",
       "UNKNOWN": "L'itinéraire n'a pas pu être généré : {{detail}}",
       "CONFIG_UNVERIFIED": "Impossible de vérifier la configuration enregistrée. Rien n'a été généré ; réessayez.",
       "INVALID_VRA": "La configuration de dose variable n'est pas valide",
@@ -345,6 +348,7 @@
     },
     "actions": {
       "regenerate": "Régénérer",
+      "generateAgain": "Générer à nouveau",
       "sendToTractor": "Envoyer au tracteur",
       "sent": "Envoyée ({{id}})",
       "copyId": "Copier l'ID",

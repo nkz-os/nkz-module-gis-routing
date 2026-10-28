@@ -334,6 +334,9 @@
       "INVALID_GEOMETRY": "Geometria ez da baliozkoa",
       "ENGINE_FAILURE": "Bide-motorraren barne errorea",
       "PERSIST_FAILED": "Eragiketa ezin izan da gorde",
+      "PLAN_EXPIRED": "Berrikusitako plana iraungi da. Sortu berriro.",
+      "PARCEL_REQUIRED": "Eragiketa gordetzeko lursail bat behar da",
+      "INVALID_DATES": "Aurreikusitako datak ez dira baliozkoak",
       "UNKNOWN": "Ibilbidea ezin izan da sortu: {{detail}}",
       "CONFIG_UNVERIFIED": "Ezin izan da gordetako konfigurazioa egiaztatu. Ez da ezer sortu; saiatu berriro.",
       "INVALID_VRA": "Dosi aldakorraren konfigurazioa ez da baliozkoa",
@@ -345,6 +348,7 @@
     },
     "actions": {
       "regenerate": "Birsortu",
+      "generateAgain": "Sortu berriro",
       "sendToTractor": "Bidali traktorera",
       "sent": "Bidalita ({{id}})",
       "copyId": "Kopiatu ID",

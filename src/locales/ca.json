@@ -334,6 +334,9 @@
       "INVALID_GEOMETRY": "La geometria no és vàlida",
       "ENGINE_FAILURE": "Error intern del motor de rutes",
       "PERSIST_FAILED": "No s'ha pogut desar l'operació",
+      "PLAN_EXPIRED": "El pla revisat ha caducat. Torna a generar-lo.",
+      "PARCEL_REQUIRED": "L'operació necessita una parcel·la per desar-se",
+      "INVALID_DATES": "Les dates previstes no són vàlides",
       "UNKNOWN": "No s'ha pogut generar la ruta: {{detail}}",
       "CONFIG_UNVERIFIED": "No s'ha pogut verificar la configuració desada. No s'ha generat res; torna-ho a provar.",
       "INVALID_VRA": "La configuració de dosi variable no és vàlida",
@@ -345,6 +348,7 @@
     },
     "actions": {
       "regenerate": "Regenerar",
+      "generateAgain": "Generar de nou",
       "sendToTractor": "Enviar al tractor",
       "sent": "Enviada ({{id}})",
       "copyId": "Copiar ID",
