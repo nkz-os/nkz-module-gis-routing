@@ -1,5 +1,6 @@
 import base64
 import io
+import re
 import zipfile
 
 import pytest
@@ -143,6 +144,11 @@ def _pln(poly, holes=()):
     return f'<PLN A="2">{inner}</PLN>'
 
 
+def _box_xy(x, y):
+    from shapely.geometry import box as _b
+    return _b(x, y, x + 100, y + 100)
+
+
 def isoxml(tzns):
     body = ""
     for idx, (poly, b, holes) in enumerate(tzns):
@@ -187,6 +193,39 @@ def test_isoxml_malformed_is_400():
 def test_isoxml_doctype_is_refused():
     r = post("isoxml", b'<?xml version="1.0"?><!DOCTYPE x [<!ENTITY a "b">]><x/>')
     assert r.status_code == 400 and r.json()["code"] == "ZONES_FILE_INVALID"
+
+
+def test_isoxml_utf16_doctype_is_refused():
+    xml = ('<?xml version="1.0" encoding="UTF-16"?><!DOCTYPE x [<!ENTITY a "b">]><x>&a;</x>').encode("utf-16")
+    r = post("isoxml", xml)
+    assert r.status_code == 400 and r.json()["code"] == "ZONES_FILE_INVALID"
+
+
+def test_shapefile_without_prj_with_projected_coordinates_is_rejected():
+    from shapely.geometry import box as _box
+    r = post("shapefile", make_zip([_box(600000, 4700000, 600100, 4700100)], [("value", NUM)], [(1.0,)],
+                                   with_prj=False))
+    assert r.status_code == 400
+    assert r.json()["code"] == "ZONES_FILE_INVALID"
+    assert r.json()["params"]["reason"] == "coordinates_out_of_range"
+
+
+def test_isoxml_out_of_range_coordinates_rejected():
+    r = post("isoxml", isoxml([(_box_xy(600000, 4700000), 1, [])]))
+    assert r.status_code == 400 and r.json()["params"]["reason"] == "coordinates_out_of_range"
+
+
+def test_isoxml_non_finite_coordinates_rejected():
+    xml = re.sub(rb'C="[^"]*"', b'C="nan"', isoxml([(POLYS[0], 1, [])]), count=1)
+    r = post("isoxml", xml)
+    assert r.status_code == 400 and r.json()["code"] == "ZONES_FILE_INVALID"
+
+
+def test_shapefile_self_intersecting_polygon_is_repaired_or_rejected_not_500():
+    from shapely.geometry import Polygon as _P
+    bow = _P([(0, 0), (0.001, 0.001), (0.001, 0), (0, 0.001), (0, 0)])
+    r = post("shapefile", make_zip([bow], [("value", NUM)], [(1.0,)]))
+    assert r.status_code in (200, 400)
 
 
 def test_isoxml_roundtrips_export_service_output():

@@ -236,6 +236,19 @@ describe('StepVra', () => {
     expect(screen.getByTestId('vra-uploadwarning').textContent).toContain('EPSG:4326');
   });
 
+  it('refuses a file over 5 MB before reading it', async () => {
+    await mount(baseState({}, {}, { source: 'external' }));
+    const file = new File(['x'], 'big.zip');
+    Object.defineProperty(file, 'size', { value: 5 * 1024 * 1024 + 1 });
+    const read = vi.fn();
+    (file as any).arrayBuffer = read;
+    fireEvent.change(screen.getByLabelText('Fichero de zonas (GeoJSON, CSV, shapefile .zip o ISOXML .xml)'), { target: { files: [file] } });
+    await flush(0);
+    expect(read).not.toHaveBeenCalled();
+    expect(api.ingestExternalZones).not.toHaveBeenCalled();
+    expect(latest.vra.error?.code).toBe('ZONES_FILE_TOO_LARGE');
+  });
+
   it('shows the coded error of a rejected upload', async () => {
     const { ApiError } = await vi.importActual<typeof import('../../../services/api')>('../../../services/api');
     (api.ingestExternalZones as any).mockRejectedValue(

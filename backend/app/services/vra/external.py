@@ -14,13 +14,18 @@ import re
 import zipfile
 from xml.etree import ElementTree as ET
 
+from defusedxml import DefusedXmlException
+from defusedxml.ElementTree import fromstring as safe_fromstring
+
 from pyproj import CRS, Transformer
 from shapely.geometry import MultiPolygon, Polygon, mapping, shape
 from shapely.ops import transform
+from shapely.validation import make_valid
 
 from app.services.coverage.errors import PlanError
 
 MAX_BYTES = 5 * 1024 * 1024
+MAX_ENTRIES = 100
 VALUE_FIELDS = ("value", "mean", "ndvi", "rate")
 WARN_NO_PRJ = "ZONES_NO_PRJ"
 
@@ -46,6 +51,26 @@ def decode_content(content: str) -> bytes:
     return data
 
 
+def _check_range(geom) -> None:
+    """Every vertex must be a finite WGS84 coordinate."""
+    minx, miny, maxx, maxy = geom.bounds
+    if not all(math.isfinite(v) for v in (minx, miny, maxx, maxy)) \
+            or minx < -180 or maxx > 180 or miny < -90 or maxy > 90:
+        raise _invalid("coordinates outside WGS84 range", reason="coordinates_out_of_range")
+
+
+def _repair(geom):
+    """Valid polygonal geometry (self-intersections repaired), or None if nothing polygonal is left."""
+    if geom.is_valid:
+        return geom
+    fixed = make_valid(geom)
+    parts = [g for g in getattr(fixed, "geoms", [fixed]) if isinstance(g, (Polygon, MultiPolygon)) and not g.is_empty]
+    polys = [q for g in parts for q in (g.geoms if isinstance(g, MultiPolygon) else [g])]
+    if not polys:
+        return None
+    return polys[0] if len(polys) == 1 else MultiPolygon(polys)
+
+
 def _is_number(v) -> bool:
     return isinstance(v, (int, float)) and not isinstance(v, bool) and math.isfinite(v)
 
@@ -59,6 +84,8 @@ def parse_shapefile(data: bytes) -> tuple[list[dict], list[str]]:
         raise _invalid("not a zip archive") from exc
     with zf:
         infos = [i for i in zf.infolist() if not i.is_dir() and "__MACOSX" not in i.filename]
+        if len(infos) > MAX_ENTRIES:
+            raise _invalid("too many files in zip")
         if sum(i.file_size for i in infos) > MAX_BYTES:
             raise _too_large()
         by_ext: dict[str, zipfile.ZipInfo] = {}
@@ -112,6 +139,10 @@ def parse_shapefile(data: bytes) -> tuple[list[dict], list[str]]:
             raise _invalid("invalid geometry", record=idx + 1) from exc
         if g.is_empty:
             continue
+        _check_range(g)
+        g = _repair(g)
+        if g is None:
+            continue
         rec = sr.record.as_dict()
         props: dict = {"zone_id": str(rec.get(id_field)) if id_field and rec.get(id_field) is not None
                        else f"shp-{idx + 1}"}
@@ -133,7 +164,10 @@ def _ring(lsg: ET.Element) -> list[tuple[float, float]]:
         if _local(pnt.tag) != "PNT":
             continue
         try:
-            pts.append((float(pnt.get("D")), float(pnt.get("C"))))
+            x, y = float(pnt.get("D")), float(pnt.get("C"))
+            if not (math.isfinite(x) and math.isfinite(y)):
+                raise _invalid("non-finite coordinates", reason="coordinates_out_of_range")
+            pts.append((x, y))
         except (TypeError, ValueError) as exc:
             raise _invalid("invalid PNT coordinates") from exc
     return pts
@@ -144,8 +178,10 @@ def parse_isoxml(data: bytes) -> tuple[list[dict], list[str]]:
     if b"<!DOCTYPE" in head or b"<!ENTITY" in data.upper():
         raise _invalid("DTD and entities are not allowed")
     try:
-        root = ET.fromstring(data)
-    except ET.ParseError as exc:
+        root = safe_fromstring(data, forbid_dtd=True, forbid_entities=True, forbid_external=True)
+    except DefusedXmlException as exc:
+        raise _invalid("DTD, entities and external references are not allowed") from exc
+    except (ET.ParseError, UnicodeError) as exc:
         raise _invalid("malformed XML") from exc
 
     feats: list[dict] = []
@@ -163,6 +199,10 @@ def parse_isoxml(data: bytes) -> tuple[list[dict], list[str]]:
         if not polys:
             continue
         geom = polys[0] if len(polys) == 1 else MultiPolygon(polys)
+        _check_range(geom)
+        geom = _repair(geom)
+        if geom is None:
+            continue
         props: dict = {"zone_id": f"TZN{tzn.get('A')}" if tzn.get("A") is not None else f"tzn-{idx + 1}"}
         pdv = next((c for c in tzn if _local(c.tag) == "PDV"), None)
         if pdv is not None:

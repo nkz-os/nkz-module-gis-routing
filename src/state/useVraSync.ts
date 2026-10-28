@@ -8,6 +8,8 @@ export const ZONES_POLL_MS = 5000;
 export const ZONES_POLL_MAX_TICKS = 24; // 2 min
 export const DEFAULT_N_ZONES = 8;
 
+export const MAX_UPLOAD_BYTES = 5 * 1024 * 1024;
+
 export type ZonesJob = 'idle' | 'polling' | 'timeout';
 
 export interface VraSync {
@@ -121,6 +123,12 @@ export function useVraSync(state: WorkState, dispatch: React.Dispatch<WorkEvent>
 
   const uploadFile = useCallback(async (file: File) => {
     const prId = stateRef.current.parcelRequestId;
+    if (file.size > MAX_UPLOAD_BYTES) {
+      setUploadWarnings([]);
+      dispatch({ type: 'VRA_FAILED', parcelRequestId: prId,
+        error: { code: 'ZONES_FILE_TOO_LARGE', detail: 'file exceeds 5 MB', params: {} } });
+      return;
+    }
     try {
       const name = file.name.toLowerCase();
       const format = name.endsWith('.zip') ? 'shapefile' : name.endsWith('.xml') ? 'isoxml'
