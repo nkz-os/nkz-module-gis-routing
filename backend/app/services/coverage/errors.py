@@ -28,6 +28,8 @@ CODES = (
     "PERSIST_FAILED",
     "ALTERNATIVE_NOT_FOUND",
     "JOB_NOT_FOUND",
+    "INVALID_DATES",
+    "PARCEL_NOT_FOUND",
 )
 
 
@@ -52,7 +54,7 @@ class PlanError(ValueError):
             return 500
         if self.code in ("ZONES_UNAVAILABLE", "PERSIST_FAILED"):
             return 502
-        if self.code == "JOB_NOT_FOUND":
+        if self.code in ("JOB_NOT_FOUND", "PARCEL_NOT_FOUND"):
             return 404
         if self.code == "PLAN_EXPIRED":
             return 410

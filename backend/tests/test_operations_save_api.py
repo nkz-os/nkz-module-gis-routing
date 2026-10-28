@@ -39,6 +39,7 @@ class _Orion:
 def client(monkeypatch):
     _Orion.created = []
     _Orion.fail = False
+    _Orion.stored = {"id": PARCEL}
     monkeypatch.setattr("app.api.routing.OrionClient", _Orion)
 
     async def fake_fetch(parcel_id, tenant_id):
@@ -194,3 +195,100 @@ def test_export_transit_geojson_gpx_ok_isoxml_422(client):
     assert r.status_code == 200 and json.loads(r.text)["features"]
     r = client.get("/api/routing/export/tr1?format=isoxml")
     assert r.status_code == 422 and r.json()["code"] == "EXPORT_NOT_SUPPORTED"
+
+
+def test_save_plan_is_idempotent_sequential(client):
+    pid = _plan(client)
+    a = client.post(URL, json={"kind": "plan", "plan_id": pid}).json()
+    b = client.post(URL, json={"kind": "plan", "plan_id": pid})
+    assert b.status_code == 200 and b.json() == a
+    assert len(_Orion.created) == 1
+
+
+def test_generate_persist_true_then_save_does_not_duplicate(client):
+    r = client.post("/api/routing/generate", json={
+        "parcel_geometry": _POLY, "parcel_id": PARCEL, "pattern": "boustrophedon",
+        "pattern_config": {"width_m": 20, "headland_passes": 1, "turning_radius_m": 6.0}})
+    b = r.json()
+    s = client.post(URL, json={"kind": "plan", "plan_id": b["plan_id"]}).json()
+    assert s["operation_id"] == b["operation_id"] and len(_Orion.created) == 1
+
+
+def test_save_transit_is_idempotent(client):
+    jid = _job()
+    body = {"kind": "transit", "job_id": jid, "alternative_id": "fastest", "parcel_id": PARCEL}
+    a = client.post(URL, json=body).json()
+    b = client.post(URL, json=body).json()
+    assert a == b and len(_Orion.created) == 1
+    c = client.post(URL, json={**body, "alternative_id": "least_slope"}).json()
+    assert c["operation_id"] != a["operation_id"] and len(_Orion.created) == 2
+
+
+def test_concurrent_saves_create_one_entity(client, monkeypatch):
+    import asyncio
+    import httpx
+
+    pid = _plan(client)
+    jid = _job()
+    orig = _Orion.create_entity
+
+    async def slow(self, entity):
+        await asyncio.sleep(0.05)
+        await orig(self, entity)
+    monkeypatch.setattr(_Orion, "create_entity", slow)
+
+    async def go():
+        transport = httpx.ASGITransport(app=client.app)
+        async with httpx.AsyncClient(transport=transport, base_url="http://t",
+                                     headers={"X-Tenant-ID": "tenant-a", "X-User-ID": "u"}) as c:
+            plan = {"kind": "plan", "plan_id": pid}
+            tr = {"kind": "transit", "job_id": jid, "alternative_id": "fastest", "parcel_id": PARCEL}
+            return await asyncio.gather(*(c.post(URL, json=j) for j in (plan, plan, tr, tr)))
+
+    rs = asyncio.run(go())
+    assert all(r.status_code == 200 for r in rs), [r.text for r in rs]
+    assert rs[0].json() == rs[1].json() and rs[2].json() == rs[3].json()
+    assert len(_Orion.created) == 2
+
+
+def test_default_end_is_start_plus_one_day(client):
+    pid = _plan(client)
+    client.post(URL, json={"kind": "plan", "plan_id": pid,
+                           "planned_start_at": "2026-11-01T08:00:00Z"})
+    ent = _Orion.created[0]
+    assert ent["plannedEndAt"]["value"]["@value"] == "2026-11-02T08:00:00Z"
+    client.post(URL, json={"kind": "transit", "job_id": _job(), "alternative_id": "fastest",
+                           "parcel_id": PARCEL, "planned_start_at": "2026-11-01T08:00:00Z"})
+    assert _Orion.created[1]["plannedEndAt"]["value"]["@value"] == "2026-11-02T08:00:00Z"
+
+
+def test_end_before_start_422(client):
+    pid = _plan(client)
+    r = client.post(URL, json={"kind": "plan", "plan_id": pid,
+                               "planned_start_at": "2026-11-02T08:00:00Z",
+                               "planned_end_at": "2026-11-01T08:00:00Z"})
+    assert r.status_code == 422 and r.json()["code"] == "INVALID_DATES"
+    r = client.post(URL, json={"kind": "transit", "job_id": _job(), "alternative_id": "fastest",
+                               "parcel_id": PARCEL, "planned_start_at": "2026-11-02T08:00:00Z",
+                               "planned_end_at": "2026-11-01T08:00:00Z"})
+    assert r.status_code == 422 and r.json()["code"] == "INVALID_DATES"
+    assert _Orion.created == []
+
+
+def test_transit_unknown_parcel_404(client):
+    _Orion.stored = None
+    r = client.post(URL, json={"kind": "transit", "job_id": _job(), "alternative_id": "fastest",
+                               "parcel_id": PARCEL})
+    assert r.status_code == 404 and r.json()["code"] == "PARCEL_NOT_FOUND"
+    assert _Orion.created == []
+
+
+def test_stored_body_drops_external_features(client):
+    from app.services.plan_store import PLAN_STORE
+    r = client.post("/api/routing/generate", json={
+        "parcel_geometry": _POLY, "pattern": "boustrophedon", "persist": False,
+        "pattern_config": {"width_m": 20, "headland_passes": 1, "turning_radius_m": 6.0},
+        "vra": {"enabled": False, "external_features": {"features": [{"x": 1}]}}})
+    assert r.status_code == 200, r.text
+    rec = PLAN_STORE.get("tenant-a", r.json()["plan_id"])
+    assert "external_features" not in (rec["body"].get("vra") or {})

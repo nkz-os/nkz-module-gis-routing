@@ -8,9 +8,10 @@ import uuid
 
 
 class PlanStore:
-    def __init__(self, ttl_s: int = 3600, max_per_tenant: int = 20, clock=time.monotonic) -> None:
+    def __init__(self, ttl_s: int = 3600, max_per_tenant: int = 20, max_total: int = 500, clock=time.monotonic) -> None:
         self._ttl_s = ttl_s
         self._max_per_tenant = max_per_tenant
+        self._max_total = max_total
         self._clock = clock
         self._plans: dict[str, dict] = {}
 
@@ -29,6 +30,11 @@ class PlanStore:
         mine.sort()
         for _created, pid in mine[: max(0, len(mine) - self._max_per_tenant + 1)]:
             del self._plans[pid]
+        overflow = len(self._plans) - self._max_total + 1
+        if overflow > 0:
+            oldest = sorted(self._plans, key=lambda p: self._plans[p]["record"]["created_at"])
+            for pid in oldest[:overflow]:
+                del self._plans[pid]
         plan_id = uuid.uuid4().hex
         self._plans[plan_id] = {
             "tenant_id": tenant_id,

@@ -7,7 +7,9 @@ offline sync, plus the existing POST /routing/generate endpoint with
 Orion-LD persistence.
 """
 
+import asyncio
 import hashlib
+from contextlib import asynccontextmanager
 import csv
 import json
 import logging
@@ -582,7 +584,10 @@ async def generate_routing_plan(request: Request, body: GenerateRequest, auth: A
     persisted = operation_id is not None
 
     plan_id = PLAN_STORE.put(auth.tenant_id, {
-        "plan_dict": plan_dict, "body": body.model_dump(),
+        "operation_id": operation_id,
+        "plan_dict": plan_dict,
+        # external_features can be MBs and is not needed to build the entity.
+        "body": body.model_dump(exclude={"vra": {"external_features"}}),
         # Only what build_operation_entity reads; the route geometry is in plan_dict.
         "result": SimpleNamespace(swath_count=result.swath_count,
                                   total_distance_m=result.total_distance_m,
@@ -821,17 +826,21 @@ async def save_operation(body: SaveOperationRequest, auth: AuthContext = require
         rec = PLAN_STORE.get(auth.tenant_id, body.plan_id)
         if rec is None:
             raise PlanError("PLAN_EXPIRED", "plan not found or expired; generate it again")
-        stored = GenerateRequest(**rec["body"])
-        if not stored.parcel_id:
-            raise PlanError("PARCEL_REQUIRED", "a parcel is required to save an operation")
-        update = {}
-        if body.planned_start_at is not None:
-            update["planned_start_at"] = body.planned_start_at
-        if body.planned_end_at is not None:
-            update["planned_end_at"] = body.planned_end_at
-        gen = stored.model_copy(update=update)
-        op_id = await _persist_operation(rec["result"], gen, auth, None, rec["plan_dict"],
-                                         strict=True)
+        async with _save_lock(("plan", auth.tenant_id, body.plan_id)):
+            if rec.get("operation_id"):
+                return {"success": True, "operation_id": rec["operation_id"], "persisted": True}
+            stored = GenerateRequest(**rec["body"])
+            if not stored.parcel_id:
+                raise PlanError("PARCEL_REQUIRED", "a parcel is required to save an operation")
+            update = {}
+            if body.planned_start_at is not None:
+                update["planned_start_at"] = body.planned_start_at
+            if body.planned_end_at is not None:
+                update["planned_end_at"] = body.planned_end_at
+            gen = stored.model_copy(update=update)
+            op_id = await _persist_operation(rec["result"], gen, auth, None, rec["plan_dict"],
+                                             strict=True)
+            rec["operation_id"] = op_id
         return {"success": True, "operation_id": op_id, "persisted": True}
 
     if not body.parcel_id:
@@ -846,12 +855,48 @@ async def save_operation(body: SaveOperationRequest, auth: AuthContext = require
     if alt is None:
         raise PlanError("ALTERNATIVE_NOT_FOUND", "Alternative not found in job",
                         {"alternative_id": body.alternative_id})
-    op_id = operation_store.new_operation_id(auth.tenant_id)
-    entity = operation_store.build_transit_entity(
-        op_id=op_id, parcel_id=body.parcel_id, name=body.name, alternative=alt,
-        planned_start_at=_iso_utc(body.planned_start_at), planned_end_at=_iso_utc(body.planned_end_at))
-    await _create_operation_entity(entity, op_id, auth.tenant_id, strict=True)
+    async with _save_lock(("transit", auth.tenant_id, body.job_id, body.alternative_id)):
+        if alt.get("operation_id"):
+            return {"success": True, "operation_id": alt["operation_id"], "persisted": True}
+        await _require_parcel(body.parcel_id, auth.tenant_id)
+        op_id = operation_store.new_operation_id(auth.tenant_id)
+        entity = operation_store.build_transit_entity(
+            op_id=op_id, parcel_id=body.parcel_id, name=body.name, alternative=alt,
+            planned_start_at=_iso_utc(body.planned_start_at),
+            planned_end_at=_iso_utc(body.planned_end_at))
+        await _create_operation_entity(entity, op_id, auth.tenant_id, strict=True)
+        alt["operation_id"] = op_id
     return {"success": True, "operation_id": op_id, "persisted": True}
+
+
+_SAVE_LOCKS: dict[tuple, asyncio.Lock] = {}
+
+
+@asynccontextmanager
+async def _save_lock(key: tuple):
+    """One save at a time per plan / transit, so a double click creates one entity."""
+    lock = _SAVE_LOCKS.setdefault(key, asyncio.Lock())
+    try:
+        async with lock:
+            yield
+    finally:
+        if not lock.locked():
+            _SAVE_LOCKS.pop(key, None)
+
+
+async def _require_parcel(parcel_id: str, tenant_id: str) -> None:
+    settings = get_settings()
+    orion = OrionClient(tenant_id, base_url=settings.context_broker_url,
+                        context_url=settings.ngsi_ld_context)
+    try:
+        entity = await orion.get_entity(parcel_id)
+    except Exception as exc:
+        logger.exception("Parcel lookup failed: parcel_id=%s tenant_id=%s", parcel_id, tenant_id)
+        raise PlanError("PERSIST_FAILED", "parcel could not be verified") from exc
+    finally:
+        await orion.close()
+    if not entity:
+        raise PlanError("PARCEL_NOT_FOUND", "parcel not found", {"parcel_id": parcel_id})
 
 
 def _iso_utc(value: Optional[datetime]) -> Optional[str]:

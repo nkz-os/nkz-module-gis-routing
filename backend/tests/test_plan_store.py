@@ -60,3 +60,14 @@ def test_eviction_is_per_tenant():
     for i in range(25):
         s.put("t1", _rec(i))
     assert s.get("t2", other) is not None
+
+
+def test_global_cap_evicts_oldest_across_tenants():
+    clock = _Clock()
+    s = PlanStore(max_total=3, clock=clock)
+    ids = []
+    for i in range(4):
+        clock.t = i
+        ids.append(s.put(f"t{i}", _rec(i)))
+    assert s.get("t0", ids[0]) is None
+    assert all(s.get(f"t{i}", ids[i]) for i in (1, 2, 3))
