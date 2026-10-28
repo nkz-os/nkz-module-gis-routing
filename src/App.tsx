@@ -21,7 +21,7 @@ import { HandoffPanel } from './components/panels/HandoffPanel';
 import { PatternSaveLoad } from './components/patterns/PatternSaveLoad';
 import { PathfindingTab } from './components/pathfinding/PathfindingTab';
 import { RoutePreviewMap } from './components/viewer/RoutePreviewMap';
-import { api, routeOf, operationIdOf } from './services/api';
+import { api, type GenerateRequest } from './services/api';
 
 const NS = 'gis-routing';
 const PREVIEW_DEBOUNCE_MS = 600;
@@ -62,7 +62,7 @@ const buildBody = (w: WizardState, persist: boolean) => ({
   parcel_id: w.parcelId,
   tractor_id: w.tractorId,
   implement_id: w.implementId,
-  pattern: PATTERN_ALIASES[w.pattern] ?? w.pattern,
+  pattern: (PATTERN_ALIASES[w.pattern] ?? w.pattern) as GenerateRequest['pattern'],
   pattern_config: {
     // heading_deg only in manual mode; omitted otherwise so the backend optimizes it.
     ...(w.headingMode === 'manual' ? { heading_deg: w.patternConfig.headingDeg } : {}),
@@ -70,10 +70,11 @@ const buildBody = (w: WizardState, persist: boolean) => ({
     overlap_pct: w.patternConfig.overlapPct,
     headland_passes: w.patternConfig.headlandPasses,
     direction: w.patternConfig.direction,
-    heading_objective: w.headingMode === 'contour' ? 'contour' : 'efficiency',
+    heading_objective: (w.headingMode === 'contour' ? 'contour' : 'efficiency') as 'contour' | 'efficiency',
     ...(w.turningRadiusM != null ? { turning_radius_m: w.turningRadiusM } : {}),
   },
   operation_type: w.operationType,
+  return_to_access: false,
   persist,
   base_pattern_id: w.basePatternId || undefined,
   vra: w.vraEnabled ? {
@@ -159,10 +160,10 @@ const App: React.FC = () => {
         const res = await api.generate(buildBody(w, false));
         if (wizardRef.current.parcelId === w.parcelId) {
           setPreviewResult({
-            geometry: routeOf(res),
-            swathCount: res.selected?.swath_count,
-            headlandCount: res.selected?.headland_count,
-            totalDistanceM: res.selected?.total_distance_m,
+            geometry: res.plan.route,
+            swathCount: res.plan.swath_count,
+            headlandCount: res.plan.headland_passes,
+            totalDistanceM: res.plan.metrics.worked_distance_m + res.plan.metrics.non_working_distance_m,
           });
         }
       } catch (err: any) {
@@ -267,16 +268,16 @@ const App: React.FC = () => {
       // Store for cross-tab visualization in the unified viewer
       try {
         sessionStorage.setItem('nkz:gis-routing:lastSaved', JSON.stringify({
-          geometry: routeOf(res),
-          prescriptionMap: res.prescription_map,
+          geometry: res.plan.route,
+          prescriptionMap: null,
           parcelId: wizard.parcelId,
           timestamp: Date.now(),
         }));
       } catch { /* sessionStorage may be full or unavailable */ }
       window.dispatchEvent(new CustomEvent('nekazari:gis-routing:routeGenerated', {
         detail: {
-          geometry: routeOf(res),
-          prescriptionMap: res.prescription_map,
+          geometry: res.plan.route,
+          prescriptionMap: null,
         },
       }));
     } catch (err: any) {
@@ -466,8 +467,8 @@ const App: React.FC = () => {
         savedResult ? (
           <>
             <StatsPanel result={savedResult} />
-            <ExportPanel operationId={operationIdOf(savedResult) ?? undefined} />
-            <HandoffPanel operationId={operationIdOf(savedResult) ?? undefined} />
+            <ExportPanel operationId={savedResult?.operation_id ?? undefined} />
+            <HandoffPanel operationId={savedResult?.operation_id ?? undefined} />
           </>
         ) : (
           <div className="flex flex-col items-center justify-center max-h-64 py-nkz-stack text-nkz-text-secondary text-nkz-sm">

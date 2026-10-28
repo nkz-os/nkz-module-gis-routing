@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useTranslation } from '@nekazari/sdk';
 import { Loader2, Play } from 'lucide-react';
-import { api, routeOf, metricsOf } from '../../services/api';
+import { api, type GenerateRequest } from '../../services/api';
 import { EV } from './routingMode';
 import { Button, Select } from '@nekazari/ui-kit';
 
@@ -34,17 +34,19 @@ export const WorkRoutePanel: React.FC<Props> = ({ parcelId }) => {
       const res = await api.generate({
         parcel_id: parcelId,
         parcel_geometry: geom.geometry,
+        tractor_id: null,
         implement_id: implementId || null,
-        pattern,
+        pattern: pattern as GenerateRequest['pattern'],
         pattern_config: { width_m: 24, overlap_pct: 10, headland_passes: 1,
                           heading_objective: 'efficiency' },
         operation_type: 'spraying',
+        return_to_access: false,
         persist: true,
       });
-      const route = routeOf(res);
-      setMetrics(metricsOf(res));
+      const route = res.plan.route;
+      setMetrics(res.plan.metrics);
       window.dispatchEvent(new CustomEvent(EV.routeGenerated, {
-        detail: { geometry: route, prescriptionMap: res.prescription_map || null },
+        detail: { geometry: route, prescriptionMap: null },
       }));
     } catch (err: any) {
       setError(err?.message || t('cockpit.generateError'));
