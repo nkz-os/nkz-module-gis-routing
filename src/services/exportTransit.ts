@@ -10,12 +10,15 @@ function vertices(alt: PathAlternative): number[][] {
   return prof && prof.length >= 2 && prof.every((p) => p.length >= 3) ? prof : alt.geometry.coordinates;
 }
 
+// GPX 1.1 XML namespace (a schema identifier, not a host the module calls).
+const GPX_NS = 'http://www.topografix.com/GPX/1/1'; // hygiene:allow GPX 1.1 namespace
+
 export function toGpx(alt: PathAlternative, name: string): string {
   const pts = vertices(alt)
     .map((p) => `      <trkpt lat="${p[1]}" lon="${p[0]}">${p.length >= 3 && Number.isFinite(p[2]) ? `<ele>${p[2]}</ele>` : ''}</trkpt>`)
     .join('\n');
   return `<?xml version="1.0" encoding="UTF-8"?>
-<gpx version="1.1" creator="nkz-module-gis-routing" xmlns="http://www.topografix.com/GPX/1/1">
+<gpx version="1.1" creator="nkz-module-gis-routing" xmlns="${GPX_NS}">
   <trk>
     <name>${xml(name)}</name>
     <trkseg>
