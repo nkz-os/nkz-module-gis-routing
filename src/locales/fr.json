@@ -1,11 +1,5 @@
 {
   "loading": "Chargement...",
-  "tabs": {
-    "routing": "Guidage",
-    "zoning": "Zones VRA",
-    "pathfinding": "Pathfinding",
-    "parcelConfig": "Configuration de parcelle"
-  },
   "title": "GIS Routing",
   "subtitle": "Guidage par lignes A-B pour l'agriculture de précision",
   "parcel": {
@@ -50,14 +44,8 @@
     "width": "Largeur de travail (m)",
     "swaths": "Bandes",
     "operationType": "Operation Type",
-    "couplingModel": "Coupling model",
-    "couplingModelRigid": "Rigid set (tractor + implement)",
-    "couplingModelArticulated": "Articulated set (tractor + implement)",
-    "couplingModelRigidHelp": "Current computation is validated for rigid coupling.",
-    "couplingModelArticulatedNotSupported": "Articulated mode is not supported yet in computation. Select rigid coupling.",
     "overlap": "Overlap (%)",
     "headlandPasses": "Headland passes",
-    "direction": "Direction",
     "headingMode": "Cap"
   },
   "actions": {
@@ -69,34 +57,6 @@
     "saving": "Saving...",
     "viewInCesium": "View in Cesium",
     "cancel": "Annuler"
-  },
-  "export": {
-    "isoxml": "ISOXML",
-    "geojson": "GeoJSON",
-    "gpx": "GPX"
-  },
-  "vra": {
-    "sourceHealth": "Vegetation Health",
-    "label": "VRA",
-    "enabled": "Prescripción VRA",
-    "sourceLabel": "Fuente VRA",
-    "sourceOrion": "Zonas en Orion-LD",
-    "sourceExternal": "Subida externa",
-    "externalUploadLabel": "Archivo externo (GeoJSON/CSV)",
-    "externalUploadError": "No se pudo procesar el archivo externo",
-    "externalLoaded": "Archivo cargado: {{file}} ({{count}} zonas)",
-    "externalPending": "Sube un archivo externo para usar prescripción VRA",
-    "baseRate": "Dosis Base",
-    "rateUnit": "Unidad",
-    "zoneSelection": "Selección de zonas",
-    "selectAll": "Seleccionar todas",
-    "clearAll": "Limpiar selección",
-    "noZonesForParcel": "Sin zonas disponibles para la parcela seleccionada",
-    "prescriptionSummary": "Resumen de prescripción",
-    "summarySegments": "Segmentos",
-    "summaryZones": "Zonas aplicadas",
-    "summaryLength": "Longitud total",
-    "summaryRate": "Dosis media"
   },
   "errors": {
     "title": "Error",
@@ -151,11 +111,6 @@
     "ended": "Ended",
     "finished": "Finished"
   },
-  "workflow": {
-    "plan": "1) Plan",
-    "validate": "2) Validate",
-    "execute": "3) Execute"
-  },
   "validation": {
     "parcelReady": "Parcel selected",
     "parcelMissing": "Select a parcel",
@@ -165,15 +120,7 @@
     "widthMissing": "Working width is not valid",
     "equipmentReady": "Equipment selected",
     "equipmentOptional": "Equipment optional (recommended)",
-    "equipmentMissing": "Select tractor and implement",
-    "couplingReady": "Rigid coupling selected",
-    "couplingNotSupported": "Articulated coupling not supported yet",
-    "sdmTitle": "SDM completeness (recommended)",
-    "sdmGpsOffsets": "Tractor GPS offsets (X/Y/Z) are missing in the Context Broker",
-    "sdmImplementWidth": "Implement effective width is missing (needed for spraying/fertilizing)",
-    "sdmTrackWidth": "Tractor track width is missing (recommended for tillage)",
-    "sdmWheelbase": "Tractor wheelbase is missing (recommended for tillage)",
-    "sdmHitchOffset": "Implement hitch offset X is missing (recommended for seeding)"
+    "equipmentMissing": "Select tractor and implement"
   },
   "common": {
     "enabled": "Enabled",
@@ -207,32 +154,13 @@
     "traceImplement": "Implement"
   },
   "stats": {
-    "title": "Results",
-    "swaths": "Swaths",
-    "distance": "Distance",
-    "area": "Area",
-    "pattern": "Pattern",
-    "vra": "VRA",
-    "fieldEfficiency": "Efficacité de champ",
-    "workedDistance": "Distance travaillée",
-    "nonWorkingDistance": "Distance improductive",
-    "curveType": "Type de virage"
-  },
-  "trajectory": {
-    "title": "Trajectory alternatives",
-    "hint": "Compare swath headings. Apply selection to regenerate the stored plan with that variant.",
-    "optionLabel": "{{heading}}° heading · {{swaths}} swaths",
-    "applySelection": "Apply selected trajectory"
+    "fieldEfficiency": "Efficacité de champ"
   },
   "patterns": {
-    "deleteConfirm": "Confirm delete",
-    "loading": "Loading patterns",
-    "delete": "Delete pattern",
     "saveTitle": "Guardar Patrón",
     "saved": "Patrón guardado",
     "namePlaceholder": "Nombre del patrón...",
     "save": "Guardar",
-    "savedListTitle": "Patrones guardados",
     "noSaved": "No hay patrones guardados en esta parcela",
     "loadFromContext": "Cargar desde Orion-LD"
   },
@@ -260,20 +188,6 @@
   "panels": {
     "emptyState": "Generate a route to see results",
     "emptyStateHint": "Configure the pattern and press Generate"
-  },
-  "handoff": {
-    "title": "Continue on mobile",
-    "body": "Open NKZ Mobile → Operations, run sync if needed, then Start session for this operation ID.",
-    "copyId": "Copy operation ID",
-    "copied": "¡Copiado!"
-  },
-  "preview": {
-    "selectParcelHint": "Select a parcel in the left panel to start",
-    "configureHint": "Configure the pattern to see the preview",
-    "savedHint": "Route saved. Go to the unified viewer to see it on the 3D map.",
-    "interactiveHint": "Click a line to select it. Hover to identify it.",
-    "internalPasses": "Internal passes",
-    "headlandPasses": "Headlands"
   },
   "headingMode": {
     "auto": "Optimal",
@@ -306,10 +220,6 @@
     "noEquipment": "Sans équipement",
     "generate": "Générer itinéraire",
     "generateError": "Impossible de générer itinéraire"
-  },
-  "direction": {
-    "outsideIn": "Outside → In",
-    "insideOut": "Inside → Out"
   },
   "work": {
     "steps": {
