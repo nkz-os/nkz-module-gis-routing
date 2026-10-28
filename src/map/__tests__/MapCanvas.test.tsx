@@ -2,13 +2,13 @@ import React from 'react';
 import { cleanup, render, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-const h = vi.hoisted(() => ({ opts: null as any, fitBounds: vi.fn(), handlers: {} as Record<string, () => void> }));
+const h = vi.hoisted(() => ({ opts: null as any, fitBounds: vi.fn(), setMode: vi.fn(), handlers: {} as Record<string, (...a: any[]) => void> }));
 
 vi.mock('maplibre-gl', () => {
   class Map {
     constructor(o: any) { h.opts = o; }
     addControl() {}
-    on(ev: string, cb: () => void) { if (typeof cb === 'function' && ev === 'load') h.handlers.load = cb; }
+    on(ev: string, cb: (...a: any[]) => void) { if (typeof cb === 'function' && (ev === 'load' || ev === 'error')) h.handlers[ev] = cb; }
     addSource() {}
     addLayer() {}
     getSource() { return undefined; }
@@ -24,9 +24,9 @@ vi.mock('maplibre-gl', () => {
 vi.mock('terra-draw', () => {
   class M { constructor(public o?: unknown) {} }
   class TerraDraw {
-    start() {} stop() {} setMode() {} on() {} clear() {} addFeatures() {} removeFeatures() {} getSnapshotFeature() { return null; }
+    start() {} stop() {} setMode(m: string) { h.setMode(m); } on() {} clear() {} addFeatures() {} removeFeatures() {} getSnapshotFeature() { return null; }
   }
-  return { TerraDraw, TerraDrawPolygonMode: M, TerraDrawPointMode: M, TerraDrawSelectMode: M };
+  return { TerraDraw, TerraDrawPolygonMode: M, TerraDrawPointMode: M, TerraDrawSelectMode: M, TerraDrawStaticMode: M };
 });
 vi.mock('terra-draw-maplibre-gl-adapter', () => ({ TerraDrawMapLibreGLAdapter: class {} }));
 
@@ -44,7 +44,7 @@ const props = {
   onZoneDrawn: vi.fn(), onZoneEdited: vi.fn(), onAccessPlaced: vi.fn(), onSwathHover: vi.fn(), onWarningClick: vi.fn(),
 };
 
-afterEach(() => { cleanup(); h.opts = null; h.fitBounds.mockClear(); });
+afterEach(() => { cleanup(); h.opts = null; h.fitBounds.mockClear(); h.setMode.mockClear(); h.handlers = {}; });
 
 describe('MapCanvas', () => {
   it('hands MapLibre an inner box, not the absolutely positioned wrapper', async () => {
@@ -65,5 +65,30 @@ describe('MapCanvas', () => {
     h.handlers.load();
     expect(h.fitBounds).toHaveBeenCalled();
     expect(h.fitBounds.mock.calls[0][1].padding).toEqual({ top: 40, left: 40, right: 40, bottom: 160 });
+  });
+
+  it('treats tile/source errors as non-fatal and other map errors as fatal', async () => {
+    const onError = vi.fn();
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    render(<MapCanvas {...props} onError={onError} />);
+    await waitFor(() => expect(h.handlers.error).toBeTypeOf('function'));
+    h.handlers.error({ error: new Error('tile 503'), sourceId: 'basemap', tile: {} });
+    expect(onError).not.toHaveBeenCalled();
+    h.handlers.error({ error: new Error('style failed') });
+    expect(onError).toHaveBeenCalledTimes(1);
+  });
+
+  it('switches terra-draw to static mode while locked', async () => {
+    const { rerender } = render(<MapCanvas {...props} />);
+    await waitFor(() => expect(h.handlers.load).toBeTypeOf('function'));
+    h.handlers.load();
+    await waitFor(() => expect(h.setMode).toHaveBeenCalledWith('select'));
+    h.setMode.mockClear();
+    rerender(<MapCanvas {...props} locked />);
+    await waitFor(() => expect(h.setMode).toHaveBeenCalledWith('static'));
+    h.setMode.mockClear();
+    rerender(<MapCanvas {...props} locked={false} />);
+    await waitFor(() => expect(h.setMode).toHaveBeenCalledWith('select'));
   });
 });

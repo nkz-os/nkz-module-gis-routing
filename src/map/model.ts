@@ -104,6 +104,25 @@ export function buildSources(m: MapModel): Record<SourceId, GeoJSON.FeatureColle
   };
 }
 
+/**
+ * Sources whose content depends on something that differs between two models.
+ * `prev === null` means everything. Mirrors the inputs read in buildSources.
+ */
+export function changedSources(prev: MapModel | null, next: MapModel): SourceId[] {
+  if (prev === null) return [...SOURCE_IDS];
+  const ch = (...keys: (keyof MapModel)[]) => keys.some((k) => prev[k] !== next[k]);
+  const out: SourceId[] = [];
+  if (ch('parcel')) out.push('parcel', 'parcel-rings');
+  if (ch('zones')) out.push('zones');
+  if (ch('zones', 'marginM')) out.push('zones-margin');
+  if (ch('plan', 'hoveredSwath')) out.push('swaths');
+  if (ch('plan', 'stale')) out.push('route');
+  if (ch('plan')) out.push('access');
+  if (ch('plan', 'accessPoint', 'accessIssue')) out.push('markers');
+  if (ch('plan', 'selectedWarning', 'focus')) out.push('warnings');
+  return out;
+}
+
 export function layerSpecs(): LayerSpecification[] {
   return [
     { id: 'parcel-fill', type: 'fill', source: 'parcel', paint: { 'fill-color': C.parcel, 'fill-opacity': 0.08 } },

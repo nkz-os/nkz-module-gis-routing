@@ -3,7 +3,7 @@ import type { GeoJSONSource, LayerSpecification, Map as MapLibreMap } from 'mapl
 import type { TerraDraw } from 'terra-draw';
 import { basemapFor, rasterSource, type BasemapId } from './basemap';
 import { injectMapCss } from './injectMapCss';
-import { buildSources, layerSpecs, planBounds, SOURCE_IDS, type MapModel, type SourceId } from './model';
+import { buildSources, changedSources, layerSpecs, planBounds, type MapModel, type SourceId } from './model';
 import { ringToPolygon } from '../services/geo';
 
 export type DrawMode = 'none' | 'zone' | 'access';
@@ -24,6 +24,8 @@ export interface MapCanvasProps {
   onReady?: () => void;
   onError?: (e: Error) => void;
   visibleLayers?: Partial<Record<LayerGroup, boolean>>;
+  /** True while a request is in flight: drawing and editing are switched off (static mode). */
+  locked?: boolean;
   /** Pixels at the bottom covered by an overlay; added to the fitBounds bottom padding. */
   bottomInset?: number;
 }
@@ -73,12 +75,13 @@ function toError(e: unknown): Error {
 }
 
 export const MapCanvas: React.FC<MapCanvasProps> = (props) => {
-  const { model, drawMode, fitKey, visibleLayers } = props;
+  const { model, drawMode, fitKey, visibleLayers, locked = false } = props;
   const ref = useRef<HTMLDivElement>(null);
   const mapRef = useRef<MapLibreMap | null>(null);
   const drawRef = useRef<TerraDraw | null>(null);
   const basemapRef = useRef<BasemapId | null>(null);
   const editKeyRef = useRef<string>('');
+  const prevModelRef = useRef<MapModel | null>(null);
   const [ready, setReady] = useState(false);
 
   // Latest props for the long-lived map/draw listeners.
@@ -121,15 +124,21 @@ export const MapCanvas: React.FC<MapCanvasProps> = (props) => {
       const mapNow = created;
 
       mapNow.on('error', (ev) => {
-        console.error('[gis-routing] map error', ev.error);
-        propsRef.current.onError?.(toError(ev.error ?? ev));
+        // A failed tile or source request is routine on raster basemaps: log, never fatal.
+        const e = ev as { error?: unknown; tile?: unknown; sourceId?: unknown };
+        if (e.tile || e.sourceId) {
+          console.warn('[gis-routing] map tile/source error', e.error);
+          return;
+        }
+        console.error('[gis-routing] map error', e.error);
+        propsRef.current.onError?.(toError(e.error ?? ev));
       });
 
       mapNow.on('load', () => {
         if (cancelled) return;
         try {
         const sources = buildSources(propsRef.current.model);
-        for (const id of SOURCE_IDS) mapNow.addSource(id, { type: 'geojson', data: sources[id] });
+        for (const id of Object.keys(sources) as SourceId[]) mapNow.addSource(id, { type: 'geojson', data: sources[id] });
         for (const spec of layerSpecs()) mapNow.addLayer(spec);
 
         const m = propsRef.current.model;
@@ -159,6 +168,7 @@ export const MapCanvas: React.FC<MapCanvasProps> = (props) => {
               styles: { fillOpacity: 0, outlineColor: '#F59E0B', outlineWidth: 2 },
             }),
             new td.TerraDrawPointMode({ styles: { pointColor: '#2563EB', pointWidth: 6 } }),
+            new td.TerraDrawStaticMode(),
             new td.TerraDrawSelectMode({
               flags: {
                 polygon: { feature: { draggable: false, coordinates: { midpoints: false, draggable: true, deletable: true } } },
@@ -201,6 +211,7 @@ export const MapCanvas: React.FC<MapCanvasProps> = (props) => {
           }
         });
 
+        prevModelRef.current = propsRef.current.model;
         mapRef.current = mapNow;
         setReady(true);
         propsRef.current.onReady?.();
@@ -230,8 +241,12 @@ export const MapCanvas: React.FC<MapCanvasProps> = (props) => {
   useEffect(() => {
     const map = mapRef.current;
     if (!ready || !map) return;
+    // Only the sources whose inputs changed are rebuilt (hover must not re-send the route).
+    const changed = changedSources(prevModelRef.current, model);
+    prevModelRef.current = model;
+    if (changed.length === 0) return;
     const sources = buildSources(model);
-    for (const id of SOURCE_IDS) (map.getSource(id) as GeoJSONSource | undefined)?.setData(sources[id]);
+    for (const id of changed) (map.getSource(id) as GeoJSONSource | undefined)?.setData(sources[id]);
   }, [model, ready]);
 
   // Parcel → basemap by region (tiles cannot be swapped in place).
@@ -284,13 +299,14 @@ export const MapCanvas: React.FC<MapCanvasProps> = (props) => {
   useEffect(() => {
     const draw = drawRef.current;
     if (!ready || !draw) return;
+    if (locked) { draw.setMode('static'); return; }
     draw.setMode(drawMode === 'zone' ? 'polygon' : drawMode === 'access' ? 'point' : 'select');
-  }, [drawMode, ready]);
+  }, [drawMode, ready, locked]);
 
   // Editing copies of zones / access point inside terra-draw (select mode only).
   useEffect(() => {
     const draw = drawRef.current;
-    if (!ready || !draw) return;
+    if (!ready || !draw || locked) return;
     if (drawMode !== 'none') {
       if (editKeyRef.current !== '') {
         draw.clear();
@@ -311,7 +327,7 @@ export const MapCanvas: React.FC<MapCanvasProps> = (props) => {
     }
     if (features.length > 0) draw.addFeatures(features);
     draw.setMode('select');
-  }, [model.zones, model.accessPoint, drawMode, ready]);
+  }, [model.zones, model.accessPoint, drawMode, ready, locked]);
 
   // MapLibre's CSS sets position:relative on the element it owns, so it gets an
   // inner box with a real height inside the absolutely positioned wrapper.

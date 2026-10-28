@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildSources, layerSpecs, planBounds, SOURCE_IDS } from '../model';
+import { buildSources, changedSources, layerSpecs, planBounds, SOURCE_IDS } from '../model';
 const sq = (x0: number, y0: number, x1: number, y1: number, holes: number[][][] = []) => ({ type: 'Polygon', coordinates: [[[x0, y0], [x1, y0], [x1, y1], [x0, y1], [x0, y0]], ...holes] }) as any;
 const base = { parcel: sq(0, 0, 10, 10, [[[4, 4], [6, 4], [6, 6], [4, 6], [4, 4]]]), zones: [{ id: 'z', polygon: sq(1, 1, 2, 2), areaHa: 1, valid: true }], marginM: 2, accessPoint: { type: 'Point', coordinates: [0, 5] } as any, accessIssue: null, plan: null, stale: false, hoveredSwath: null, selectedWarning: null };
 describe('map model', () => {
@@ -58,5 +58,19 @@ describe('map model', () => {
     expect(planBounds({ ...base, focus })).toEqual([20, 30, 20, 30]);
     const line: any = { type: 'LineString', coordinates: [[1, 1], [2, 2]] };
     expect(buildSources({ ...base, focus: line }).warnings.features.map(f => f.properties?.part).sort()).toEqual(['anchor', 'shape']);
+  });
+});
+
+describe('changedSources', () => {
+  it('rebuilds everything on first model and only swaths on hover', () => {
+    expect(changedSources(null, base as any)).toEqual([...SOURCE_IDS]);
+    expect(changedSources(base as any, { ...base, hoveredSwath: 3 } as any)).toEqual(['swaths']);
+    expect(changedSources(base as any, { ...base, selectedWarning: 1 } as any)).toEqual(['warnings']);
+    expect(changedSources(base as any, base as any)).toEqual([]);
+  });
+  it('a new plan touches every plan-derived source but not parcel or zones', () => {
+    const out = changedSources(base as any, { ...base, plan: {} } as any);
+    expect(out).toEqual(expect.arrayContaining(['swaths', 'route', 'access', 'markers', 'warnings']));
+    expect(out).not.toContain('parcel'); expect(out).not.toContain('zones');
   });
 });
