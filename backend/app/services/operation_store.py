@@ -180,7 +180,7 @@ def build_operation_entity(*, op_id, body, result, prescription_map, is_template
     if body.implement_id:
         entity["usesImplement"] = {"type": "Relationship", "object": body.implement_id}
     if body.vra is not None:
-        entity["vraConfig"] = {"type": "Property", "value": body.vra.model_dump(exclude_none=True)}
+        entity["vraConfig"] = {"type": "Property", "value": body.vra.model_dump(exclude_none=True, exclude={"external_features"})}
     if plan is not None and plan.get("prescription") is not None:
         entity["prescription"] = {"type": "Property", "value": plan["prescription"]}
     if prescription_map:

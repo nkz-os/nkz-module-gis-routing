@@ -531,10 +531,12 @@ async def generate_routing_plan(request: Request, body: GenerateRequest, auth: A
             body.vra, parcel_id=body.parcel_id, tenant_id=auth.tenant_id,
             swaths_utm=plan.swaths, parcel_utm=parcel_utm, to_utm=to_utm, to_wgs=to_wgs84)
         plan_dict["prescription"] = prescription
-        if plan_dict.get("validation") is not None:
-            plan_dict["validation"]["warnings"].extend(
-                {"code": w["code"], "geometry": None, "params": w["params"]}
-                for w in prescription["warnings"])
+        if plan_dict.get("validation") is None:
+            plan_dict["validation"] = {"ok": True, "checks": [], "fallbacks_applied": [],
+                                       "warnings": []}
+        plan_dict["validation"]["warnings"].extend(
+            {"code": w["code"], "geometry": None, "params": w["params"]}
+            for w in prescription["warnings"])
 
     operation_id = None
     if body.persist and body.parcel_id:

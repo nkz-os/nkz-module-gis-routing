@@ -248,3 +248,41 @@ def test_external_ingest_returns_distribution():
     dist = d["distribution"]
     assert dist["source"] == "external" and len(dist["percentiles"]) == 21
     assert {z["id"]: z["mean"] for z in dist["zones"]} == {"a": 1.0, "b": 5.0, "c": 2.0}
+
+
+def test_paging_dedupes_entities_by_id():
+    FakeOrion.entities = [_zone(f"z{i}", 0, 10, 0.5) for i in range(100)] + \
+                         [_zone("z99", 0, 10, 0.5), _zone("zx", 0, 10, 0.5)]
+    b = client.get(f"/api/routing/zones/{PARCEL}/distribution").json()
+    assert len(b["zones"]) == 101
+
+
+def test_parcel_id_with_quote_is_rejected():
+    r = client.get('/api/routing/zones/a"b/distribution')
+    assert r.status_code == 400 and r.json()["code"] == "INVALID_GEOMETRY"
+    assert FakeOrion.calls == []
+
+
+def test_vra_warnings_kept_when_validation_missing(monkeypatch):
+    from app.services.coverage import plan as planmod
+    orig = planmod.CoveragePlan.as_api_dict
+
+    def no_validation(self, *a, **k):
+        d = orig(self, *a, **k)
+        d["validation"] = None
+        return d
+    monkeypatch.setattr(planmod.CoveragePlan, "as_api_dict", no_validation)
+    FakeOrion.entities = [_zone("z1", 0, 70, 0.2), _zone("z2", 70, 140, 0.9)]
+    plan = gen(vra=vra()).json()["plan"]
+    assert "VRA_UNCOVERED" in [w["code"] for w in plan["validation"]["warnings"]]
+
+
+def test_persisted_vra_config_drops_external_features():
+    feats = [{"type": "Feature", "geometry": mapping(wgs84(box(0, 0, 100, 100))),
+              "properties": {"zone_id": "a", "value": 1.0}},
+             {"type": "Feature", "geometry": mapping(wgs84(box(100, 0, 200, 100))),
+              "properties": {"zone_id": "b", "value": 5.0}}]
+    v = vra(source="external", external_features={"type": "FeatureCollection", "features": feats},
+            classes=[{"min_pct": 0, "max_pct": 50, "rate": 10}, {"min_pct": 50, "max_pct": 100, "rate": 20}])
+    assert gen(vra=v, persist=True).status_code == 200
+    assert "external_features" not in FakeOrion.created[0]["vraConfig"]["value"]

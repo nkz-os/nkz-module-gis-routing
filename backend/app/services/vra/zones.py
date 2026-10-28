@@ -9,6 +9,7 @@ from shapely.geometry import mapping, shape
 from shapely.ops import transform as shp_transform
 
 from app.config import get_settings
+from app.services.coverage.errors import PlanError
 from app.services.routing.base import get_utm_crs
 from app.services.vra.classify import ZoneValue, valid_zones, weighted_percentiles
 from nkz_platform_sdk.orion import OrionClient
@@ -48,13 +49,21 @@ async def _fetch_entities(tenant_id: str, parcel_id: str) -> list[dict]:
     settings = get_settings()
     orion = OrionClient(tenant_id, base_url=settings.context_broker_url,
                         context_url=settings.ngsi_ld_context)
+    if '"' in parcel_id or "\\" in parcel_id:
+        raise PlanError("INVALID_GEOMETRY", "parcel_id contains invalid characters")
     out: list[dict] = []
+    seen: set[str] = set()
     try:
         for page in range(_MAX_PAGES):
             batch = await orion.query_entities(
                 ZONE_TYPE, q=f'hasAgriParcel=="{parcel_id}"',
                 limit=_PAGE, offset=page * _PAGE, options="sysAttrs")
-            out.extend(batch)
+            for e in batch:
+                eid = e.get("id")
+                if eid in seen:
+                    continue
+                seen.add(eid)
+                out.append(e)
             if len(batch) < _PAGE:
                 break
         else:
