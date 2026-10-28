@@ -196,7 +196,8 @@
     "noAccessPoint": "Sem ponto de acesso",
     "zonesCount_one": "{{count}} zona proibida",
     "zonesCount_other": "{{count}} zonas proibidas",
-    "instructions": "Clique no mapa para marcar o portão; desenhe polígonos para as zonas proibidas."
+    "instructions": "Clique no mapa para marcar o portão; desenhe polígonos para as zonas proibidas.",
+    "loadFailed": "Não foi possível carregar a configuração guardada. Recarregue antes de guardar para não sobrescrever as zonas existentes."
   },
   "cockpit": {
     "gate": "Portão",
@@ -207,7 +208,9 @@
     "equipment": "Equipamento",
     "noEquipment": "Sem equipamento",
     "generate": "Gerar rota de trabalho",
-    "generateError": "Não foi possível gerar a rota"
+    "generateError": "Não foi possível gerar a rota",
+    "saved": "Rota guardada",
+    "typeManually": "Falta a largura ou o raio de viragem: escreva-os."
   },
   "work": {
     "steps": {
@@ -333,19 +336,24 @@
       "ZONES_FILE_TOO_LARGE": "O ficheiro de zonas excede 5 MB",
       "PLAN_TOO_LARGE": "O plano é demasiado grande para ser guardado ({{size_kb}} KB). Use menos zonas, zonas maiores ou uma área menor.",
       "ZONES_UNAVAILABLE": "Não foi possível ler as zonas de gestão. Tente novamente.",
-      "PLAN_TOO_LARGE_TO_SAVE": "O plano é demasiado grande para ser guardado. Use menos zonas, maiores, ou uma área menor."
+      "PLAN_TOO_LARGE_TO_SAVE": "O plano é demasiado grande para ser guardado. Use menos zonas, maiores, ou uma área menor.",
+      "EXPORT_EMPTY": "Não há nada para exportar nesta operação.",
+      "PARCEL_READ_FAILED": "Não foi possível ler a parcela. Tente novamente.",
+      "IMPLEMENT_WIDTH_MISSING": "Esta operação foi guardada sem largura de trabalho e não pode ser exportada para ISOXML. Planeie-a de novo.",
+      "EXPORT_NOT_SUPPORTED": "Este formato de exportação não está disponível para trânsitos."
     },
     "actions": {
       "regenerate": "Regenerar",
       "generateAgain": "Gerar novamente",
       "sendToTractor": "Enviar ao trator",
-      "sent": "Enviada ({{id}})",
+      "sent": "Guardada ({{id}})",
       "copyId": "Copiar ID",
       "copied": "Copiado!",
       "saveTemplate": "Guardar como modelo",
       "exportFormat": "Formato de exportação",
       "vraIncomplete": "Preencha as doses de todas as classes (ou o ficheiro de zonas externo), ou desative a dose variável, para enviar.",
-      "vraPending": "A aguardar o cálculo da prescrição antes de enviar."
+      "vraPending": "A aguardar o cálculo da prescrição antes de enviar.",
+      "availableInApp": "Disponível na app · operação #{{id}}"
     },
     "title": "Rotas SIG",
     "tabs": {
@@ -353,7 +361,12 @@
       "transit": "Trânsito A-B"
     },
     "empty": "Selecione uma parcela para começar",
-    "regeneratedOnSave": "Plano regenerado com a dose atual antes de guardar"
+    "regeneratedOnSave": "Plano regenerado com a dose atual antes de guardar",
+    "alert": {
+      "sent": "Alerta registado",
+      "skipped": "Sem alerta: desativado nas definições",
+      "failed": "Não foi possível registar o alerta"
+    }
   },
   "autosave": {
     "saved": "Guardado {{time}}",
@@ -388,6 +401,11 @@
       "swaths": "Passagens",
       "warnings": "Avisos",
       "vra": "Classes VRA"
+    },
+    "legend": {
+      "gate": "Portão",
+      "nogo": "NO-GO",
+      "margin": "Margem de segurança"
     }
   },
   "transit": {
@@ -466,11 +484,26 @@
       "PERSIST_FAILED": "Não foi possível guardar a operação.",
       "JOB_TIMEOUT": "O cálculo demorou demasiado. Tente de novo.",
       "UNKNOWN": "Não foi possível calcular a rota: {{detail}}",
-      "JOBS_LIMIT": "Há demasiados cálculos em curso ({{max_jobs}}). Aguarde que um termine."
+      "JOBS_LIMIT": "Há demasiados cálculos em curso ({{max_jobs}}). Aguarde que um termine.",
+      "EXPORT_EMPTY": "Não há nada para exportar nesta operação.",
+      "PARCEL_READ_FAILED": "Não foi possível ler a parcela. Tente novamente."
     },
     "warnings": {
       "PARCELS_UNREADABLE": "{{count}} parcela(s) da zona não têm limite legível: os seus portões não são aplicados.",
       "UNKNOWN": "Aviso {{code}}"
     }
+  },
+  "settings": {
+    "title": "Definições",
+    "dispatch": {
+      "label": "Alerta ao guardar uma rota",
+      "immediate": "Imediato",
+      "digest": "Resumo a cada 12 h",
+      "none": "Nenhum"
+    },
+    "saved": "Definição guardada",
+    "saveFailed": "Não foi possível guardar a definição",
+    "loadFailed": "Não foi possível carregar a definição",
+    "forbidden": "Só os administradores podem alterar esta definição"
   }
 }

@@ -48,11 +48,15 @@ vi.mock('../../../services/api', async (importOriginal) => {
       generate: vi.fn(),
       saveOperation: vi.fn(),
       saveParcelConfig: vi.fn(),
-      getExportUrl: vi.fn(() => 'http://export.test/x'),
+      downloadExport: vi.fn(),
       getDistribution: vi.fn(), prescription: vi.fn(), requestZones: vi.fn(),
     },
   };
 });
+vi.mock('../../../services/exportTransit', async (importOriginal) => ({
+  ...(await importOriginal<Record<string, unknown>>()), downloadBlob: vi.fn(),
+}));
+import { downloadBlob } from '../../../services/exportTransit';
 import { api, ApiError } from '../../../services/api';
 
 const poly = (s = 0.01): GeoJSON.Polygon => ({
@@ -157,11 +161,50 @@ describe('WorkScreen', () => {
     fireEvent.click(screen.getByRole('button', { name: /Generar ruta/i }));
     await screen.findByText(/12 pasadas/);
     fireEvent.click(screen.getByRole('button', { name: 'Enviar al tractor' }));
-    await screen.findByText('Enviada (12345678)');
+    await screen.findByText('Guardada (12345678)');
     expect(api.generate).toHaveBeenCalledTimes(1);
     expect((api.generate as any).mock.calls[0][0].persist).toBe(false);
     expect(api.saveOperation).toHaveBeenCalledWith({ kind: 'plan', plan_id: 'plan-1' });
     expect(screen.getByText('op-12345678')).toBeTruthy();
+  });
+
+  async function savedPlan() {
+    (api.generate as any).mockResolvedValue({ success: true, operation_id: null, persisted: false, plan_id: 'plan-1', plan: planFixture() });
+    (api.saveOperation as any).mockResolvedValue({ success: true, operation_id: 'op-12345678', persisted: true });
+    await loadAndConfigure();
+    fireEvent.click(screen.getByRole('button', { name: /Generar ruta/i }));
+    await screen.findByText(/12 pasadas/);
+    fireEvent.click(screen.getByRole('button', { name: 'Enviar al tractor' }));
+    await screen.findByText('Guardada (12345678)');
+  }
+
+  it('a saved plan is handed to the cockpit through sessionStorage', async () => {
+    sessionStorage.removeItem('nkz:gis-routing:lastSaved');
+    await savedPlan();
+    const stored = JSON.parse(sessionStorage.getItem('nkz:gis-routing:lastSaved') ?? 'null');
+    expect(stored.operation_id).toBe('op-12345678');
+    expect(stored.geometry).toEqual({ type: 'LineString', coordinates: [[0, 0], [1, 1]] });
+    expect(typeof stored.timestamp).toBe('number');
+  });
+
+  it('export downloads the file through fetch, not a new tab', async () => {
+    await savedPlan();
+    const blob = new Blob(['x']);
+    (api.downloadExport as any).mockResolvedValue({ blob, filename: 'op.xml' });
+    const open = vi.spyOn(window, 'open');
+    fireEvent.click(screen.getByRole('button', { name: 'Exportar' }));
+    await waitFor(() => expect(downloadBlob).toHaveBeenCalledWith('op.xml', blob));
+    expect(api.downloadExport).toHaveBeenCalledWith('op-12345678', 'isoxml');
+    expect(open).not.toHaveBeenCalled();
+  });
+
+  it('a refused export shows its coded error and downloads nothing', async () => {
+    await savedPlan();
+    (api.downloadExport as any).mockRejectedValue(new ApiError(422, { code: 'IMPLEMENT_WIDTH_MISSING', detail: 'x', params: {} }));
+    fireEvent.click(screen.getByRole('button', { name: 'Exportar' }));
+    const alert = await screen.findByRole('alert');
+    expect(alert.textContent).toMatch(/ancho/i);
+    expect(downloadBlob).not.toHaveBeenCalled();
   });
 
   it('clicking a warning on the strip focuses its geometry and bumps fitKey', async () => {
@@ -266,7 +309,7 @@ describe('WorkScreen request flow', () => {
     fireEvent.click(btn);
     await waitFor(() => expect(api.saveOperation).toHaveBeenCalledTimes(1));
     await act(async () => { resolve({ success: true, operation_id: 'op-12345678', persisted: true }); });
-    await screen.findByText('Enviada (12345678)');
+    await screen.findByText('Guardada (12345678)');
     expect(api.saveOperation).toHaveBeenCalledTimes(1);
   });
 
@@ -296,7 +339,7 @@ describe('WorkScreen request flow', () => {
     await waitFor(() => expect((screen.getByRole('button', { name: 'Enviar al tractor' }) as HTMLButtonElement).disabled).toBe(false));
 
     fireEvent.click(screen.getByRole('button', { name: 'Enviar al tractor' }));
-    await screen.findByText('Enviada (12345678)');
+    await screen.findByText('Guardada (12345678)');
     expect(api.generate).toHaveBeenCalledTimes(2);
     expect((api.generate as any).mock.calls[1][0]).toMatchObject({ persist: false, vra: expect.objectContaining({ enabled: true }) });
     expect(api.saveOperation).toHaveBeenCalledTimes(1);

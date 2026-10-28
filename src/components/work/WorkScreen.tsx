@@ -14,6 +14,7 @@ import {
   type WorkState,
 } from '../../state/workMachine';
 import { savePlan } from '../../state/savePlan';
+import { downloadBlob } from '../../services/exportTransit';
 import { useConfigAutosave } from '../../state/useConfigAutosave';
 import { useVraSync } from '../../state/useVraSync';
 import { MapCanvas, type DrawMode, type LayerGroup } from '../../map/MapCanvas';
@@ -53,6 +54,14 @@ export function toWorkError(e: unknown): NonNullable<WorkState['error']> {
   const status = e instanceof ApiError ? `HTTP ${e.status}` : '';
   const detail = status && message && message !== status ? `${status}: ${message}` : status || message;
   return { code: 'UNKNOWN', detail, params: err?.params ?? {} };
+}
+
+/** The cockpit (another page of the host, same tab) draws the plan just saved when it mounts. */
+function handOverToCockpit(operationId: string, geometry: GeoJSON.Geometry | null): void {
+  try {
+    sessionStorage.setItem('nkz:gis-routing:lastSaved', JSON.stringify({
+      operation_id: operationId, geometry, prescriptionMap: null, timestamp: Date.now() }));
+  } catch { /* storage unavailable: the cockpit simply starts empty */ }
 }
 
 export interface WorkContext {
@@ -254,6 +263,7 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({ onContextChange }) => {
         // Save the plan under review by id; no recomputation unless the VRA changed since generating.
         const saved = await savePlan(cur, api);
         dispatch({ type: 'SAVE_RESULT', ...saved });
+        handOverToCockpit(saved.operationId, (saved.regenerated?.plan ?? cur.result?.plan)?.route ?? null);
         if (saved.regenerated) setToast(t('work.regeneratedOnSave'));
       } else {
         dispatch({ type: 'GENERATED', response: await api.generate(body!) });
@@ -268,9 +278,17 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({ onContextChange }) => {
   const onGenerate = useCallback(() => { void run(false); }, [run]);
   const onSave = useCallback(() => { void run(true); }, [run]);
 
-  const onExport = useCallback((format: 'isoxml' | 'geojson' | 'gpx') => {
+  const [exportError, setExportError] = useState<NonNullable<WorkState['error']> | null>(null);
+  const onExport = useCallback(async (format: 'isoxml' | 'geojson' | 'gpx') => {
     const id = stateRef.current.result?.operationId;
-    if (id) window.open(api.getExportUrl(id, format), '_blank', 'noopener');
+    if (!id) return;
+    setExportError(null);
+    try {
+      const file = await api.downloadExport(id, format);
+      downloadBlob(file.filename, file.blob);
+    } catch (e) {
+      setExportError(toWorkError(e));
+    }
   }, []);
 
   const refit = () => {
@@ -305,7 +323,8 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({ onContextChange }) => {
           dispatch={dispatch}
           onGenerate={onGenerate}
           onSave={onSave}
-          onExport={onExport}
+          onExport={(f) => { void onExport(f); }}
+          exportError={exportError}
           onShowError={onShowError}
           plan={plan}
         />

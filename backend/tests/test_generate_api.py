@@ -94,7 +94,7 @@ def test_headland_passes_zero_is_rejected():
 def test_response_has_plan_only(monkeypatch):
     resp = _gen(monkeypatch)
     assert resp.status_code == 200
-    assert set(resp.json()) == {"success", "operation_id", "persisted", "plan", "plan_id"}
+    assert set(resp.json()) == {"success", "operation_id", "persisted", "alert", "plan", "plan_id"}
 
 
 def test_external_ingest_requires_auth():
@@ -220,7 +220,8 @@ def test_persist_writes_plan_attributes(monkeypatch):
     class FakeOrion:
         def __init__(self, *a, **k): ...
         async def create_entity(self, entity):
-            captured["entity"] = entity
+            if entity["type"] != "Alert":
+                captured["entity"] = entity
             return {"id": entity["id"]}
         async def close(self): ...
 
@@ -258,7 +259,8 @@ def test_headland_only_persist_has_no_null_properties(monkeypatch):
     class FakeOrion:
         def __init__(self, *a, **k): ...
         async def create_entity(self, entity):
-            captured["entity"] = entity
+            if entity["type"] != "Alert":
+                captured["entity"] = entity
             return {"id": entity["id"]}
         async def close(self): ...
 
@@ -296,7 +298,8 @@ def test_return_to_access_returns_return_path_and_persists_it(monkeypatch):
     class FakeOrion:
         def __init__(self, *a, **k): ...
         async def create_entity(self, entity):
-            captured["entity"] = entity
+            if entity["type"] != "Alert":
+                captured["entity"] = entity
             return {"id": entity["id"]}
         async def close(self): ...
 
@@ -318,7 +321,8 @@ class _OkOrion:
 
     def __init__(self, *a, **k): ...
     async def create_entity(self, entity):
-        _OkOrion.created.append(entity)
+        if entity["type"] != "Alert":
+            _OkOrion.created.append(entity)
         return {"id": entity["id"]}
     async def close(self): ...
 

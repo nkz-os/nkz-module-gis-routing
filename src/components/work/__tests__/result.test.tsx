@@ -79,6 +79,25 @@ const bar = (state: WorkState, over: Record<string, unknown> = {}) => {
   return props;
 };
 
+describe('save confirmation and alert status', () => {
+  it.each([
+    ['sent', /Aviso registrado/], ['skipped', /Sin aviso: desactivado en ajustes/], ['failed', /No se pudo registrar el aviso/],
+  ])('ActionsBar shows availability and alert %s after saving', (alert, text) => {
+    const base = withResult({ phase: 'saved' }, 'urn:ngsi-ld:Op:abcdefgh12345678');
+    bar({ ...base, result: { ...base.result!, alert } as any });
+    expect(screen.getByText('Disponible en la app · operación #12345678')).toBeInTheDocument();
+    expect(screen.getByText(text)).toBeInTheDocument();
+  });
+});
+
+describe('export errors', () => {
+  it('shows a refused export translated by its code', () => {
+    const base = withResult({ phase: 'saved' }, 'urn:ngsi-ld:Op:abcdefgh12345678');
+    bar(base, { exportError: { code: 'IMPLEMENT_WIDTH_MISSING', detail: '', params: {} } });
+    expect(screen.getByRole('alert').textContent).toMatch(/ancho/i);
+  });
+});
+
 describe('result strip and actions bar', () => {
   it('ResultStrip renders metrics, warnings with show-on-map, stale badge and translated fallbacks', () => {
     const onWarningSelect = vi.fn();
@@ -123,7 +142,7 @@ describe('result strip and actions bar', () => {
     expect(ready.onGenerate).not.toHaveBeenCalled();
     cleanup();
     bar(withResult({ phase: 'saved', stale: true }, 'op-abcdef1234567890'));
-    expect(screen.getByText(/Enviada.*34567890/)).toBeInTheDocument();
+    expect(screen.getByText(/Guardada.*34567890/)).toBeInTheDocument();
     expect(screen.getByText('op-abcdef1234567890')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Regenerar' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Enviar al tractor' })).toBeDisabled();

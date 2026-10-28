@@ -196,7 +196,8 @@
     "noAccessPoint": "Sarbide-punturik ez",
     "zonesCount_one": "{{count}} gune debekatua",
     "zonesCount_other": "{{count}} gune debekatuak",
-    "instructions": "Egin klik mapan atea markatzeko; marraztu poligonoak debekatutako guneentzat."
+    "instructions": "Egin klik mapan atea markatzeko; marraztu poligonoak debekatutako guneentzat.",
+    "loadFailed": "Ezin izan da gordetako konfigurazioa kargatu. Birkargatu gorde aurretik, lehendik dauden eremuak ez gainidazteko."
   },
   "cockpit": {
     "gate": "Atea",
@@ -207,7 +208,9 @@
     "equipment": "Ekipamendua",
     "noEquipment": "Ekipamendurik gabe",
     "generate": "Lan-ibilbidea sortu",
-    "generateError": "Ezin izan da ibilbidea sortu"
+    "generateError": "Ezin izan da ibilbidea sortu",
+    "saved": "Ibilbidea gordeta",
+    "typeManually": "Zabalera edo biraketa-erradioa falta da: idatzi ezazu."
   },
   "work": {
     "steps": {
@@ -333,19 +336,24 @@
       "ZONES_FILE_TOO_LARGE": "Zonen fitxategia 5 MB baino handiagoa da",
       "PLAN_TOO_LARGE": "Plana handiegia da gordetzeko ({{size_kb}} KB). Erabili eremu gutxiago, eremu handiagoak edo azalera txikiagoa.",
       "ZONES_UNAVAILABLE": "Ezin izan dira kudeaketa-eremuak irakurri. Saiatu berriro.",
-      "PLAN_TOO_LARGE_TO_SAVE": "Plana handiegia da gordetzeko. Erabili zona gutxiago eta handiagoak, edo eremu txikiagoa."
+      "PLAN_TOO_LARGE_TO_SAVE": "Plana handiegia da gordetzeko. Erabili zona gutxiago eta handiagoak, edo eremu txikiagoa.",
+      "EXPORT_EMPTY": "Eragiketa honetan ez dago esportatzeko ezer.",
+      "PARCEL_READ_FAILED": "Ezin izan da partzela irakurri. Saiatu berriro.",
+      "IMPLEMENT_WIDTH_MISSING": "Eragiketa hau lan-zabalerarik gabe gorde zen eta ezin da ISOXMLra esportatu. Planifikatu berriro.",
+      "EXPORT_NOT_SUPPORTED": "Esportazio-formatu hau ez dago erabilgarri igarobideetarako."
     },
     "actions": {
       "regenerate": "Birsortu",
       "generateAgain": "Sortu berriro",
       "sendToTractor": "Bidali traktorera",
-      "sent": "Bidalita ({{id}})",
+      "sent": "Gordeta ({{id}})",
       "copyId": "Kopiatu ID",
       "copied": "Kopiatuta!",
       "saveTemplate": "Gorde txantiloi gisa",
       "exportFormat": "Esportazio formatua",
       "vraIncomplete": "Bete klase guztien dosiak (edo kanpoko eremuen fitxategia), edo desaktibatu dosi aldakorra, bidaltzeko.",
-      "vraPending": "Errezeta kalkulatu arte itxaroten, bidali aurretik."
+      "vraPending": "Errezeta kalkulatu arte itxaroten, bidali aurretik.",
+      "availableInApp": "Aplikazioan eskuragarri · eragiketa #{{id}}"
     },
     "title": "GIS ibilbideak",
     "tabs": {
@@ -353,7 +361,12 @@
       "transit": "A-B igarotzea"
     },
     "empty": "Hautatu lur-sail bat hasteko",
-    "regeneratedOnSave": "Plana berriro sortu da uneko dosiarekin gorde aurretik"
+    "regeneratedOnSave": "Plana berriro sortu da uneko dosiarekin gorde aurretik",
+    "alert": {
+      "sent": "Abisua erregistratu da",
+      "skipped": "Abisurik ez: ezarpenetan desaktibatuta",
+      "failed": "Ezin izan da abisua erregistratu"
+    }
   },
   "autosave": {
     "saved": "Gordeta {{time}}",
@@ -388,6 +401,11 @@
       "swaths": "Pasaldiak",
       "warnings": "Abisuak",
       "vra": "VRA klaseak"
+    },
+    "legend": {
+      "gate": "Atea",
+      "nogo": "NO-GO",
+      "margin": "Segurtasun-tartea"
     }
   },
   "transit": {
@@ -466,11 +484,26 @@
       "PERSIST_FAILED": "Ezin izan da eragiketa gorde.",
       "JOB_TIMEOUT": "Kalkuluak luze jo du. Saiatu berriro.",
       "UNKNOWN": "Ezin izan da ibilbidea kalkulatu: {{detail}}",
-      "JOBS_LIMIT": "Kalkulu gehiegi martxan daude ({{max_jobs}}). Itxaron bat amaitu arte."
+      "JOBS_LIMIT": "Kalkulu gehiegi martxan daude ({{max_jobs}}). Itxaron bat amaitu arte.",
+      "EXPORT_EMPTY": "Eragiketa honetan ez dago esportatzeko ezer.",
+      "PARCEL_READ_FAILED": "Ezin izan da partzela irakurri. Saiatu berriro."
     },
     "warnings": {
       "PARCELS_UNREADABLE": "Eremuko {{count}} lursailek ez dute muga irakurgarririk: haien ateak ez dira aplikatzen.",
       "UNKNOWN": "Abisua {{code}}"
     }
+  },
+  "settings": {
+    "title": "Ezarpenak",
+    "dispatch": {
+      "label": "Abisua ibilbide bat gordetzean",
+      "immediate": "Berehala",
+      "digest": "Laburpena 12 orduro",
+      "none": "Bat ere ez"
+    },
+    "saved": "Ezarpena gorde da",
+    "saveFailed": "Ezin izan da ezarpena gorde",
+    "loadFailed": "Ezin izan da ezarpena kargatu",
+    "forbidden": "Administratzaileek bakarrik alda dezakete ezarpen hau"
   }
 }

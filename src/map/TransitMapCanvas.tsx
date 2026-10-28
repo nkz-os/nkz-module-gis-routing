@@ -1,7 +1,11 @@
 import React, { useEffect, useRef, useState } from 'react';
 import type { GeoJSONSource, Map as MapLibreMap, Marker } from 'maplibre-gl';
 import { basemapFor, rasterSource, type BasemapId } from './basemap';
+import { useTranslation } from '@nekazari/sdk';
 import { injectMapCss } from './injectMapCss';
+import { ensureMapImages } from './markers';
+import { LabelMarkers, gateLabels, zoneLabels, type LabelItem } from './labelMarkers';
+import { MapLegend } from './MapLegend';
 import {
   TRANSIT_COLORS, buildTransitSources, changedTransitSources, transitBounds, transitLayerSpecs,
   type TransitMapModel, type TransitSourceId,
@@ -68,6 +72,7 @@ function markerElement(label: string): HTMLDivElement {
 }
 
 export const TransitMapCanvas: React.FC<TransitMapCanvasProps> = (props) => {
+  const { t } = useTranslation('gis-routing');
   const { model, pick, fitKey, locked = false } = props;
   const ref = useRef<HTMLDivElement>(null);
   const mapRef = useRef<MapLibreMap | null>(null);
@@ -75,6 +80,8 @@ export const TransitMapCanvas: React.FC<TransitMapCanvasProps> = (props) => {
   const prevModelRef = useRef<TransitMapModel | null>(null);
   /** A fit requested while the container had no usable size; run on the next resize. */
   const deferredFitRef = useRef<{ bounds: Bounds; duration: number } | null>(null);
+  const labelsRef = useRef<LabelMarkers | null>(null);
+  const markerCtorRef = useRef<typeof Marker | null>(null);
   const [ready, setReady] = useState(false);
 
   const propsRef = useRef(props);
@@ -106,6 +113,7 @@ export const TransitMapCanvas: React.FC<TransitMapCanvasProps> = (props) => {
       created.addControl(new maplibregl.NavigationControl({ visualizePitch: false }), 'top-right');
       created.addControl(new maplibregl.ScaleControl({ unit: 'metric' }), 'bottom-left');
       map = created;
+      markerCtorRef.current = maplibregl.Marker;
 
       created.on('error', (ev) => {
         const e = ev as { error?: unknown; tile?: unknown; sourceId?: unknown };
@@ -121,6 +129,10 @@ export const TransitMapCanvas: React.FC<TransitMapCanvasProps> = (props) => {
         if (cancelled) return;
         try {
           const m = propsRef.current.model;
+          // Images first: the hatch and gate layers refer to them. A style reload drops them.
+          void ensureMapImages(created);
+          created.on('styleimagemissing', () => { void ensureMapImages(created); });
+          created.on('styledata', () => { void ensureMapImages(created); });
           const sources = buildTransitSources(m);
           for (const id of Object.keys(sources) as TransitSourceId[]) created.addSource(id, { type: 'geojson', data: sources[id] });
           for (const spec of transitLayerSpecs()) created.addLayer(spec);
@@ -161,6 +173,8 @@ export const TransitMapCanvas: React.FC<TransitMapCanvasProps> = (props) => {
       markersRef.current.a?.remove();
       markersRef.current.b?.remove();
       markersRef.current = { a: null, b: null };
+      labelsRef.current?.clear();
+      labelsRef.current = null;
       mapRef.current = null;
       map?.remove();
     };
@@ -176,6 +190,21 @@ export const TransitMapCanvas: React.FC<TransitMapCanvasProps> = (props) => {
     const sources = buildTransitSources(model);
     for (const id of changed) (map.getSource(id) as GeoJSONSource | undefined)?.setData(sources[id]);
   }, [model, ready]);
+
+  // Gate and NO-GO labels (DOM markers: the basemap style has no glyphs for symbol text).
+  const gateText = t('map.legend.gate');
+  const nogoText = t('map.legend.nogo');
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!ready || !map) return;
+    const Ctor = markerCtorRef.current;
+    if (!Ctor) return;
+    if (!labelsRef.current) labelsRef.current = new LabelMarkers(map, Ctor);
+    labelsRef.current.sync(model.context.flatMap((p): LabelItem[] => [
+      ...gateLabels(p.access_point, gateText).map((l) => ({ ...l, key: `${p.id}-${l.key}` })),
+      ...zoneLabels(p.zones.map((g, i) => ({ id: `${p.id}-${i}`, geometry: g })), nogoText),
+    ]));
+  }, [model.context, gateText, nogoText, ready]);
 
   // A and B markers (draggable DOM markers).
   useEffect(() => {
@@ -247,6 +276,7 @@ export const TransitMapCanvas: React.FC<TransitMapCanvasProps> = (props) => {
   return (
     <div className="absolute inset-0" data-testid="transit-map-canvas">
       <div ref={ref} className="h-full w-full" data-testid="transit-map-container" />
+      <MapLegend />
     </div>
   );
 };

@@ -161,8 +161,7 @@ def build_operation_entity(*, op_id, body, result, prescription_map, is_template
     entity = {
         "id": op_id,
         "type": "AgriParcelOperation",
-        "name": {"type": "Property",
-                 "value": f"{body.operation_type} - {(body.parcel_id or 'op')[:8]}"},
+        "name": {"type": "Property", "value": body.operation_type},
         "operationType": {"type": "Property", "value": body.operation_type},
         "status": {"type": "Property", "value": "planned"},
         "location": {"type": "GeoProperty", "value": location},
@@ -175,6 +174,9 @@ def build_operation_entity(*, op_id, body, result, prescription_map, is_template
         "isTemplate": {"type": "Property", "value": is_template},
         "dateCreated": {"type": "Property", "value": _now_iso()},
         "generationConfig": {"type": "Property", "value": generation_config},
+        # Machine parameters the exports need, saved with the operation (never guessed later).
+        "implementWidth": {"type": "Property", "value": pc.width_m, "unitCode": "MTR"},
+        "turningRadius": {"type": "Property", "value": pc.turning_radius_m, "unitCode": "MTR"},
         "hasAgriParcel": {"type": "Relationship", "object": body.parcel_id},
     }
     start, end = resolve_planned(planned_start_at, planned_end_at)
@@ -199,6 +201,8 @@ def build_operation_entity(*, op_id, body, result, prescription_map, is_template
             entity["workingArea"] = {"type": "GeoProperty", "value": plan["working_area"]}
         if plan.get("validation") is not None:
             entity["validation"] = {"type": "Property", "value": plan["validation"]}
+        if plan.get("exit_point") is not None:
+            entity["exitPoint"] = {"type": "GeoProperty", "value": plan["exit_point"]}
         entity["planVersion"] = {"type": "Property", "value": 1}
         entity["headlandPasses"] = {"type": "Property", "value": plan.get("headland_passes")}
     if body.tractor_id:

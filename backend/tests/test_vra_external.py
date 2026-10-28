@@ -236,7 +236,7 @@ def test_isoxml_roundtrips_export_service_output():
           "zones": {"type": "FeatureCollection", "features": [
               {"type": "Feature", "properties": {"class_index": 0}, "geometry": mapping(POLYS[0])},
               {"type": "Feature", "properties": {"class_index": 1}, "geometry": mapping(POLYS[1])}]}}
-    xml = "<ISO11783TaskData><TSK>" + RouteExporter()._treatment_zones(rx) + "</TSK></ISO11783TaskData>"
+    xml = "<ISO11783TaskData><TSK>" + RouteExporter()._treatment_zones(rx)[0] + "</TSK></ISO11783TaskData>"
     r = post("isoxml", xml.encode())
     assert r.status_code == 200, r.text
     d = r.json()["data"]

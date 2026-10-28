@@ -351,6 +351,50 @@ async def list_operations(request: Request, limit: int = 20, parcel_id: Optional
         await orion.close()
 
 
+@router.get("/operations/{operation_id}/plan")
+async def get_operation_plan(operation_id: str, auth: AuthContext = require_auth()):
+    """The whole operation (route, swaths, gate, zones, VRA, parcel boundary) as a FeatureCollection."""
+    from app.services.plan_export import plan_feature_collection
+    from app.services.operation_store import _parcel_rel
+    from app.services.parcel_constraints import _attr_value
+    tenant_id = auth.tenant_id
+    settings = get_settings()
+    orion = OrionClient(tenant_id, base_url=settings.context_broker_url,
+                        context_url=settings.ngsi_ld_context)
+    try:
+        try:
+            entity = await orion.get_entity(operation_id)
+        except httpx.HTTPStatusError as e:
+            if e.response.status_code != 404:
+                logger.error("Failed to get operation %s: %s", operation_id, e)
+                raise HTTPException(status_code=502, detail="Operation store unavailable")
+            entity = None
+        except Exception as e:
+            logger.error("Failed to get operation %s: %s", operation_id, e)
+            raise HTTPException(status_code=502, detail="Operation store unavailable")
+        if not entity or str(entity.get("type", "")).rsplit("/", 1)[-1] != "AgriParcelOperation":
+            raise PlanError("OPERATION_NOT_FOUND", "Operation not found", {"operation_id": operation_id})
+        parcel_geometry = None
+        parcel_unavailable = False
+        parcel_id = _parcel_rel(entity)
+        is_transit = _attr_value(entity, "operationType") == "transit"
+        if parcel_id and not is_transit:
+            try:
+                parcel = await orion.get_entity(parcel_id)
+                loc = ((parcel or {}).get("location") or {}).get("value")
+                if isinstance(loc, dict) and loc.get("type") in ("Polygon", "MultiPolygon"):
+                    parcel_geometry = loc
+                else:
+                    parcel_unavailable = True
+            except Exception as e:
+                parcel_unavailable = True
+                logger.warning("Parcel boundary unavailable for plan %s: %s", operation_id, e)
+    finally:
+        await orion.close()
+    return plan_feature_collection(entity, parcel_geometry=parcel_geometry,
+                                   parcel_unavailable=parcel_unavailable)
+
+
 @router.get("/operations/{operation_id}")
 async def get_operation(request: Request, operation_id: str, auth: AuthContext = require_auth()):
     """Full operation detail incl. geometry and the inputs needed to re-run."""
@@ -601,8 +645,9 @@ async def generate_routing_plan(request: Request, body: GenerateRequest, auth: A
             for w in prescription["warnings"])
 
     operation_id = None
+    alert = None
     if body.persist and body.parcel_id:
-        operation_id = await _persist_operation(result, body, auth, None, plan_dict)
+        operation_id, alert = await _persist_operation(result, body, auth, None, plan_dict)
     persisted = operation_id is not None
 
     plan_id = None
@@ -614,7 +659,7 @@ async def generate_routing_plan(request: Request, body: GenerateRequest, auth: A
             planned_start_at=_iso_utc(body.planned_start_at), planned_end_at=_iso_utc(body.planned_end_at))
         entity_bytes = len(json.dumps(entity, separators=(",", ":")).encode("utf-8"))
         if entity_bytes <= operation_store.MAX_ENTITY_BYTES:
-            plan_id = _store_plan(auth.tenant_id, operation_id, plan_dict, body, result)
+            plan_id = _store_plan(auth.tenant_id, operation_id, plan_dict, body, result, alert)
         if plan_id is None:
             # Saving would fail with PLAN_TOO_LARGE (or the store cannot hold it): do not keep it.
             logger.warning("generate: plan not stored, too large to save: tenant_id=%s entity_bytes=%d",
@@ -625,20 +670,23 @@ async def generate_routing_plan(request: Request, body: GenerateRequest, auth: A
                 {"code": "PLAN_TOO_LARGE_TO_SAVE", "geometry": None,
                  "params": {"size_kb": round(entity_bytes / 1024)}})
     else:
-        plan_id = _store_plan(auth.tenant_id, operation_id, plan_dict, body, result)
+        plan_id = _store_plan(auth.tenant_id, operation_id, plan_dict, body, result, alert)
 
     return {
         "success": True,
         "operation_id": operation_id,
         "persisted": persisted,
+        "alert": alert,
         "plan": plan_dict,
         "plan_id": plan_id,
     }
 
 
-def _store_plan(tenant_id: str, operation_id, plan_dict: dict, body: GenerateRequest, result) -> Optional[str]:
+def _store_plan(tenant_id: str, operation_id, plan_dict: dict, body: GenerateRequest, result,
+                alert: Optional[str] = None) -> Optional[str]:
     return PLAN_STORE.put(tenant_id, {
         "operation_id": operation_id,
+        "alert": alert,
         "plan_dict": plan_dict,
         # external_features can be MBs and is not needed to build the entity.
         "body": body.model_dump(exclude={"vra": {"external_features"}}),
@@ -791,8 +839,8 @@ def _zones_from_orion(zones: list[dict], parcel_id: str, zone_ids: list[str] | N
 
 async def _persist_operation(result, body: GenerateRequest, auth: AuthContext,
                              prescription_map: dict | None, plan_dict: dict | None = None,
-                             *, strict: bool = False) -> Optional[str]:
-    """Persist route as AgriParcelOperation in Orion-LD. Returns operation URN.
+                             *, strict: bool = False) -> tuple[Optional[str], Optional[str]]:
+    """Persist route as AgriParcelOperation in Orion-LD. Returns (operation URN, alert outcome).
 
     Orion failure: None (reported as persisted=false) unless strict, which raises
     PERSIST_FAILED.
@@ -805,7 +853,22 @@ async def _persist_operation(result, body: GenerateRequest, auth: AuthContext,
         prescription_map=prescription_map, is_template=False, plan=plan_dict,
         planned_start_at=_iso_utc(body.planned_start_at), planned_end_at=_iso_utc(body.planned_end_at),
     )
-    return await _create_operation_entity(entity, op_id, tenant_id, strict=strict)
+    created = await _create_operation_entity(entity, op_id, tenant_id, strict=strict)
+    if created is None:
+        return None, None
+    return created, await _send_alert(entity, tenant_id)
+
+
+async def _send_alert(entity: dict, tenant_id: str) -> str:
+    """Alert for a just-stored operation per the tenant setting: sent | skipped | failed."""
+    from app.services.alerts import notify_operation
+    settings = get_settings()
+    return await notify_operation(
+        lambda: OrionClient(tenant_id, base_url=settings.context_broker_url,
+                            context_url=settings.ngsi_ld_context),
+        tenant_id=tenant_id, module_id=settings.module_id,
+        operation_id=entity["id"], operation_type=entity["operationType"]["value"],
+        parcel_id=(entity.get("hasAgriParcel") or {}).get("object"))
 
 
 async def _create_operation_entity(entity: dict, op_id: str, tenant_id: str, *,
@@ -874,7 +937,8 @@ async def save_operation(body: SaveOperationRequest, auth: AuthContext = require
             raise PlanError("PLAN_EXPIRED", "plan not found or expired; generate it again")
         async with _save_lock(("plan", auth.tenant_id, body.plan_id)):
             if rec.get("operation_id"):
-                return {"success": True, "operation_id": rec["operation_id"], "persisted": True}
+                return {"success": True, "operation_id": rec["operation_id"], "persisted": True,
+                        "alert": rec.get("alert")}
             stored = GenerateRequest(**rec["body"])
             if not stored.parcel_id:
                 raise PlanError("PARCEL_REQUIRED", "a parcel is required to save an operation")
@@ -884,10 +948,11 @@ async def save_operation(body: SaveOperationRequest, auth: AuthContext = require
             if body.planned_end_at is not None:
                 update["planned_end_at"] = body.planned_end_at
             gen = stored.model_copy(update=update)
-            op_id = await _persist_operation(rec["result"], gen, auth, None, rec["plan_dict"],
-                                             strict=True)
+            op_id, alert = await _persist_operation(rec["result"], gen, auth, None,
+                                                    rec["plan_dict"], strict=True)
             rec["operation_id"] = op_id
-        return {"success": True, "operation_id": op_id, "persisted": True}
+            rec["alert"] = alert
+        return {"success": True, "operation_id": op_id, "persisted": True, "alert": alert}
 
     if not body.parcel_id:
         raise PlanError("PARCEL_REQUIRED", "a destination parcel is required to save a transit")
@@ -905,7 +970,8 @@ async def save_operation(body: SaveOperationRequest, auth: AuthContext = require
         # Idempotent per destination parcel: saving the same route for another parcel is a new operation.
         saved = alt.setdefault("operation_ids", {})
         if saved.get(body.parcel_id):
-            return {"success": True, "operation_id": saved[body.parcel_id], "persisted": True}
+            return {"success": True, "operation_id": saved[body.parcel_id], "persisted": True,
+                    "alert": alt.get("alerts", {}).get(body.parcel_id)}
         await _require_parcel(body.parcel_id, auth.tenant_id)
         op_id = operation_store.new_operation_id(auth.tenant_id)
         entity = operation_store.build_transit_entity(
@@ -915,7 +981,9 @@ async def save_operation(body: SaveOperationRequest, auth: AuthContext = require
             constraints_used=(job.get("report") or {}).get("constraints_used"))
         await _create_operation_entity(entity, op_id, auth.tenant_id, strict=True)
         saved[body.parcel_id] = op_id
-    return {"success": True, "operation_id": op_id, "persisted": True}
+        alert = await _send_alert(entity, auth.tenant_id)
+        alt.setdefault("alerts", {})[body.parcel_id] = alert
+    return {"success": True, "operation_id": op_id, "persisted": True, "alert": alert}
 
 
 _SAVE_LOCKS: dict[tuple, list] = {}   # key -> [lock, holders and waiters]
@@ -1117,6 +1185,8 @@ async def generate_vra_zones(request: Request, parcel_id: str, auth: AuthContext
 async def export_operation(request: Request, operation_id: str, format: str = Query("geojson", description="Export format: isoxml, geojson, gpx"),
     auth: AuthContext = require_auth()
 ):
+    from app.services.operation_store import _parcel_rel
+    from app.services.parcel_constraints import _attr_value
     tenant_id = auth.tenant_id
     settings = get_settings()
     orion = OrionClient(
@@ -1136,10 +1206,34 @@ async def export_operation(request: Request, operation_id: str, format: str = Qu
         "name": entity.get("name", {}).get("value", ""),
         "operation_type": entity.get("operationType", {}).get("value", ""),
         "ab_line_geojson": json.dumps(location) if location else "{}",
-        "implement_width": entity.get("implementWidth", {}).get("value", 24.0),
+        "implement_width": _attr_value(entity, "implementWidth"),
         "vra_enabled": entity.get("vraEnabled", {}).get("value", False),
-        "prescription": (entity.get("prescription") or {}).get("value"),
+        "prescription": _attr_value(entity, "prescription"),
     }
+    swaths_fc = _attr_value(entity, "swaths")
+    if isinstance(swaths_fc, dict) and swaths_fc.get("features"):
+        op_record["swaths"] = swaths_fc["features"]
+    if format == "isoxml":
+        parcel_id = _parcel_rel(entity)
+        if parcel_id:
+            try:
+                orion = OrionClient(tenant_id, base_url=settings.context_broker_url,
+                                    context_url=settings.ngsi_ld_context)
+                try:
+                    parcel = await orion.get_entity(parcel_id)
+                finally:
+                    await orion.close()
+                loc = ((parcel or {}).get("location") or {}).get("value")
+                if isinstance(loc, dict):
+                    op_record["parcel_geometry"] = loc
+                pname = ((parcel or {}).get("name") or {}).get("value")
+                if pname:
+                    op_record["parcel_name"] = pname
+            except Exception as e:
+                logger.error("Parcel read failed for export: operation=%s tenant=%s error=%s",
+                             operation_id, tenant_id, e)
+                raise PlanError("PARCEL_READ_FAILED", "parcel could not be read for the export",
+                                {"operation_id": operation_id}) from e
     exporter = RouteExporter()
     if format == "isoxml":
         content = exporter.to_isoxml(op_record)

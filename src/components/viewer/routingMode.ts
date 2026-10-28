@@ -15,6 +15,7 @@ export const EV = {
   zoneDrawn: 'nekazari:gis-routing:parcelConfig:zoneDrawn',     // {ring}
   activateDraw: 'nekazari:gis-routing:parcelConfig:activate',   // {mode:'access'|'zone'|'off'}
   transitStart: 'nekazari:gis-routing:pickPathStart',
+  transitWidth: 'nekazari:gis-routing:transitWidth',            // {widthM: number | null}
   transitCancel: 'nekazari:gis-routing:pickPathCancel',
   transitAltSelected: 'nekazari:gis-routing:pathAlternativeSelected',
   routeGenerated: 'nekazari:gis-routing:routeGenerated',

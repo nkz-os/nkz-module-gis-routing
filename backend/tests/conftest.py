@@ -59,3 +59,34 @@ def _fresh_search_lock(monkeypatch):
     from app.api import pathfinding_router as pr
 
     monkeypatch.setattr(pr, "_SEARCH_LOCK", asyncio.Semaphore(1))
+
+
+class MemorySettingsStore:
+    """In-memory tenant_settings store; no Postgres in unit tests."""
+
+    def __init__(self):
+        self.rows = {}
+        self.fail = False
+        self.closed = False
+
+    async def close(self):
+        self.closed = True
+
+    async def get_dispatch(self, tenant_id):
+        if self.fail:
+            raise RuntimeError("db down")
+        return self.rows.get(tenant_id)
+
+    async def put_dispatch(self, tenant_id, value, user_id):
+        if self.fail:
+            raise RuntimeError("db down")
+        self.rows[tenant_id] = value
+
+
+@pytest.fixture(autouse=True)
+def settings_store():
+    from app.services import tenant_settings
+    store = MemorySettingsStore()
+    tenant_settings.set_store(store)
+    yield store
+    tenant_settings.set_store(None)

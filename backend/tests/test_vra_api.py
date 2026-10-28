@@ -307,13 +307,14 @@ def test_persisted_prescription_has_no_swath_segments_but_response_does():
 
 
 def test_export_isoxml_works_from_persisted_shape():
+    import json
     from app.services.export_service import RouteExporter
     gen(vra=vra(), persist=True)
     stored = FakeOrion.created[0]["prescription"]["value"]
     xml = RouteExporter().to_isoxml({"id": "x", "name": "n", "operation_type": "spraying",
-                                     "ab_line_geojson": "{}", "implement_width": 4,
-                                     "prescription": stored})
-    assert xml.count("<TZN") == 3
+                                     "ab_line_geojson": json.dumps({"type": "LineString", "coordinates": [[0, 0], [0.001, 0.001]]}),
+                                     "implement_width": 4, "prescription": stored})
+    assert xml.count("<TZN") == 4  # 3 classes + rate-0 fallback
 
 
 def test_too_large_entity_is_422_plan_too_large(monkeypatch):

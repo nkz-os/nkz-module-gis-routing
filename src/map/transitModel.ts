@@ -1,6 +1,7 @@
 import type { LayerSpecification } from 'maplibre-gl';
 import type { ContextParcel, PathAlternative, PathAlternativeId } from '../services/api';
 import type { LonLat } from '../state/transitMachine';
+import { GATE_IMAGE, HATCH_IMAGE, NOGO_COLOR } from './markers';
 
 export interface TransitMapModel {
   a: LonLat | null;
@@ -24,7 +25,7 @@ export type TransitSourceId = (typeof TRANSIT_SOURCE_IDS)[number];
 export const TRANSIT_COLORS = {
   parcel: '#10B981',
   gate: '#2563EB',
-  zone: '#EF4444',
+  zone: NOGO_COLOR,
   selected: '#2563EB',
   other: '#9CA3AF',
   hover: '#F59E0B',
@@ -68,11 +69,12 @@ export function transitLayerSpecs(): LayerSpecification[] {
       id: 'tr-parcels-line', type: 'line', source: 'tr-parcels',
       paint: { 'line-color': C.parcel, 'line-width': 1.5, 'line-dasharray': [3, 2] },
     },
-    { id: 'tr-zones-fill', type: 'fill', source: 'tr-zones', paint: { 'fill-color': C.zone, 'fill-opacity': 0.3 } },
-    { id: 'tr-zones-line', type: 'line', source: 'tr-zones', paint: { 'line-color': C.zone, 'line-width': 2 } },
+    { id: 'tr-zones-fill', type: 'fill', source: 'tr-zones', paint: { 'fill-color': C.zone, 'fill-opacity': 0.18 } },
+    { id: 'tr-zones-hatch', type: 'fill', source: 'tr-zones', paint: { 'fill-pattern': HATCH_IMAGE } },
+    { id: 'tr-zones-line', type: 'line', source: 'tr-zones', paint: { 'line-color': C.zone, 'line-width': 3 } },
     {
-      id: 'tr-gates-circle', type: 'circle', source: 'tr-gates',
-      paint: { 'circle-radius': 6, 'circle-color': C.gate, 'circle-stroke-color': '#FFFFFF', 'circle-stroke-width': 2 },
+      id: 'tr-gates-icon', type: 'symbol', source: 'tr-gates',
+      layout: { 'icon-image': GATE_IMAGE, 'icon-anchor': 'bottom', 'icon-allow-overlap': true, 'icon-ignore-placement': true },
     },
     {
       id: 'tr-alts-casing', type: 'line', source: 'tr-alts', filter: ['==', ['get', 'selected'], true],

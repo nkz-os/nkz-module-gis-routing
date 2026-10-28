@@ -277,3 +277,22 @@ def test_put_null_access_point_orion_error_returns_502(monkeypatch):
     client = TestClient(create_app())
 
     assert client.put(_URL, json={"accessPoint": None}).status_code == 502
+
+
+import pytest
+
+_NS = "https://nkz-os.org/ns/"
+_FC = {"type": "FeatureCollection", "features": [
+    {"type": "Feature", "properties": {}, "geometry": {"type": "Polygon", "coordinates": [[[0, 0], [0, 1], [1, 1], [0, 0]]]}}]}
+
+
+@pytest.mark.parametrize("prefix", ["nkz:", _NS])
+def test_get_parcel_config_reads_every_attribute_form(monkeypatch, prefix):
+    fake = _FakeOrion()
+    fake.entity = {"id": "urn:ngsi-ld:AgriParcel:t1:p1", "type": "AgriParcel",
+                   prefix + "accessPoint": {"type": "GeoProperty", "value": {"type": "Point", "coordinates": [1.0, 2.0]}},
+                   prefix + "exclusionZones": {"type": "Property", "value": _FC}}
+    monkeypatch.setattr("app.api.parcel_config.OrionClient", lambda *a, **k: fake)
+    body = TestClient(create_app()).get("/api/routing/parcels/urn:ngsi-ld:AgriParcel:t1:p1/config").json()
+    assert body["exclusionZones"] == _FC
+    assert body["accessPoint"]["coordinates"] == [1.0, 2.0]

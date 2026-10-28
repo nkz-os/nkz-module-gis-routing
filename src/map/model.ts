@@ -1,6 +1,8 @@
 import type { LayerSpecification } from 'maplibre-gl';
 import type { Plan, Prescription } from '../services/api';
 import { bboxOf, type Zone } from '../services/geo';
+import buffer from '@turf/buffer';
+import { GATE_IMAGE, HATCH_IMAGE, NOGO_COLOR, labelAnchor } from './markers';
 
 export interface MapModel {
   parcel: GeoJSON.Polygon | null;
@@ -28,7 +30,7 @@ export type SourceId = (typeof SOURCE_IDS)[number];
 const C = {
   work: '#F59E0B',
   headland: '#6B7280',
-  zone: '#EF4444',
+  zone: NOGO_COLOR,
   zoneInvalid: '#FBBF24',
   route: '#111827',
   access: '#2563EB',
@@ -53,21 +55,17 @@ const feature = (geometry: GeoJSON.Geometry, properties: GeoJSON.GeoJsonProperti
 const fc = (features: Feature[]): GeoJSON.FeatureCollection => ({ type: 'FeatureCollection', features });
 
 function anchorOf(g: GeoJSON.Geometry): GeoJSON.Point {
-  switch (g.type) {
-    case 'Point':
-      return g;
-    case 'LineString':
-    case 'MultiLineString': {
-      const line = g.type === 'LineString' ? g.coordinates : g.coordinates[0];
-      return { type: 'Point', coordinates: line[Math.floor(line.length / 2)] };
-    }
-    default:
-      break;
+  return { type: 'Point', coordinates: labelAnchor(g) };
+}
+
+/** The zone grown by `meters`: the clearance the planner keeps. Null when it cannot be computed. */
+function bufferedZone(polygon: GeoJSON.Polygon, meters: number): GeoJSON.Polygon | GeoJSON.MultiPolygon | null {
+  try {
+    return buffer(polygon, meters, { units: 'meters' })?.geometry ?? null;
+  } catch (e) {
+    console.warn('[gis-routing] safety margin not drawn for a zone', e);
+    return null;
   }
-  // Polygons (first part) and anything else: centre of the bounding box.
-  const target = g.type === 'MultiPolygon' ? ({ type: 'Polygon', coordinates: g.coordinates[0] } as GeoJSON.Polygon) : g;
-  const [x0, y0, x1, y1] = bboxOf(target.type === 'Polygon' ? { type: 'Polygon', coordinates: [target.coordinates[0]] } : target);
-  return { type: 'Point', coordinates: [(x0 + x1) / 2, (y0 + y1) / 2] };
 }
 
 export function buildSources(m: MapModel): Record<SourceId, GeoJSON.FeatureCollection> {
@@ -77,9 +75,13 @@ export function buildSources(m: MapModel): Record<SourceId, GeoJSON.FeatureColle
     ? m.parcel.coordinates.slice(1).map((ring) => feature({ type: 'Polygon', coordinates: [ring] }, {}))
     : [];
 
-  const margin = m.marginM === null
-    ? []
-    : m.zones.filter((z) => z.valid).map((z) => feature(z.polygon, { marginM: m.marginM }));
+  const margin: Feature[] = [];
+  if (m.marginM !== null) {
+    for (const z of m.zones.filter((zone) => zone.valid)) {
+      const grown = bufferedZone(z.polygon, m.marginM);
+      if (grown) margin.push(feature(grown, { marginM: m.marginM }));
+    }
+  }
 
   const access: Feature[] = [];
   if (plan?.access_path) access.push(feature(plan.access_path, { kind: 'access' }));
@@ -169,16 +171,14 @@ export function layerSpecs(): LayerSpecification[] {
     { id: 'parcel-line', type: 'line', source: 'parcel', paint: { 'line-color': C.parcel, 'line-width': 2 } },
     { id: 'rings-fill', type: 'fill', source: 'parcel-rings', paint: { 'fill-color': C.headland, 'fill-opacity': 0.25 } },
     { id: 'rings-line', type: 'line', source: 'parcel-rings', paint: { 'line-color': C.headland, 'line-width': 1.5, 'line-dasharray': [3, 2] } },
-    { id: 'zones-fill', type: 'fill', source: 'zones', paint: { 'fill-color': C.zone, 'fill-opacity': 0.3 } },
+    { id: 'zones-fill', type: 'fill', source: 'zones', paint: { 'fill-color': C.zone, 'fill-opacity': 0.18 } },
+    { id: 'zones-hatch', type: 'fill', source: 'zones', paint: { 'fill-pattern': HATCH_IMAGE } },
+    // Outside the zone and below its border, which stays whole.
+    { id: 'zones-margin-line', type: 'line', source: 'zones-margin', paint: { 'line-color': C.zone, 'line-width': 2, 'line-dasharray': [3, 2] } },
     {
       id: 'zones-line', type: 'line', source: 'zones',
-      paint: {
-        'line-color': ['case', ['!', ['get', 'valid']], C.zoneInvalid, C.zone],
-        'line-width': 2,
-        'line-dasharray': [2, 2],
-      },
+      paint: { 'line-color': ['case', ['!', ['get', 'valid']], C.zoneInvalid, C.zone], 'line-width': 3 },
     },
-    { id: 'zones-margin-line', type: 'line', source: 'zones-margin', paint: { 'line-color': C.zone, 'line-width': 1.5, 'line-dasharray': [2, 2], 'line-opacity': 0.7 } },
     {
       id: 'vra-classes-fill', type: 'fill', source: 'vra-classes', filter: ['==', ['get', 'part'], 'fill'],
       paint: { 'fill-color': ['get', 'color'], 'fill-opacity': 0.45 },
@@ -186,11 +186,6 @@ export function layerSpecs(): LayerSpecification[] {
     {
       id: 'vra-classes-line', type: 'line', source: 'vra-classes', filter: ['==', ['get', 'part'], 'fill'],
       paint: { 'line-color': ['get', 'color'], 'line-width': 1.5 },
-    },
-    {
-      id: 'vra-classes-label', type: 'symbol', source: 'vra-classes', filter: ['==', ['get', 'part'], 'label'],
-      layout: { 'text-field': ['get', 'label'], 'text-size': 12, 'text-allow-overlap': false },
-      paint: { 'text-color': '#FFFFFF', 'text-halo-color': C.route, 'text-halo-width': 1.5 },
     },
     {
       // Dark casing under class-coloured segments so they stand out over the class fill.
@@ -206,6 +201,12 @@ export function layerSpecs(): LayerSpecification[] {
         'line-color': ['case', ['has', 'color'], ['get', 'color'], ['match', ['get', 'kind'], 'headland', C.headland, C.work]],
         'line-width': ['case', ['get', 'hovered'], 5, ['==', ['get', 'kind'], 'headland'], 1.5, 3],
       },
+    },
+    {
+      // Above the swaths: a label under a line cannot be read.
+      id: 'vra-classes-label', type: 'symbol', source: 'vra-classes', filter: ['==', ['get', 'part'], 'label'],
+      layout: { 'text-field': ['get', 'label'], 'text-size': 14, 'text-allow-overlap': true },
+      paint: { 'text-color': '#FFFFFF', 'text-halo-color': C.route, 'text-halo-width': 2.5 },
     },
     {
       id: 'route-line', type: 'line', source: 'route',
@@ -224,7 +225,11 @@ export function layerSpecs(): LayerSpecification[] {
       paint: { 'circle-radius': 11, 'circle-color': 'rgba(0,0,0,0)', 'circle-stroke-color': C.zone, 'circle-stroke-width': 3 },
     },
     {
-      id: 'markers-circle', type: 'circle', source: 'markers',
+      id: 'markers-gate', type: 'symbol', source: 'markers', filter: ['==', ['get', 'kind'], 'access'],
+      layout: { 'icon-image': GATE_IMAGE, 'icon-anchor': 'bottom', 'icon-allow-overlap': true, 'icon-ignore-placement': true },
+    },
+    {
+      id: 'markers-circle', type: 'circle', source: 'markers', filter: ['!=', ['get', 'kind'], 'access'],
       paint: {
         'circle-radius': 7,
         'circle-color': ['match', ['get', 'kind'], 'access', C.access, C.route],

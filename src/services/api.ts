@@ -11,12 +11,8 @@ function resolveOrigin(): string {
 export const API_ORIGIN: string = resolveOrigin();
 const BASE_URL = `${API_ORIGIN}/api/routing`;
 
-async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
-  const headers: Record<string, string> = {
-    'Content-Type': 'application/json',
-    ...(options.headers as Record<string, string> || {}),
-  };
-
+async function authHeaders(extra: Record<string, string> = {}): Promise<Record<string, string>> {
+  const headers: Record<string, string> = { ...extra };
   if (typeof window !== 'undefined') {
     const ctx = (window as any).__nekazariAuthContext;
     let token = ctx?.token || (window as any).keycloak?.token;
@@ -26,7 +22,14 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
     }
     if (token) headers['Authorization'] = `Bearer ${token}`;
   }
+  return headers;
+}
 
+async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
+  const headers = await authHeaders({
+    'Content-Type': 'application/json',
+    ...(options.headers as Record<string, string> || {}),
+  });
   const resp = await fetch(`${BASE_URL}${path}`, { ...options, headers, credentials: 'include' });
   if (!resp.ok) {
     const error = await resp.json().catch(() => ({ detail: resp.statusText }));
@@ -155,12 +158,19 @@ export interface GenerateResponse {
   plan: Plan;
   /** Id of the stored plan; save it with api.saveOperation. Null when the plan is too large to save. */
   plan_id: string | null;
+  alert?: AlertStatus;
 }
+
+/** Outcome of the alert raised when an operation is saved. */
+export type AlertStatus = 'sent' | 'skipped' | 'failed';
+export type DispatchNotification = 'immediate' | 'digest' | 'none';
+export interface TenantSettings { dispatch_notification: DispatchNotification }
 
 export interface SaveOperationResponse {
   success: boolean;
   operation_id: string;
   persisted: boolean;
+  alert?: AlertStatus;
 }
 
 export interface GenerateRequest {
@@ -185,6 +195,17 @@ export interface ParcelConfig {
   accessPoint: Point | null;
   exclusionZones: FeatureCollection | null;
 }
+
+/** Body of PUT /parcels/{id}/config: an absent field is left unchanged, a null accessPoint deletes the gate. */
+export interface ParcelConfigPatch {
+  accessPoint?: Point | null;
+  exclusionZones?: FeatureCollection | null;
+}
+
+/** The whole operation as drawn by the cockpit (spec 6.2); `partial` is set for operations of older phases. */
+export type OperationPlan = FeatureCollection & {
+  properties?: { plan_version?: number; operation_id?: string; operation_type?: string; partial?: boolean };
+};
 
 export type PathAlternativeId = 'least_slope' | 'fastest';
 
@@ -250,6 +271,14 @@ export const api = {
     return request('/operations', { method: 'POST', body: JSON.stringify(body) });
   },
 
+  // Settings
+  getSettings() { return request<TenantSettings>('/settings'); },
+  putSettings(dispatch: DispatchNotification) {
+    return request<TenantSettings>('/settings', {
+      method: 'PUT', body: JSON.stringify({ dispatch_notification: dispatch }),
+    });
+  },
+
   // Parcels
   listParcels() { return request<any[]>('/parcels'); },
   getParcelsContext(bbox: [number, number, number, number]) {
@@ -263,7 +292,7 @@ export const api = {
       `/parcels/${encodeURIComponent(parcelId)}/config`);
   },
   saveParcelConfig(parcelId: string,
-                   body: ParcelConfig) {
+                   body: ParcelConfigPatch) {
     return request<{ success: boolean; updated: string[] }>(`/parcels/${encodeURIComponent(parcelId)}/config`,
       { method: 'PUT', body: JSON.stringify(body) });
   },
@@ -291,13 +320,27 @@ export const api = {
     });
   },
   getActiveOperation() { return request<any>('/operations/active'); },
+  getOperationPlan(operationId: string) {
+    return request<OperationPlan>(`/operations/${encodeURIComponent(operationId)}/plan`);
+  },
   getOperationCoverage(operationId: string) {
     return request<any>(`/operations/coverage/${encodeURIComponent(operationId)}`);
   },
 
   // Export
-  getExportUrl(operationId: string, format: 'isoxml' | 'geojson' | 'gpx'): string {
-    return `${BASE_URL}/export/${encodeURIComponent(operationId)}?format=${format}`;
+  /** The exported file. A refusal (coded 4xx/5xx) throws ApiError instead of downloading its JSON body. */
+  async downloadExport(
+    operationId: string, format: 'isoxml' | 'geojson' | 'gpx',
+  ): Promise<{ blob: Blob; filename: string }> {
+    const resp = await fetch(`${BASE_URL}/export/${encodeURIComponent(operationId)}?format=${format}`, {
+      headers: await authHeaders(), credentials: 'include',
+    });
+    if (!resp.ok) {
+      const error = await resp.json().catch(() => ({ detail: resp.statusText }));
+      throw new ApiError(resp.status, error);
+    }
+    const named = /filename="?([^";]+)"?/.exec(resp.headers.get('Content-Disposition') ?? '')?.[1];
+    return { blob: await resp.blob(), filename: named ?? `${operationId.split(':').pop()}.${format === 'isoxml' ? 'xml' : format}` };
   },
 
   // Patterns

@@ -6,6 +6,7 @@ from app.api.operations import router as operations_router
 from app.api import patterns_router
 from app.api import pathfinding_router
 from app.api import parcel_config
+from app.api import settings as settings_api
 
 router = APIRouter()
 router.include_router(operations_router)
@@ -13,3 +14,4 @@ router.include_router(routing_router)
 router.include_router(patterns_router.router)
 router.include_router(pathfinding_router.router)
 router.include_router(parcel_config.router)
+router.include_router(settings_api.router)

@@ -4,6 +4,8 @@ import { Badge, Button, Select } from '@nekazari/ui-kit';
 import { canGenerate, vraSaveBlocker, type WorkEvent, type WorkState } from '../../state/workMachine';
 import type { Plan } from '../../services/api';
 import { PatternSaveLoad } from '../patterns/PatternSaveLoad';
+import { SavedNotice } from './AlertLine';
+import { SettingsBlock } from './SettingsBlock';
 
 const NS = 'gis-routing';
 
@@ -19,6 +21,8 @@ interface Props {
   onGenerate: () => void;
   onSave: () => void;
   onExport: (format: ExportFormat) => void;
+  /** A refused export (coded by the backend), shown instead of a downloaded error file. */
+  exportError?: WorkState['error'];
   onShowError: (geometry: GeoJSON.Geometry) => void;
   plan: Plan | null;
 }
@@ -44,7 +48,7 @@ function errorGeometry(params: Record<string, unknown>): GeoJSON.Geometry | null
 }
 
 export const ActionsBar: React.FC<Props> = ({
-  state, dispatch, onGenerate, onSave, onExport, onShowError, plan,
+  state, dispatch, onGenerate, onSave, onExport, exportError, onShowError, plan,
 }) => {
   const { t } = useTranslation(NS);
   const [format, setFormat] = useState<ExportFormat>('isoxml');
@@ -121,6 +125,8 @@ export const ActionsBar: React.FC<Props> = ({
         )}
       </div>
 
+      {phase === 'saved' && operationId && <SavedNotice operationId={operationId} alert={state.result?.alert} />}
+
       {phase === 'generated' && vraBlocker !== null && (
         <p className="text-nkz-sm text-nkz-danger" role="status" data-testid="vra-save-blocked">
           {t(vraBlocker === 'incomplete' ? 'work.actions.vraIncomplete' : 'work.actions.vraPending')}
@@ -149,6 +155,15 @@ export const ActionsBar: React.FC<Props> = ({
           {t('work.actions.saveTemplate')}
         </Button>
       </div>
+
+      {exportError && (
+        <p role="alert" className="text-nkz-sm text-nkz-danger">
+          {t(`work.errors.${exportError.code}`, { ...exportError.params, detail: exportError.detail, defaultValue: '' })
+            || t('work.errors.UNKNOWN', { detail: exportError.detail })}
+        </p>
+      )}
+
+      <SettingsBlock />
 
       {templateOpen && plan && (
         <PatternSaveLoad

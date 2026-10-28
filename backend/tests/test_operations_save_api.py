@@ -18,6 +18,7 @@ URL = "/api/routing/operations"
 
 class _Orion:
     created: list = []
+    alerts: list = []   # Alerts are kept apart so operation counts stay exact
     fail = False
 
     def __init__(self, *a, **k):
@@ -26,7 +27,7 @@ class _Orion:
     async def create_entity(self, entity):
         if _Orion.fail:
             raise RuntimeError("down")
-        _Orion.created.append(entity)
+        (_Orion.alerts if entity["type"] == "Alert" else _Orion.created).append(entity)
 
     async def get_entity(self, *a, **k):
         if _Orion.stored is None:
@@ -43,6 +44,7 @@ class _Orion:
 @pytest.fixture
 def client(monkeypatch):
     _Orion.created = []
+    _Orion.alerts = []
     _Orion.fail = False
     _Orion.stored = {"id": PARCEL}
     monkeypatch.setattr("app.api.routing.OrionClient", _Orion)
@@ -363,3 +365,26 @@ async def test_save_lock_entry_survives_release_while_a_waiter_is_pending():
     assert routing._SAVE_LOCKS.get(key) is entry     # a third request meets the same lock
     await w
     assert entered == [1] and key not in routing._SAVE_LOCKS
+
+
+def _saved_operation(client):
+    pid = _plan(client)
+    assert client.post(URL, json={"kind": "plan", "plan_id": pid}).status_code == 200
+    return _Orion.created[0]
+
+
+def test_isoxml_guidance_width_is_the_saved_implement_width(client):
+    """The width saved with the operation (20 m here) reaches every guidance line."""
+    ent = _saved_operation(client)
+    _Orion.stored = ent
+    r = client.get(f"/api/routing/export/{ent['id']}?format=isoxml")
+    assert r.status_code == 200, r.text
+    assert 'C="20000"' in r.text and 'C="24000"' not in r.text
+
+
+def test_isoxml_of_an_operation_without_width_is_422_coded(client):
+    ent = dict(_saved_operation(client))
+    del ent["implementWidth"]
+    _Orion.stored = ent
+    r = client.get(f"/api/routing/export/{ent['id']}?format=isoxml")
+    assert r.status_code == 422 and r.json()["code"] == "IMPLEMENT_WIDTH_MISSING"

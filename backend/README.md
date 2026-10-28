@@ -66,6 +66,16 @@ and the operation was written; on a write failure it is `false`, `operation_id` 
 | `exclusion_zones` | `FeatureCollection` |
 | `prescription` | `null` in this version |
 
+`GET /operations/{id}/plan` returns the saved operation as one FeatureCollection
+(`properties.element`: `route`, `swath`, `access_path`, `access_point`, `exit_point`,
+`return_path`, `exclusion_zone`, `prescription_zone`, `parcel_boundary`, `working_area`;
+`transit` for transits). With a prescription, swath parts outside every zone carry
+`rate: 0` (`properties.outside_rate`), as in the ISOXML export. The operation stores
+`implementWidth` and `turningRadius` when it is saved; ISOXML export of an operation
+without `implementWidth` is refused with `IMPLEMENT_WIDTH_MISSING` (422). The alert
+raised on save is an `Alert` with `status: active` and `alertType: route_planned`;
+per-tenant dispatch settings live in the table `gis_routing_tenant_settings`.
+
 Guarantees: the route stays inside the parcel minus half the working width
 (tolerance 0.5 m) and outside every no-go zone plus half the working width
 (tolerance 0.1 m). This holds for every pattern, `headland-only` included.

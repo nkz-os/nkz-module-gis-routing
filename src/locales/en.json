@@ -196,7 +196,8 @@
     "noAccessPoint": "No access point",
     "zonesCount_one": "{{count}} no-go zone",
     "zonesCount_other": "{{count}} no-go zones",
-    "instructions": "Click the map to mark the gate; draw polygons for the no-go zones."
+    "instructions": "Click the map to mark the gate; draw polygons for the no-go zones.",
+    "loadFailed": "Could not load the saved configuration. Reload before saving so existing zones are not overwritten."
   },
   "cockpit": {
     "gate": "Gate",
@@ -207,7 +208,9 @@
     "equipment": "Equipment",
     "noEquipment": "No equipment",
     "generate": "Generate work route",
-    "generateError": "Could not generate route"
+    "generateError": "Could not generate route",
+    "saved": "Route saved",
+    "typeManually": "Width or turning radius missing: type them in."
   },
   "work": {
     "steps": {
@@ -333,19 +336,24 @@
       "ZONES_FILE_TOO_LARGE": "The zones file is larger than 5 MB",
       "PLAN_TOO_LARGE": "The plan is too large to save ({{size_kb}} KB). Use fewer or larger zones or a smaller area.",
       "ZONES_UNAVAILABLE": "The management zones could not be read. Try again.",
-      "PLAN_TOO_LARGE_TO_SAVE": "The plan is too large to save. Use fewer or larger zones or a smaller area."
+      "PLAN_TOO_LARGE_TO_SAVE": "The plan is too large to save. Use fewer or larger zones or a smaller area.",
+      "EXPORT_EMPTY": "There is nothing to export for this operation.",
+      "PARCEL_READ_FAILED": "The parcel could not be read. Try again.",
+      "IMPLEMENT_WIDTH_MISSING": "This operation was saved without a working width and cannot be exported to ISOXML. Plan it again.",
+      "EXPORT_NOT_SUPPORTED": "This export format is not available for transits."
     },
     "actions": {
       "regenerate": "Regenerate",
       "generateAgain": "Generate again",
       "sendToTractor": "Send to tractor",
-      "sent": "Sent ({{id}})",
+      "sent": "Saved ({{id}})",
       "copyId": "Copy ID",
       "copied": "Copied!",
       "saveTemplate": "Save as template",
       "exportFormat": "Export format",
       "vraIncomplete": "Complete all class rates (or the external zones file), or turn off variable rate, to send.",
-      "vraPending": "Waiting for the prescription to be calculated before sending."
+      "vraPending": "Waiting for the prescription to be calculated before sending.",
+      "availableInApp": "Available in the app · operation #{{id}}"
     },
     "title": "GIS Routing",
     "tabs": {
@@ -353,7 +361,12 @@
       "transit": "Transit A-B"
     },
     "empty": "Select a parcel to start",
-    "regeneratedOnSave": "Plan regenerated with the current dose before saving"
+    "regeneratedOnSave": "Plan regenerated with the current dose before saving",
+    "alert": {
+      "sent": "Alert registered",
+      "skipped": "No alert: turned off in settings",
+      "failed": "The alert could not be registered"
+    }
   },
   "autosave": {
     "saved": "Saved {{time}}",
@@ -388,6 +401,11 @@
       "swaths": "Swaths",
       "warnings": "Warnings",
       "vra": "VRA classes"
+    },
+    "legend": {
+      "gate": "Gate",
+      "nogo": "NO-GO",
+      "margin": "Safety margin"
     }
   },
   "transit": {
@@ -466,11 +484,26 @@
       "PERSIST_FAILED": "The operation could not be saved.",
       "JOB_TIMEOUT": "The calculation took too long. Try again.",
       "UNKNOWN": "The route could not be calculated: {{detail}}",
-      "JOBS_LIMIT": "Too many calculations are running ({{max_jobs}}). Wait for one to finish."
+      "JOBS_LIMIT": "Too many calculations are running ({{max_jobs}}). Wait for one to finish.",
+      "EXPORT_EMPTY": "There is nothing to export for this operation.",
+      "PARCEL_READ_FAILED": "The parcel could not be read. Try again."
     },
     "warnings": {
       "PARCELS_UNREADABLE": "{{count}} parcel(s) in the area have no readable boundary: their gates are not enforced.",
       "UNKNOWN": "Warning {{code}}"
     }
+  },
+  "settings": {
+    "title": "Settings",
+    "dispatch": {
+      "label": "Alert when a route is saved",
+      "immediate": "Immediately",
+      "digest": "Summary every 12 h",
+      "none": "None"
+    },
+    "saved": "Setting saved",
+    "saveFailed": "The setting could not be saved",
+    "loadFailed": "The setting could not be loaded",
+    "forbidden": "Only administrators can change this setting"
   }
 }

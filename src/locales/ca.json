@@ -196,7 +196,8 @@
     "noAccessPoint": "Sense punt d'accés",
     "zonesCount_one": "{{count}} zona no transitable",
     "zonesCount_other": "{{count}} zones no transitables",
-    "instructions": "Fes clic al mapa per marcar el portal; dibuixa polígons per a les zones prohibides."
+    "instructions": "Fes clic al mapa per marcar el portal; dibuixa polígons per a les zones prohibides.",
+    "loadFailed": "No s'ha pogut carregar la configuració desada. Recarrega abans de desar: així no es trepitgen les zones existents."
   },
   "cockpit": {
     "gate": "Portal",
@@ -207,7 +208,9 @@
     "equipment": "Equip",
     "noEquipment": "Sense equip",
     "generate": "Generar ruta de treball",
-    "generateError": "No s'ha pogut generar la ruta"
+    "generateError": "No s'ha pogut generar la ruta",
+    "saved": "Ruta desada",
+    "typeManually": "Falta l'amplada o el radi de gir: escriu-los."
   },
   "work": {
     "steps": {
@@ -333,19 +336,24 @@
       "ZONES_FILE_TOO_LARGE": "El fitxer de zones supera els 5 MB",
       "PLAN_TOO_LARGE": "El pla és massa gran per desar-lo ({{size_kb}} KB). Fes servir menys zones, zones més grans o una superfície menor.",
       "ZONES_UNAVAILABLE": "No s'han pogut llegir les zones de maneig. Torna-ho a provar.",
-      "PLAN_TOO_LARGE_TO_SAVE": "El pla és massa gran per desar-lo. Fes servir menys zones o més grans, o una àrea menor."
+      "PLAN_TOO_LARGE_TO_SAVE": "El pla és massa gran per desar-lo. Fes servir menys zones o més grans, o una àrea menor.",
+      "EXPORT_EMPTY": "No hi ha res per exportar en aquesta operació.",
+      "PARCEL_READ_FAILED": "No s'ha pogut llegir la parcel·la. Torna-ho a provar.",
+      "IMPLEMENT_WIDTH_MISSING": "Aquesta operació es va desar sense amplada de treball i no es pot exportar a ISOXML. Planifica-la de nou.",
+      "EXPORT_NOT_SUPPORTED": "Aquest format d'exportació no està disponible per a trànsits."
     },
     "actions": {
       "regenerate": "Regenerar",
       "generateAgain": "Generar de nou",
       "sendToTractor": "Enviar al tractor",
-      "sent": "Enviada ({{id}})",
+      "sent": "Desada ({{id}})",
       "copyId": "Copiar ID",
       "copied": "Copiat!",
       "saveTemplate": "Desar com a plantilla",
       "exportFormat": "Format d'exportació",
       "vraIncomplete": "Completa les dosis de totes les classes (o el fitxer de zones extern), o desactiva la dosi variable, per enviar.",
-      "vraPending": "Esperant que es calculi la prescripció abans d'enviar."
+      "vraPending": "Esperant que es calculi la prescripció abans d'enviar.",
+      "availableInApp": "Disponible a l'app · operació #{{id}}"
     },
     "title": "Rutes GIS",
     "tabs": {
@@ -353,7 +361,12 @@
       "transit": "Trànsit A-B"
     },
     "empty": "Selecciona una parcel·la per començar",
-    "regeneratedOnSave": "Pla regenerat amb la dosi actual abans de desar"
+    "regeneratedOnSave": "Pla regenerat amb la dosi actual abans de desar",
+    "alert": {
+      "sent": "Avís registrat",
+      "skipped": "Sense avís: desactivat als ajustos",
+      "failed": "No s'ha pogut registrar l'avís"
+    }
   },
   "autosave": {
     "saved": "Desat {{time}}",
@@ -388,6 +401,11 @@
       "swaths": "Passades",
       "warnings": "Avisos",
       "vra": "Classes VRA"
+    },
+    "legend": {
+      "gate": "Porta",
+      "nogo": "NO-GO",
+      "margin": "Marge de seguretat"
     }
   },
   "transit": {
@@ -466,11 +484,26 @@
       "PERSIST_FAILED": "No s'ha pogut desar l'operació.",
       "JOB_TIMEOUT": "El càlcul ha trigat massa. Torna-ho a provar.",
       "UNKNOWN": "No s'ha pogut calcular la ruta: {{detail}}",
-      "JOBS_LIMIT": "Hi ha massa càlculs en curs ({{max_jobs}}). Espera que n'acabi algun."
+      "JOBS_LIMIT": "Hi ha massa càlculs en curs ({{max_jobs}}). Espera que n'acabi algun.",
+      "EXPORT_EMPTY": "No hi ha res per exportar en aquesta operació.",
+      "PARCEL_READ_FAILED": "No s'ha pogut llegir la parcel·la. Torna-ho a provar."
     },
     "warnings": {
       "PARCELS_UNREADABLE": "{{count}} parcel·la(es) de la zona no tenen límit llegible: les seves portes no s'apliquen.",
       "UNKNOWN": "Avís {{code}}"
     }
+  },
+  "settings": {
+    "title": "Ajustos",
+    "dispatch": {
+      "label": "Avís en desar una ruta",
+      "immediate": "Immediat",
+      "digest": "Resum cada 12 h",
+      "none": "Cap"
+    },
+    "saved": "Ajust desat",
+    "saveFailed": "No s'ha pogut desar l'ajust",
+    "loadFailed": "No s'ha pogut carregar l'ajust",
+    "forbidden": "Només els administradors poden canviar aquest ajust"
   }
 }

@@ -1,4 +1,5 @@
 import type {
+  AlertStatus,
   Distribution, GenerateRequest, GenerateResponse, ParcelConfig, Plan, Prescription, VraConfig, VraRequest,
 } from '../services/api';
 import { featureCollectionToZones, type Zone } from '../services/geo';
@@ -54,6 +55,8 @@ export interface WorkState {
     planId: string | null;
     /** VRA request the plan was generated with (null = none); Save regenerates when it differs. */
     vraKey: string | null;
+    /** Outcome of the alert raised by the last save; absent until saved. */
+    alert?: AlertStatus;
   } | null;
   /** vraKey of the generate request in flight. */
   generatingVraKey: string | null;
@@ -78,7 +81,7 @@ export type WorkEvent =
   | { type: 'GENERATED'; response: GenerateResponse }
   | { type: 'GENERATE_FAILED'; error: WorkState['error'] }
   | { type: 'SAVE_REQUESTED' }
-  | { type: 'SAVE_RESULT'; operationId: string; regenerated?: GenerateResponse; vraKey?: string | null }
+  | { type: 'SAVE_RESULT'; operationId: string; alert?: AlertStatus; regenerated?: GenerateResponse; vraKey?: string | null }
   | { type: 'SAVE_FAILED'; error: WorkState['error'] }
   | { type: 'DISMISS_ERROR' };
 
@@ -270,11 +273,11 @@ export function workReducer(state: WorkState, event: WorkEvent): WorkState {
       return { ...state, phase: 'saving', error: null };
     case 'SAVE_RESULT': {
       if (state.phase !== 'saving' || state.result === null) return state;
-      const { regenerated, operationId, vraKey } = event;
+      const { regenerated, operationId, vraKey, alert } = event;
       // A regenerated plan (VRA changed after generating) replaces the displayed one: it is the one stored.
       const result = regenerated
-        ? { ...resultFrom(regenerated, vraKey !== undefined ? vraKey : currentVraKey(state)), operationId }
-        : { ...state.result, operationId };
+        ? { ...resultFrom(regenerated, vraKey !== undefined ? vraKey : currentVraKey(state)), operationId, alert }
+        : { ...state.result, operationId, alert };
       return {
         ...state, phase: 'saved', stale: false, result, error: null,
         vra: regenerated ? withPlanPrescription(state, regenerated.plan) : state.vra,

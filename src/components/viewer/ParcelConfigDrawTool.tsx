@@ -18,8 +18,10 @@
  *   nekazari:gis-routing:parcelConfig:zoneDrawn    { ring: [[lon,lat], ...] }
  */
 import React, { useEffect, useRef } from 'react';
-import { useViewer } from '@nekazari/sdk';
+import { useTranslation, useViewer } from '@nekazari/sdk';
 import { accent } from '../../config/accent';
+import { labelAnchor } from '../../map/markers';
+import { gateEntityOptions, noGoEntityOptions } from './cesiumStyle';
 
 interface Props {
   viewer?: any;
@@ -30,7 +32,11 @@ const ZONE_TEMP_LINE_ID = 'gis-routing-parcel-config-zone-temp';
 
 export const ParcelConfigDrawTool: React.FC<Props> = ({ viewer: propViewer }) => {
   const { cesiumViewer } = useViewer();
+  const { t } = useTranslation('gis-routing');
   const viewer = propViewer || cesiumViewer;
+  // Read at draw time: a language change must not rebuild the tool (it would drop its entities).
+  const labelsRef = useRef({ gate: '', nogo: '' });
+  labelsRef.current = { gate: t('map.legend.gate'), nogo: t('map.legend.nogo') };
 
   const stateRef = useRef<{
     mode: 'off' | 'access' | 'zone';
@@ -128,26 +134,7 @@ export const ParcelConfigDrawTool: React.FC<Props> = ({ viewer: propViewer }) =>
       removeEntity(ACCESS_POINT_ID);
       try {
         st.entityIds.push(ACCESS_POINT_ID);
-        viewer.entities.add({
-          id: ACCESS_POINT_ID,
-          position: Cesium.Cartesian3.fromDegrees(lon, lat),
-          point: {
-            pixelSize: 14,
-            color: Cesium.Color.fromCssColorString(accent.base),
-            outlineColor: Cesium.Color.WHITE,
-            outlineWidth: 2,
-          },
-          label: {
-            text: '⚑', // flag glyph
-            font: 'bold 18px sans-serif',
-            fillColor: Cesium.Color.WHITE,
-            style: Cesium.LabelStyle.FILL_AND_OUTLINE,
-            outlineColor: Cesium.Color.fromCssColorString('#1e293b'),
-            outlineWidth: 3,
-            verticalOrigin: Cesium.VerticalOrigin.BOTTOM,
-            pixelOffset: new Cesium.Cartesian2(0, -12),
-          },
-        });
+        viewer.entities.add(gateEntityOptions(Cesium, ACCESS_POINT_ID, lon, lat, labelsRef.current.gate));
       } catch {
         /* skip */
       }
@@ -159,26 +146,10 @@ export const ParcelConfigDrawTool: React.FC<Props> = ({ viewer: propViewer }) =>
       const entityId = `gis-routing-parcel-config-zone-${st.zoneIndex++}`;
       try {
         st.entityIds.push(entityId);
-        const hierarchy = st.zoneVerts.map(([lon, lat]) =>
-          Cesium.Cartesian3.fromDegrees(lon, lat),
-        );
-        viewer.entities.add({
-          id: entityId,
-          polygon: {
-            hierarchy,
-            clampToGround: true,
-            material: Cesium.Color.RED.withAlpha(0.3),
-            outline: false,
-          },
-          polyline: {
-            positions: Cesium.Cartesian3.fromDegreesArray(
-              ring.flatMap(([lon, lat]) => [lon, lat])
-            ),
-            width: 4,
-            material: Cesium.Color.RED,
-            clampToGround: true,
-          }
-        });
+        const outer = st.zoneVerts.map((v) => [v[0], v[1]]);
+        viewer.entities.add(noGoEntityOptions(
+          Cesium, entityId, { outer, holes: [] },
+          labelAnchor({ type: 'Polygon', coordinates: [[...outer, outer[0]]] }), labelsRef.current.nogo));
       } catch {
         /* skip */
       }
