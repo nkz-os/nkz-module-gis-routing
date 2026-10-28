@@ -318,7 +318,14 @@
       "access": "Entrada",
       "machine": "Màquina",
       "pattern": "Patró",
-      "vra": "VRA"
+      "vra": "VRA",
+      "status": {
+        "pending": "Pendent",
+        "active": "Pas actiu",
+        "done": "Completat",
+        "warning": "Requereix atenció",
+        "disabled": "No disponible"
+      }
     },
     "zones": {
       "summary": "{{count}} zones · {{ha}} ha",

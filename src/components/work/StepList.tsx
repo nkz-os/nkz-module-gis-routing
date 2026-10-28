@@ -87,7 +87,12 @@ export const StepList: React.FC<Props> = ({ state, dispatch, children }) => {
                   <span className="text-nkz-xs text-nkz-text-secondary truncate">{summaryFor(state, step, t as TFn)}</span>
                 </span>
               </span>
-              {badge.glyph && <Badge intent={badge.intent}>{badge.glyph}</Badge>}
+              {badge.glyph && (
+                <Badge intent={badge.intent}>
+                  <span aria-hidden="true">{badge.glyph}</span>
+                  <span className="sr-only">{t(`work.steps.status.${status}`)}</span>
+                </Badge>
+              )}
             </button>
             {open && <div className="px-nkz-stack pb-3 space-y-2">{children(step)}</div>}
           </div>

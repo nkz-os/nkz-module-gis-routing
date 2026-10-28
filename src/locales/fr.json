@@ -318,7 +318,14 @@
       "access": "Entrée",
       "machine": "Machine",
       "pattern": "Motif",
-      "vra": "VRA"
+      "vra": "VRA",
+      "status": {
+        "pending": "En attente",
+        "active": "Étape active",
+        "done": "Terminé",
+        "warning": "Nécessite attention",
+        "disabled": "Indisponible"
+      }
     },
     "zones": {
       "summary": "{{count}} zones · {{ha}} ha",

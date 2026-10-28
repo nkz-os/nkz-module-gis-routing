@@ -13,6 +13,24 @@ const num = (v: unknown): number | null => {
   return Number.isFinite(n) && n > 0 ? n : null;
 };
 
+// Keeps the typed text locally so partial input ("0.", "0.5") is never rewritten;
+// the draft only follows the state when the value changes from outside (prefill).
+const NumberField: React.FC<{ value: number | null; onValue: (v: number | null) => void }> = ({ value, onValue }) => {
+  const [draft, setDraft] = useState<string>(value === null ? '' : String(value));
+  useEffect(() => {
+    if (num(draft) !== value) setDraft(value === null ? '' : String(value));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [value]);
+  return (
+    <Input
+      type="number" min={0.1} step={0.1}
+      value={draft}
+      onChange={(e) => { setDraft(e.target.value); onValue(num(e.target.value)); }}
+      className="w-full mt-1"
+    />
+  );
+};
+
 export const StepMachine: React.FC<StepProps> = ({ state, dispatch }) => {
   const { t } = useTranslation(NS);
   const [equipment, setEquipment] = useState<any[]>([]);
@@ -118,24 +136,14 @@ export const StepMachine: React.FC<StepProps> = ({ state, dispatch }) => {
           <label className="text-nkz-sm text-nkz-text-secondary">{t('work.machine.width')}</label>
           {source(m.widthSource)}
         </div>
-        <Input
-          type="number" min={0.1} step={0.1}
-          value={m.widthM ?? ''}
-          onChange={(e) => dispatch({ type: 'MACHINE_CHANGED', machine: { widthM: num(e.target.value), widthSource: 'manual' } })}
-          className="w-full mt-1"
-        />
+        <NumberField value={m.widthM} onValue={(v) => dispatch({ type: 'MACHINE_CHANGED', machine: { widthM: v, widthSource: 'manual' } })} />
       </div>
       <div>
         <div className="flex items-center justify-between">
           <label className="text-nkz-sm text-nkz-text-secondary">{t('work.machine.radius')}</label>
           {source(m.radiusSource)}
         </div>
-        <Input
-          type="number" min={0.1} step={0.1}
-          value={m.turningRadiusM ?? ''}
-          onChange={(e) => dispatch({ type: 'MACHINE_CHANGED', machine: { turningRadiusM: num(e.target.value), radiusSource: 'manual' } })}
-          className="w-full mt-1"
-        />
+        <NumberField value={m.turningRadiusM} onValue={(v) => dispatch({ type: 'MACHINE_CHANGED', machine: { turningRadiusM: v, radiusSource: 'manual' } })} />
       </div>
       <Slider
         label={t('work.machine.overlap')}

@@ -318,7 +318,14 @@
       "access": "Sarrera",
       "machine": "Makina",
       "pattern": "Eredua",
-      "vra": "VRA"
+      "vra": "VRA",
+      "status": {
+        "pending": "Zain",
+        "active": "Urrats aktiboa",
+        "done": "Osatuta",
+        "warning": "Arreta behar du",
+        "disabled": "Ez dago erabilgarri"
+      }
     },
     "zones": {
       "summary": "{{count}} zona · {{ha}} ha",

@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from '@nekazari/sdk';
 import { Button, Select, Spinner } from '@nekazari/ui-kit';
 import { api } from '../../services/api';
@@ -17,6 +17,7 @@ export const StepParcel: React.FC<Props> = ({ state, dispatch, onLoadError }) =>
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [lastId, setLastId] = useState<string | null>(null);
+  const latestRequestRef = useRef(0);
 
   useEffect(() => {
     let cancelled = false;
@@ -33,18 +34,22 @@ export const StepParcel: React.FC<Props> = ({ state, dispatch, onLoadError }) =>
     setLastId(id);
     setError(null);
     setLoading(true);
-    const requestId = Date.now();
+    const requestId = Math.max(Date.now(), latestRequestRef.current + 1);
+    latestRequestRef.current = requestId;
     dispatch({ type: 'PARCEL_SELECTED', id, requestId });
     Promise.all([api.getParcelGeometry(id), api.getParcelConfig(id)])
       .then(([g, cfg]) => {
         dispatch({ type: 'PARCEL_LOADED', requestId, id, name: g.name, geometry: g.geometry, config: cfg });
       })
       .catch((e) => {
+        if (requestId !== latestRequestRef.current) return;
         const msg = e?.message ?? t('errors.geoFailed');
         setError(msg);
         onLoadError?.(msg);
       })
-      .finally(() => setLoading(false));
+      .finally(() => {
+        if (requestId === latestRequestRef.current) setLoading(false);
+      });
   }, [dispatch, onLoadError, t]);
 
   const selected = state.parcel?.id ?? lastId ?? '';

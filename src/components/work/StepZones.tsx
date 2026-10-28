@@ -58,7 +58,7 @@ export const StepZones: React.FC<Props> = ({ state, dispatch, drawMode, setDrawM
             <span className="text-nkz-sm">{t('work.zones.zoneN', { n: i + 1 })}</span>
             <span className="flex items-center gap-2">
               {!z.valid && <Badge intent="negative">{t('work.zones.invalid')}</Badge>}
-              <span className="text-nkz-xs text-nkz-text-secondary tabular-nums">{areaHa(z.polygon).toFixed(2)} ha</span>
+              <span className="text-nkz-xs text-nkz-text-secondary tabular-nums">{z.areaHa.toFixed(2)} ha</span>
               <Button
                 variant="ghost"
                 size="sm"

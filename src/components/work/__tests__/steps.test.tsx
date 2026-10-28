@@ -62,6 +62,8 @@ describe('work steps', () => {
     render(<StepList state={parcelState()} dispatch={dispatch}>{(s) => <div>body-{s}</div>}</StepList>);
     expect(screen.getAllByRole('button').length).toBeGreaterThanOrEqual(6);
     expect(screen.getByText('body-parcel')).toBeTruthy();
+    // parcel row is active (glyph-only badge needs an accessible name)
+    expect(screen.getByRole('button', { name: /Parcela.*Paso activo/ })).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: /Zonas/ }));
     expect(dispatch).toHaveBeenCalledWith({ type: 'STEP_ACTIVATED', step: 'zones' });
     dispatch.mockClear();
@@ -102,6 +104,43 @@ describe('work steps', () => {
     await screen.findByText('boom');
     expect(onLoadError).toHaveBeenCalledWith('boom');
     expect(screen.getByRole('button', { name: 'Reintentar' })).toBeTruthy();
+  });
+
+  it('StepParcel ignores a stale failed selection while a newer one loads', async () => {
+    const dispatch = vi.fn();
+    let rejectFirst!: (e: Error) => void;
+    (api.listParcels as any).mockResolvedValue([{ id: 'p1', name: 'Alpha' }, { id: 'p2', name: 'Beta' }]);
+    (api.getParcelGeometry as any).mockImplementation((id: string) =>
+      id === 'p1'
+        ? new Promise((_, rej) => { rejectFirst = rej; })
+        : Promise.resolve({ id: 'p2', name: 'Beta', geometry: poly(0, 0.01) }));
+    (api.getParcelConfig as any).mockResolvedValue({ accessPoint: null, exclusionZones: null });
+    const onLoadError = vi.fn();
+    render(<StepParcel state={initialWorkState} dispatch={dispatch} onLoadError={onLoadError} />);
+    const select = await screen.findByRole('combobox');
+    await screen.findByText('Beta');
+    fireEvent.change(select, { target: { value: 'p1' } });
+    fireEvent.change(select, { target: { value: 'p2' } });
+    await waitFor(() => expect(dispatch.mock.calls.filter((c) => c[0].type === 'PARCEL_LOADED')).toHaveLength(1));
+    rejectFirst(new Error('late boom'));
+    await new Promise((r) => setTimeout(r, 20));
+    expect(screen.queryByText('late boom')).toBeNull();
+    expect(onLoadError).not.toHaveBeenCalled();
+    const loaded = dispatch.mock.calls.map((c) => c[0]).filter((e) => e.type === 'PARCEL_LOADED');
+    expect(loaded[0].id).toBe('p2');
+  });
+
+  it('StepMachine lets the user type 0.5 without rewriting the input', async () => {
+    const dispatch = vi.fn();
+    (api.listEquipment as any).mockResolvedValue([]);
+    render(<StepMachine state={parcelState()} dispatch={dispatch} />);
+    await waitFor(() => expect(screen.getAllByRole('spinbutton')).toHaveLength(2));
+    const [width] = screen.getAllByRole('spinbutton') as HTMLInputElement[];
+    fireEvent.change(width, { target: { value: '0' } });
+    expect(dispatch).toHaveBeenLastCalledWith({ type: 'MACHINE_CHANGED', machine: { widthM: null, widthSource: 'manual' } });
+    fireEvent.change(width, { target: { value: '0.5' } });
+    expect(dispatch).toHaveBeenLastCalledWith({ type: 'MACHINE_CHANGED', machine: { widthM: 0.5, widthSource: 'manual' } });
+    expect(width.value).toBe('0.5');
   });
 
   it('StepZones lists zones with area and invalid badge; delete dispatches ZONES_CHANGED without it', () => {
