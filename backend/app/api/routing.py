@@ -15,6 +15,7 @@ import math
 import os
 import time
 import io
+from types import SimpleNamespace
 from datetime import datetime, timezone
 from fastapi import APIRouter, Request, Query, HTTPException
 from fastapi.concurrency import run_in_threadpool
@@ -581,7 +582,11 @@ async def generate_routing_plan(request: Request, body: GenerateRequest, auth: A
     persisted = operation_id is not None
 
     plan_id = PLAN_STORE.put(auth.tenant_id, {
-        "plan_dict": plan_dict, "body": body.model_dump(), "result": result})
+        "plan_dict": plan_dict, "body": body.model_dump(),
+        # Only what build_operation_entity reads; the route geometry is in plan_dict.
+        "result": SimpleNamespace(swath_count=result.swath_count,
+                                  total_distance_m=result.total_distance_m,
+                                  metrics=result.metrics)})
 
     return {
         "success": True,
@@ -792,7 +797,7 @@ class SaveTransitRequest(BaseModel):
 
     kind: Literal["transit"]
     job_id: str
-    alternative_id: Literal["least_slope", "fastest"]
+    alternative_id: str
     parcel_id: Optional[str] = None
     name: Optional[str] = None
     planned_start_at: Optional[datetime] = None
@@ -833,13 +838,14 @@ async def save_operation(body: SaveOperationRequest, auth: AuthContext = require
         raise PlanError("PARCEL_REQUIRED", "a destination parcel is required to save a transit")
     job = JOBS.get(body.job_id, auth.tenant_id)
     if job is None:
-        raise HTTPException(status_code=404, detail="Job not found")
+        raise PlanError("JOB_NOT_FOUND", "Job not found", {"job_id": body.job_id})
     if job.get("status") != "completed":
         raise PlanError("JOB_NOT_READY", "the transit calculation has not completed",
                         {"status": job.get("status")})
     alt = next((a for a in job.get("alternatives", []) if a.get("id") == body.alternative_id), None)
     if alt is None:
-        raise HTTPException(status_code=422, detail="Alternative not found in job")
+        raise PlanError("ALTERNATIVE_NOT_FOUND", "Alternative not found in job",
+                        {"alternative_id": body.alternative_id})
     op_id = operation_store.new_operation_id(auth.tenant_id)
     entity = operation_store.build_transit_entity(
         op_id=op_id, parcel_id=body.parcel_id, name=body.name, alternative=alt,

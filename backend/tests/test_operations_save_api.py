@@ -159,13 +159,14 @@ def test_transit_requires_parcel(client):
 
 def test_transit_job_errors(client):
     base = {"kind": "transit", "alternative_id": "fastest", "parcel_id": PARCEL}
-    assert client.post(URL, json={**base, "job_id": "missing"}).status_code == 404
-    other = _job(tenant="tenant-b")
-    assert client.post(URL, json={**base, "job_id": other}).status_code == 404
+    for jid in ("missing", _job(tenant="tenant-b")):
+        r = client.post(URL, json={**base, "job_id": jid})
+        assert r.status_code == 404 and r.json()["code"] == "JOB_NOT_FOUND"
     r = client.post(URL, json={**base, "job_id": _job(status="queued")})
     assert r.status_code == 409 and r.json()["code"] == "JOB_NOT_READY"
     r = client.post(URL, json={**base, "job_id": _job(), "alternative_id": "nope"})
-    assert r.status_code == 422
+    assert r.status_code == 422 and r.json()["code"] == "ALTERNATIVE_NOT_FOUND"
+    assert r.json()["params"] == {"alternative_id": "nope"}
 
 
 def test_transit_orion_failure_502(client):
