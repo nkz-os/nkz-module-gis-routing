@@ -23,6 +23,8 @@ def test_build_alert_matches_sdm_shape():
     assert a["refEntity"] == {"type": "Relationship",
                               "object": "urn:ngsi-ld:AgriParcelOperation:x"}
     assert "subCategory" not in a
+    # notifications watches `status` and routes by `alertType`
+    assert a["status"]["value"] == "active" and a["alertType"]["value"] == "route_planned"
 
 
 def test_default_setting_sends_high_alert(client):
@@ -33,6 +35,20 @@ def test_default_setting_sends_high_alert(client):
     assert a["severity"]["value"] == "high"
     assert a["refEntity"]["object"] == b["operation_id"]
     assert a["description"]["value"].startswith("Nueva ruta planificada: ")
+    assert "urn:" not in a["description"]["value"]
+    assert a["status"]["value"] == "active" and a["alertType"]["value"] == "route_planned"
+
+
+def test_description_names_operation_type_and_parcel_name(client):
+    from tests import test_operations_save_api as t
+    t._Orion.stored = {"id": PARCEL, "name": {"type": "Property", "value": "Norte"}}
+    client.post(URL, json={"kind": "plan", "plan_id": _plan(client)})
+    assert _alerts()[0]["description"]["value"] == "Nueva ruta planificada: spraying · Norte"
+
+
+def test_operation_name_has_no_id_fragment(client):
+    client.post(URL, json={"kind": "plan", "plan_id": _plan(client)})
+    assert "urn" not in _ops()[0]["name"]["value"]
 
 
 def test_digest_is_medium(client, settings_store):
