@@ -32,6 +32,8 @@ export interface VraState {
   distribution: Distribution | null;
   prescription: Prescription | null;
   status: 'idle' | 'loading' | 'ready' | 'error';
+  /** Id of the latest prescription request; older in-flight results are ignored. */
+  requestId: number;
   error: { code: string; detail: string; params: Record<string, unknown> } | null;
 }
 
@@ -60,9 +62,10 @@ export type WorkEvent =
   | { type: 'MACHINE_CHANGED'; machine: Partial<MachineConfig> }
   | { type: 'PATTERN_CHANGED'; pattern: Partial<PatternConfig> }
   | { type: 'VRA_CONFIG_CHANGED'; config: Partial<VraConfig> }
-  | { type: 'VRA_DISTRIBUTION_LOADED'; distribution: Distribution }
-  | { type: 'VRA_PRESCRIPTION_RESULT'; prescription: Prescription }
-  | { type: 'VRA_FAILED'; error: NonNullable<WorkState['error']> }
+  | { type: 'VRA_REQUESTED'; parcelRequestId: number; requestId: number }
+  | { type: 'VRA_DISTRIBUTION_LOADED'; parcelRequestId: number; distribution: Distribution }
+  | { type: 'VRA_PRESCRIPTION_RESULT'; parcelRequestId: number; requestId: number; prescription: Prescription }
+  | { type: 'VRA_FAILED'; parcelRequestId: number; requestId?: number; error: NonNullable<WorkState['error']> }
   | { type: 'GENERATE_REQUESTED' }
   | { type: 'GENERATED'; response: GenerateResponse }
   | { type: 'GENERATE_FAILED'; error: WorkState['error'] }
@@ -80,7 +83,7 @@ export const initialVraState: VraState = {
       { minPct: 67, maxPct: 100, rate: null },
     ],
   },
-  distribution: null, prescription: null, status: 'idle', error: null,
+  distribution: null, prescription: null, status: 'idle', requestId: 0, error: null,
 };
 
 export const initialWorkState: WorkState = {
@@ -133,6 +136,7 @@ function resultFrom(response: GenerateResponse): NonNullable<WorkState['result']
 // Request form of the VRA config, or null when disabled or any rate is not a number >= 0.
 export function toVraRequest(c: VraConfig): VraRequest | null {
   if (!c.enabled) return null;
+  if (c.source === 'external' && !c.externalFeatures) return null;
   const ok = c.classes.length > 0
     && c.classes.every((k) => typeof k.rate === 'number' && Number.isFinite(k.rate) && k.rate >= 0);
   if (!ok) return null;
@@ -146,7 +150,16 @@ export function toVraRequest(c: VraConfig): VraRequest | null {
 }
 
 function withPlanPrescription(s: WorkState, plan: Plan): VraState {
-  return { ...s.vra, prescription: plan.prescription ?? null };
+  const prescription = plan.prescription ?? null;
+  return { ...s.vra, prescription, status: prescription ? 'ready' : 'idle', error: null };
+}
+
+// A new parcel keeps the user's classes/rates but never the previous parcel's external zones.
+function vraForNewParcel(v: VraState): VraState {
+  return {
+    ...initialVraState, requestId: v.requestId,
+    config: { ...v.config, source: 'orion', externalFeatures: undefined },
+  };
 }
 
 export function workReducer(state: WorkState, event: WorkEvent): WorkState {
@@ -155,7 +168,7 @@ export function workReducer(state: WorkState, event: WorkEvent): WorkState {
       return {
         ...state, phase: 'empty', activeStep: 'parcel', parcelRequestId: event.requestId,
         parcel: null, result: null, error: null, stale: false,
-        vra: { ...initialVraState, config: state.vra.config },
+        vra: vraForNewParcel(state.vra),
       };
     case 'PARCEL_LOADED': {
       if (event.requestId !== state.parcelRequestId) return state;
@@ -164,7 +177,7 @@ export function workReducer(state: WorkState, event: WorkEvent): WorkState {
         parcel: { id: event.id, name: event.name, geometry: event.geometry },
         zones: featureCollectionToZones(event.config.exclusionZones),
         accessPoint: event.config.accessPoint, accessIssue: null,
-        result: null, error: null, vra: { ...initialVraState, config: state.vra.config },
+        result: null, error: null, vra: vraForNewParcel(state.vra),
       };
     }
     case 'STEP_ACTIVATED':
@@ -181,11 +194,18 @@ export function workReducer(state: WorkState, event: WorkEvent): WorkState {
       // Deliberately not an "edit": changing the VRA config never marks the route stale.
       return { ...state, vra: { ...state.vra, config: { ...state.vra.config, ...event.config }, error: null,
         status: state.vra.status === 'error' ? 'idle' : state.vra.status } };
+    case 'VRA_REQUESTED':
+      if (event.parcelRequestId !== state.parcelRequestId) return state;
+      return { ...state, vra: { ...state.vra, requestId: event.requestId, status: 'loading', error: null } };
     case 'VRA_DISTRIBUTION_LOADED':
+      if (event.parcelRequestId !== state.parcelRequestId) return state;
       return { ...state, vra: { ...state.vra, distribution: event.distribution } };
     case 'VRA_PRESCRIPTION_RESULT':
+      if (event.parcelRequestId !== state.parcelRequestId || event.requestId !== state.vra.requestId) return state;
       return { ...state, vra: { ...state.vra, prescription: event.prescription, status: 'ready', error: null } };
     case 'VRA_FAILED':
+      if (event.parcelRequestId !== state.parcelRequestId) return state;
+      if (event.requestId !== undefined && event.requestId !== state.vra.requestId) return state;
       return { ...state, vra: { ...state.vra, status: 'error', error: event.error } };
     case 'GENERATE_REQUESTED':
       // Any non-busy phase with a complete configuration may (re)generate.
@@ -239,7 +259,8 @@ export function stepStatus(
 ): 'pending' | 'active' | 'done' | 'warning' | 'disabled' | 'complete' | 'optional' {
   if (step === 'vra') {
     if (s.result === null) return 'disabled';
-    return s.vra.prescription !== null ? 'complete' : 'optional';
+    if (s.vra.prescription !== null) return 'complete';
+    return s.vra.config.enabled ? 'pending' : 'optional';
   }
   if (step === 'zones' && s.zones.some((z) => !z.valid)) return 'warning';
   if (step === 'access' && s.accessIssue !== null) return 'warning';

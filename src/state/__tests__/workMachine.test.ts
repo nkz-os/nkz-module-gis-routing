@@ -152,11 +152,11 @@ describe('VRA slice', () => {
   });
   it('distribution / prescription / failure events drive status', () => {
     const dist = { source: 'orion', variable: 'NDVI', zones: [], missing: [], percentiles: [] } as any;
-    let s = workReducer(initialWorkState, { type: 'VRA_DISTRIBUTION_LOADED', distribution: dist });
+    let s = workReducer(initialWorkState, { type: 'VRA_DISTRIBUTION_LOADED', parcelRequestId: 0, distribution: dist });
     expect(s.vra.distribution).toBe(dist);
-    s = workReducer(s, { type: 'VRA_PRESCRIPTION_RESULT', prescription });
+    s = workReducer(s, { type: 'VRA_PRESCRIPTION_RESULT', parcelRequestId: 0, requestId: 0, prescription });
     expect(s.vra.prescription).toBe(prescription); expect(s.vra.status).toBe('ready');
-    s = workReducer(s, { type: 'VRA_FAILED', error: { code: 'INVALID_VRA', detail: 'x', params: {} } });
+    s = workReducer(s, { type: 'VRA_FAILED', parcelRequestId: 0, error: { code: 'INVALID_VRA', detail: 'x', params: {} } });
     expect(s.vra.status).toBe('error'); expect(s.vra.error?.code).toBe('INVALID_VRA');
     s = workReducer(s, { type: 'VRA_CONFIG_CHANGED', config: { product: 'A' } });
     expect(s.vra.error).toBeNull();
@@ -182,5 +182,43 @@ describe('VRA slice', () => {
     const fc = { type: 'FeatureCollection', features: [] };
     const s = workReducer(full(machineReady(loaded())), { type: 'VRA_CONFIG_CHANGED', config: { source: 'external', externalFeatures: fc as any } });
     expect(buildGenerateRequest(s, false).vra?.external_features).toEqual(fc);
+  });
+
+  it('new parcel keeps rates but resets source and external features', () => {
+    const fc = { type: 'FeatureCollection', features: [] } as any;
+    let s = workReducer(full(machineReady(loaded())), { type: 'VRA_CONFIG_CHANGED', config: { source: 'external', externalFeatures: fc, product: 'N' } });
+    s = workReducer(s, { type: 'PARCEL_SELECTED', id: 'p2', requestId: 2 });
+    for (const t of [s, workReducer(s, { type: 'PARCEL_LOADED', requestId: 2, id: 'p2', name: 'P2', geometry: geom as any, config: { accessPoint: null, exclusionZones: null } })]) {
+      expect(t.vra.config.source).toBe('orion'); expect(t.vra.config.externalFeatures).toBeUndefined();
+      expect(t.vra.config.classes.map((k) => k.rate)).toEqual([10, 20, 30]); expect(t.vra.config.enabled).toBe(true);
+      expect(t.vra.config.product).toBe('N'); expect(t.vra.distribution).toBeNull();
+    }
+  });
+  it('ignores VRA results from a previous parcel', () => {
+    const dist = { source: 'orion', variable: 'NDVI', zones: [], missing: [], percentiles: [] } as any;
+    const s = workReducer(loaded(initialWorkState, 2), { type: 'VRA_REQUESTED', parcelRequestId: 2, requestId: 1 });
+    expect(s.vra.status).toBe('loading');
+    expect(workReducer(s, { type: 'VRA_DISTRIBUTION_LOADED', parcelRequestId: 1, distribution: dist })).toBe(s);
+    expect(workReducer(s, { type: 'VRA_PRESCRIPTION_RESULT', parcelRequestId: 1, requestId: 1, prescription })).toBe(s);
+    expect(workReducer(s, { type: 'VRA_FAILED', parcelRequestId: 1, requestId: 1, error: { code: 'X', detail: 'x', params: {} } })).toBe(s);
+    expect(workReducer(s, { type: 'VRA_REQUESTED', parcelRequestId: 1, requestId: 9 })).toBe(s);
+  });
+  it('a newer prescription request supersedes an older in-flight one', () => {
+    let s = workReducer(loaded(initialWorkState, 1), { type: 'VRA_REQUESTED', parcelRequestId: 1, requestId: 1 });
+    s = workReducer(s, { type: 'VRA_REQUESTED', parcelRequestId: 1, requestId: 2 });
+    expect(workReducer(s, { type: 'VRA_PRESCRIPTION_RESULT', parcelRequestId: 1, requestId: 1, prescription })).toBe(s);
+    expect(workReducer(s, { type: 'VRA_FAILED', parcelRequestId: 1, requestId: 1, error: { code: 'X', detail: 'x', params: {} } })).toBe(s);
+    const ok = workReducer(s, { type: 'VRA_PRESCRIPTION_RESULT', parcelRequestId: 1, requestId: 2, prescription });
+    expect(ok.vra.status).toBe('ready'); expect(ok.vra.prescription).toBe(prescription);
+  });
+  it('GENERATED sets vra status ready or idle; enabled without prescription is pending', () => {
+    const r = full(machineReady(loaded()));
+    expect(generated(r, prescription).vra.status).toBe('ready');
+    const g = generated(r, null);
+    expect(g.vra.status).toBe('idle'); expect(stepStatus(g, 'vra')).toBe('pending');
+  });
+  it('external source without features sends no vra', () => {
+    const s = workReducer(full(machineReady(loaded())), { type: 'VRA_CONFIG_CHANGED', config: { source: 'external' } });
+    expect(buildGenerateRequest(s, false)).not.toHaveProperty('vra');
   });
 });
