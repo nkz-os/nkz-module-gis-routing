@@ -162,7 +162,8 @@
     "namePlaceholder": "Nombre del patrón...",
     "save": "Guardar",
     "noSaved": "No hay patrones guardados en esta parcela",
-    "loadFromContext": "Cargar desde Orion-LD"
+    "loadFromContext": "Cargar desde Orion-LD",
+    "saveFailed": "Le modèle n'a pas pu être enregistré"
   },
   "patternLabels": {
     "spiral": "Spiral",
@@ -298,7 +299,8 @@
       "INVALID_GEOMETRY": "La géométrie n'est pas valide",
       "ENGINE_FAILURE": "Erreur interne du moteur d'itinéraires",
       "PERSIST_FAILED": "L'opération n'a pas pu être enregistrée",
-      "UNKNOWN": "L'itinéraire n'a pas pu être généré : {{detail}}"
+      "UNKNOWN": "L'itinéraire n'a pas pu être généré : {{detail}}",
+      "CONFIG_UNVERIFIED": "Impossible de vérifier la configuration enregistrée. Rien n'a été généré ; réessayez."
     },
     "actions": {
       "regenerate": "Régénérer",
@@ -322,7 +324,7 @@
     "error": "Échec de l'enregistrement",
     "retry": "Réessayer",
     "dirty": "Modifications non enregistrées",
-    "restored": "Configuration restaurée depuis le serveur",
+    "restored": "Configuration renvoyée au serveur",
     "verifyFailed": "Impossible de vérifier la configuration enregistrée"
   },
   "result": {

@@ -162,7 +162,8 @@
     "namePlaceholder": "Nombre del patrón...",
     "save": "Guardar",
     "noSaved": "No hay patrones guardados en esta parcela",
-    "loadFromContext": "Cargar desde Orion-LD"
+    "loadFromContext": "Cargar desde Orion-LD",
+    "saveFailed": "Não foi possível guardar o modelo"
   },
   "patternLabels": {
     "spiral": "Spiral",
@@ -298,7 +299,8 @@
       "INVALID_GEOMETRY": "A geometria não é válida",
       "ENGINE_FAILURE": "Erro interno do motor de rotas",
       "PERSIST_FAILED": "Não foi possível guardar a operação",
-      "UNKNOWN": "Não foi possível gerar a rota: {{detail}}"
+      "UNKNOWN": "Não foi possível gerar a rota: {{detail}}",
+      "CONFIG_UNVERIFIED": "Não foi possível verificar a configuração guardada. Nada foi gerado; tente novamente."
     },
     "actions": {
       "regenerate": "Regenerar",
@@ -322,7 +324,7 @@
     "error": "Erro ao guardar",
     "retry": "Tentar novamente",
     "dirty": "Alterações por guardar",
-    "restored": "Configuração restaurada a partir do servidor",
+    "restored": "Configuração reenviada ao servidor",
     "verifyFailed": "Não foi possível verificar a configuração guardada"
   },
   "result": {

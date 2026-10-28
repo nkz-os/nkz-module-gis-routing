@@ -162,7 +162,8 @@
     "namePlaceholder": "Nombre del patrón...",
     "save": "Guardar",
     "noSaved": "No hay patrones guardados en esta parcela",
-    "loadFromContext": "Cargar desde Orion-LD"
+    "loadFromContext": "Cargar desde Orion-LD",
+    "saveFailed": "The template could not be saved"
   },
   "patternLabels": {
     "spiral": "Spiral",
@@ -298,7 +299,8 @@
       "INVALID_GEOMETRY": "The geometry is not valid",
       "ENGINE_FAILURE": "Internal routing engine error",
       "PERSIST_FAILED": "The operation could not be saved",
-      "UNKNOWN": "The route could not be generated: {{detail}}"
+      "UNKNOWN": "The route could not be generated: {{detail}}",
+      "CONFIG_UNVERIFIED": "The saved configuration could not be verified. Nothing was generated; retry."
     },
     "actions": {
       "regenerate": "Regenerate",
@@ -322,7 +324,7 @@
     "error": "Save failed",
     "retry": "Retry",
     "dirty": "Unsaved changes",
-    "restored": "Configuration restored from the server",
+    "restored": "Configuration re-sent to the server",
     "verifyFailed": "Could not verify the saved configuration"
   },
   "result": {

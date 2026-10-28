@@ -58,6 +58,8 @@ export function useConfigAutosave(args: Args): UseConfigAutosave {
   const lastKey = useRef<string | null>(null); // key of baseline / last persisted state
   const savedAt = useRef<Date | null>(null);
   const prev = useRef<{ parcelId: string | null; enabled: boolean } | null>(null);
+  // Inputs of the previous render, to flush an unsaved edit of the parcel being left.
+  const prevInputs = useRef<{ parcelId: string | null; accessPoint: GeoJSON.Point | null; zones: Zone[]; enabled: boolean } | null>(null);
 
   const clearTimer = () => {
     if (timer.current !== null) { clearTimeout(timer.current); timer.current = null; }
@@ -102,6 +104,14 @@ export function useConfigAutosave(args: Args): UseConfigAutosave {
     const enabledFlipped = before !== null && !before.enabled && enabled;
 
     if (parcelChanged) {
+      // An edit younger than the debounce belongs to the OLD parcel: write it before resetting.
+      const old = prevInputs.current;
+      if (timer.current !== null && old && old.enabled && old.parcelId && !old.zones.some((z) => !z.valid)) {
+        const flush = latest.current.save ?? api.saveParcelConfig;
+        flush(old.parcelId, buildBody(old.accessPoint, old.zones)).catch((e: unknown) => {
+          console.error('[gis-routing] flush on parcel switch failed', e);
+        });
+      }
       generation.current += 1;
       savingRef.current = false;
       clearTimer();
@@ -109,8 +119,9 @@ export function useConfigAutosave(args: Args): UseConfigAutosave {
       savedAt.current = null;
       setStatus({ state: 'clean', savedAt: null });
     }
-    if (!enabled || !parcelId) { clearTimer(); return; }
+    if (!enabled || !parcelId) { clearTimer(); prevInputs.current = { parcelId, accessPoint, zones, enabled }; return; }
 
+    prevInputs.current = { parcelId, accessPoint, zones, enabled };
     const key = inputKey(accessPoint, zones);
     // ASSUMPTION: first render with enabled=true is not a baseline (the screen only enables after load).
     if (parcelChanged || enabledFlipped) {

@@ -162,7 +162,8 @@
     "namePlaceholder": "Nombre del patrón...",
     "save": "Guardar",
     "noSaved": "No hay patrones guardados en esta parcela",
-    "loadFromContext": "Cargar desde Orion-LD"
+    "loadFromContext": "Cargar desde Orion-LD",
+    "saveFailed": "Ezin izan da txantiloia gorde"
   },
   "patternLabels": {
     "spiral": "Spiral",
@@ -298,7 +299,8 @@
       "INVALID_GEOMETRY": "Geometria ez da baliozkoa",
       "ENGINE_FAILURE": "Bide-motorraren barne errorea",
       "PERSIST_FAILED": "Eragiketa ezin izan da gorde",
-      "UNKNOWN": "Ibilbidea ezin izan da sortu: {{detail}}"
+      "UNKNOWN": "Ibilbidea ezin izan da sortu: {{detail}}",
+      "CONFIG_UNVERIFIED": "Ezin izan da gordetako konfigurazioa egiaztatu. Ez da ezer sortu; saiatu berriro."
     },
     "actions": {
       "regenerate": "Birsortu",
@@ -322,7 +324,7 @@
     "error": "Errorea gordetzean",
     "retry": "Berriro saiatu",
     "dirty": "Gorde gabeko aldaketak",
-    "restored": "Konfigurazioa zerbitzaritik berreskuratu da",
+    "restored": "Konfigurazioa zerbitzarira berriro bidali da",
     "verifyFailed": "Ezin izan da gordetako konfigurazioa egiaztatu"
   },
   "result": {

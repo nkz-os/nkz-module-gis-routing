@@ -166,7 +166,8 @@
     "namePlaceholder": "Nombre del patrón...",
     "save": "Guardar",
     "noSaved": "No hay patrones guardados en esta parcela",
-    "loadFromContext": "Cargar desde Orion-LD"
+    "loadFromContext": "Cargar desde Orion-LD",
+    "saveFailed": "No se pudo guardar la plantilla"
   },
   "patternLabels": {
     "spiral": "Espiral",
@@ -298,7 +299,8 @@
       "INVALID_GEOMETRY": "La geometría no es válida",
       "ENGINE_FAILURE": "Error interno del motor de rutas",
       "PERSIST_FAILED": "No se pudo guardar la operación",
-      "UNKNOWN": "No se pudo generar la ruta: {{detail}}"
+      "UNKNOWN": "No se pudo generar la ruta: {{detail}}",
+      "CONFIG_UNVERIFIED": "No se pudo verificar la configuración guardada. No se ha generado nada; reintenta."
     },
     "actions": {
       "regenerate": "Regenerar",
@@ -322,7 +324,7 @@
     "error": "Error al guardar",
     "retry": "Reintentar",
     "dirty": "Cambios sin guardar",
-    "restored": "Configuración restaurada desde el servidor",
+    "restored": "Configuración enviada de nuevo al servidor",
     "verifyFailed": "No se pudo verificar la configuración guardada"
   },
   "result": {

@@ -44,11 +44,28 @@ describe('useConfigAutosave', () => {
     load.mockRejectedValue(new Error('down'));
     await act(async () => { verdict = await result.current.verifyBeforeGenerate(); }); expect(verdict).toBe('failed');
   });
-  it('switching parcel cancels pending saves', async () => {
-    const save = vi.fn();
+  it('switching parcel flushes the pending edit to the OLD parcel only', async () => {
+    const save = vi.fn().mockResolvedValue({});
     const { rerender } = renderHook((p: any) => useConfigAutosave(p), { initialProps: { parcelId: 'p1', accessPoint: null, zones: [], enabled: true, save, load: vi.fn() } as any });
     rerender({ parcelId: 'p1', accessPoint: null, zones: [zone('a')], enabled: true, save, load: vi.fn() });
     rerender({ parcelId: 'p2', accessPoint: null, zones: [], enabled: true, save, load: vi.fn() });
-    await act(async () => { vi.advanceTimersByTime(2000); }); expect(save).not.toHaveBeenCalled();
+    await act(async () => { vi.advanceTimersByTime(2000); await Promise.resolve(); });
+    expect(save).toHaveBeenCalledTimes(1);
+    expect(save.mock.calls[0][0]).toBe('p1');
+    expect(save.mock.calls[0][1].exclusionZones.features[0].properties.id).toBe('a');
+  });
+  it('removing the entrance sends an explicit null accessPoint and then verifies ok', async () => {
+    const save = vi.fn().mockResolvedValue({});
+    const pt = { type: 'Point', coordinates: [0.5, 0.5] } as any;
+    const load = vi.fn().mockResolvedValue({ accessPoint: null, exclusionZones: { type: 'FeatureCollection', features: [] } });
+    const { result, rerender } = renderHook((p: any) => useConfigAutosave(p), { initialProps: { parcelId: 'p1', accessPoint: pt, zones: [], enabled: true, save, load } as any });
+    rerender({ parcelId: 'p1', accessPoint: null, zones: [], enabled: true, save, load });
+    await act(async () => { vi.advanceTimersByTime(800); await Promise.resolve(); });
+    expect(save).toHaveBeenCalledTimes(1);
+    const body = save.mock.calls[0][1];
+    expect('accessPoint' in body && body.accessPoint === null).toBe(true);
+    expect(JSON.parse(JSON.stringify(body))).toHaveProperty('accessPoint', null);
+    let verdict = ''; await act(async () => { verdict = await result.current.verifyBeforeGenerate(); });
+    expect(verdict).toBe('ok');
   });
 });
