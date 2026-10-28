@@ -363,6 +363,41 @@
     },
     "vra": {
       "nextPhase": "Prescripció variable: propera fase"
+    },
+    "warnings": {
+      "UNREACHED_AREA": "Zona sense cobrir de {{ha}} ha",
+      "HEADLAND_WIDENED": "Capçalera eixamplada de {{requested}} a {{applied}} passades",
+      "MANUAL_TURN": "Gir manual entre les passades {{from_swath}} i {{to_swath}}",
+      "ACCESS_PATH_UNAVAILABLE": "No s'ha pogut traçar el camí d'accés",
+      "UNKNOWN": "Avís {{code}}"
+    },
+    "fallbacks": {
+      "headland": "Passades de capçalera ajustades de {{a}} a {{b}}",
+      "reedsShepp": "Girs de Reeds-Shepp",
+      "pattern": "Patró canviat a {{pattern}}",
+      "manualTurns_one": "{{count}} gir manual",
+      "manualTurns_other": "{{count}} girs manuals",
+      "timeBudget": "Límit de temps assolit"
+    },
+    "errors": {
+      "NO_DRIVABLE_AREA": "No hi ha superfície transitable a la parcel·la",
+      "ACCESS_OUTSIDE_PARCEL": "El punt d'accés és fora de la parcel·la",
+      "ACCESS_IN_ZONE": "El punt d'accés és dins d'una zona exclosa",
+      "MACHINE_WIDTH_MISSING": "Falta l'amplada de treball de la màquina",
+      "TURNING_RADIUS_MISSING": "Falta el radi de gir de la màquina",
+      "INVALID_GEOMETRY": "La geometria no és vàlida",
+      "ENGINE_FAILURE": "Error intern del motor de rutes",
+      "PERSIST_FAILED": "No s'ha pogut desar l'operació",
+      "UNKNOWN": "No s'ha pogut generar la ruta: {{detail}}"
+    },
+    "actions": {
+      "regenerate": "Regenerar",
+      "sendToTractor": "Enviar al tractor",
+      "sent": "Enviada ({{id}})",
+      "copyId": "Copiar ID",
+      "copied": "Copiat!",
+      "saveTemplate": "Desar com a plantilla",
+      "exportFormat": "Format d'exportació"
     }
   },
   "autosave": {
@@ -371,5 +406,19 @@
     "error": "Error en desar",
     "retry": "Reintentar",
     "dirty": "Canvis sense desar"
+  },
+  "result": {
+    "swaths_one": "{{count}} passada",
+    "swaths_other": "{{count}} passades",
+    "distance": "{{value}} km",
+    "efficiency": "{{value}} %",
+    "coverage": "{{covered}} / {{parcel}} ha",
+    "warnings_one": "{{count}} avís",
+    "warnings_other": "{{count}} avisos",
+    "stale": "Obsolet",
+    "showOnMap": "Veure al mapa",
+    "fallbacksTitle": "Ajustos aplicats",
+    "collapse": "Contreure",
+    "expand": "Expandir"
   }
 }

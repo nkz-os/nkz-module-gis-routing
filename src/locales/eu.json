@@ -363,6 +363,41 @@
     },
     "vra": {
       "nextPhase": "Dosi aldakorreko preskripzioa: hurrengo fasea"
+    },
+    "warnings": {
+      "UNREACHED_AREA": "{{ha}} ha-ko eremu estali gabea",
+      "HEADLAND_WIDENED": "Muga zabaldua: {{requested}} pasadatik {{applied}} pasadara",
+      "MANUAL_TURN": "Eskuzko biraketa {{from_swath}} eta {{to_swath}} pasaden artean",
+      "ACCESS_PATH_UNAVAILABLE": "Sarbide bidea ezin izan da trazatu",
+      "UNKNOWN": "{{code}} abisua"
+    },
+    "fallbacks": {
+      "headland": "Muga-pasadak doituta: {{a}} -> {{b}}",
+      "reedsShepp": "Reeds-Shepp biraketak",
+      "pattern": "Eredua aldatu da: {{pattern}}",
+      "manualTurns_one": "Eskuzko {{count}} biraketa",
+      "manualTurns_other": "Eskuzko {{count}} biraketa",
+      "timeBudget": "Denbora-muga gaindituta"
+    },
+    "errors": {
+      "NO_DRIVABLE_AREA": "Partzelak ez du gidatu daitekeen azalerarik",
+      "ACCESS_OUTSIDE_PARCEL": "Sarbide puntua partzelatik kanpo dago",
+      "ACCESS_IN_ZONE": "Sarbide puntua baztertutako eremu baten barruan dago",
+      "MACHINE_WIDTH_MISSING": "Makinaren lan-zabalera falta da",
+      "TURNING_RADIUS_MISSING": "Makinaren biraketa-erradioa falta da",
+      "INVALID_GEOMETRY": "Geometria ez da baliozkoa",
+      "ENGINE_FAILURE": "Bide-motorraren barne errorea",
+      "PERSIST_FAILED": "Eragiketa ezin izan da gorde",
+      "UNKNOWN": "Ibilbidea ezin izan da sortu: {{detail}}"
+    },
+    "actions": {
+      "regenerate": "Birsortu",
+      "sendToTractor": "Bidali traktorera",
+      "sent": "Bidalita ({{id}})",
+      "copyId": "Kopiatu ID",
+      "copied": "Kopiatuta!",
+      "saveTemplate": "Gorde txantiloi gisa",
+      "exportFormat": "Esportazio formatua"
     }
   },
   "autosave": {
@@ -371,5 +406,19 @@
     "error": "Errorea gordetzean",
     "retry": "Berriro saiatu",
     "dirty": "Gorde gabeko aldaketak"
+  },
+  "result": {
+    "swaths_one": "{{count}} pasada",
+    "swaths_other": "{{count}} pasada",
+    "distance": "{{value}} km",
+    "efficiency": "{{value}} %",
+    "coverage": "{{covered}} / {{parcel}} ha",
+    "warnings_one": "{{count}} abisu",
+    "warnings_other": "{{count}} abisu",
+    "stale": "Zaharkitua",
+    "showOnMap": "Ikusi mapan",
+    "fallbacksTitle": "Aplikatutako doikuntzak",
+    "collapse": "Tolestu",
+    "expand": "Zabaldu"
   }
 }

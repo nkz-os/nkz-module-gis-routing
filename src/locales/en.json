@@ -363,6 +363,41 @@
     },
     "vra": {
       "nextPhase": "Variable-rate prescription: next phase"
+    },
+    "warnings": {
+      "UNREACHED_AREA": "Uncovered area of {{ha}} ha",
+      "HEADLAND_WIDENED": "Headland widened from {{requested}} to {{applied}} passes",
+      "MANUAL_TURN": "Manual turn between swaths {{from_swath}} and {{to_swath}}",
+      "ACCESS_PATH_UNAVAILABLE": "Access path could not be drawn",
+      "UNKNOWN": "Warning {{code}}"
+    },
+    "fallbacks": {
+      "headland": "Headland passes adjusted from {{a}} to {{b}}",
+      "reedsShepp": "Reeds-Shepp turns",
+      "pattern": "Pattern changed to {{pattern}}",
+      "manualTurns_one": "{{count}} manual turn",
+      "manualTurns_other": "{{count}} manual turns",
+      "timeBudget": "Time limit reached"
+    },
+    "errors": {
+      "NO_DRIVABLE_AREA": "The parcel has no drivable area",
+      "ACCESS_OUTSIDE_PARCEL": "The access point is outside the parcel",
+      "ACCESS_IN_ZONE": "The access point is inside an excluded zone",
+      "MACHINE_WIDTH_MISSING": "The machine working width is missing",
+      "TURNING_RADIUS_MISSING": "The machine turning radius is missing",
+      "INVALID_GEOMETRY": "The geometry is not valid",
+      "ENGINE_FAILURE": "Internal routing engine error",
+      "PERSIST_FAILED": "The operation could not be saved",
+      "UNKNOWN": "The route could not be generated: {{detail}}"
+    },
+    "actions": {
+      "regenerate": "Regenerate",
+      "sendToTractor": "Send to tractor",
+      "sent": "Sent ({{id}})",
+      "copyId": "Copy ID",
+      "copied": "Copied!",
+      "saveTemplate": "Save as template",
+      "exportFormat": "Export format"
     }
   },
   "autosave": {
@@ -371,5 +406,19 @@
     "error": "Save failed",
     "retry": "Retry",
     "dirty": "Unsaved changes"
+  },
+  "result": {
+    "swaths_one": "{{count}} swath",
+    "swaths_other": "{{count}} swaths",
+    "distance": "{{value}} km",
+    "efficiency": "{{value}} %",
+    "coverage": "{{covered}} / {{parcel}} ha",
+    "warnings_one": "{{count}} warning",
+    "warnings_other": "{{count}} warnings",
+    "stale": "Stale",
+    "showOnMap": "Show on map",
+    "fallbacksTitle": "Adjustments applied",
+    "collapse": "Collapse",
+    "expand": "Expand"
   }
 }

@@ -363,6 +363,41 @@
     },
     "vra": {
       "nextPhase": "Prescription variable : phase suivante"
+    },
+    "warnings": {
+      "UNREACHED_AREA": "Zone non couverte de {{ha}} ha",
+      "HEADLAND_WIDENED": "Fourrière élargie de {{requested}} à {{applied}} passages",
+      "MANUAL_TURN": "Demi-tour manuel entre les passages {{from_swath}} et {{to_swath}}",
+      "ACCESS_PATH_UNAVAILABLE": "Le chemin d'accès n'a pas pu être tracé",
+      "UNKNOWN": "Alerte {{code}}"
+    },
+    "fallbacks": {
+      "headland": "Passages de fourrière ajustés de {{a}} à {{b}}",
+      "reedsShepp": "Virages de Reeds-Shepp",
+      "pattern": "Motif changé en {{pattern}}",
+      "manualTurns_one": "{{count}} demi-tour manuel",
+      "manualTurns_other": "{{count}} demi-tours manuels",
+      "timeBudget": "Limite de temps atteinte"
+    },
+    "errors": {
+      "NO_DRIVABLE_AREA": "La parcelle n'a aucune surface praticable",
+      "ACCESS_OUTSIDE_PARCEL": "Le point d'accès est hors de la parcelle",
+      "ACCESS_IN_ZONE": "Le point d'accès est dans une zone exclue",
+      "MACHINE_WIDTH_MISSING": "La largeur de travail de la machine est manquante",
+      "TURNING_RADIUS_MISSING": "Le rayon de braquage de la machine est manquant",
+      "INVALID_GEOMETRY": "La géométrie n'est pas valide",
+      "ENGINE_FAILURE": "Erreur interne du moteur d'itinéraires",
+      "PERSIST_FAILED": "L'opération n'a pas pu être enregistrée",
+      "UNKNOWN": "L'itinéraire n'a pas pu être généré : {{detail}}"
+    },
+    "actions": {
+      "regenerate": "Régénérer",
+      "sendToTractor": "Envoyer au tracteur",
+      "sent": "Envoyée ({{id}})",
+      "copyId": "Copier l'ID",
+      "copied": "Copié !",
+      "saveTemplate": "Enregistrer comme modèle",
+      "exportFormat": "Format d'export"
     }
   },
   "autosave": {
@@ -371,5 +406,19 @@
     "error": "Échec de l'enregistrement",
     "retry": "Réessayer",
     "dirty": "Modifications non enregistrées"
+  },
+  "result": {
+    "swaths_one": "{{count}} passage",
+    "swaths_other": "{{count}} passages",
+    "distance": "{{value}} km",
+    "efficiency": "{{value}} %",
+    "coverage": "{{covered}} / {{parcel}} ha",
+    "warnings_one": "{{count}} alerte",
+    "warnings_other": "{{count}} alertes",
+    "stale": "Obsolète",
+    "showOnMap": "Voir sur la carte",
+    "fallbacksTitle": "Ajustements appliqués",
+    "collapse": "Réduire",
+    "expand": "Développer"
   }
 }

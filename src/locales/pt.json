@@ -363,6 +363,41 @@
     },
     "vra": {
       "nextPhase": "Prescrição variável: próxima fase"
+    },
+    "warnings": {
+      "UNREACHED_AREA": "Zona não coberta de {{ha}} ha",
+      "HEADLAND_WIDENED": "Cabeceira alargada de {{requested}} para {{applied}} passagens",
+      "MANUAL_TURN": "Curva manual entre as passagens {{from_swath}} e {{to_swath}}",
+      "ACCESS_PATH_UNAVAILABLE": "Não foi possível traçar o caminho de acesso",
+      "UNKNOWN": "Aviso {{code}}"
+    },
+    "fallbacks": {
+      "headland": "Passagens de cabeceira ajustadas de {{a}} para {{b}}",
+      "reedsShepp": "Curvas de Reeds-Shepp",
+      "pattern": "Padrão alterado para {{pattern}}",
+      "manualTurns_one": "{{count}} curva manual",
+      "manualTurns_other": "{{count}} curvas manuais",
+      "timeBudget": "Limite de tempo atingido"
+    },
+    "errors": {
+      "NO_DRIVABLE_AREA": "A parcela não tem área transitável",
+      "ACCESS_OUTSIDE_PARCEL": "O ponto de acesso está fora da parcela",
+      "ACCESS_IN_ZONE": "O ponto de acesso está dentro de uma zona excluída",
+      "MACHINE_WIDTH_MISSING": "Falta a largura de trabalho da máquina",
+      "TURNING_RADIUS_MISSING": "Falta o raio de viragem da máquina",
+      "INVALID_GEOMETRY": "A geometria não é válida",
+      "ENGINE_FAILURE": "Erro interno do motor de rotas",
+      "PERSIST_FAILED": "Não foi possível guardar a operação",
+      "UNKNOWN": "Não foi possível gerar a rota: {{detail}}"
+    },
+    "actions": {
+      "regenerate": "Regenerar",
+      "sendToTractor": "Enviar ao trator",
+      "sent": "Enviada ({{id}})",
+      "copyId": "Copiar ID",
+      "copied": "Copiado!",
+      "saveTemplate": "Guardar como modelo",
+      "exportFormat": "Formato de exportação"
     }
   },
   "autosave": {
@@ -371,5 +406,19 @@
     "error": "Erro ao guardar",
     "retry": "Tentar novamente",
     "dirty": "Alterações por guardar"
+  },
+  "result": {
+    "swaths_one": "{{count}} passagem",
+    "swaths_other": "{{count}} passagens",
+    "distance": "{{value}} km",
+    "efficiency": "{{value}} %",
+    "coverage": "{{covered}} / {{parcel}} ha",
+    "warnings_one": "{{count}} aviso",
+    "warnings_other": "{{count}} avisos",
+    "stale": "Desatualizado",
+    "showOnMap": "Ver no mapa",
+    "fallbacksTitle": "Ajustes aplicados",
+    "collapse": "Recolher",
+    "expand": "Expandir"
   }
 }
