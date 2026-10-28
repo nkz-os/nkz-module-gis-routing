@@ -26,7 +26,9 @@ vi.mock('terra-draw', () => {
   class TerraDraw {
     start() {} stop() {} setMode(m: string) { h.setMode(m); } on() {} clear() {} addFeatures() {} removeFeatures() {} getSnapshotFeature() { return null; }
   }
-  return { TerraDraw, TerraDrawPolygonMode: M, TerraDrawPointMode: M, TerraDrawSelectMode: M, TerraDrawRenderMode: M };
+  // Mirrors terra-draw: the render mode has no default name and throws without one.
+  class R { constructor(o?: { modeName?: string }) { if (!o?.modeName) throw new Error('Mode name is required for TerraDrawRenderMode'); } }
+  return { TerraDraw, TerraDrawPolygonMode: M, TerraDrawPointMode: M, TerraDrawSelectMode: M, TerraDrawRenderMode: R };
 });
 vi.mock('terra-draw-maplibre-gl-adapter', () => ({ TerraDrawMapLibreGLAdapter: class {} }));
 
