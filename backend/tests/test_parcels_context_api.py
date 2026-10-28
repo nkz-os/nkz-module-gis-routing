@@ -175,6 +175,6 @@ async def test_gate_and_zones_are_read_in_short_prefixed_and_iri_forms(monkeypat
     monkeypatch.setattr(pc, "OrionClient", FakeOrion)
     got = (await pc.fetch_tenant_parcels_in_bbox("tenant-a", (-0.01, -0.01, 0.02, 0.02)))[0]
     assert got["access_point"] == (0.005, 0.0) and len(got["zones"]) == 1
-    assert form in seen["attrs"] and zform in seen["attrs"]
+    assert "attrs" not in seen  # every attribute is read; no attrs filter (see parcel_constraints)
     one = await pc.fetch_parcel_constraints("in", "tenant-a")
     assert one["access_point"] == (0.005, 0.0) and len(one["zones"]) == 1

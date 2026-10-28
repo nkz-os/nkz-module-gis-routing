@@ -26,10 +26,6 @@ def _attr_value(entity: dict, name: str):
     return None
 
 
-def _attrs_param(*names: str) -> str:
-    return ",".join(form.format(n=n) for n in names for form in _ATTR_FORMS)
-
-
 def _flatten_polygons(geom) -> list[Polygon]:
     """Non-empty Polygon parts of a geometry (lines and points dropped)."""
     if geom.is_empty:
@@ -101,8 +97,14 @@ async def fetch_parcel_constraints(parcel_id: str, tenant_id: str) -> dict:
     return {"access_point": access_point, "zones": zones}
 
 
-async def _read_tenant_parcels(tenant_id: str, attrs: str) -> list[dict]:
-    """All AgriParcel entities of the tenant (paginated), with the given attributes."""
+async def _read_tenant_parcels(tenant_id: str) -> list[dict]:
+    """All AgriParcel entities of the tenant (paginated), every attribute.
+
+    No `attrs` filter on purpose: the gate and zone terms can arrive under several
+    names that expand to the same IRI, and Orion-LD answers an `attrs` list that
+    names one IRI twice with zero entities (200, no error) -- which would silently
+    drop every no-go zone and fence from A-B.
+    """
     settings = get_settings()
     orion = OrionClient(tenant_id, base_url=settings.context_broker_url,
                         context_url=settings.ngsi_ld_context)
@@ -110,7 +112,7 @@ async def _read_tenant_parcels(tenant_id: str, attrs: str) -> list[dict]:
     try:
         for page in range(_MAX_PAGES):
             batch = await orion.query_entities(
-                "AgriParcel", attrs=attrs,
+                "AgriParcel",
                 limit=_PAGE_LIMIT, offset=page * _PAGE_LIMIT)
             entities.extend(batch or [])
             if len(batch or []) < _PAGE_LIMIT:
@@ -138,7 +140,7 @@ async def fetch_tenant_parcels_in_bbox(tenant_id: str, bbox: tuple[float, float,
     read is kept with polygon/geometry None: it cannot be drawn or fenced, but its
     no-go zones still count (fail safe).
     """
-    entities = await _read_tenant_parcels(tenant_id, "name,location," + _attrs_param("accessPoint", "exclusionZones"))
+    entities = await _read_tenant_parcels(tenant_id)
     area = box(*bbox)
     out: list[dict] = []
     for ent in entities:
