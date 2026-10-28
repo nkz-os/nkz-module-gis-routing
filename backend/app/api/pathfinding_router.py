@@ -1,17 +1,20 @@
 """A-B pathfinding with DEM-based least-cost routing."""
 import asyncio
 import logging
+import math
 from nkz_platform_sdk.auth import require_auth, AuthContext
 from fastapi import APIRouter, Request, HTTPException
 from pydantic import BaseModel, Field
 
 from app.config import get_settings
-from app.services.pathfinding.least_cost_path import compute_ab_routes, terminus_blocked
+from app.services.pathfinding.least_cost_path import compute_ab_routes, blocked_terminus
 from app.services.pathfinding.dem_provider import DemRegistry, EuElevationProvider
 from app.services.parcel_constraints import (
     fetch_parcel_constraints as _fetch_parcel_constraints,
     fetch_tenant_zones_in_bbox,
+    fetch_tenant_parcels_in_bbox,
 )
+from app.services.pathfinding.barriers import parcel_barrier_cells
 from app.services.machines import fetch_machine_kinematics
 from app.services.pathfinding.job_store import JobStore, JobLimitError
 from app.services.exclusion import buffered_zones, rasterize_blocked_cells
@@ -23,6 +26,14 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/path", tags=["pathfinding"])
 
 JOBS = JobStore()
+
+# Search area around the A-B box; one wider retry when nothing is found.
+SEARCH_MARGINS_M = (500, 2000)
+DEM_RESOLUTION_M = 10
+# Cap on planned DEM cells. Measured: an exhaustive no-path A* over 1M cells takes
+# ~14 s and ~200 MB per objective, so 4M is ~1 min and ~800 MB worst case.
+MAX_SEARCH_CELLS = 4_000_000
+_M_PER_DEG_LAT = 111320.0
 
 
 def build_dem_registry() -> DemRegistry:
@@ -62,7 +73,7 @@ async def _resolve_path_constraints(parcel_id, tenant_id, raster, cols, rows, ma
 
     The zones of every tenant parcel intersecting bbox are always blocked (an A-B
     route can leave the parcel); with parcel_id, that parcel's own zones are added
-    and its access point is the default origin.
+    and its access point is the default origin. Gated parcels add their fence.
     """
     zones = list(await fetch_tenant_zones_in_bbox(tenant_id, bbox))
     default_origin = None
@@ -74,6 +85,9 @@ async def _resolve_path_constraints(parcel_id, tenant_id, raster, cols, rows, ma
     blocked = rasterize_blocked_cells(
         block_wgs84, raster["origin_lon"], raster["origin_lat"],
         raster["pixel_size_deg"], cols, rows)
+    # Parcels with a gate are fences crossed only at the gate; ungated ones are open ground.
+    parcels = await fetch_tenant_parcels_in_bbox(tenant_id, bbox)
+    blocked |= parcel_barrier_cells(parcels, raster, machine_width_m, cols=cols, rows=rows)
     return default_origin, blocked
 
 
@@ -99,16 +113,32 @@ async def get_path_result(job_id: str, auth: AuthContext = require_auth()):
     return job
 
 
+def _fail(job_id: str, code: str, text: str, params: dict | None = None) -> None:
+    JOBS.set(job_id, {"status": "failed", "error": text,
+                      "error_code": code, "error_params": params or {}})
+
+
+def _search_bbox(a: list[float], b: list[float], margin_m: float) -> tuple[float, float, float, float]:
+    """A-B bounding box grown by margin_m on every side (WGS84 degrees)."""
+    mid_lat = (a[1] + b[1]) / 2.0
+    dlat = margin_m / _M_PER_DEG_LAT
+    dlon = margin_m / (_M_PER_DEG_LAT * max(math.cos(math.radians(mid_lat)), 0.01))
+    return (min(a[0], b[0]) - dlon, min(a[1], b[1]) - dlat,
+            max(a[0], b[0]) + dlon, max(a[1], b[1]) + dlat)
+
+
+def _planned_cells(bbox: tuple[float, float, float, float]) -> int:
+    mid_lat = (bbox[1] + bbox[3]) / 2.0
+    w_m = (bbox[2] - bbox[0]) * _M_PER_DEG_LAT * math.cos(math.radians(mid_lat))
+    h_m = (bbox[3] - bbox[1]) * _M_PER_DEG_LAT
+    return math.ceil(w_m / DEM_RESOLUTION_M) * math.ceil(h_m / DEM_RESOLUTION_M)
+
+
 async def _run_pathfinding(job_id: str, body: PathRequest, tenant_id: str):
     try:
         lon_a, lat_a = body.point_a
         lon_b, lat_b = body.point_b
 
-        margin = 0.005
-        bbox = (
-            min(lon_a, lon_b) - margin, min(lat_a, lat_b) - margin,
-            max(lon_a, lon_b) + margin, max(lat_a, lat_b) + margin,
-        )
         machine_width_m = body.machine_width_m
         if body.machine_id:
             kin = await fetch_machine_kinematics(body.machine_id, tenant_id)
@@ -116,61 +146,80 @@ async def _run_pathfinding(job_id: str, body: PathRequest, tenant_id: str):
             if not isinstance(width, (int, float)) or width <= 0:
                 logger.error("path/calculate: machine not found or has no implementWidth: machine_id=%s job=%s",
                              body.machine_id, job_id)
-                JOBS.set(job_id, {"status": "failed",
-                                  "error": "machine not found or has no implementWidth"})
+                _fail(job_id, "MACHINE_WIDTH_MISSING", "machine not found or has no implementWidth",
+                      {"machine_id": body.machine_id})
                 return
             machine_width_m = float(width)
 
-        if body.elevation_grid:
-            raster = body.elevation_grid  # legacy/explicit override (tests)
-        else:
-            raster = await build_dem_registry().fetch_best(bbox, resolution_m=10)
-            if not raster:
-                JOBS.set(job_id, {"status": "failed",
-                                 "error": "No elevation data available for this area"})
+        # An explicit elevation grid (tests/legacy) is fixed: widening the area cannot help.
+        margins = SEARCH_MARGINS_M[:1] if body.elevation_grid else SEARCH_MARGINS_M
+        for margin_m in margins:
+            bbox = _search_bbox(body.point_a, body.point_b, margin_m)
+            cells = _planned_cells(bbox)
+            if cells > MAX_SEARCH_CELLS:
+                logger.warning("path job %s: search area too large margin_m=%d cells=%d cap=%d",
+                               job_id, margin_m, cells, MAX_SEARCH_CELLS)
+                _fail(job_id, "AREA_TOO_LARGE", "The search area is too large",
+                      {"margin_m": margin_m, "max_cells": MAX_SEARCH_CELLS})
                 return
 
-        elevations = raster["elevations"]
-        origin_lon = raster["origin_lon"]
-        origin_lat = raster["origin_lat"]
-        pixel_size = raster["pixel_size_deg"]
-        rows = len(elevations)
-        cols = len(elevations[0]) if rows > 0 else 0
+            if body.elevation_grid:
+                raster = body.elevation_grid
+            else:
+                raster = await build_dem_registry().fetch_best(bbox, resolution_m=DEM_RESOLUTION_M)
+                if not raster:
+                    _fail(job_id, "DEM_UNAVAILABLE", "No elevation data available for this area")
+                    return
 
-        start_col = max(0, min(int((lon_a - origin_lon) / pixel_size), cols - 1))
-        start_row = max(0, min(int((lat_a - origin_lat) / pixel_size), rows - 1))
-        end_col = max(0, min(int((lon_b - origin_lon) / pixel_size), cols - 1))
-        end_row = max(0, min(int((lat_b - origin_lat) / pixel_size), rows - 1))
+            elevations = raster["elevations"]
+            origin_lon = raster["origin_lon"]
+            origin_lat = raster["origin_lat"]
+            pixel_size = raster["pixel_size_deg"]
+            rows = len(elevations)
+            cols = len(elevations[0]) if rows > 0 else 0
+            if rows * cols > MAX_SEARCH_CELLS:
+                _fail(job_id, "AREA_TOO_LARGE", "The search area is too large",
+                      {"margin_m": margin_m, "max_cells": MAX_SEARCH_CELLS})
+                return
 
-        default_origin, blocked = await _resolve_path_constraints(
-            parcel_id=body.parcel_id, tenant_id=tenant_id, raster=raster,
-            cols=cols, rows=rows, machine_width_m=machine_width_m, bbox=bbox)
+            start_col = max(0, min(int((lon_a - origin_lon) / pixel_size), cols - 1))
+            start_row = max(0, min(int((lat_a - origin_lat) / pixel_size), rows - 1))
+            end_col = max(0, min(int((lon_b - origin_lon) / pixel_size), cols - 1))
+            end_row = max(0, min(int((lat_b - origin_lat) / pixel_size), rows - 1))
 
-        if terminus_blocked((start_col, start_row), (end_col, end_row), blocked):
-            JOBS.set(job_id, {"status": "failed",
-                             "error": "Start or end point is inside a no-go zone"})
-            return
+            _default_origin, blocked = await _resolve_path_constraints(
+                parcel_id=body.parcel_id, tenant_id=tenant_id, raster=raster,
+                cols=cols, rows=rows, machine_width_m=machine_width_m, bbox=bbox)
 
-        alternatives = compute_ab_routes(
-            elevations, origin_lon, origin_lat, pixel_size,
-            start_col, start_row, end_col, end_row,
-            max_slope_deg=body.max_slope_deg,
-            blocked=blocked,
-        )
+            point = blocked_terminus((start_col, start_row), (end_col, end_row), blocked)
+            if point:
+                coords = [lon_a, lat_a] if point == "A" else [lon_b, lat_b]
+                _fail(job_id, "POINT_IN_ZONE", "Start or end point is inside a no-go zone",
+                      {"point": point, "geometry": {"type": "Point", "coordinates": coords}})
+                return
 
-        if not alternatives:
-            JOBS.set(job_id, {"status": "failed",
-                             "error": "No route avoids the no-go zones"})
-            return
+            alternatives = await asyncio.to_thread(
+                compute_ab_routes,
+                elevations, origin_lon, origin_lat, pixel_size,
+                start_col, start_row, end_col, end_row,
+                max_slope_deg=body.max_slope_deg,
+                blocked=blocked,
+            )
+            if alternatives:
+                JOBS.set(job_id, {
+                    "status": "completed",
+                    "alternatives": alternatives,
+                    "report": {
+                        "max_slope_deg": body.max_slope_deg,
+                        "max_slope_deg_found": max(a["max_slope_deg_found"] for a in alternatives),
+                        "blocked_cells_hit": sum(a["blocked_cells_hit"] for a in alternatives),
+                        "search_margin_m": margin_m,
+                    },
+                })
+                return
+            logger.info("path job %s: no route with margin_m=%d cells=%d", job_id, margin_m, rows * cols)
 
-        JOBS.set(job_id, {
-            "status": "completed",
-            "alternatives": alternatives,
-            "report": {
-                "max_slope_deg": body.max_slope_deg,
-                "blocked_cells_hit": sum(a["blocked_cells_hit"] for a in alternatives),
-            },
-        })
-    except Exception as e:
+        _fail(job_id, "NO_PATH", "No route avoids the no-go zones")
+    except Exception:
         logger.exception("Pathfinding job %s failed", job_id)
-        JOBS.set(job_id, {"status": "failed", "error": str(e)})
+        _fail(job_id, "ENGINE_FAILURE", "Route calculation failed")

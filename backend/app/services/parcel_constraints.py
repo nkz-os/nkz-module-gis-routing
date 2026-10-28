@@ -83,8 +83,8 @@ async def fetch_parcel_constraints(parcel_id: str, tenant_id: str) -> dict:
     return {"access_point": access_point, "zones": zones}
 
 
-async def fetch_tenant_zones_in_bbox(tenant_id: str, bbox: tuple[float, float, float, float]) -> list[Polygon]:
-    """No-go zones (WGS84) of the tenant's AgriParcels whose location intersects bbox."""
+async def _read_tenant_parcels(tenant_id: str, attrs: str) -> list[dict]:
+    """All AgriParcel entities of the tenant (paginated), with the given attributes."""
     settings = get_settings()
     orion = OrionClient(tenant_id, base_url=settings.context_broker_url,
                         context_url=settings.ngsi_ld_context)
@@ -92,16 +92,22 @@ async def fetch_tenant_zones_in_bbox(tenant_id: str, bbox: tuple[float, float, f
     try:
         for page in range(_MAX_PAGES):
             batch = await orion.query_entities(
-                "AgriParcel", attrs="location,exclusionZones",
+                "AgriParcel", attrs=attrs,
                 limit=_PAGE_LIMIT, offset=page * _PAGE_LIMIT)
             entities.extend(batch or [])
             if len(batch or []) < _PAGE_LIMIT:
                 break
         else:
-            logger.warning("tenant zones: page cap reached tenant=%s pages=%d; later parcels ignored",
+            logger.warning("tenant parcels: page cap reached tenant=%s pages=%d; later parcels ignored",
                            tenant_id, _MAX_PAGES)
     finally:
         await orion.close()
+    return entities
+
+
+async def fetch_tenant_zones_in_bbox(tenant_id: str, bbox: tuple[float, float, float, float]) -> list[Polygon]:
+    """No-go zones (WGS84) of the tenant's AgriParcels whose location intersects bbox."""
+    entities = await _read_tenant_parcels(tenant_id, "location,exclusionZones")
     area = box(*bbox)
     zones: list[Polygon] = []
     matched = 0
@@ -124,3 +130,45 @@ async def fetch_tenant_zones_in_bbox(tenant_id: str, bbox: tuple[float, float, f
     logger.info("tenant zones in bbox: tenant=%s parcels_total=%d parcels_in_bbox=%d zones=%d",
                 tenant_id, len(entities), matched, len(zones))
     return zones
+
+
+async def fetch_tenant_parcels_in_bbox(tenant_id: str, bbox: tuple[float, float, float, float]) -> list[dict]:
+    """The tenant's AgriParcels intersecting bbox.
+
+    Each item: {id, name, polygon (shapely, WGS84), geometry (GeoJSON), access_point
+    (lon, lat)|None, zones (shapely Polygons)}. A parcel whose location cannot be
+    read is logged and left out (it cannot be drawn or used as a barrier).
+    """
+    entities = await _read_tenant_parcels(tenant_id, "name,location,accessPoint,exclusionZones")
+    area = box(*bbox)
+    out: list[dict] = []
+    for ent in entities:
+        ent_id = ent.get("id")
+        loc = (ent.get("location", {}) or {}).get("value")
+        try:
+            geom = shape(loc)
+            if geom.is_empty or not geom.intersects(area):
+                continue
+        except Exception:
+            logger.error("tenant parcels: unreadable parcel location, skipped: id=%s", ent_id, exc_info=True)
+            continue
+        ap = (ent.get("accessPoint", {}) or {}).get("value")
+        access_point = None
+        if isinstance(ap, dict) and isinstance(ap.get("coordinates"), (list, tuple)) and len(ap["coordinates"]) >= 2:
+            access_point = (float(ap["coordinates"][0]), float(ap["coordinates"][1]))
+        fc = (ent.get("exclusionZones", {}) or {}).get("value") or {}
+        try:
+            zones = _zone_polygons(fc, entity_id=ent_id)
+        except Exception as exc:
+            raise ValueError(f"unreadable exclusion zone geometry on {ent_id}: {exc}") from exc
+        out.append({
+            "id": ent_id,
+            "name": (ent.get("name", {}) or {}).get("value", ""),
+            "polygon": geom,
+            "geometry": loc,
+            "access_point": access_point,
+            "zones": zones,
+        })
+    logger.info("tenant parcels in bbox: tenant=%s parcels_total=%d parcels_in_bbox=%d",
+                tenant_id, len(entities), len(out))
+    return out

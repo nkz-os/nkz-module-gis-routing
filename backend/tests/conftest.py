@@ -18,3 +18,14 @@ def patched_request(self, method, url, **kwargs):
 
 fastapi.testclient.TestClient.request = patched_request
 
+
+
+@pytest.fixture(autouse=True)
+def _no_tenant_parcels(monkeypatch):
+    """A-B reads the tenant's gated parcels from Orion; no broker in tests."""
+    from app.api import pathfinding_router as pr
+
+    async def none(tenant_id, bbox):
+        return []
+
+    monkeypatch.setattr(pr, "fetch_tenant_parcels_in_bbox", none, raising=False)

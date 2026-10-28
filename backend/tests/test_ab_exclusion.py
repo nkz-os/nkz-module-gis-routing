@@ -1,5 +1,5 @@
 """Unit tests for A* no-go masking and the terminus_blocked safety helper."""
-from app.services.pathfinding.least_cost_path import compute_ab_routes, terminus_blocked
+from app.services.pathfinding.least_cost_path import compute_ab_routes, blocked_terminus
 
 
 def test_astar_routes_around_blocked_cells():
@@ -26,13 +26,13 @@ def test_astar_returns_empty_when_walled_off():
     assert routes == []
 
 
-def test_terminus_blocked_detects_start_in_zone():
-    assert terminus_blocked((2, 3), (9, 9), {(2, 3)}) is True
+def test_blocked_terminus_names_start_in_zone():
+    assert blocked_terminus((2, 3), (9, 9), {(2, 3)}) == "A"
 
 
-def test_terminus_blocked_detects_end_in_zone():
-    assert terminus_blocked((0, 0), (5, 5), {(5, 5)}) is True
+def test_blocked_terminus_names_end_in_zone():
+    assert blocked_terminus((0, 0), (5, 5), {(5, 5)}) == "B"
 
 
-def test_terminus_blocked_false_when_clear():
-    assert terminus_blocked((0, 0), (9, 9), {(4, 4)}) is False
+def test_blocked_terminus_none_when_clear():
+    assert blocked_terminus((0, 0), (9, 9), {(4, 4)}) is None
