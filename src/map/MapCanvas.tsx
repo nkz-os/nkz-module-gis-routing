@@ -16,6 +16,8 @@ export interface MapCanvasProps {
   fitKey: string | null;
   onZoneDrawn: (polygon: GeoJSON.Polygon) => void;
   onZoneEdited: (id: string, polygon: GeoJSON.Polygon) => void;
+  /** A vertex delete left the zone with fewer than 3 vertices. */
+  onZoneRemoved?: (id: string) => void;
   onAccessPlaced: (point: GeoJSON.Point) => void;
   onSwathHover: (index: number | null) => void;
   onWarningClick: (n: number) => void;
@@ -111,10 +113,14 @@ export const MapCanvas: React.FC<MapCanvasProps> = (props) => {
       map = created;
       const mapNow = created;
 
-      mapNow.on('error', (ev) => console.error('[gis-routing] map error', ev.error));
+      mapNow.on('error', (ev) => {
+        console.error('[gis-routing] map error', ev.error);
+        propsRef.current.onError?.(toError(ev.error ?? ev));
+      });
 
       mapNow.on('load', () => {
         if (cancelled) return;
+        try {
         const sources = buildSources(propsRef.current.model);
         for (const id of SOURCE_IDS) mapNow.addSource(id, { type: 'geojson', data: sources[id] });
         for (const spec of layerSpecs()) mapNow.addLayer(spec);
@@ -171,10 +177,17 @@ export const MapCanvas: React.FC<MapCanvasProps> = (props) => {
               p.onAccessPlaced({ type: 'Point', coordinates: f.geometry.coordinates });
             }
             d.removeFeatures([id]);
-          } else if (ctx.action === 'dragCoordinate' || ctx.action === 'dragFeature') {
+          } else if (
+            ctx.action === 'dragCoordinate' ||
+            ctx.action === 'dragFeature' ||
+            ctx.action === 'deleteCoordinate' ||
+            ctx.action === 'insertMidpoint'
+          ) {
             const props = f.properties ?? {};
             if (f.geometry.type === 'Polygon' && typeof props.zoneId === 'string') {
-              p.onZoneEdited(props.zoneId, ringToPolygon(dedupeRing(f.geometry.coordinates[0])));
+              const polygon = ringToPolygon(dedupeRing(f.geometry.coordinates[0]));
+              if (polygon.coordinates[0].length < 4) p.onZoneRemoved?.(props.zoneId);
+              else p.onZoneEdited(props.zoneId, polygon);
             } else if (f.geometry.type === 'Point' && props.kind === 'access') {
               p.onAccessPlaced({ type: 'Point', coordinates: f.geometry.coordinates });
             }
@@ -184,6 +197,9 @@ export const MapCanvas: React.FC<MapCanvasProps> = (props) => {
         mapRef.current = mapNow;
         setReady(true);
         propsRef.current.onReady?.();
+        } catch (err) {
+          propsRef.current.onError?.(toError(err));
+        }
       });
     })().catch((err) => {
       if (!cancelled) propsRef.current.onError?.(toError(err));
