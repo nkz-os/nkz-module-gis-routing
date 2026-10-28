@@ -28,16 +28,19 @@ def _parts(geom) -> list[Polygon]:
     return []
 
 
-def _ring_wgs84(poly: Polygon, gate: tuple[float, float], width_m: float, cell_m: float):
-    """Boundary ring of poly (WGS84) minus a gate opening, or None if empty."""
+def _ring_wgs84(poly: Polygon, gate: tuple[float, float] | None, width_m: float, cell_m: float):
+    """Boundary ring of poly (WGS84) minus a gate opening (none when gate is None), or None if empty."""
     utm_poly, _crs, to_utm, to_wgs84 = project_polygon_to_utm(poly)
     half = width_m / 2.0 + cell_m
     ring = utm_poly.exterior.buffer(half)
-    gx, gy = to_utm(gate[0], gate[1])
-    # Snap the gate onto the boundary: an access point slightly inside or outside
-    # must still open the fence, never leave it sealed.
-    on_edge = utm_poly.exterior.interpolate(utm_poly.exterior.project(Point(gx, gy)))
-    ring = ring.difference(on_edge.buffer(max(width_m, 2.0 * cell_m)))
+    if gate is not None:
+        gx, gy = to_utm(gate[0], gate[1])
+        # Snap the gate onto the boundary: an access point slightly inside or outside
+        # must still open the fence, never leave it sealed.
+        on_edge = utm_poly.exterior.interpolate(utm_poly.exterior.project(Point(gx, gy)))
+        # The disc must reach past the band's half-thickness, or a corridor of the
+        # machine's width is left closed (seen at width == 2 cells).
+        ring = ring.difference(on_edge.buffer(half + max(width_m, 2.0 * cell_m) / 2.0))
     if ring.is_empty:
         return None
     return transform(to_wgs84, ring)
@@ -80,11 +83,13 @@ def parcel_barrier_map(parcels: list[dict], raster: dict, machine_width_m: float
         if not gate or parcel.get("polygon") is None:
             continue
         cells: set = set()
-        for part in _parts(parcel["polygon"]):
-            if part.is_empty:
-                continue
+        parts = [p for p in _parts(parcel["polygon"]) if not p.is_empty]
+        # Only the part the gate belongs to (the nearest) is opened; the others stay sealed.
+        gate_pt = Point(gate)
+        gated = min(parts, key=lambda p: p.exterior.distance(gate_pt), default=None)
+        for part in parts:
             try:
-                ring = _ring_wgs84(part, gate, machine_width_m, cell_m)
+                ring = _ring_wgs84(part, gate if part is gated else None, machine_width_m, cell_m)
                 cells |= _rasterize(ring, raster, cols, rows)
             except Exception:
                 # A fence we cannot build must not silently become open ground.

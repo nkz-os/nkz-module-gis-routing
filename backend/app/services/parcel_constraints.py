@@ -1,6 +1,7 @@
 """Shared: read a parcel's routing constraints (access point + no-go zones) from Orion."""
 import logging
 
+import httpx
 import shapely
 from shapely.geometry import Polygon, box, shape
 from app.config import get_settings
@@ -100,6 +101,13 @@ async def _read_tenant_parcels(tenant_id: str, attrs: str) -> list[dict]:
         else:
             logger.warning("tenant parcels: page cap reached tenant=%s pages=%d; later parcels ignored",
                            tenant_id, _MAX_PAGES)
+    except httpx.HTTPStatusError as exc:
+        # A tenant with no entities yet is unknown to the broker: it has no parcels.
+        if exc.response.status_code == 404 or (
+                exc.response.status_code == 400 and "NonExistingTenant" in exc.response.text):
+            logger.info("tenant parcels: tenant unknown to the broker, no parcels: tenant=%s", tenant_id)
+            return []
+        raise
     finally:
         await orion.close()
     return entities

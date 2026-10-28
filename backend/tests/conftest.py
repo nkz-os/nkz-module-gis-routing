@@ -29,3 +29,12 @@ def _no_tenant_parcels(monkeypatch):
         return []
 
     monkeypatch.setattr(pr, "fetch_tenant_parcels_in_bbox", none, raising=False)
+
+
+@pytest.fixture(autouse=True)
+def _fresh_search_lock(monkeypatch):
+    """A job abandoned with its event loop would keep the global search lock held."""
+    import asyncio
+    from app.api import pathfinding_router as pr
+
+    monkeypatch.setattr(pr, "_SEARCH_LOCK", asyncio.Semaphore(1))

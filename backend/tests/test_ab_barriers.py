@@ -185,3 +185,111 @@ def test_cap_stops_before_any_search(monkeypatch):
     monkeypatch.setattr(pr, "MAX_SEARCH_CELLS", 100)
     out = _route((5, 15), (25, 15))
     assert out["error_code"] == "AREA_TOO_LARGE" and called == []
+
+
+# ---- gate opening at production resolution (10 m cells) ---------------------
+
+def _gate_case(width_m, rot_deg):
+    """Return (routes_with_gate, routes_with_gate_disc_refenced) on a 10 m grid."""
+    import math
+    from shapely import affinity
+    from app.services.pathfinding.least_cost_path import compute_ab_routes
+    px = 10.0 / 111320.0
+    n = 100
+    raster = {"elevations": [[0.0] * n for _ in range(n)],
+              "origin_lon": 0.0, "origin_lat": 0.0, "pixel_size_deg": px}
+    sq = Polygon([(30 * px, 30 * px), (70 * px, 30 * px), (70 * px, 70 * px), (30 * px, 70 * px)])
+    poly = affinity.rotate(sq, rot_deg, origin=(50 * px, 50 * px))
+    c = list(poly.exterior.coords)
+    gate = ((c[0][0] + c[1][0]) / 2, (c[0][1] + c[1][1]) / 2)
+    fence = parcel_barrier_cells([_parcel(poly, gate)], raster, width_m)
+    a, b = (3, 3), (50, 50)
+    assert a not in fence and b not in fence
+    open_routes = compute_ab_routes(raster["elevations"], 0.0, 0.0, px, *a, *b, blocked=fence)
+    # Re-block every cell within the gate opening: nothing else may leak.
+    cell_m = 10.0
+    reach = (width_m / 2 + cell_m) + max(width_m, 2 * cell_m) / 2 + cell_m
+    gx, gy = gate[0] / px, gate[1] / px
+    disc = {(cc, rr) for cc in range(n) for rr in range(n)
+            if math.hypot(cc - gx, rr - gy) * cell_m <= reach}
+    sealed = compute_ab_routes(raster["elevations"], 0.0, 0.0, px, *a, *b, blocked=fence | disc)
+    return open_routes, sealed
+
+
+@pytest.mark.parametrize("width_m", [20.0, 20.01, 12.0, 35.0])
+@pytest.mark.parametrize("rot_deg", [0, 45, 20])
+def test_gate_is_open_and_fence_elsewhere_is_sealed_at_10m_cells(width_m, rot_deg):
+    open_routes, sealed = _gate_case(width_m, rot_deg)
+    assert open_routes, "gate unreachable"
+    assert sealed == [], "fence leaks away from the gate"
+
+
+def test_multipolygon_only_the_part_nearest_the_gate_is_opened():
+    from shapely.geometry import MultiPolygon
+    near, far = _square(2, 2, 10, 10), _square(18, 2, 26, 10)
+    gate = tuple(_pt(6, 2))
+    cells = parcel_barrier_cells([_parcel(MultiPolygon([near, far]), gate)], _flat(), 3.0)
+    assert (6, 2) not in cells                    # gate gap in the near part
+    assert (22, 2) in cells and (18, 6) in cells  # far part fully fenced, incl. its closest edge
+
+
+# ---- serialization -------------------------------------------------------
+
+@pytest.mark.asyncio
+async def test_second_job_waits_for_the_first(monkeypatch):
+    import asyncio
+    from app.api import pathfinding_router as pr
+    gate_open, entered = asyncio.Event(), asyncio.Event()
+
+    class _Reg:
+        async def fetch_best(self, bbox, resolution_m):
+            entered.set()
+            await gate_open.wait()
+            return _flat()
+
+    monkeypatch.setattr(pr, "build_dem_registry", lambda: _Reg())
+    req = pr.PathRequest(point_a=_pt(5, 15), point_b=_pt(25, 15))
+    j1, j2 = pr.JOBS.create("tenant-a"), pr.JOBS.create("tenant-a")
+    t1 = asyncio.create_task(pr._run_pathfinding(j1, req, "tenant-a"))
+    await entered.wait()
+    t2 = asyncio.create_task(pr._run_pathfinding(j2, req, "tenant-a"))
+    for _ in range(5):
+        await asyncio.sleep(0)
+    assert pr.JOBS.get(j1, "tenant-a")["status"] == "running"
+    assert pr.JOBS.get(j2, "tenant-a")["status"] == "queued"
+    gate_open.set()
+    await asyncio.gather(t1, t2)
+    assert pr.JOBS.get(j1, "tenant-a")["status"] == "completed"
+    assert pr.JOBS.get(j2, "tenant-a")["status"] == "completed"
+
+
+# ---- retry skipped by the cap ---------------------------------------------
+
+def test_retry_skipped_by_cap_is_no_path_not_area_too_large(monkeypatch):
+    from app.api import pathfinding_router as pr
+    lat0 = 43.0
+
+    class _Reg:
+        async def fetch_best(self, bbox, resolution_m):
+            n_lon = int((bbox[2] - bbox[0]) / PIXEL) + 1
+            n_lat = int((bbox[3] - bbox[1]) / PIXEL) + 1
+            return {"elevations": [[0.0] * n_lon for _ in range(n_lat)],
+                    "origin_lon": bbox[0], "origin_lat": bbox[1], "pixel_size_deg": PIXEL}
+
+    a, b = [-1.998, lat0], [-1.991, lat0]
+    small = pr._planned_cells(pr._search_bbox(a, b, 500))
+    big = pr._planned_cells(pr._search_bbox(a, b, 2000))
+    assert small < big
+    monkeypatch.setattr(pr, "MAX_SEARCH_CELLS", (small + big) // 2)
+    poly = Polygon([(-1.9965, lat0 - 0.0105), (-1.9935, lat0 - 0.0105),
+                    (-1.9935, lat0 + 0.0105), (-1.9965, lat0 + 0.0105)])
+    _with_parcels(monkeypatch, [_parcel(poly, (-1.9950, lat0 + 0.0105))])
+    monkeypatch.setattr(pr, "build_dem_registry", lambda: _Reg())
+    jid = client.post("/api/routing/path/calculate", json={"point_a": a, "point_b": b}).json()["job_id"]
+    for _ in range(400):
+        out = client.get(f"/api/routing/path/{jid}").json()
+        if out["status"] in ("completed", "failed"):
+            break
+        time.sleep(0.05)
+    assert out["error_code"] == "NO_PATH"
+    assert out["error_params"] == {"search_margin_m": 500, "retry": "skipped_area_cap"}

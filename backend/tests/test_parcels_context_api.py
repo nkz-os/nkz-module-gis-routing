@@ -87,3 +87,40 @@ async def test_fetch_tenant_parcels_in_bbox_reads_gate_and_skips_outside(monkeyp
     assert [p["id"] for p in got] == ["in", "bad"]
     assert got[1]["geometry"] is None and got[1]["polygon"] is None
     assert got[0]["access_point"] == (0.005, 0.0) and got[0]["name"] == "A" and got[0]["zones"] == []
+
+
+def _orion_raising(status, text):
+    import httpx
+
+    class FakeOrion:
+        def __init__(self, *a, **k): ...
+        async def query_entities(self, *a, **k):
+            req = httpx.Request("GET", "http://orion/ngsi-ld/v1/entities")
+            raise httpx.HTTPStatusError("x", request=req, response=httpx.Response(status, text=text, request=req))
+        async def close(self): ...
+    return FakeOrion
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("status,text", [(404, ""), (400, '{"error":"NonExistingTenant"}')])
+async def test_unknown_tenant_means_no_parcels(monkeypatch, status, text):
+    from app.services import parcel_constraints as pc
+    monkeypatch.setattr(pc, "OrionClient", _orion_raising(status, text))
+    assert await pc.fetch_tenant_parcels_in_bbox("tenant-new", (0, 0, 1, 1)) == []
+    assert await pc.fetch_tenant_zones_in_bbox("tenant-new", (0, 0, 1, 1)) == []
+
+
+@pytest.mark.asyncio
+async def test_other_broker_errors_still_raise(monkeypatch):
+    import httpx
+    from app.services import parcel_constraints as pc
+    monkeypatch.setattr(pc, "OrionClient", _orion_raising(400, '{"error":"BadRequestData"}'))
+    with pytest.raises(httpx.HTTPStatusError):
+        await pc.fetch_tenant_parcels_in_bbox("tenant-a", (0, 0, 1, 1))
+
+
+def test_context_endpoint_empty_for_unknown_tenant(monkeypatch):
+    from app.services import parcel_constraints as pc
+    monkeypatch.setattr(pc, "OrionClient", _orion_raising(404, ""))
+    r = client.get("/api/routing/parcels/context", params={"bbox": "0,0,0.1,0.1"})
+    assert r.status_code == 200 and r.json() == {"parcels": []}

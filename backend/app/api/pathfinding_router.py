@@ -35,6 +35,9 @@ DEM_RESOLUTION_M = 10
 # structures are freed when it returns.
 MAX_SEARCH_CELLS = 1_000_000
 _M_PER_DEG_LAT = 111320.0
+# One DEM fetch + search at a time across all jobs: each search can use ~200 MB
+# and the pod limit is 512 MiB. Waiting jobs stay "queued".
+_SEARCH_LOCK = asyncio.Semaphore(1)
 
 
 def build_dem_registry() -> DemRegistry:
@@ -153,87 +156,102 @@ async def _run_pathfinding(job_id: str, body: PathRequest, tenant_id: str):
                 return
             machine_width_m = float(width)
 
-        # An explicit elevation grid (tests/legacy) is fixed: widening the area cannot help.
-        margins = SEARCH_MARGINS_M[:1] if body.elevation_grid else SEARCH_MARGINS_M
-        for margin_m in margins:
-            bbox = _search_bbox(body.point_a, body.point_b, margin_m)
-            cells = _planned_cells(bbox)
-            if cells > MAX_SEARCH_CELLS:
-                logger.warning("path job %s: search area too large margin_m=%d cells=%d cap=%d",
-                               job_id, margin_m, cells, MAX_SEARCH_CELLS)
-                _fail(job_id, "AREA_TOO_LARGE", "The search area is too large",
-                      {"margin_m": margin_m, "max_cells": MAX_SEARCH_CELLS})
-                return
-
-            if body.elevation_grid:
-                raster = body.elevation_grid
-            else:
-                raster = await build_dem_registry().fetch_best(bbox, resolution_m=DEM_RESOLUTION_M)
-                if not raster:
-                    _fail(job_id, "DEM_UNAVAILABLE", "No elevation data available for this area")
-                    return
-
-            elevations = raster["elevations"]
-            origin_lon = raster["origin_lon"]
-            origin_lat = raster["origin_lat"]
-            pixel_size = raster["pixel_size_deg"]
-            rows = len(elevations)
-            cols = len(elevations[0]) if rows > 0 else 0
-            if rows * cols > MAX_SEARCH_CELLS:
-                _fail(job_id, "AREA_TOO_LARGE", "The search area is too large",
-                      {"margin_m": margin_m, "max_cells": MAX_SEARCH_CELLS})
-                return
-
-            start_col = max(0, min(int((lon_a - origin_lon) / pixel_size), cols - 1))
-            start_row = max(0, min(int((lat_a - origin_lat) / pixel_size), rows - 1))
-            end_col = max(0, min(int((lon_b - origin_lon) / pixel_size), cols - 1))
-            end_row = max(0, min(int((lat_b - origin_lat) / pixel_size), rows - 1))
-
-            _default_origin, zone_cells, fences = await _resolve_path_constraints(
-                parcel_id=body.parcel_id, tenant_id=tenant_id, raster=raster,
-                cols=cols, rows=rows, machine_width_m=machine_width_m, bbox=bbox)
-            fence_cells: set = set().union(*fences.values()) if fences else set()
-            blocked = zone_cells | fence_cells
-
-            start, end = (start_col, start_row), (end_col, end_row)
-            point = blocked_terminus(start, end, zone_cells)
-            if point:
-                coords = [lon_a, lat_a] if point == "A" else [lon_b, lat_b]
-                _fail(job_id, "POINT_IN_ZONE", "Start or end point is inside a no-go zone",
-                      {"point": point, "geometry": {"type": "Point", "coordinates": coords}})
-                return
-            point = blocked_terminus(start, end, fence_cells)
-            if point:
-                cell = start if point == "A" else end
-                coords = [lon_a, lat_a] if point == "A" else [lon_b, lat_b]
-                on_parcel = next((pid for pid, cs in fences.items() if cell in cs), None)
-                _fail(job_id, "POINT_ON_BARRIER", "Start or end point is on a parcel fence",
-                      {"point": point, "parcel_id": on_parcel,
-                       "geometry": {"type": "Point", "coordinates": coords}})
-                return
-
-            alternatives = await asyncio.to_thread(
-                compute_ab_routes,
-                elevations, origin_lon, origin_lat, pixel_size,
-                start_col, start_row, end_col, end_row,
-                max_slope_deg=body.max_slope_deg,
-                blocked=blocked,
-            )
-            if alternatives:
-                JOBS.set(job_id, {
-                    "status": "completed",
-                    "alternatives": alternatives,
-                    "report": {
-                        "max_slope_deg": body.max_slope_deg,
-                        "max_slope_deg_found": max(a["max_slope_deg_found"] for a in alternatives),
-                        "blocked_cells_hit": sum(a["blocked_cells_hit"] for a in alternatives),
-                        "search_margin_m": margin_m,
-                    },
-                })
-                return
-            logger.info("path job %s: no route with margin_m=%d cells=%d", job_id, margin_m, rows * cols)
-
-        _fail(job_id, "NO_PATH", "No route avoids the no-go zones")
+        async with _SEARCH_LOCK:
+            JOBS.set(job_id, {"status": "running"})
+            await _search(job_id, body, tenant_id, machine_width_m)
     except Exception:
         logger.exception("Pathfinding job %s failed", job_id)
         _fail(job_id, "ENGINE_FAILURE", "Route calculation failed")
+
+
+def _too_large(job_id: str, margin_m: int, first: bool, cells: int) -> None:
+    logger.warning("path job %s: search area too large margin_m=%d cells=%d cap=%d",
+                   job_id, margin_m, cells, MAX_SEARCH_CELLS)
+    if first:
+        _fail(job_id, "AREA_TOO_LARGE", "The search area is too large",
+              {"margin_m": margin_m, "max_cells": MAX_SEARCH_CELLS})
+    else:  # the first attempt found no route and the wider retry does not fit
+        _fail(job_id, "NO_PATH", "No route avoids the no-go zones",
+              {"search_margin_m": SEARCH_MARGINS_M[0], "retry": "skipped_area_cap"})
+
+
+async def _search(job_id: str, body: PathRequest, tenant_id: str, machine_width_m: float):
+    lon_a, lat_a = body.point_a
+    lon_b, lat_b = body.point_b
+    # An explicit elevation grid (tests/legacy) is fixed: widening the area cannot help.
+    margins = SEARCH_MARGINS_M[:1] if body.elevation_grid else SEARCH_MARGINS_M
+    for attempt, margin_m in enumerate(margins):
+        bbox = _search_bbox(body.point_a, body.point_b, margin_m)
+        cells = _planned_cells(bbox)
+        if cells > MAX_SEARCH_CELLS:
+            _too_large(job_id, margin_m, attempt == 0, cells)
+            return
+
+        if body.elevation_grid:
+            raster = body.elevation_grid
+        else:
+            raster = await build_dem_registry().fetch_best(bbox, resolution_m=DEM_RESOLUTION_M)
+            if not raster:
+                _fail(job_id, "DEM_UNAVAILABLE", "No elevation data available for this area")
+                return
+
+        elevations = raster["elevations"]
+        origin_lon = raster["origin_lon"]
+        origin_lat = raster["origin_lat"]
+        pixel_size = raster["pixel_size_deg"]
+        rows = len(elevations)
+        cols = len(elevations[0]) if rows > 0 else 0
+        if rows * cols > MAX_SEARCH_CELLS:
+            _too_large(job_id, margin_m, attempt == 0, rows * cols)
+            return
+
+        start_col = max(0, min(int((lon_a - origin_lon) / pixel_size), cols - 1))
+        start_row = max(0, min(int((lat_a - origin_lat) / pixel_size), rows - 1))
+        end_col = max(0, min(int((lon_b - origin_lon) / pixel_size), cols - 1))
+        end_row = max(0, min(int((lat_b - origin_lat) / pixel_size), rows - 1))
+
+        _default_origin, zone_cells, fences = await _resolve_path_constraints(
+            parcel_id=body.parcel_id, tenant_id=tenant_id, raster=raster,
+            cols=cols, rows=rows, machine_width_m=machine_width_m, bbox=bbox)
+        fence_cells: set = set().union(*fences.values()) if fences else set()
+        blocked = zone_cells | fence_cells
+
+        start, end = (start_col, start_row), (end_col, end_row)
+        point = blocked_terminus(start, end, zone_cells)
+        if point:
+            coords = [lon_a, lat_a] if point == "A" else [lon_b, lat_b]
+            _fail(job_id, "POINT_IN_ZONE", "Start or end point is inside a no-go zone",
+                  {"point": point, "geometry": {"type": "Point", "coordinates": coords}})
+            return
+        point = blocked_terminus(start, end, fence_cells)
+        if point:
+            cell = start if point == "A" else end
+            coords = [lon_a, lat_a] if point == "A" else [lon_b, lat_b]
+            on_parcel = next((pid for pid, cs in fences.items() if cell in cs), None)
+            _fail(job_id, "POINT_ON_BARRIER", "Start or end point is on a parcel fence",
+                  {"point": point, "parcel_id": on_parcel,
+                   "geometry": {"type": "Point", "coordinates": coords}})
+            return
+
+        alternatives = await asyncio.to_thread(
+            compute_ab_routes,
+            elevations, origin_lon, origin_lat, pixel_size,
+            start_col, start_row, end_col, end_row,
+            max_slope_deg=body.max_slope_deg,
+            blocked=blocked,
+        )
+        if alternatives:
+            JOBS.set(job_id, {
+                "status": "completed",
+                "alternatives": alternatives,
+                "report": {
+                    "max_slope_deg": body.max_slope_deg,
+                    "max_slope_deg_found": max(a["max_slope_deg_found"] for a in alternatives),
+                    "blocked_cells_hit": sum(a["blocked_cells_hit"] for a in alternatives),
+                    "search_margin_m": margin_m,
+                },
+            })
+            return
+        logger.info("path job %s: no route with margin_m=%d cells=%d", job_id, margin_m, rows * cols)
+
+    _fail(job_id, "NO_PATH", "No route avoids the no-go zones")

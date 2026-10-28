@@ -188,7 +188,7 @@ export interface PathAlternative {
 }
 
 export interface PathResult {
-  status: 'queued' | 'completed' | 'failed';
+  status: 'queued' | 'running' | 'completed' | 'failed';
   alternatives?: PathAlternative[];
   error?: string;
 }
