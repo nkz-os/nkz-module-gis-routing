@@ -485,4 +485,4 @@ def test_curve_guidance_has_reference_points_a_and_b(sample_op):
 def test_source_has_no_host_name():
     import inspect
     import app.services.export_service as m
-    assert "isobus.net" not in inspect.getsource(m)
+    assert "isobus" not in inspect.getsource(m).lower()
