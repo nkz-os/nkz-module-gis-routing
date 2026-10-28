@@ -10,6 +10,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { useViewer, useTranslation } from '@nekazari/sdk';
 import { api, ApiError } from '../../services/api';
 import { parts, planEntitySpecs, type PlanSpec } from './cockpitPlan';
+import { EV } from './routingMode';
 import { MapLegend } from '../../map/MapLegend';
 import { labelAnchor } from '../../map/markers';
 import { gateEntityOptions, noGoEntityOptions, noGoHoleEntities } from './cesiumStyle';
@@ -35,6 +36,8 @@ export const GisRoutingMapLayer: React.FC<Props> = ({ viewer: propViewer }) => {
   // The parcel's current gate and NO-GO zones are always shown. The plan carries its own snapshot of
   // them (what the route was computed with): it is drawn only while the current ones are not.
   const planConstraintIdsRef = useRef<string[]>([]);
+  // Working width of the machine chosen in the A-B panel; null until the user gives one.
+  const transitWidthRef = useRef<number | null>(null);
   const cfgDrawnRef = useRef(false);
   const applyPlanSnapshotVisibilityRef = useRef<() => void>(() => {});
   const redrawCfgRef = useRef<() => void>(() => {});
@@ -84,6 +87,15 @@ export const GisRoutingMapLayer: React.FC<Props> = ({ viewer: propViewer }) => {
       window.dispatchEvent(new CustomEvent('nekazari:pf:stateChange', { detail: { state: 'idle' } }));
     }
   }, [selectedEntityId, viewer]);
+
+  useEffect(() => {
+    const onWidth = (e: Event) => {
+      const w = (e as CustomEvent).detail?.widthM;
+      transitWidthRef.current = typeof w === 'number' && Number.isFinite(w) && w > 0 ? w : null;
+    };
+    window.addEventListener(EV.transitWidth, onWidth);
+    return () => window.removeEventListener(EV.transitWidth, onWidth);
+  }, []);
 
   // ---- Route visualization ----
   useEffect(() => {
@@ -370,6 +382,10 @@ export const GisRoutingMapLayer: React.FC<Props> = ({ viewer: propViewer }) => {
     const submitPathfinding = async () => {
       if (!pf.pointA || !pf.pointB) return;
 
+      // A physical parameter of the route: never guessed.
+      const machineWidthM = transitWidthRef.current;
+      if (machineWidthM === null) { finishWithError({ code: 'MACHINE_WIDTH_MISSING' }); return; }
+
       const [lonA, latA] = pf.pointA;
       const [lonB, latB] = pf.pointB;
 
@@ -416,7 +432,7 @@ export const GisRoutingMapLayer: React.FC<Props> = ({ viewer: propViewer }) => {
       api.startPathCalculation({
         point_a: pf.pointA,
         point_b: pf.pointB,
-        machine_width_m: 3,
+        machine_width_m: machineWidthM,
         max_slope_deg: 15,
         min_turn_radius_m: 8,
         parcel_id: selectedEntityId || null,

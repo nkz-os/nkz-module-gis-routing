@@ -127,12 +127,43 @@ describe('cockpit plan drawing', () => {
   });
 });
 
+describe('A-B machine width', () => {
+  const states: any[] = [];
+  const onState = (e: Event) => states.push((e as CustomEvent).detail);
+  beforeEach(() => {
+    states.length = 0;
+    window.addEventListener('nekazari:pf:stateChange', onState);
+    vi.mocked(api.startPathCalculation).mockResolvedValue({ job_id: 'j1' });
+  });
+  afterEach(() => window.removeEventListener('nekazari:pf:stateChange', onState));
+
+  async function pick(widthM: number | null) {
+    render(<GisRoutingMapLayer />);
+    await act(async () => { window.dispatchEvent(new CustomEvent(EV.transitWidth, { detail: { widthM } })); });
+    await act(async () => { window.dispatchEvent(new CustomEvent(EV.transitStart)); });
+    await act(async () => { inputActions.click({ position: [1, 1] }); });
+    await act(async () => { inputActions.click({ position: [2, 2] }); });
+  }
+
+  it('sends the width chosen in the panel, not a fixed one', async () => {
+    await pick(6);
+    expect(vi.mocked(api.startPathCalculation).mock.calls[0][0]).toMatchObject({ machine_width_m: 6 });
+  });
+
+  it('without a width it reports MACHINE_WIDTH_MISSING and asks nothing of the backend', async () => {
+    await pick(null);
+    expect(api.startPathCalculation).not.toHaveBeenCalled();
+    expect(states[states.length - 1]).toMatchObject({ state: 'done', error: { code: 'MACHINE_WIDTH_MISSING' } });
+  });
+});
+
 describe('A-B polling', () => {
   const states: any[] = [];
   const onState = (e: Event) => states.push((e as CustomEvent).detail);
 
-  async function startAB() {
+  async function startAB(widthM: number | null = 6) {
     render(<GisRoutingMapLayer />);
+    await act(async () => { window.dispatchEvent(new CustomEvent(EV.transitWidth, { detail: { widthM } })); });
     await act(async () => { window.dispatchEvent(new CustomEvent(EV.transitStart)); });
     await act(async () => { inputActions.click({ position: [1, 1] }); });
     await act(async () => { inputActions.click({ position: [2, 2] }); });
