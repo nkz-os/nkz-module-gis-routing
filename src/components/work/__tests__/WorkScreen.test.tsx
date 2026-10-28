@@ -26,9 +26,9 @@ vi.mock('../../../map/MapCanvas', () => ({
   },
 }));
 
-vi.mock('../../pathfinding/PathfindingTab', () => ({
-  PathfindingTab: (props: any) => (
-    <div data-testid="pf">Rutas A-B|{String(props.parcelId)}|{String(props.machineWidthM)}|{String(props.turningRadiusM)}</div>
+vi.mock('../../transit/TransitScreen', () => ({
+  TransitScreen: (props: any) => (
+    <div data-testid="pf">Rutas A-B|{String(props.workContext.parcelId)}|{String(props.workContext.machineWidthM)}|{String(props.workContext.turningRadiusM)}</div>
   ),
 }));
 
@@ -337,6 +337,6 @@ describe('App', () => {
     fireEvent.change(await parcelSelect(), { target: { value: 'p1' } });
     await waitFor(() => expect(mapProps().model.parcel).not.toBeNull());
     fireEvent.mouseDown(screen.getByRole('tab', { name: 'Tránsito A-B' }), { button: 0, ctrlKey: false }); // Radix activates on mousedown
-    expect((await screen.findByTestId('pf')).textContent).toBe('Rutas A-B|p1|undefined|null');
+    expect((await screen.findByTestId('pf')).textContent).toBe('Rutas A-B|p1|null|null');
   });
 });

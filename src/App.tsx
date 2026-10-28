@@ -8,7 +8,7 @@ import React, { useState } from 'react';
 import { useTranslation } from '@nekazari/sdk';
 import { Tabs } from '@nekazari/ui-kit';
 import { ErrorBoundary } from './components/ErrorBoundary';
-import { PathfindingTab } from './components/pathfinding/PathfindingTab';
+import { TransitScreen } from './components/transit/TransitScreen';
 import { WorkScreen, type WorkContext } from './components/work/WorkScreen';
 
 const NS = 'gis-routing';
@@ -33,14 +33,7 @@ const App: React.FC = () => {
         <div className={tab === 'work' ? undefined : 'hidden'}>
           <WorkScreen onContextChange={setCtx} />
         </div>
-        {tab === 'transit' && (
-          <PathfindingTab
-            parcelGeometry={ctx.parcelGeometry}
-            machineWidthM={ctx.machineWidthM ?? undefined}
-            turningRadiusM={ctx.turningRadiusM}
-            parcelId={ctx.parcelId}
-          />
-        )}
+        {tab === 'transit' && <TransitScreen workContext={ctx} />}
       </div>
     </ErrorBoundary>
   );
