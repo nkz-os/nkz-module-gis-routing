@@ -305,7 +305,8 @@ export const TransitScreen: React.FC<Props> = ({ workContext }) => {
   }, [parcels, context]);
 
   const workParcelName = parcels.find((p) => p.id === workParcelId)?.name ?? workParcelId ?? '';
-  const savedId = state.selected ? state.saved[state.selected] : undefined;
+  const savedId = state.selected && state.savedParcel[state.selected] === state.parcelId
+    ? state.saved[state.selected] : undefined;
   const slopeOk = validSlope(state.maxSlopeDeg);
   const machineOptions = [
     { value: '', label: t('transit.machine.manual') },
@@ -400,6 +401,11 @@ export const TransitScreen: React.FC<Props> = ({ workContext }) => {
           <section className="space-y-2" aria-label={t('transit.results')}>
             <h2 className="text-nkz-sm font-semibold">{t('transit.results')}</h2>
             {state.stale && <Badge intent="warning">{t('transit.stale')}</Badge>}
+            {(state.result.report.warnings ?? []).map((w) => (
+              <p key={w.code} role="status" className="text-nkz-xs text-nkz-text-secondary">
+                {t(`transit.warnings.${w.code}`, { ...(w.params ?? {}), defaultValue: '' }) || t('transit.warnings.UNKNOWN', { code: w.code })}
+              </p>
+            ))}
             {state.result.alternatives.map((alt) => (
               <button
                 key={alt.id}

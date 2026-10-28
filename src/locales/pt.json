@@ -302,7 +302,8 @@
       "VRA_UNCOVERED": "{{length_m}} m do percurso ficam fora das zonas de gestão: nenhuma dose aplicada",
       "VRA_DEGENERATE": "Todas as zonas têm o mesmo valor: aplica-se uma única classe",
       "VRA_ZONE_INVALID": "A zona {{zone_id}} tem uma geometria inválida e foi ignorada",
-      "ZONES_NO_PRJ": "Shapefile sem .prj: assumem-se coordenadas WGS84 (EPSG:4326)"
+      "ZONES_NO_PRJ": "Shapefile sem .prj: assumem-se coordenadas WGS84 (EPSG:4326)",
+      "PLAN_TOO_LARGE_TO_SAVE": "Este plano é demasiado grande para ser guardado ({{size_kb}} KB)."
     },
     "fallbacks": {
       "headland": "Passagens de cabeceira ajustadas de {{a}} para {{b}}",
@@ -331,7 +332,8 @@
       "ZONES_NO_VALUE": "Não há atributo de valor (value, mean, ndvi ou rate). Atributos do ficheiro: {{attributes}}",
       "ZONES_FILE_TOO_LARGE": "O ficheiro de zonas excede 5 MB",
       "PLAN_TOO_LARGE": "O plano é demasiado grande para ser guardado ({{size_kb}} KB). Use menos zonas, zonas maiores ou uma área menor.",
-      "ZONES_UNAVAILABLE": "Não foi possível ler as zonas de gestão. Tente novamente."
+      "ZONES_UNAVAILABLE": "Não foi possível ler as zonas de gestão. Tente novamente.",
+      "PLAN_TOO_LARGE_TO_SAVE": "O plano é demasiado grande para ser guardado. Use menos zonas, maiores, ou uma área menor."
     },
     "actions": {
       "regenerate": "Regenerar",
@@ -463,7 +465,12 @@
       "EXPORT_NOT_SUPPORTED": "Este formato de exportação não está disponível para trânsitos.",
       "PERSIST_FAILED": "Não foi possível guardar a operação.",
       "JOB_TIMEOUT": "O cálculo demorou demasiado. Tente de novo.",
-      "UNKNOWN": "Não foi possível calcular a rota: {{detail}}"
+      "UNKNOWN": "Não foi possível calcular a rota: {{detail}}",
+      "JOBS_LIMIT": "Há demasiados cálculos em curso ({{max_jobs}}). Aguarde que um termine."
+    },
+    "warnings": {
+      "PARCELS_UNREADABLE": "{{count}} parcela(s) da zona não têm limite legível: os seus portões não são aplicados.",
+      "UNKNOWN": "Aviso {{code}}"
     }
   }
 }

@@ -302,7 +302,8 @@
       "VRA_UNCOVERED": "{{length_m}} m of route lie outside the management zones: no rate applied",
       "VRA_DEGENERATE": "All zones have the same value: a single class applies",
       "VRA_ZONE_INVALID": "Zone {{zone_id}} has an invalid geometry and was ignored",
-      "ZONES_NO_PRJ": "Shapefile without .prj: coordinates assumed to be WGS84 (EPSG:4326)"
+      "ZONES_NO_PRJ": "Shapefile without .prj: coordinates assumed to be WGS84 (EPSG:4326)",
+      "PLAN_TOO_LARGE_TO_SAVE": "This plan is too large to save ({{size_kb}} KB)."
     },
     "fallbacks": {
       "headland": "Headland passes adjusted from {{a}} to {{b}}",
@@ -331,7 +332,8 @@
       "ZONES_NO_VALUE": "No value attribute found (value, mean, ndvi or rate). Attributes in the file: {{attributes}}",
       "ZONES_FILE_TOO_LARGE": "The zones file is larger than 5 MB",
       "PLAN_TOO_LARGE": "The plan is too large to save ({{size_kb}} KB). Use fewer or larger zones or a smaller area.",
-      "ZONES_UNAVAILABLE": "The management zones could not be read. Try again."
+      "ZONES_UNAVAILABLE": "The management zones could not be read. Try again.",
+      "PLAN_TOO_LARGE_TO_SAVE": "The plan is too large to save. Use fewer or larger zones or a smaller area."
     },
     "actions": {
       "regenerate": "Regenerate",
@@ -463,7 +465,12 @@
       "EXPORT_NOT_SUPPORTED": "This export format is not supported for transits.",
       "PERSIST_FAILED": "The operation could not be saved.",
       "JOB_TIMEOUT": "The calculation took too long. Try again.",
-      "UNKNOWN": "The route could not be calculated: {{detail}}"
+      "UNKNOWN": "The route could not be calculated: {{detail}}",
+      "JOBS_LIMIT": "Too many calculations are running ({{max_jobs}}). Wait for one to finish."
+    },
+    "warnings": {
+      "PARCELS_UNREADABLE": "{{count}} parcel(s) in the area have no readable boundary: their gates are not enforced.",
+      "UNKNOWN": "Warning {{code}}"
     }
   }
 }

@@ -60,4 +60,13 @@ describe('savePlan', () => {
     const saveOperation = vi.fn().mockResolvedValue({ success: true, operation_id: '', persisted: false });
     await expect(savePlan(generatedState(false), { generate: vi.fn(), saveOperation })).rejects.toThrow();
   });
+
+  it('a plan too large to save (plan_id null) fails with the coded error and never calls save', async () => {
+    let s: any = generatedState(false);
+    s = { ...s, result: { ...s.result, planId: null } };
+    const generate = vi.fn(); const saveOperation = vi.fn();
+    await expect(savePlan(s, { generate, saveOperation })).rejects.toMatchObject({ code: 'PLAN_TOO_LARGE_TO_SAVE' });
+    expect(generate).not.toHaveBeenCalled();
+    expect(saveOperation).not.toHaveBeenCalled();
+  });
 });

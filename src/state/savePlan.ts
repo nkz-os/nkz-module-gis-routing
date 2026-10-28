@@ -18,9 +18,13 @@ export async function savePlan(
   if (s.result === null) throw new Error('no plan to save');
   let regenerated: GenerateResponse | undefined;
   let planId = s.result.planId;
-  if (planId === null || savedPlanVraDiffers(s)) {
+  if (savedPlanVraDiffers(s)) {
     regenerated = await deps.generate(buildGenerateRequest({ ...s, phase: 'generated' }, false));
     planId = regenerated.plan_id;
+  }
+  if (planId === null) {
+    // The backend keeps no plan whose operation would exceed the broker's size limit.
+    throw new ApiError(422, { code: 'PLAN_TOO_LARGE_TO_SAVE', detail: 'Plan is too large to save' });
   }
   const saved = await deps.saveOperation({ kind: 'plan', plan_id: planId });
   if (!saved.persisted || !saved.operation_id) {

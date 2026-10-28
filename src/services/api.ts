@@ -153,8 +153,8 @@ export interface GenerateResponse {
   operation_id: string | null;
   persisted: boolean;
   plan: Plan;
-  /** Id of the stored plan; save it with api.saveOperation. */
-  plan_id: string;
+  /** Id of the stored plan; save it with api.saveOperation. Null when the plan is too large to save. */
+  plan_id: string | null;
 }
 
 export interface SaveOperationResponse {
@@ -201,7 +201,8 @@ export interface PathAlternative {
 export interface PathResult {
   status: 'queued' | 'running' | 'completed' | 'failed';
   alternatives?: PathAlternative[];
-  report?: { max_slope_deg?: number; max_slope_deg_found?: number; search_margin_m?: number };
+  report?: { max_slope_deg?: number; max_slope_deg_found?: number; search_margin_m?: number;
+    warnings?: { code: string; params?: Record<string, unknown> }[] };
   error?: string;
   error_code?: string;
   error_params?: Record<string, unknown>;

@@ -10,7 +10,7 @@ export interface TransitError { code: string; detail: string; params: Record<str
 export interface TransitResult {
   jobId: string;
   alternatives: PathAlternative[];
-  report: { max_slope_deg_found?: number; search_margin_m?: number };
+  report: { max_slope_deg_found?: number; search_margin_m?: number; warnings?: { code: string; params?: Record<string, unknown> }[] };
 }
 
 export type TransitPhase = 'idle' | 'calculating' | 'ready' | 'failed' | 'saving';
@@ -35,6 +35,8 @@ export interface TransitState {
   parcelManual: boolean;
   /** Saved operation id per alternative of the current result. */
   saved: Partial<Record<PathAlternativeId, string>>;
+  /** Destination parcel each saved route was saved for: a route may be saved again for another parcel. */
+  savedParcel: Partial<Record<PathAlternativeId, string>>;
 }
 
 export type TransitEvent =
@@ -57,7 +59,7 @@ export type TransitEvent =
 export const initialTransitState: TransitState = {
   a: null, b: null, machineId: null, widthM: null, maxSlopeDeg: DEFAULT_MAX_SLOPE_DEG,
   picking: null, phase: 'idle', jobStatus: null, result: null, selected: null, stale: false,
-  error: null, parcelId: null, parcelManual: false, saved: {},
+  error: null, parcelId: null, parcelManual: false, saved: {}, savedParcel: {},
 };
 
 const busy = (s: TransitState) => s.phase === 'calculating' || s.phase === 'saving';
@@ -79,7 +81,8 @@ export function canCalculate(s: TransitState): boolean {
 
 export function canSave(s: TransitState): boolean {
   return s.phase === 'ready' && !s.stale && s.result !== null && s.selected !== null &&
-    s.parcelId !== null && s.saved[s.selected] === undefined;
+    s.parcelId !== null &&
+    (s.saved[s.selected] === undefined || s.savedParcel[s.selected] !== s.parcelId);
 }
 
 export function transitReducer(s: TransitState, e: TransitEvent): TransitState {
@@ -107,7 +110,7 @@ export function transitReducer(s: TransitState, e: TransitEvent): TransitState {
     }
     case 'CALC_STARTED':
       if (!canCalculate(s)) return s;
-      return { ...s, phase: 'calculating', jobStatus: 'queued', result: null, selected: null, stale: false, error: null, saved: {}, picking: null };
+      return { ...s, phase: 'calculating', jobStatus: 'queued', result: null, selected: null, stale: false, error: null, saved: {}, savedParcel: {}, picking: null };
     case 'JOB_STATUS':
       return s.phase === 'calculating' ? { ...s, jobStatus: e.status } : s;
     case 'CALC_DONE': {
@@ -125,7 +128,8 @@ export function transitReducer(s: TransitState, e: TransitEvent): TransitState {
     case 'SAVE_STARTED':
       return canSave(s) ? { ...s, phase: 'saving', error: null } : s;
     case 'SAVE_DONE':
-      return s.phase === 'saving' && s.selected ? { ...s, phase: 'ready', saved: { ...s.saved, [s.selected]: e.operationId } } : s;
+      return s.phase === 'saving' && s.selected ? { ...s, phase: 'ready', saved: { ...s.saved, [s.selected]: e.operationId },
+        savedParcel: { ...s.savedParcel, [s.selected]: s.parcelId ?? '' } } : s;
     case 'SAVE_FAILED':
       return s.phase === 'saving' ? { ...s, phase: 'ready', error: e.error } : s;
     case 'DISMISS_ERROR':

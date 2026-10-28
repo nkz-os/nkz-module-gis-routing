@@ -302,7 +302,8 @@
       "VRA_UNCOVERED": "Ibilbidearen {{length_m}} m kudeaketa-zonetatik kanpo daude: ez da dosirik aplikatzen",
       "VRA_DEGENERATE": "Zona guztiek balio bera dute: klase bakar bat aplikatzen da",
       "VRA_ZONE_INVALID": "{{zone_id}} zonaren geometria ez da baliozkoa eta ez ikusi egin zaio",
-      "ZONES_NO_PRJ": "Shapefile .prj gabe: WGS84 (EPSG:4326) koordenatuak suposatzen dira"
+      "ZONES_NO_PRJ": "Shapefile .prj gabe: WGS84 (EPSG:4326) koordenatuak suposatzen dira",
+      "PLAN_TOO_LARGE_TO_SAVE": "Plan hau handiegia da gordetzeko ({{size_kb}} KB)."
     },
     "fallbacks": {
       "headland": "Muga-pasadak doituta: {{a}} -> {{b}}",
@@ -331,7 +332,8 @@
       "ZONES_NO_VALUE": "Ez dago balio-atributurik (value, mean, ndvi edo rate). Fitxategiko atributuak: {{attributes}}",
       "ZONES_FILE_TOO_LARGE": "Zonen fitxategia 5 MB baino handiagoa da",
       "PLAN_TOO_LARGE": "Plana handiegia da gordetzeko ({{size_kb}} KB). Erabili eremu gutxiago, eremu handiagoak edo azalera txikiagoa.",
-      "ZONES_UNAVAILABLE": "Ezin izan dira kudeaketa-eremuak irakurri. Saiatu berriro."
+      "ZONES_UNAVAILABLE": "Ezin izan dira kudeaketa-eremuak irakurri. Saiatu berriro.",
+      "PLAN_TOO_LARGE_TO_SAVE": "Plana handiegia da gordetzeko. Erabili zona gutxiago eta handiagoak, edo eremu txikiagoa."
     },
     "actions": {
       "regenerate": "Birsortu",
@@ -463,7 +465,12 @@
       "EXPORT_NOT_SUPPORTED": "Esportazio-formatu hau ez dago erabilgarri igarobideetarako.",
       "PERSIST_FAILED": "Ezin izan da eragiketa gorde.",
       "JOB_TIMEOUT": "Kalkuluak luze jo du. Saiatu berriro.",
-      "UNKNOWN": "Ezin izan da ibilbidea kalkulatu: {{detail}}"
+      "UNKNOWN": "Ezin izan da ibilbidea kalkulatu: {{detail}}",
+      "JOBS_LIMIT": "Kalkulu gehiegi martxan daude ({{max_jobs}}). Itxaron bat amaitu arte."
+    },
+    "warnings": {
+      "PARCELS_UNREADABLE": "Eremuko {{count}} lursailek ez dute muga irakurgarririk: haien ateak ez dira aplikatzen.",
+      "UNKNOWN": "Abisua {{code}}"
     }
   }
 }

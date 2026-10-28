@@ -302,7 +302,8 @@
       "VRA_UNCOVERED": "{{length_m}} m de ruta queden fora de les zones de maneig: no s'aplica dosi",
       "VRA_DEGENERATE": "Totes les zones tenen el mateix valor: s'aplica una sola classe",
       "VRA_ZONE_INVALID": "La zona {{zone_id}} té una geometria no vàlida i s'ha ignorat",
-      "ZONES_NO_PRJ": "Shapefile sense .prj: s'assumeixen coordenades WGS84 (EPSG:4326)"
+      "ZONES_NO_PRJ": "Shapefile sense .prj: s'assumeixen coordenades WGS84 (EPSG:4326)",
+      "PLAN_TOO_LARGE_TO_SAVE": "Aquest pla és massa gran per desar-lo ({{size_kb}} KB)."
     },
     "fallbacks": {
       "headland": "Passades de capçalera ajustades de {{a}} a {{b}}",
@@ -331,7 +332,8 @@
       "ZONES_NO_VALUE": "No hi ha cap atribut de valor (value, mean, ndvi o rate). Atributs del fitxer: {{attributes}}",
       "ZONES_FILE_TOO_LARGE": "El fitxer de zones supera els 5 MB",
       "PLAN_TOO_LARGE": "El pla és massa gran per desar-lo ({{size_kb}} KB). Fes servir menys zones, zones més grans o una superfície menor.",
-      "ZONES_UNAVAILABLE": "No s'han pogut llegir les zones de maneig. Torna-ho a provar."
+      "ZONES_UNAVAILABLE": "No s'han pogut llegir les zones de maneig. Torna-ho a provar.",
+      "PLAN_TOO_LARGE_TO_SAVE": "El pla és massa gran per desar-lo. Fes servir menys zones o més grans, o una àrea menor."
     },
     "actions": {
       "regenerate": "Regenerar",
@@ -463,7 +465,12 @@
       "EXPORT_NOT_SUPPORTED": "Aquest format d'exportació no està disponible per a trànsits.",
       "PERSIST_FAILED": "No s'ha pogut desar l'operació.",
       "JOB_TIMEOUT": "El càlcul ha trigat massa. Torna-ho a provar.",
-      "UNKNOWN": "No s'ha pogut calcular la ruta: {{detail}}"
+      "UNKNOWN": "No s'ha pogut calcular la ruta: {{detail}}",
+      "JOBS_LIMIT": "Hi ha massa càlculs en curs ({{max_jobs}}). Espera que n'acabi algun."
+    },
+    "warnings": {
+      "PARCELS_UNREADABLE": "{{count}} parcel·la(es) de la zona no tenen límit llegible: les seves portes no s'apliquen.",
+      "UNKNOWN": "Avís {{code}}"
     }
   }
 }

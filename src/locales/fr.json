@@ -302,7 +302,8 @@
       "VRA_UNCOVERED": "{{length_m}} m de parcours sont hors des zones de gestion : aucune dose appliquée",
       "VRA_DEGENERATE": "Toutes les zones ont la même valeur : une seule classe s'applique",
       "VRA_ZONE_INVALID": "La zone {{zone_id}} a une géométrie invalide et a été ignorée",
-      "ZONES_NO_PRJ": "Shapefile sans .prj : coordonnées supposées en WGS84 (EPSG:4326)"
+      "ZONES_NO_PRJ": "Shapefile sans .prj : coordonnées supposées en WGS84 (EPSG:4326)",
+      "PLAN_TOO_LARGE_TO_SAVE": "Ce plan est trop volumineux pour être enregistré ({{size_kb}} Ko)."
     },
     "fallbacks": {
       "headland": "Passages de fourrière ajustés de {{a}} à {{b}}",
@@ -331,7 +332,8 @@
       "ZONES_NO_VALUE": "Aucun attribut de valeur (value, mean, ndvi ou rate). Attributs du fichier : {{attributes}}",
       "ZONES_FILE_TOO_LARGE": "Le fichier de zones dépasse 5 Mo",
       "PLAN_TOO_LARGE": "Le plan est trop volumineux pour être enregistré ({{size_kb}} Ko). Utilisez moins de zones, des zones plus grandes ou une surface plus petite.",
-      "ZONES_UNAVAILABLE": "Les zones de gestion n'ont pas pu être lues. Réessayez."
+      "ZONES_UNAVAILABLE": "Les zones de gestion n'ont pas pu être lues. Réessayez.",
+      "PLAN_TOO_LARGE_TO_SAVE": "Le plan est trop volumineux pour être enregistré. Utilisez moins de zones, plus grandes, ou une zone plus petite."
     },
     "actions": {
       "regenerate": "Régénérer",
@@ -463,7 +465,12 @@
       "EXPORT_NOT_SUPPORTED": "Ce format d'export n'est pas disponible pour les transits.",
       "PERSIST_FAILED": "Impossible d'enregistrer l'opération.",
       "JOB_TIMEOUT": "Le calcul a pris trop de temps. Réessayez.",
-      "UNKNOWN": "Impossible de calculer l'itinéraire : {{detail}}"
+      "UNKNOWN": "Impossible de calculer l'itinéraire : {{detail}}",
+      "JOBS_LIMIT": "Trop de calculs sont en cours ({{max_jobs}}). Attendez qu'un se termine."
+    },
+    "warnings": {
+      "PARCELS_UNREADABLE": "{{count}} parcelle(s) de la zone n'ont pas de limite lisible : leurs portails ne sont pas appliqués.",
+      "UNKNOWN": "Avertissement {{code}}"
     }
   }
 }

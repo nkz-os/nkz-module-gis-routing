@@ -104,6 +104,16 @@ describe('transitReducer', () => {
     expect(canSave(transitReducer(s, { type: 'SELECT', id: 'fastest' }))).toBe(true);
   });
 
+  it('the same route can be saved again for another parcel, not twice for the same one', () => {
+    let s = run([{ type: 'PARCEL_SET', parcelId: 'p1' }, { type: 'SAVE_STARTED' }, { type: 'SAVE_DONE', operationId: 'op-1' }], ready());
+    expect(canSave(s)).toBe(false);
+    s = transitReducer(s, { type: 'PARCEL_SET', parcelId: 'p2' });
+    expect(canSave(s)).toBe(true);
+    s = run([{ type: 'SAVE_STARTED' }, { type: 'SAVE_DONE', operationId: 'op-2' }], s);
+    expect(s.saved).toEqual({ least_slope: 'op-2' });
+    expect(canSave(s)).toBe(false);
+  });
+
   it('a failed save keeps the result and allows retrying', () => {
     let s = run([{ type: 'PARCEL_SET', parcelId: 'p1' }, { type: 'SAVE_STARTED' }, { type: 'SAVE_FAILED', error: { code: 'PERSIST_FAILED', detail: '', params: {} } }], ready());
     expect(s.error?.code).toBe('PERSIST_FAILED');
