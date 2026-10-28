@@ -21,8 +21,8 @@ def zones4():
 
 C3 = [
     {"min_pct": 0, "max_pct": 33, "rate": 100},
-    {"min_pct": 33, "max_pct": 66, "rate": 200},
-    {"min_pct": 66, "max_pct": 100, "rate": 300},
+    {"min_pct": 33, "max_pct": 67, "rate": 200},
+    {"min_pct": 67, "max_pct": 100, "rate": 300},
 ]
 
 
@@ -40,11 +40,11 @@ def run(zones=None, classes=C3, invert=False, sw=None, parcel=PARCEL):
 
 def test_classes_areas_and_totals():
     r = run()
-    # cuts 0.6 / 0.8 => class0 = z0..z2 (60 m), class1 = z3 (mean<=cut), class2 empty
+    # ranks 5/20/45/80 => class0 = z0,z1 (30 m), class1 = z2 (30 m), class2 = z3 (40 m)
     assert r["unit"] == "kg_ha" and r["product"] == "N"
     areas = [c["area_ha"] for c in r["classes"]]
-    assert areas == [0.6, 0.4, 0.0]
-    assert sum(c["product_total"] for c in r["classes"]) == pytest.approx(0.6 * 100 + 0.4 * 200)
+    assert areas == [0.3, 0.3, 0.4]
+    assert sum(c["product_total"] for c in r["classes"]) == pytest.approx(0.3 * 100 + 0.3 * 200 + 0.4 * 300)
     assert [c["rate"] for c in r["classes"]] == [100, 200, 300]
     assert [c["index"] for c in r["classes"]] == [0, 1, 2]
 
@@ -52,10 +52,10 @@ def test_classes_areas_and_totals():
 def test_segments_carry_only_configured_rates():
     r = run()
     feats = r["swath_segments"]["features"]
-    assert {f["properties"]["rate"] for f in feats} <= {100, 200}
+    assert {f["properties"]["rate"] for f in feats} == {100, 200, 300}
     for f in feats:
         p = f["properties"]
-        assert p["class_index"] in (0, 1)
+        assert p["class_index"] in (0, 1, 2)
     total = sum(f["properties"]["length_m"] for f in feats)
     assert total == pytest.approx(300.0, abs=0.05)
     assert r["warnings"] == []
@@ -66,14 +66,14 @@ def test_invert():
     assert [c["rate"] for c in r["classes"]] == [300, 200, 100]
     rates = {f["properties"]["class_index"]: f["properties"]["rate"]
              for f in r["swath_segments"]["features"]}
-    assert rates == {0: 300, 1: 200}
+    assert rates == {0: 300, 1: 200, 2: 100}
 
 
 def test_zones_feature_collection():
     r = run()
     fc = r["zones"]
     assert fc["type"] == "FeatureCollection"
-    assert {f["properties"]["class_index"] for f in fc["features"]} == {0, 1}
+    assert {f["properties"]["class_index"] for f in fc["features"]} == {0, 1, 2}
     assert all(shape(f["geometry"]).geom_type == "Polygon" for f in fc["features"])
 
 
@@ -131,6 +131,6 @@ def test_validation_invalid_vra(classes, unit, zones):
 
 def test_zone_without_mean_ignored_but_all_without_is_invalid():
     zs = zones4() + [ZoneValue(id="x", mean=None, area_ha=1, geometry=box(0, 0, 1, 1))]
-    assert run(zones=zs)["classes"][0]["area_ha"] == 0.6
+    assert run(zones=zs)["classes"][0]["area_ha"] == 0.3
     with pytest.raises(PlanError):
         run(zones=[ZoneValue(id="x", mean=None, area_ha=1, geometry=box(0, 0, 1, 1))])

@@ -58,22 +58,37 @@ def weighted_percentiles(zones: list[ZoneValue], step: int = 5) -> list[float]:
     return [_percentile(rows, p) for p in range(0, 101, step)]
 
 
-def cut_values(zones: list[ZoneValue], classes: list[dict]) -> list[float]:
-    rows = _cumulative(zones)
-    if not rows:
-        return []
-    return [_percentile(rows, c["max_pct"]) for c in classes[:-1]]
+def midpoint_ranks(zones: list[ZoneValue]) -> dict[str, float]:
+    """Area-weighted midpoint rank (0-100) per zone; equal means share a rank."""
+    zs = valid_zones(zones)
+    total = sum(z.area_ha for z in zs)
+    if not zs or total <= 0:
+        return {}
+    blocks: dict[float, list[ZoneValue]] = {}
+    for z in zs:
+        blocks.setdefault(z.mean, []).append(z)
+    ranks: dict[str, float] = {}
+    below = 0.0
+    for m in sorted(blocks):
+        area = sum(z.area_ha for z in blocks[m])
+        rank = (below + area / 2.0) / total * 100.0
+        for z in blocks[m]:
+            ranks[z.id] = rank
+        below += area
+    return ranks
 
 
 def assign_classes(zones: list[ZoneValue], classes: list[dict]) -> dict[str, int]:
-    cuts = cut_values(zones, classes)
+    """Class k where min_pct <= rank < max_pct; the last class also takes rank 100."""
     last = len(classes) - 1
     out: dict[str, int] = {}
-    for z in valid_zones(zones):
+    if len({z.mean for z in valid_zones(zones)}) == 1:  # degenerate: no spread to rank
+        return {z.id: 0 for z in valid_zones(zones)}
+    for zid, rank in midpoint_ranks(zones).items():
         k = last
-        for i, c in enumerate(cuts):
-            if z.mean <= c:
+        for i, c in enumerate(classes[:-1]):
+            if rank < c["max_pct"]:
                 k = i
                 break
-        out[z.id] = k
+        out[zid] = k
     return out
