@@ -21,6 +21,12 @@ CODES = (
     "ZONES_UNAVAILABLE",
     "AREA_TOO_LARGE",
     "BBOX_INVALID",
+    "PLAN_EXPIRED",
+    "PARCEL_REQUIRED",
+    "JOB_NOT_READY",
+    "EXPORT_NOT_SUPPORTED",
+    "PERSIST_FAILED",
+    "ALTERNATIVE_NOT_FOUND",
 )
 
 
@@ -43,8 +49,12 @@ class PlanError(ValueError):
             return 413
         if self.code == "ENGINE_FAILURE":
             return 500
-        if self.code == "ZONES_UNAVAILABLE":
+        if self.code in ("ZONES_UNAVAILABLE", "PERSIST_FAILED"):
             return 502
+        if self.code == "PLAN_EXPIRED":
+            return 410
+        if self.code == "JOB_NOT_READY":
+            return 409
         return 422
 
     def to_body(self) -> dict:

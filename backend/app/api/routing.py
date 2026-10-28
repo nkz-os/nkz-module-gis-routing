@@ -36,6 +36,7 @@ from app.services.pathfinding.grid_sampler import make_grid_sampler
 from app.config import get_settings
 from app.services.machines import fetch_machine_kinematics
 from app.services.coverage.errors import PlanError
+from app.services.plan_store import PLAN_STORE
 from app.services.coverage.ladder import plan_with_fallbacks, LadderInput
 from shapely.geometry import mapping
 from app.services.exclusion import validate_access_point
@@ -579,11 +580,15 @@ async def generate_routing_plan(request: Request, body: GenerateRequest, auth: A
         operation_id = await _persist_operation(result, body, auth, None, plan_dict)
     persisted = operation_id is not None
 
+    plan_id = PLAN_STORE.put(auth.tenant_id, {
+        "plan_dict": plan_dict, "body": body.model_dump(), "result": result})
+
     return {
         "success": True,
         "operation_id": operation_id,
         "persisted": persisted,
         "plan": plan_dict,
+        "plan_id": plan_id,
     }
 
 

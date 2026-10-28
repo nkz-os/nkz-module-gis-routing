@@ -94,7 +94,7 @@ def test_headland_passes_zero_is_rejected():
 def test_response_has_plan_only(monkeypatch):
     resp = _gen(monkeypatch)
     assert resp.status_code == 200
-    assert set(resp.json()) == {"success", "operation_id", "persisted", "plan"}
+    assert set(resp.json()) == {"success", "operation_id", "persisted", "plan", "plan_id"}
 
 
 def test_external_ingest_requires_auth():
@@ -402,3 +402,33 @@ def test_unknown_machine_is_machine_width_missing(monkeypatch):
     assert resp.status_code == 422
     assert resp.json()["code"] == "MACHINE_WIDTH_MISSING"
     assert resp.json()["detail"] == "machine not found: urn:ngsi-ld:ManufacturingMachine:missing"
+
+
+def test_generate_returns_plan_id_and_stores_plan(monkeypatch):
+    from app.services.plan_store import PLAN_STORE
+    resp = client.post("/api/routing/generate", json={
+        "parcel_geometry": _POLY, "pattern": "boustrophedon",
+        "pattern_config": {"width_m": 20, "headland_passes": 1, "turning_radius_m": 6.0},
+        "persist": False})
+    assert resp.status_code == 200
+    pid = resp.json()["plan_id"]
+    rec = PLAN_STORE.get("tenant-a", pid)
+    assert rec is not None and rec["plan_dict"]["route"] == resp.json()["plan"]["route"]
+    assert PLAN_STORE.get("tenant-b", pid) is None
+
+
+def test_generate_persist_true_also_returns_plan_id(monkeypatch):
+    class _O:
+        async def create_entity(self, e): return "x"
+        async def close(self): pass
+    monkeypatch.setattr("app.api.routing.OrionClient", lambda *a, **k: _O())
+
+    async def fake_fetch(parcel_id, tenant_id):
+        return {"access_point": None, "zones": []}
+    monkeypatch.setattr("app.api.routing._fetch_parcel_constraints", fake_fetch)
+    resp = client.post("/api/routing/generate", json={
+        "parcel_geometry": _POLY, "parcel_id": "urn:ngsi-ld:AgriParcel:p1",
+        "pattern": "boustrophedon",
+        "pattern_config": {"width_m": 20, "headland_passes": 1, "turning_radius_m": 6.0}})
+    b = resp.json()
+    assert resp.status_code == 200 and b["persisted"] is True and b["plan_id"]
