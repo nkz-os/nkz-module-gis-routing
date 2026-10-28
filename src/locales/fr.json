@@ -62,9 +62,6 @@
     "title": "Error",
     "unexpected": "An unexpected error occurred",
     "retry": "Retry",
-    "pathfindingFailed": "Pathfinding failed",
-    "pathfindingTimeout": "Pathfinding timed out",
-    "pathCalculationFailed": "Path calculation failed",
     "geoFailed": "Échec du chargement de la géométrie",
     "authRequired": "Autenticación requerida",
     "generateFailed": "Error al generar la ruta",
@@ -172,19 +169,9 @@
     "snake": "Sauts de rangs"
   },
   "pathfinding": {
-    "pickOnMap": "Pick A-B path on map",
     "pickPointA": "Click point A on the map",
     "pickPointB": "Click point B on the map",
-    "calculating": "Calculating alternatives...",
-    "selectAndSave": "Selected path:",
-    "alternatives": "Alternatives",
-    "title": "Itinéraires A-B",
-    "calculate": "Calculer l'itinéraire",
-    "pointA": "Point A",
-    "pointB": "Point B",
-    "distance": "Distance",
-    "climb": "Dénivelé cumulé",
-    "results": "Résultats"
+    "calculating": "Calculating alternatives..."
   },
   "panels": {
     "emptyState": "Generate a route to see results",
@@ -315,7 +302,8 @@
       "VRA_UNCOVERED": "{{length_m}} m de parcours sont hors des zones de gestion : aucune dose appliquée",
       "VRA_DEGENERATE": "Toutes les zones ont la même valeur : une seule classe s'applique",
       "VRA_ZONE_INVALID": "La zone {{zone_id}} a une géométrie invalide et a été ignorée",
-      "ZONES_NO_PRJ": "Shapefile sans .prj : coordonnées supposées en WGS84 (EPSG:4326)"
+      "ZONES_NO_PRJ": "Shapefile sans .prj : coordonnées supposées en WGS84 (EPSG:4326)",
+      "PLAN_TOO_LARGE_TO_SAVE": "Ce plan est trop volumineux pour être enregistré ({{size_kb}} Ko)."
     },
     "fallbacks": {
       "headland": "Passages de fourrière ajustés de {{a}} à {{b}}",
@@ -334,6 +322,9 @@
       "INVALID_GEOMETRY": "La géométrie n'est pas valide",
       "ENGINE_FAILURE": "Erreur interne du moteur d'itinéraires",
       "PERSIST_FAILED": "L'opération n'a pas pu être enregistrée",
+      "PLAN_EXPIRED": "Le plan révisé a expiré. Générez-le à nouveau.",
+      "PARCEL_REQUIRED": "L'opération nécessite une parcelle pour être enregistrée",
+      "INVALID_DATES": "Les dates prévues ne sont pas valides",
       "UNKNOWN": "L'itinéraire n'a pas pu être généré : {{detail}}",
       "CONFIG_UNVERIFIED": "Impossible de vérifier la configuration enregistrée. Rien n'a été généré ; réessayez.",
       "INVALID_VRA": "La configuration de dose variable n'est pas valide",
@@ -341,10 +332,12 @@
       "ZONES_NO_VALUE": "Aucun attribut de valeur (value, mean, ndvi ou rate). Attributs du fichier : {{attributes}}",
       "ZONES_FILE_TOO_LARGE": "Le fichier de zones dépasse 5 Mo",
       "PLAN_TOO_LARGE": "Le plan est trop volumineux pour être enregistré ({{size_kb}} Ko). Utilisez moins de zones, des zones plus grandes ou une surface plus petite.",
-      "ZONES_UNAVAILABLE": "Les zones de gestion n'ont pas pu être lues. Réessayez."
+      "ZONES_UNAVAILABLE": "Les zones de gestion n'ont pas pu être lues. Réessayez.",
+      "PLAN_TOO_LARGE_TO_SAVE": "Le plan est trop volumineux pour être enregistré. Utilisez moins de zones, plus grandes, ou une zone plus petite."
     },
     "actions": {
       "regenerate": "Régénérer",
+      "generateAgain": "Générer à nouveau",
       "sendToTractor": "Envoyer au tracteur",
       "sent": "Envoyée ({{id}})",
       "copyId": "Copier l'ID",
@@ -359,7 +352,8 @@
       "work": "Travail",
       "transit": "Transit A-B"
     },
-    "empty": "Sélectionnez une parcelle pour commencer"
+    "empty": "Sélectionnez une parcelle pour commencer",
+    "regeneratedOnSave": "Plan régénéré avec la dose actuelle avant l'enregistrement"
   },
   "autosave": {
     "saved": "Enregistré {{time}}",
@@ -394,6 +388,89 @@
       "swaths": "Passes",
       "warnings": "Avertissements",
       "vra": "Classes VRA"
+    }
+  },
+  "transit": {
+    "points": "Points",
+    "pointA": "Point A (lat, lon)",
+    "pointB": "Point B (lat, lon)",
+    "markA": "Placer A",
+    "markB": "Placer B",
+    "pickingA": "Cliquez sur la carte pour placer A. Vous pourrez ensuite déplacer le marqueur.",
+    "pickingB": "Cliquez sur la carte pour placer B. Vous pourrez ensuite déplacer le marqueur.",
+    "useEntrance": "Utiliser l'entrée de {{parcel}} comme B",
+    "exportName": "Transit",
+    "machine": {
+      "title": "Machine",
+      "manual": "Largeur manuelle",
+      "width": "Largeur de travail (m)",
+      "slope": "Pente maximale (°)",
+      "slopeHelp": "Entre 0 et 45°. L'itinéraire évite les terrains plus pentus (15° par défaut).",
+      "noWidth": "Cette machine n'a pas de largeur de travail : saisissez-la.",
+      "pick": "Machine à utiliser"
+    },
+    "calculate": "Calculer l'itinéraire",
+    "status": {
+      "queued": "En attente dans la file...",
+      "running": "Calcul des itinéraires..."
+    },
+    "results": "Résultats",
+    "stale": "Périmé : les données ont changé. Recalculez pour enregistrer.",
+    "alt": {
+      "least_slope": "Moins de pente",
+      "fastest": "Plus rapide"
+    },
+    "distance": "Distance",
+    "climb": "Dénivelé cumulé",
+    "maxSlopeFound": "Pente max.",
+    "profile": {
+      "label": "Profil altimétrique de l'itinéraire choisi",
+      "at": "{{dist}} m · {{z}} m d'altitude"
+    },
+    "save": {
+      "title": "Enregistrer",
+      "noParcel": "Sans parcelle",
+      "needParcel": "Choisissez une parcelle de destination pour enregistrer. Sans elle, vous pouvez seulement exporter.",
+      "button": "Enregistrer comme opération",
+      "saving": "Enregistrement...",
+      "saved": "Disponible dans l'app · opération #{{id}}",
+      "parcel": "Parcelle de destination"
+    },
+    "export": {
+      "title": "Exporter",
+      "gpx": "GPX",
+      "geojson": "GeoJSON",
+      "stale": "L'itinéraire exporté est celui du dernier calcul ; les données ont changé depuis."
+    },
+    "context": {
+      "zoomIn": "Zoomez pour voir les parcelles, les portails et les zones NO-GO",
+      "error": "Impossible de charger le contexte des parcelles"
+    },
+    "errors": {
+      "DEM_UNAVAILABLE": "Aucune donnée d'altitude pour cette zone.",
+      "POINT_IN_ZONE": "Le point {{point}} est dans une zone NO-GO. Déplacez-le.",
+      "POINT_ON_BARRIER": "Le point {{point}} est sur la clôture d'une parcelle avec portail. Déplacez-le ou utilisez le portail.",
+      "NO_PATH": "Aucun itinéraire n'évite les zones NO-GO et les parcelles avec portail.",
+      "NO_PATH_MARGIN": "Aucun itinéraire n'évite les zones NO-GO et les parcelles avec portail (recherche sur {{search_margin_m}} m autour de A-B).",
+      "MACHINE_WIDTH_MISSING": "La machine n'a pas de largeur de travail. Saisissez-la.",
+      "AREA_TOO_LARGE": "A et B sont trop éloignés pour calculer l'itinéraire.",
+      "ENGINE_FAILURE": "Erreur interne du moteur d'itinéraires.",
+      "PLAN_EXPIRED": "L'itinéraire calculé a expiré. Recalculez-le.",
+      "PARCEL_REQUIRED": "Choisissez une parcelle de destination pour enregistrer.",
+      "PARCEL_NOT_FOUND": "La parcelle de destination est introuvable.",
+      "JOB_NOT_FOUND": "Le calcul n'est plus disponible. Recalculez-le.",
+      "JOB_NOT_READY": "Le calcul n'est pas encore terminé.",
+      "ALTERNATIVE_NOT_FOUND": "Cet itinéraire ne figure pas dans le résultat. Recalculez.",
+      "INVALID_DATES": "Les dates ne sont pas valides.",
+      "EXPORT_NOT_SUPPORTED": "Ce format d'export n'est pas disponible pour les transits.",
+      "PERSIST_FAILED": "Impossible d'enregistrer l'opération.",
+      "JOB_TIMEOUT": "Le calcul a pris trop de temps. Réessayez.",
+      "UNKNOWN": "Impossible de calculer l'itinéraire : {{detail}}",
+      "JOBS_LIMIT": "Trop de calculs sont en cours ({{max_jobs}}). Attendez qu'un se termine."
+    },
+    "warnings": {
+      "PARCELS_UNREADABLE": "{{count}} parcelle(s) de la zone n'ont pas de limite lisible : leurs portails ne sont pas appliqués.",
+      "UNKNOWN": "Avertissement {{code}}"
     }
   }
 }

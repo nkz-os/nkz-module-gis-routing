@@ -122,9 +122,6 @@
     "title": "Error",
     "unexpected": "An unexpected error occurred",
     "retry": "Retry",
-    "pathfindingFailed": "Pathfinding failed",
-    "pathfindingTimeout": "Pathfinding timed out",
-    "pathCalculationFailed": "Path calculation failed",
     "geoFailed": "Geometry loading failed",
     "authRequired": "Autenticación requerida",
     "generateFailed": "Error al generar la ruta",
@@ -172,19 +169,9 @@
     "snake": "Skip rows"
   },
   "pathfinding": {
-    "pickOnMap": "Pick A-B path on map",
     "pickPointA": "Click point A on the map",
     "pickPointB": "Click point B on the map",
-    "calculating": "Calculating alternatives...",
-    "selectAndSave": "Selected path:",
-    "alternatives": "Alternatives",
-    "title": "A-B Routes",
-    "calculate": "Calculate route",
-    "pointA": "Point A",
-    "pointB": "Point B",
-    "distance": "Distance",
-    "climb": "Cumulative climb",
-    "results": "Results"
+    "calculating": "Calculating alternatives..."
   },
   "panels": {
     "emptyState": "Generate a route to see results",
@@ -315,7 +302,8 @@
       "VRA_UNCOVERED": "{{length_m}} m of route lie outside the management zones: no rate applied",
       "VRA_DEGENERATE": "All zones have the same value: a single class applies",
       "VRA_ZONE_INVALID": "Zone {{zone_id}} has an invalid geometry and was ignored",
-      "ZONES_NO_PRJ": "Shapefile without .prj: coordinates assumed to be WGS84 (EPSG:4326)"
+      "ZONES_NO_PRJ": "Shapefile without .prj: coordinates assumed to be WGS84 (EPSG:4326)",
+      "PLAN_TOO_LARGE_TO_SAVE": "This plan is too large to save ({{size_kb}} KB)."
     },
     "fallbacks": {
       "headland": "Headland passes adjusted from {{a}} to {{b}}",
@@ -334,6 +322,9 @@
       "INVALID_GEOMETRY": "The geometry is not valid",
       "ENGINE_FAILURE": "Internal routing engine error",
       "PERSIST_FAILED": "The operation could not be saved",
+      "PLAN_EXPIRED": "The reviewed plan has expired. Generate it again.",
+      "PARCEL_REQUIRED": "The operation needs a parcel to be saved",
+      "INVALID_DATES": "The planned dates are not valid",
       "UNKNOWN": "The route could not be generated: {{detail}}",
       "CONFIG_UNVERIFIED": "The saved configuration could not be verified. Nothing was generated; retry.",
       "INVALID_VRA": "The variable-rate configuration is not valid",
@@ -341,10 +332,12 @@
       "ZONES_NO_VALUE": "No value attribute found (value, mean, ndvi or rate). Attributes in the file: {{attributes}}",
       "ZONES_FILE_TOO_LARGE": "The zones file is larger than 5 MB",
       "PLAN_TOO_LARGE": "The plan is too large to save ({{size_kb}} KB). Use fewer or larger zones or a smaller area.",
-      "ZONES_UNAVAILABLE": "The management zones could not be read. Try again."
+      "ZONES_UNAVAILABLE": "The management zones could not be read. Try again.",
+      "PLAN_TOO_LARGE_TO_SAVE": "The plan is too large to save. Use fewer or larger zones or a smaller area."
     },
     "actions": {
       "regenerate": "Regenerate",
+      "generateAgain": "Generate again",
       "sendToTractor": "Send to tractor",
       "sent": "Sent ({{id}})",
       "copyId": "Copy ID",
@@ -359,7 +352,8 @@
       "work": "Work",
       "transit": "Transit A-B"
     },
-    "empty": "Select a parcel to start"
+    "empty": "Select a parcel to start",
+    "regeneratedOnSave": "Plan regenerated with the current dose before saving"
   },
   "autosave": {
     "saved": "Saved {{time}}",
@@ -394,6 +388,89 @@
       "swaths": "Swaths",
       "warnings": "Warnings",
       "vra": "VRA classes"
+    }
+  },
+  "transit": {
+    "points": "Points",
+    "pointA": "Point A (lat, lon)",
+    "pointB": "Point B (lat, lon)",
+    "markA": "Mark A",
+    "markB": "Mark B",
+    "pickingA": "Click on the map to place A. You can drag the marker afterwards.",
+    "pickingB": "Click on the map to place B. You can drag the marker afterwards.",
+    "useEntrance": "Use the entrance of {{parcel}} as B",
+    "exportName": "Transit",
+    "machine": {
+      "title": "Machine",
+      "manual": "Manual width",
+      "width": "Working width (m)",
+      "slope": "Maximum slope (°)",
+      "slopeHelp": "Between 0 and 45°. The route avoids steeper ground (default 15°).",
+      "noWidth": "This machine has no working width: type one in.",
+      "pick": "Machine to use"
+    },
+    "calculate": "Calculate route",
+    "status": {
+      "queued": "Waiting in the queue...",
+      "running": "Calculating the routes..."
+    },
+    "results": "Results",
+    "stale": "Outdated: inputs changed. Calculate again to save.",
+    "alt": {
+      "least_slope": "Least slope",
+      "fastest": "Fastest"
+    },
+    "distance": "Distance",
+    "climb": "Cumulative climb",
+    "maxSlopeFound": "Max. slope",
+    "profile": {
+      "label": "Elevation profile of the selected route",
+      "at": "{{dist}} m · {{z}} m a.s.l."
+    },
+    "save": {
+      "title": "Save",
+      "noParcel": "No parcel",
+      "needParcel": "Choose a destination parcel to save. Without one you can still export.",
+      "button": "Save as operation",
+      "saving": "Saving...",
+      "saved": "Available in the app · operation #{{id}}",
+      "parcel": "Destination parcel"
+    },
+    "export": {
+      "title": "Export",
+      "gpx": "GPX",
+      "geojson": "GeoJSON",
+      "stale": "Exports the route as last calculated; the inputs have changed since."
+    },
+    "context": {
+      "zoomIn": "Zoom in to see parcels, gates and no-go zones",
+      "error": "Parcel context could not be loaded"
+    },
+    "errors": {
+      "DEM_UNAVAILABLE": "No elevation data is available for this area.",
+      "POINT_IN_ZONE": "Point {{point}} is inside a no-go zone. Move it.",
+      "POINT_ON_BARRIER": "Point {{point}} is on the fence of a parcel with a gate. Move it or use the gate.",
+      "NO_PATH": "No route avoids the no-go zones and the gated parcels.",
+      "NO_PATH_MARGIN": "No route avoids the no-go zones and the gated parcels (searched {{search_margin_m}} m around A-B).",
+      "MACHINE_WIDTH_MISSING": "The machine has no working width. Type one in.",
+      "AREA_TOO_LARGE": "A and B are too far apart to calculate the route.",
+      "ENGINE_FAILURE": "Internal error of the routing engine.",
+      "PLAN_EXPIRED": "The calculated route has expired. Calculate it again.",
+      "PARCEL_REQUIRED": "Choose a destination parcel to save.",
+      "PARCEL_NOT_FOUND": "The destination parcel was not found.",
+      "JOB_NOT_FOUND": "The calculation is no longer available. Calculate it again.",
+      "JOB_NOT_READY": "The calculation has not finished yet.",
+      "ALTERNATIVE_NOT_FOUND": "That route is not in the result. Calculate again.",
+      "INVALID_DATES": "The dates are not valid.",
+      "EXPORT_NOT_SUPPORTED": "This export format is not supported for transits.",
+      "PERSIST_FAILED": "The operation could not be saved.",
+      "JOB_TIMEOUT": "The calculation took too long. Try again.",
+      "UNKNOWN": "The route could not be calculated: {{detail}}",
+      "JOBS_LIMIT": "Too many calculations are running ({{max_jobs}}). Wait for one to finish."
+    },
+    "warnings": {
+      "PARCELS_UNREADABLE": "{{count}} parcel(s) in the area have no readable boundary: their gates are not enforced.",
+      "UNKNOWN": "Warning {{code}}"
     }
   }
 }

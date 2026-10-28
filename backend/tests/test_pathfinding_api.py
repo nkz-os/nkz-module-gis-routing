@@ -9,13 +9,9 @@ client = TestClient(app)
 
 @pytest.fixture(autouse=True)
 def _no_tenant_zones(monkeypatch):
-    """Without parcel_id the job queries Orion for tenant zones; stub it (no broker in tests)."""
+    """Fresh job store per test (tenant parcels are stubbed in conftest)."""
     from app.api import pathfinding_router as pr
 
-    async def none(tenant_id, bbox):
-        return []
-
-    monkeypatch.setattr(pr, "fetch_tenant_zones_in_bbox", none)
     from app.services.pathfinding.job_store import JobStore
     monkeypatch.setattr(pr, "JOBS", JobStore())
 
@@ -112,9 +108,9 @@ def test_machine_id_sets_width(monkeypatch):
     async def fake_machine(machine_id, tenant_id):
         return {"implementWidth": 5.5}
 
-    async def fake_constraints(parcel_id, tenant_id, raster, cols, rows, machine_width_m, bbox):
+    async def fake_constraints(parcel_id, tenant_id, raster, cols, rows, machine_width_m, bbox, report=None):
         seen["w"] = machine_width_m
-        return None, set()
+        return None, set(), {}
 
     from app.api import pathfinding_router as pr
     monkeypatch.setattr(pr, "fetch_machine_kinematics", fake_machine)
@@ -136,12 +132,16 @@ async def test_without_parcel_uses_tenant_zones_in_bbox(monkeypatch):
 
     async def fake_bbox(tenant_id, bbox):
         called["bbox"] = bbox
-        return [Polygon([(0.001, 0.001), (0.003, 0.001), (0.003, 0.003), (0.001, 0.003)])]
+        return [_pz([Polygon([(0.001, 0.001), (0.003, 0.001), (0.003, 0.003), (0.001, 0.003)])])]
 
-    monkeypatch.setattr(pr, "fetch_tenant_zones_in_bbox", fake_bbox)
+    monkeypatch.setattr(pr, "fetch_tenant_parcels_in_bbox", fake_bbox)
     raster = {"origin_lon": 0.0, "origin_lat": 0.0, "pixel_size_deg": 0.001}
-    origin, blocked = await pr._resolve_path_constraints(None, "tenant-a", raster, 10, 10, 2.0, (0, 0, 0.01, 0.01))
-    assert origin is None and blocked and called["bbox"] == (0, 0, 0.01, 0.01)
+    origin, blocked, fences = await pr._resolve_path_constraints(None, "tenant-a", raster, 10, 10, 2.0, (0, 0, 0.01, 0.01))
+    assert origin is None and blocked and fences == {} and called["bbox"] == (0, 0, 0.01, 0.01)
+
+
+def _pz(zones):
+    return {"id": "urn:p", "name": "", "polygon": None, "geometry": None, "access_point": None, "zones": zones}
 
 
 def _wait(job_id):
@@ -166,6 +166,8 @@ def test_unknown_machine_fails_job(monkeypatch):
     body = _wait(job_id)
     assert body["status"] == "failed"
     assert body["error"] == "machine not found or has no implementWidth"
+    assert body["error_code"] == "MACHINE_WIDTH_MISSING"
+    assert body["error_params"] == {"machine_id": "urn:missing"}
 
 
 def test_job_limit_returns_429():
@@ -175,4 +177,74 @@ def test_job_limit_returns_429():
     resp = client.post("/api/routing/path/calculate", json={
         "point_a": [-2.0, 43.0], "point_b": [-1.99, 43.0], "elevation_grid": _grid()})
     assert resp.status_code == 429
-    assert resp.json()["detail"]["code"] == "JOB_LIMIT"
+    body = resp.json()
+    assert body["code"] == "JOBS_LIMIT" and body["params"] == {"max_jobs": pr.JOBS._max_per_tenant}
+
+
+def _post(extra=None, grid=None):
+    body = {"point_a": [-2.0, 43.0], "point_b": [-1.99, 43.0], "elevation_grid": grid or _grid()}
+    body.update(extra or {})
+    return _wait(client.post("/api/routing/path/calculate", json=body).json()["job_id"])
+
+
+def _zone(lon0, lat0, lon1, lat1):
+    from shapely.geometry import Polygon
+    return Polygon([(lon0, lat0), (lon1, lat0), (lon1, lat1), (lon0, lat1)])
+
+
+def test_dem_unavailable_code(monkeypatch):
+    from app.api import pathfinding_router as pr
+
+    class _Reg:
+        async def fetch_best(self, bbox, resolution_m):
+            return None
+
+    monkeypatch.setattr(pr, "build_dem_registry", lambda: _Reg())
+    body = _post({"elevation_grid": None})
+    assert body["status"] == "failed"
+    assert body["error_code"] == "DEM_UNAVAILABLE" and body["error"]
+
+
+@pytest.mark.parametrize("which,pt", [("A", [-2.0, 43.0]), ("B", [-1.99, 43.0])])
+def test_point_in_zone_code_names_the_point(monkeypatch, which, pt):
+    from app.api import pathfinding_router as pr
+
+    async def zones(tenant_id, bbox):
+        return [_pz([_zone(pt[0] - 0.0004, pt[1] - 0.0004, pt[0] + 0.0004, pt[1] + 0.0004)])]
+
+    monkeypatch.setattr(pr, "fetch_tenant_parcels_in_bbox", zones)
+    body = _post()
+    assert body["status"] == "failed" and body["error"]
+    assert body["error_code"] == "POINT_IN_ZONE"
+    assert body["error_params"] == {"point": which, "geometry": {"type": "Point", "coordinates": pt}}
+
+
+def test_no_path_code(monkeypatch):
+    from app.api import pathfinding_router as pr
+
+    async def zones(tenant_id, bbox):
+        return [_pz([_zone(-1.9955, 42.9, -1.9945, 43.2)])]  # wall between A and B
+
+    monkeypatch.setattr(pr, "fetch_tenant_parcels_in_bbox", zones)
+    body = _post()
+    assert body["status"] == "failed" and body["error"]
+    assert body["error_code"] == "NO_PATH" and body["error_params"] == {}
+
+
+def test_engine_failure_code_hides_internals(monkeypatch):
+    from app.api import pathfinding_router as pr
+
+    def boom(*a, **k):
+        raise RuntimeError("secret internal detail")
+
+    monkeypatch.setattr(pr, "compute_ab_routes", boom)
+    body = _post()
+    assert body["status"] == "failed"
+    assert body["error_code"] == "ENGINE_FAILURE"
+    assert "secret internal detail" not in body["error"]
+
+
+def test_report_has_max_slope_of_alternatives():
+    body = _post()
+    assert body["status"] == "completed"
+    assert body["report"]["max_slope_deg_found"] == max(a["max_slope_deg_found"] for a in body["alternatives"])

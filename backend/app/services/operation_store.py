@@ -116,6 +116,27 @@ def _planned_value(given: Optional[str], default_epoch_s: float) -> dict:
     return _planned_iso(default_epoch_s)
 
 
+def _parse_iso(value: Optional[str]) -> Optional[int]:
+    return _iso_to_epoch_s(value) if value else None
+
+
+def resolve_planned(planned_start_at: Optional[str], planned_end_at: Optional[str]) -> tuple[dict, dict]:
+    """plannedStartAt/EndAt values: start defaults to now, end to start + 1 day.
+
+    End before start -> INVALID_DATES.
+    """
+    from app.services.coverage.errors import PlanError
+    start = _parse_iso(planned_start_at)
+    if start is None:
+        start = int(time.time())
+    end = _parse_iso(planned_end_at)
+    if end is None:
+        end = start + 86400
+    if end < start:
+        raise PlanError("INVALID_DATES", "planned end is before planned start")
+    return _planned_iso(start), _planned_iso(end)
+
+
 def build_operation_entity(*, op_id, body, result, prescription_map, is_template=False,
                            plan: Optional[dict] = None,
                            planned_start_at: Optional[str] = None,
@@ -156,9 +177,9 @@ def build_operation_entity(*, op_id, body, result, prescription_map, is_template
         "generationConfig": {"type": "Property", "value": generation_config},
         "hasAgriParcel": {"type": "Relationship", "object": body.parcel_id},
     }
-    now = time.time()
-    entity["plannedStartAt"] = {"type": "Property", "value": _planned_value(planned_start_at, now)}
-    entity["plannedEndAt"] = {"type": "Property", "value": _planned_value(planned_end_at, now + 86400)}
+    start, end = resolve_planned(planned_start_at, planned_end_at)
+    entity["plannedStartAt"] = {"type": "Property", "value": start}
+    entity["plannedEndAt"] = {"type": "Property", "value": end}
     if plan is not None:
         if plan.get("access_point") is not None:
             entity["accessPoint"] = {"type": "GeoProperty", "value": plan["access_point"]}
@@ -194,6 +215,42 @@ def build_operation_entity(*, op_id, body, result, prescription_map, is_template
     # Orion rejects a Property/GeoProperty whose value is null.
     return {k: v for k, v in entity.items()
             if k in ("id", "type") or not (isinstance(v, dict) and "value" in v and v["value"] is None)}
+
+
+def build_transit_entity(*, op_id: str, parcel_id: str, name: Optional[str], alternative: dict,
+                         planned_start_at: Optional[str] = None,
+                         planned_end_at: Optional[str] = None,
+                         constraints_used: Optional[dict] = None) -> dict:
+    """AgriParcelOperation for a computed A-B transit (destination parcel required).
+
+    ASSUMPTION: operationType "transit" is outside the SDM enum, like the module's
+    other operation types.
+    """
+    start, end = resolve_planned(planned_start_at, planned_end_at)
+    entity = {
+        "id": op_id,
+        "type": "AgriParcelOperation",
+        "name": {"type": "Property",
+                 "value": name or f"transit - {alternative.get('label') or alternative['id']}"},
+        "operationType": {"type": "Property", "value": "transit"},
+        "status": {"type": "Property", "value": "planned"},
+        "location": {"type": "GeoProperty", "value": alternative["geometry"]},
+        "elevationProfile": {"type": "Property", "value": alternative.get("elevation_profile") or []},
+        "transitMetrics": {"type": "Property", "value": {
+            "distance_m": alternative.get("distance_m"),
+            "cumulative_climb_m": alternative.get("cumulative_climb_m"),
+            "max_slope_deg_found": alternative.get("max_slope_deg_found")}},
+        "totalDistanceM": {"type": "Property", "value": alternative.get("distance_m")},
+        "isTemplate": {"type": "Property", "value": False},
+        "dateCreated": {"type": "Property", "value": _now_iso()},
+        "hasAgriParcel": {"type": "Relationship", "object": parcel_id},
+        "plannedStartAt": {"type": "Property", "value": start},
+        "plannedEndAt": {"type": "Property", "value": end},
+    }
+    if constraints_used:
+        # What the route had to respect: {parcels, gated, zones} seen when it was computed.
+        entity["constraintsUsed"] = {"type": "Property", "value": dict(constraints_used)}
+    return entity
 
 
 def build_template_entity(*, op_id, parcel_id, name, pattern_type, pattern_config,

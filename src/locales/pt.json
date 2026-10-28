@@ -62,9 +62,6 @@
     "title": "Error",
     "unexpected": "An unexpected error occurred",
     "retry": "Retry",
-    "pathfindingFailed": "Pathfinding failed",
-    "pathfindingTimeout": "Pathfinding timed out",
-    "pathCalculationFailed": "Path calculation failed",
     "geoFailed": "Falha ao carregar a geometria",
     "authRequired": "Autenticación requerida",
     "generateFailed": "Error al generar la ruta",
@@ -172,19 +169,9 @@
     "snake": "Saltos alternados"
   },
   "pathfinding": {
-    "pickOnMap": "Pick A-B path on map",
     "pickPointA": "Click point A on the map",
     "pickPointB": "Click point B on the map",
-    "calculating": "Calculating alternatives...",
-    "selectAndSave": "Selected path:",
-    "alternatives": "Alternatives",
-    "title": "Rotas A-B",
-    "calculate": "Calcular rota",
-    "pointA": "Ponto A",
-    "pointB": "Ponto B",
-    "distance": "Distância",
-    "climb": "Desnível acumulado",
-    "results": "Resultados"
+    "calculating": "Calculating alternatives..."
   },
   "panels": {
     "emptyState": "Generate a route to see results",
@@ -315,7 +302,8 @@
       "VRA_UNCOVERED": "{{length_m}} m do percurso ficam fora das zonas de gestão: nenhuma dose aplicada",
       "VRA_DEGENERATE": "Todas as zonas têm o mesmo valor: aplica-se uma única classe",
       "VRA_ZONE_INVALID": "A zona {{zone_id}} tem uma geometria inválida e foi ignorada",
-      "ZONES_NO_PRJ": "Shapefile sem .prj: assumem-se coordenadas WGS84 (EPSG:4326)"
+      "ZONES_NO_PRJ": "Shapefile sem .prj: assumem-se coordenadas WGS84 (EPSG:4326)",
+      "PLAN_TOO_LARGE_TO_SAVE": "Este plano é demasiado grande para ser guardado ({{size_kb}} KB)."
     },
     "fallbacks": {
       "headland": "Passagens de cabeceira ajustadas de {{a}} para {{b}}",
@@ -334,6 +322,9 @@
       "INVALID_GEOMETRY": "A geometria não é válida",
       "ENGINE_FAILURE": "Erro interno do motor de rotas",
       "PERSIST_FAILED": "Não foi possível guardar a operação",
+      "PLAN_EXPIRED": "O plano revisto expirou. Gere-o novamente.",
+      "PARCEL_REQUIRED": "A operação precisa de uma parcela para ser guardada",
+      "INVALID_DATES": "As datas previstas não são válidas",
       "UNKNOWN": "Não foi possível gerar a rota: {{detail}}",
       "CONFIG_UNVERIFIED": "Não foi possível verificar a configuração guardada. Nada foi gerado; tente novamente.",
       "INVALID_VRA": "A configuração de dose variável não é válida",
@@ -341,10 +332,12 @@
       "ZONES_NO_VALUE": "Não há atributo de valor (value, mean, ndvi ou rate). Atributos do ficheiro: {{attributes}}",
       "ZONES_FILE_TOO_LARGE": "O ficheiro de zonas excede 5 MB",
       "PLAN_TOO_LARGE": "O plano é demasiado grande para ser guardado ({{size_kb}} KB). Use menos zonas, zonas maiores ou uma área menor.",
-      "ZONES_UNAVAILABLE": "Não foi possível ler as zonas de gestão. Tente novamente."
+      "ZONES_UNAVAILABLE": "Não foi possível ler as zonas de gestão. Tente novamente.",
+      "PLAN_TOO_LARGE_TO_SAVE": "O plano é demasiado grande para ser guardado. Use menos zonas, maiores, ou uma área menor."
     },
     "actions": {
       "regenerate": "Regenerar",
+      "generateAgain": "Gerar novamente",
       "sendToTractor": "Enviar ao trator",
       "sent": "Enviada ({{id}})",
       "copyId": "Copiar ID",
@@ -359,7 +352,8 @@
       "work": "Trabalho",
       "transit": "Trânsito A-B"
     },
-    "empty": "Selecione uma parcela para começar"
+    "empty": "Selecione uma parcela para começar",
+    "regeneratedOnSave": "Plano regenerado com a dose atual antes de guardar"
   },
   "autosave": {
     "saved": "Guardado {{time}}",
@@ -394,6 +388,89 @@
       "swaths": "Passagens",
       "warnings": "Avisos",
       "vra": "Classes VRA"
+    }
+  },
+  "transit": {
+    "points": "Pontos",
+    "pointA": "Ponto A (lat, lon)",
+    "pointB": "Ponto B (lat, lon)",
+    "markA": "Marcar A",
+    "markB": "Marcar B",
+    "pickingA": "Clique no mapa para colocar A. Depois pode arrastar o marcador.",
+    "pickingB": "Clique no mapa para colocar B. Depois pode arrastar o marcador.",
+    "useEntrance": "Usar a entrada de {{parcel}} como B",
+    "exportName": "Trânsito",
+    "machine": {
+      "title": "Máquina",
+      "manual": "Largura manual",
+      "width": "Largura de trabalho (m)",
+      "slope": "Declive máximo (°)",
+      "slopeHelp": "Entre 0 e 45°. A rota evita terreno mais inclinado (por defeito 15°).",
+      "noWidth": "Esta máquina não tem largura de trabalho: escreva-a.",
+      "pick": "Máquina a usar"
+    },
+    "calculate": "Calcular rota",
+    "status": {
+      "queued": "A aguardar na fila...",
+      "running": "A calcular as rotas..."
+    },
+    "results": "Resultados",
+    "stale": "Desatualizado: os dados mudaram. Calcule de novo para guardar.",
+    "alt": {
+      "least_slope": "Menos declive",
+      "fastest": "Mais rápida"
+    },
+    "distance": "Distância",
+    "climb": "Desnível acumulado",
+    "maxSlopeFound": "Declive máx.",
+    "profile": {
+      "label": "Perfil de elevação da rota escolhida",
+      "at": "{{dist}} m · {{z}} m de altitude"
+    },
+    "save": {
+      "title": "Guardar",
+      "noParcel": "Sem parcela",
+      "needParcel": "Escolha uma parcela de destino para guardar. Sem ela só pode exportar.",
+      "button": "Guardar como operação",
+      "saving": "A guardar...",
+      "saved": "Disponível na app · operação #{{id}}",
+      "parcel": "Parcela de destino"
+    },
+    "export": {
+      "title": "Exportar",
+      "gpx": "GPX",
+      "geojson": "GeoJSON",
+      "stale": "Exporta-se a rota do último cálculo; os dados mudaram desde então."
+    },
+    "context": {
+      "zoomIn": "Aproxime para ver parcelas, portões e zonas NO-GO",
+      "error": "Não foi possível carregar o contexto das parcelas"
+    },
+    "errors": {
+      "DEM_UNAVAILABLE": "Não há dados de elevação para esta zona.",
+      "POINT_IN_ZONE": "O ponto {{point}} está dentro de uma zona NO-GO. Mova-o.",
+      "POINT_ON_BARRIER": "O ponto {{point}} está na vedação de uma parcela com portão. Mova-o ou use o portão.",
+      "NO_PATH": "Nenhuma rota evita as zonas NO-GO e as parcelas com portão.",
+      "NO_PATH_MARGIN": "Nenhuma rota evita as zonas NO-GO e as parcelas com portão (pesquisou-se {{search_margin_m}} m em redor de A-B).",
+      "MACHINE_WIDTH_MISSING": "A máquina não tem largura de trabalho. Escreva-a.",
+      "AREA_TOO_LARGE": "A e B estão demasiado afastados para calcular a rota.",
+      "ENGINE_FAILURE": "Erro interno do motor de rotas.",
+      "PLAN_EXPIRED": "A rota calculada expirou. Calcule-a de novo.",
+      "PARCEL_REQUIRED": "Escolha uma parcela de destino para guardar.",
+      "PARCEL_NOT_FOUND": "A parcela de destino não foi encontrada.",
+      "JOB_NOT_FOUND": "O cálculo já não está disponível. Calcule de novo.",
+      "JOB_NOT_READY": "O cálculo ainda não terminou.",
+      "ALTERNATIVE_NOT_FOUND": "Essa rota não está no resultado. Calcule de novo.",
+      "INVALID_DATES": "As datas não são válidas.",
+      "EXPORT_NOT_SUPPORTED": "Este formato de exportação não está disponível para trânsitos.",
+      "PERSIST_FAILED": "Não foi possível guardar a operação.",
+      "JOB_TIMEOUT": "O cálculo demorou demasiado. Tente de novo.",
+      "UNKNOWN": "Não foi possível calcular a rota: {{detail}}",
+      "JOBS_LIMIT": "Há demasiados cálculos em curso ({{max_jobs}}). Aguarde que um termine."
+    },
+    "warnings": {
+      "PARCELS_UNREADABLE": "{{count}} parcela(s) da zona não têm limite legível: os seus portões não são aplicados.",
+      "UNKNOWN": "Aviso {{code}}"
     }
   }
 }

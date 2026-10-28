@@ -9,9 +9,11 @@ import {
   canGenerate,
   initialWorkState,
   toVraRequest,
+  vraSaveBlocker,
   workReducer,
   type WorkState,
 } from '../../state/workMachine';
+import { savePlan } from '../../state/savePlan';
 import { useConfigAutosave } from '../../state/useConfigAutosave';
 import { useVraSync } from '../../state/useVraSync';
 import { MapCanvas, type DrawMode, type LayerGroup } from '../../map/MapCanvas';
@@ -230,8 +232,8 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({ onContextChange }) => {
     // The state machine decides whether a request may start; the ref covers the same tick.
     const cur = stateRef.current;
     if (inFlight.current) return;
-    if (persist ? cur.phase !== 'generated' : !canGenerate(cur)) return;
-    const body = buildGenerateRequest(cur, persist);
+    if (persist ? cur.phase !== 'generated' || vraSaveBlocker(cur) !== null : !canGenerate(cur)) return;
+    const body = persist ? null : buildGenerateRequest(cur, false);
     inFlight.current = true;
     setDrawMode('none');
     // Dispatch first: the buttons and the draw tools lock before any await.
@@ -248,8 +250,14 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({ onContextChange }) => {
         return;
       }
       setToast(v === 'restored' ? t('autosave.restored') : null);
-      const response = await api.generate(body);
-      dispatch({ type: persist ? 'SAVE_RESULT' : 'GENERATED', response });
+      if (persist) {
+        // Save the plan under review by id; no recomputation unless the VRA changed since generating.
+        const saved = await savePlan(cur, api);
+        dispatch({ type: 'SAVE_RESULT', ...saved });
+        if (saved.regenerated) setToast(t('work.regeneratedOnSave'));
+      } else {
+        dispatch({ type: 'GENERATED', response: await api.generate(body!) });
+      }
     } catch (e) {
       dispatch({ type: persist ? 'SAVE_FAILED' : 'GENERATE_FAILED', error: toWorkError(e) });
     } finally {

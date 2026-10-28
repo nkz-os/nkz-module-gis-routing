@@ -7,7 +7,9 @@ offline sync, plus the existing POST /routing/generate endpoint with
 Orion-LD persistence.
 """
 
+import asyncio
 import hashlib
+from contextlib import asynccontextmanager
 import csv
 import json
 import logging
@@ -15,13 +17,14 @@ import math
 import os
 import time
 import io
+from types import SimpleNamespace
 from datetime import datetime, timezone
 from fastapi import APIRouter, Request, Query, HTTPException
 from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import JSONResponse
 from fastapi.responses import Response as FastAPIResponse
 from pydantic import BaseModel, ConfigDict, Field, field_validator
-from typing import Optional, Literal
+from typing import Annotated, Optional, Literal, Union
 
 import httpx
 from app.services.sync_service import SyncService, SyncConflictError
@@ -30,13 +33,15 @@ from nkz_platform_sdk.orion import OrionClient
 from app.services.timescale_client import TimescaleDBClient
 from app.services.export_service import RouteExporter
 from app.services.pmtiles_generator import PMTileGenerator
-from app.services.parcel_constraints import fetch_parcel_constraints
+from app.services.parcel_constraints import fetch_parcel_constraints, fetch_tenant_parcels_in_bbox
 from app.api.pathfinding_router import build_dem_registry
 from app.services.pathfinding.grid_sampler import make_grid_sampler
 from app.config import get_settings
 from app.services.machines import fetch_machine_kinematics
 from app.services.coverage.errors import PlanError
+from app.services.plan_store import PLAN_STORE
 from app.services.coverage.ladder import plan_with_fallbacks, LadderInput
+from shapely.geometry import mapping
 from app.services.exclusion import validate_access_point
 from app.services.routing.base import project_polygon_to_utm
 from shapely.geometry import Point
@@ -194,6 +199,63 @@ async def list_parcels(request: Request, auth: AuthContext = require_auth()):
         ]
     finally:
         await orion.close()
+
+_CONTEXT_MAX_SIDE_DEG = 0.2
+_CONTEXT_TTL_S = 60.0
+_CONTEXT_CACHE_MAX = 256
+_CONTEXT_CACHE: dict[tuple, tuple[float, list]] = {}
+_context_clock = time.monotonic
+
+
+async def _context_parcels(tenant_id: str, bbox: tuple) -> list:
+    """The tenant's parcels in bbox, cached per tenant + bbox for 60 s (a pan re-asks every ~400 ms
+    and each read pages through all of the tenant's parcels). Only the map context is cached; A-B
+    searches always read fresh."""
+    now = _context_clock()
+    for k in [k for k, (at, _p) in _CONTEXT_CACHE.items() if now - at >= _CONTEXT_TTL_S]:
+        del _CONTEXT_CACHE[k]
+    key = (tenant_id, bbox)
+    hit = _CONTEXT_CACHE.get(key)
+    if hit is not None:
+        return hit[1]
+    parcels = await fetch_tenant_parcels_in_bbox(tenant_id, bbox)
+    while len(_CONTEXT_CACHE) >= _CONTEXT_CACHE_MAX:
+        del _CONTEXT_CACHE[min(_CONTEXT_CACHE, key=lambda k: _CONTEXT_CACHE[k][0])]
+    _CONTEXT_CACHE[key] = (now, parcels)
+    return parcels
+
+
+@router.get("/parcels/context")
+async def parcels_context(bbox: str = Query(..., description="minLon,minLat,maxLon,maxLat"),
+                          auth: AuthContext = require_auth()):
+    """Light parcel context for a map area: geometry, gate and no-go zones of the tenant's parcels."""
+    tenant_id = auth.tenant_id
+    if not tenant_id or tenant_id == "default":
+        raise HTTPException(status_code=404, detail="Tenant not found")
+    try:
+        min_lon, min_lat, max_lon, max_lat = (float(v) for v in bbox.split(","))
+        valid = (min_lon < max_lon and min_lat < max_lat and
+                 all(math.isfinite(v) for v in (min_lon, min_lat, max_lon, max_lat)))
+    except ValueError:
+        valid = False
+    if not valid:
+        raise PlanError("BBOX_INVALID", "bbox must be minLon,minLat,maxLon,maxLat with min < max")
+    if max_lon - min_lon > _CONTEXT_MAX_SIDE_DEG or max_lat - min_lat > _CONTEXT_MAX_SIDE_DEG:
+        raise PlanError("AREA_TOO_LARGE", "The requested area is too large",
+                        {"max_side_deg": _CONTEXT_MAX_SIDE_DEG})
+    parcels = await _context_parcels(tenant_id, (min_lon, min_lat, max_lon, max_lat))
+    return {"parcels": [
+        {
+            "id": p["id"],
+            "name": p["name"],
+            "geometry": p["geometry"],
+            "access_point": ({"type": "Point", "coordinates": list(p["access_point"])}
+                             if p["access_point"] else None),
+            "zones": [mapping(z) for z in p["zones"]],
+        }
+        for p in parcels if p["geometry"] is not None
+    ]}
+
 
 @router.get("/parcels/{parcel_id}/geometry")
 async def get_parcel_geometry(request: Request, parcel_id: str, auth: AuthContext = require_auth()):
@@ -543,12 +605,47 @@ async def generate_routing_plan(request: Request, body: GenerateRequest, auth: A
         operation_id = await _persist_operation(result, body, auth, None, plan_dict)
     persisted = operation_id is not None
 
+    plan_id = None
+    if operation_id is None:
+        from app.services import operation_store
+        entity = operation_store.build_operation_entity(
+            op_id=operation_store.new_operation_id(auth.tenant_id), body=body, result=result,
+            prescription_map=None, is_template=False, plan=plan_dict,
+            planned_start_at=_iso_utc(body.planned_start_at), planned_end_at=_iso_utc(body.planned_end_at))
+        entity_bytes = len(json.dumps(entity, separators=(",", ":")).encode("utf-8"))
+        if entity_bytes <= operation_store.MAX_ENTITY_BYTES:
+            plan_id = _store_plan(auth.tenant_id, operation_id, plan_dict, body, result)
+        if plan_id is None:
+            # Saving would fail with PLAN_TOO_LARGE (or the store cannot hold it): do not keep it.
+            logger.warning("generate: plan not stored, too large to save: tenant_id=%s entity_bytes=%d",
+                           auth.tenant_id, entity_bytes)
+            if plan_dict.get("validation") is None:
+                plan_dict["validation"] = {"ok": True, "checks": [], "fallbacks_applied": [], "warnings": []}
+            plan_dict["validation"]["warnings"].append(
+                {"code": "PLAN_TOO_LARGE_TO_SAVE", "geometry": None,
+                 "params": {"size_kb": round(entity_bytes / 1024)}})
+    else:
+        plan_id = _store_plan(auth.tenant_id, operation_id, plan_dict, body, result)
+
     return {
         "success": True,
         "operation_id": operation_id,
         "persisted": persisted,
         "plan": plan_dict,
+        "plan_id": plan_id,
     }
+
+
+def _store_plan(tenant_id: str, operation_id, plan_dict: dict, body: GenerateRequest, result) -> Optional[str]:
+    return PLAN_STORE.put(tenant_id, {
+        "operation_id": operation_id,
+        "plan_dict": plan_dict,
+        # external_features can be MBs and is not needed to build the entity.
+        "body": body.model_dump(exclude={"vra": {"external_features"}}),
+        # Only what build_operation_entity reads; the route geometry is in plan_dict.
+        "result": SimpleNamespace(swath_count=result.swath_count,
+                                  total_distance_m=result.total_distance_m,
+                                  metrics=result.metrics)})
 
 
 async def _vra_zones(vra: VRAConfig, parcel_id, tenant_id: str):
@@ -693,17 +790,28 @@ def _zones_from_orion(zones: list[dict], parcel_id: str, zone_ids: list[str] | N
 
 
 async def _persist_operation(result, body: GenerateRequest, auth: AuthContext,
-                             prescription_map: dict | None, plan_dict: dict | None = None) -> Optional[str]:
-    """Persist route as AgriParcelOperation in Orion-LD. Returns operation URN."""
+                             prescription_map: dict | None, plan_dict: dict | None = None,
+                             *, strict: bool = False) -> Optional[str]:
+    """Persist route as AgriParcelOperation in Orion-LD. Returns operation URN.
+
+    Orion failure: None (reported as persisted=false) unless strict, which raises
+    PERSIST_FAILED.
+    """
     from app.services import operation_store
     tenant_id = auth.tenant_id
-    settings = get_settings()
     op_id = operation_store.new_operation_id(tenant_id)
     entity = operation_store.build_operation_entity(
         op_id=op_id, body=body, result=result,
         prescription_map=prescription_map, is_template=False, plan=plan_dict,
         planned_start_at=_iso_utc(body.planned_start_at), planned_end_at=_iso_utc(body.planned_end_at),
     )
+    return await _create_operation_entity(entity, op_id, tenant_id, strict=strict)
+
+
+async def _create_operation_entity(entity: dict, op_id: str, tenant_id: str, *,
+                                   strict: bool) -> Optional[str]:
+    from app.services import operation_store
+    settings = get_settings()
     size = len(json.dumps(entity, separators=(",", ":")).encode("utf-8"))
     if size > operation_store.MAX_ENTITY_BYTES:
         raise PlanError("PLAN_TOO_LARGE", "operation is too large to store",
@@ -713,12 +821,142 @@ async def _persist_operation(result, body: GenerateRequest, auth: AuthContext,
     try:
         await orion.create_entity(entity)
         return op_id
-    except Exception:
+    except Exception as exc:
+        logger.exception("Failed to persist operation: op_id=%s tenant_id=%s", op_id, tenant_id)
+        if strict:
+            raise PlanError("PERSIST_FAILED", "operation could not be stored") from exc
         # Reported to the client as persisted=false; the plan itself is still returned.
-        logger.exception("Failed to persist operation: op_id=%s parcel_id=%s", op_id, body.parcel_id)
         return None
     finally:
         await orion.close()
+
+
+class SavePlanRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    kind: Literal["plan"]
+    plan_id: str
+    planned_start_at: Optional[datetime] = None
+    planned_end_at: Optional[datetime] = None
+
+    _utc = field_validator("planned_start_at", "planned_end_at")(
+        GenerateRequest.planned_dates_are_utc.__func__)
+
+
+class SaveTransitRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    kind: Literal["transit"]
+    job_id: str
+    alternative_id: str
+    parcel_id: Optional[str] = None
+    name: Optional[str] = None
+    planned_start_at: Optional[datetime] = None
+    planned_end_at: Optional[datetime] = None
+
+    _utc = field_validator("planned_start_at", "planned_end_at")(
+        GenerateRequest.planned_dates_are_utc.__func__)
+
+
+SaveOperationRequest = Annotated[Union[SavePlanRequest, SaveTransitRequest],
+                                 Field(discriminator="kind")]
+
+
+@router.post("/operations")
+async def save_operation(body: SaveOperationRequest, auth: AuthContext = require_auth()):
+    """Persist a stored work plan or a computed A-B transit as an operation."""
+    from app.api.pathfinding_router import JOBS
+    from app.services import operation_store
+
+    if body.kind == "plan":
+        rec = PLAN_STORE.get(auth.tenant_id, body.plan_id)
+        if rec is None:
+            raise PlanError("PLAN_EXPIRED", "plan not found or expired; generate it again")
+        async with _save_lock(("plan", auth.tenant_id, body.plan_id)):
+            if rec.get("operation_id"):
+                return {"success": True, "operation_id": rec["operation_id"], "persisted": True}
+            stored = GenerateRequest(**rec["body"])
+            if not stored.parcel_id:
+                raise PlanError("PARCEL_REQUIRED", "a parcel is required to save an operation")
+            update = {}
+            if body.planned_start_at is not None:
+                update["planned_start_at"] = body.planned_start_at
+            if body.planned_end_at is not None:
+                update["planned_end_at"] = body.planned_end_at
+            gen = stored.model_copy(update=update)
+            op_id = await _persist_operation(rec["result"], gen, auth, None, rec["plan_dict"],
+                                             strict=True)
+            rec["operation_id"] = op_id
+        return {"success": True, "operation_id": op_id, "persisted": True}
+
+    if not body.parcel_id:
+        raise PlanError("PARCEL_REQUIRED", "a destination parcel is required to save a transit")
+    job = JOBS.get(body.job_id, auth.tenant_id)
+    if job is None:
+        raise PlanError("JOB_NOT_FOUND", "Job not found", {"job_id": body.job_id})
+    if job.get("status") != "completed":
+        raise PlanError("JOB_NOT_READY", "the transit calculation has not completed",
+                        {"status": job.get("status")})
+    alt = next((a for a in job.get("alternatives", []) if a.get("id") == body.alternative_id), None)
+    if alt is None:
+        raise PlanError("ALTERNATIVE_NOT_FOUND", "Alternative not found in job",
+                        {"alternative_id": body.alternative_id})
+    async with _save_lock(("transit", auth.tenant_id, body.job_id, body.alternative_id, body.parcel_id)):
+        # Idempotent per destination parcel: saving the same route for another parcel is a new operation.
+        saved = alt.setdefault("operation_ids", {})
+        if saved.get(body.parcel_id):
+            return {"success": True, "operation_id": saved[body.parcel_id], "persisted": True}
+        await _require_parcel(body.parcel_id, auth.tenant_id)
+        op_id = operation_store.new_operation_id(auth.tenant_id)
+        entity = operation_store.build_transit_entity(
+            op_id=op_id, parcel_id=body.parcel_id, name=body.name, alternative=alt,
+            planned_start_at=_iso_utc(body.planned_start_at),
+            planned_end_at=_iso_utc(body.planned_end_at),
+            constraints_used=(job.get("report") or {}).get("constraints_used"))
+        await _create_operation_entity(entity, op_id, auth.tenant_id, strict=True)
+        saved[body.parcel_id] = op_id
+    return {"success": True, "operation_id": op_id, "persisted": True}
+
+
+_SAVE_LOCKS: dict[tuple, list] = {}   # key -> [lock, holders and waiters]
+
+
+@asynccontextmanager
+async def _save_lock(key: tuple):
+    """One save at a time per plan / transit, so a double click creates one entity.
+
+    The entry is reference-counted: it is dropped only when nobody holds or awaits it, so a
+    request arriving while another waits always meets the same lock.
+    """
+    entry = _SAVE_LOCKS.setdefault(key, [asyncio.Lock(), 0])
+    entry[1] += 1
+    try:
+        async with entry[0]:
+            yield
+    finally:
+        entry[1] -= 1
+        if entry[1] == 0:
+            _SAVE_LOCKS.pop(key, None)
+
+
+async def _require_parcel(parcel_id: str, tenant_id: str) -> None:
+    settings = get_settings()
+    orion = OrionClient(tenant_id, base_url=settings.context_broker_url,
+                        context_url=settings.ngsi_ld_context)
+    try:
+        entity = await orion.get_entity(parcel_id)
+    except httpx.HTTPStatusError as exc:
+        if exc.response.status_code == 404:
+            raise PlanError("PARCEL_NOT_FOUND", "parcel not found", {"parcel_id": parcel_id}) from exc
+        logger.exception("Parcel lookup failed: parcel_id=%s tenant_id=%s", parcel_id, tenant_id)
+        raise PlanError("PERSIST_FAILED", "parcel could not be verified") from exc
+    except Exception as exc:
+        logger.exception("Parcel lookup failed: parcel_id=%s tenant_id=%s", parcel_id, tenant_id)
+        raise PlanError("PERSIST_FAILED", "parcel could not be verified") from exc
+    finally:
+        await orion.close()
+    if not entity:
+        raise PlanError("PARCEL_NOT_FOUND", "parcel not found", {"parcel_id": parcel_id})
 
 
 def _iso_utc(value: Optional[datetime]) -> Optional[str]:
@@ -890,6 +1128,9 @@ async def export_operation(request: Request, operation_id: str, format: str = Qu
     if not entity:
         raise HTTPException(status_code=404, detail="Operation not found")
     location = entity.get("location", {}).get("value", {})
+    if entity.get("operationType", {}).get("value") == "transit" and format == "isoxml":
+        raise PlanError("EXPORT_NOT_SUPPORTED", "transit operations cannot be exported as ISOXML",
+                        {"format": "isoxml"})
     op_record = {
         "id": entity["id"],
         "name": entity.get("name", {}).get("value", ""),

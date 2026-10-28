@@ -60,7 +60,7 @@ const withResult = (over: Partial<WorkState> = {}, operationId: string | null = 
   phase: 'generated',
   parcel: { id: 'p1', name: 'Alpha', geometry: poly() },
   machine: { ...initialWorkState.machine, widthM: 6, turningRadiusM: 5 },
-  result: { plan: plan(), kind: 'with_warnings', operationId },
+  result: { plan: plan(), kind: 'with_warnings', operationId, planId: null, vraKey: null },
   ...over,
 });
 

@@ -26,10 +26,14 @@ vi.mock('../../../map/MapCanvas', () => ({
   },
 }));
 
-vi.mock('../../pathfinding/PathfindingTab', () => ({
-  PathfindingTab: (props: any) => (
-    <div data-testid="pf">Rutas A-B|{String(props.parcelId)}|{String(props.machineWidthM)}|{String(props.turningRadiusM)}</div>
-  ),
+let transitMounts = 0;
+vi.mock('../../transit/TransitScreen', () => ({
+  TransitScreen: (props: any) => {
+    const [id] = React.useState(() => ++transitMounts);
+    return (
+    <div data-testid="pf" data-mount={id}>Rutas A-B|{String(props.workContext.parcelId)}|{String(props.workContext.machineWidthM)}|{String(props.workContext.turningRadiusM)}</div>
+    );
+  },
 }));
 
 vi.mock('../../../services/api', async (importOriginal) => {
@@ -42,8 +46,10 @@ vi.mock('../../../services/api', async (importOriginal) => {
       getParcelConfig: vi.fn(),
       listEquipment: vi.fn(),
       generate: vi.fn(),
+      saveOperation: vi.fn(),
       saveParcelConfig: vi.fn(),
       getExportUrl: vi.fn(() => 'http://export.test/x'),
+      getDistribution: vi.fn(), prescription: vi.fn(), requestZones: vi.fn(),
     },
   };
 });
@@ -123,7 +129,7 @@ describe('WorkScreen', () => {
   });
 
   it('generate: verifies config, calls api.generate with persist:false and renders the result strip', async () => {
-    (api.generate as any).mockResolvedValue({ success: true, operation_id: null, persisted: false, plan: planFixture() });
+    (api.generate as any).mockResolvedValue({ success: true, operation_id: null, persisted: false, plan_id: 'plan-1', plan: planFixture() });
     await loadAndConfigure();
     fireEvent.click(screen.getByRole('button', { name: /Generar ruta/i }));
     await screen.findByText(/12 pasadas/);
@@ -144,16 +150,17 @@ describe('WorkScreen', () => {
     await waitFor(() => expect(mapProps().model.focus).toEqual(point));
   });
 
-  it('save: calls api.generate with persist:true and shows the operation id when persisted', async () => {
-    (api.generate as any)
-      .mockResolvedValueOnce({ success: true, operation_id: null, persisted: false, plan: planFixture() })
-      .mockResolvedValueOnce({ success: true, operation_id: 'op-12345678', persisted: true, plan: planFixture() });
+  it('save: persists the reviewed plan by id without a second /generate', async () => {
+    (api.generate as any).mockResolvedValue({ success: true, operation_id: null, persisted: false, plan_id: 'plan-1', plan: planFixture() });
+    (api.saveOperation as any).mockResolvedValue({ success: true, operation_id: 'op-12345678', persisted: true });
     await loadAndConfigure();
     fireEvent.click(screen.getByRole('button', { name: /Generar ruta/i }));
     await screen.findByText(/12 pasadas/);
     fireEvent.click(screen.getByRole('button', { name: 'Enviar al tractor' }));
     await screen.findByText('Enviada (12345678)');
-    expect((api.generate as any).mock.calls.map((c: any[]) => c[0].persist)).toEqual([false, true]);
+    expect(api.generate).toHaveBeenCalledTimes(1);
+    expect((api.generate as any).mock.calls[0][0].persist).toBe(false);
+    expect(api.saveOperation).toHaveBeenCalledWith({ kind: 'plan', plan_id: 'plan-1' });
     expect(screen.getByText('op-12345678')).toBeTruthy();
   });
 
@@ -186,7 +193,7 @@ describe('WorkScreen', () => {
 });
 
 describe('WorkScreen request flow', () => {
-  const okResponse = () => ({ success: true, operation_id: null, persisted: false, plan: planFixture() });
+  const okResponse = () => ({ success: true, operation_id: null, persisted: false, plan_id: 'plan-1', plan: planFixture() });
   const clickGenerate = () => fireEvent.click(screen.getByRole('button', { name: /Generar ruta|Regenerar/i }));
 
   it('a double click on Generar sends one request (state machine locks before any await)', async () => {
@@ -247,16 +254,67 @@ describe('WorkScreen request flow', () => {
     expect(alert.textContent).not.toContain('Error interno del motor');
   });
 
-  it('save shows the persisted plan returned by the server', async () => {
-    const second = planFixture(); second.swath_count = 7;
+  it('a double click on Enviar sends one save', async () => {
+    let resolve!: (v: unknown) => void;
+    (api.generate as any).mockResolvedValue(okResponse());
+    (api.saveOperation as any).mockImplementation(() => new Promise((r) => { resolve = r; }));
+    await loadAndConfigure();
+    clickGenerate();
+    await screen.findByText(/12 pasadas/);
+    const btn = screen.getByRole('button', { name: 'Enviar al tractor' });
+    fireEvent.click(btn);
+    fireEvent.click(btn);
+    await waitFor(() => expect(api.saveOperation).toHaveBeenCalledTimes(1));
+    await act(async () => { resolve({ success: true, operation_id: 'op-12345678', persisted: true }); });
+    await screen.findByText('Enviada (12345678)');
+    expect(api.saveOperation).toHaveBeenCalledTimes(1);
+  });
+
+  it('Save regenerates once when the VRA changed since generating, saves the new plan and announces it', async () => {
+    const presc = {
+      unit: 'kg_ha', product: 'N',
+      classes: [0, 1, 2].map((i) => ({ index: i, min_pct: 0, max_pct: 0, rate: 1, area_ha: 1, product_total: 1 })),
+      zones: emptyFc, swath_segments: emptyFc, warnings: [],
+    };
+    (api.getDistribution as any).mockResolvedValue({
+      source: 'orion', variable: 'NDVI', missing: [], percentiles: Array.from({ length: 21 }, (_, i) => 0.2 + i * 0.03),
+      zones: [0.3, 0.5, 0.7, 0.9].map((m, i) => ({ id: `z${i}`, mean: m, area_ha: 1, geometry: poly() })),
+    });
+    (api.prescription as any).mockResolvedValue({ prescription: presc });
     (api.generate as any)
-      .mockResolvedValueOnce(okResponse())
-      .mockResolvedValueOnce({ success: true, operation_id: 'op-12345678', persisted: true, plan: second });
+      .mockResolvedValueOnce({ success: true, operation_id: null, persisted: false, plan_id: 'plan-1', plan: planFixture() })
+      .mockResolvedValueOnce({ success: true, operation_id: null, persisted: false, plan_id: 'plan-2', plan: { ...planFixture(), prescription: presc } });
+    (api.saveOperation as any).mockResolvedValue({ success: true, operation_id: 'op-12345678', persisted: true });
+    await loadAndConfigure();
+    clickGenerate();
+    await screen.findByText(/12 pasadas/);
+
+    fireEvent.click(screen.getByRole('button', { name: /VRA/ }));
+    fireEvent.click(await screen.findByLabelText('Aplicar dosis variable'));
+    for (const n of [1, 2, 3]) fireEvent.change(await screen.findByLabelText(`Dosis de la clase ${n}`), { target: { value: String(n) } });
+    await waitFor(() => expect(api.prescription).toHaveBeenCalled(), { timeout: 3000 });
+    await waitFor(() => expect((screen.getByRole('button', { name: 'Enviar al tractor' }) as HTMLButtonElement).disabled).toBe(false));
+
+    fireEvent.click(screen.getByRole('button', { name: 'Enviar al tractor' }));
+    await screen.findByText('Enviada (12345678)');
+    expect(api.generate).toHaveBeenCalledTimes(2);
+    expect((api.generate as any).mock.calls[1][0]).toMatchObject({ persist: false, vra: expect.objectContaining({ enabled: true }) });
+    expect(api.saveOperation).toHaveBeenCalledTimes(1);
+    expect(api.saveOperation).toHaveBeenCalledWith({ kind: 'plan', plan_id: 'plan-2' });
+    expect(screen.getByText('Plan regenerado con la dosis actual antes de guardar')).toBeTruthy();
+  });
+
+  it('an expired plan shows the translated error and Generar de nuevo regenerates', async () => {
+    (api.generate as any).mockResolvedValue(okResponse());
+    (api.saveOperation as any).mockRejectedValue(new ApiError(410, { code: 'PLAN_EXPIRED', detail: 'gone' }));
     await loadAndConfigure();
     clickGenerate();
     await screen.findByText(/12 pasadas/);
     fireEvent.click(screen.getByRole('button', { name: 'Enviar al tractor' }));
-    await screen.findByText(/7 pasadas/);
+    const alert = await screen.findByRole('alert');
+    expect(alert.textContent).toContain('caducado');
+    fireEvent.click(screen.getByRole('button', { name: 'Generar de nuevo' }));
+    await waitFor(() => expect(api.generate).toHaveBeenCalledTimes(2));
   });
 
   it('removing the entrance: verify sees a cleared broker (no re-PUT); a stale broker gets an explicit null', async () => {
@@ -318,6 +376,21 @@ describe('App', () => {
     fireEvent.change(await parcelSelect(), { target: { value: 'p1' } });
     await waitFor(() => expect(mapProps().model.parcel).not.toBeNull());
     fireEvent.mouseDown(screen.getByRole('tab', { name: 'Tránsito A-B' }), { button: 0, ctrlKey: false }); // Radix activates on mousedown
-    expect((await screen.findByTestId('pf')).textContent).toBe('Rutas A-B|p1|undefined|null');
+    expect((await screen.findByTestId('pf')).textContent).toBe('Rutas A-B|p1|null|null');
+  });
+
+  it('the transit screen is mounted on first visit and survives tab switches (hidden, not unmounted)', async () => {
+    render(<App />);
+    const tab = (name: string) => fireEvent.mouseDown(screen.getByRole('tab', { name }), { button: 0, ctrlKey: false });
+    expect(screen.queryByTestId('pf')).toBeNull();
+    tab('Tránsito A-B');
+    const first = await screen.findByTestId('pf');
+    const mount = first.getAttribute('data-mount');
+    expect(first.parentElement!.className).not.toContain('hidden');
+    tab('Trabajo');
+    await waitFor(() => expect(screen.getByTestId('pf').parentElement!.className).toContain('hidden'));
+    tab('Tránsito A-B');
+    await waitFor(() => expect(screen.getByTestId('pf').parentElement!.className).not.toContain('hidden'));
+    expect(screen.getByTestId('pf').getAttribute('data-mount')).toBe(mount);
   });
 });

@@ -62,9 +62,6 @@
     "title": "Error",
     "unexpected": "An unexpected error occurred",
     "retry": "Retry",
-    "pathfindingFailed": "Pathfinding failed",
-    "pathfindingTimeout": "Pathfinding timed out",
-    "pathCalculationFailed": "Path calculation failed",
     "geoFailed": "Errorea geometria kargatzean",
     "authRequired": "Autenticación requerida",
     "generateFailed": "Error al generar la ruta",
@@ -172,19 +169,9 @@
     "snake": "Salto txandakatuak"
   },
   "pathfinding": {
-    "pickOnMap": "Pick A-B path on map",
     "pickPointA": "Click point A on the map",
     "pickPointB": "Click point B on the map",
-    "calculating": "Calculating alternatives...",
-    "selectAndSave": "Selected path:",
-    "alternatives": "Alternatives",
-    "title": "A-B ibilbideak",
-    "calculate": "Kalkulatu ibilbidea",
-    "pointA": "A puntua",
-    "pointB": "B puntua",
-    "distance": "Distantzia",
-    "climb": "Metatutako desnibela",
-    "results": "Emaitzak"
+    "calculating": "Calculating alternatives..."
   },
   "panels": {
     "emptyState": "Generate a route to see results",
@@ -315,7 +302,8 @@
       "VRA_UNCOVERED": "Ibilbidearen {{length_m}} m kudeaketa-zonetatik kanpo daude: ez da dosirik aplikatzen",
       "VRA_DEGENERATE": "Zona guztiek balio bera dute: klase bakar bat aplikatzen da",
       "VRA_ZONE_INVALID": "{{zone_id}} zonaren geometria ez da baliozkoa eta ez ikusi egin zaio",
-      "ZONES_NO_PRJ": "Shapefile .prj gabe: WGS84 (EPSG:4326) koordenatuak suposatzen dira"
+      "ZONES_NO_PRJ": "Shapefile .prj gabe: WGS84 (EPSG:4326) koordenatuak suposatzen dira",
+      "PLAN_TOO_LARGE_TO_SAVE": "Plan hau handiegia da gordetzeko ({{size_kb}} KB)."
     },
     "fallbacks": {
       "headland": "Muga-pasadak doituta: {{a}} -> {{b}}",
@@ -334,6 +322,9 @@
       "INVALID_GEOMETRY": "Geometria ez da baliozkoa",
       "ENGINE_FAILURE": "Bide-motorraren barne errorea",
       "PERSIST_FAILED": "Eragiketa ezin izan da gorde",
+      "PLAN_EXPIRED": "Berrikusitako plana iraungi da. Sortu berriro.",
+      "PARCEL_REQUIRED": "Eragiketa gordetzeko lursail bat behar da",
+      "INVALID_DATES": "Aurreikusitako datak ez dira baliozkoak",
       "UNKNOWN": "Ibilbidea ezin izan da sortu: {{detail}}",
       "CONFIG_UNVERIFIED": "Ezin izan da gordetako konfigurazioa egiaztatu. Ez da ezer sortu; saiatu berriro.",
       "INVALID_VRA": "Dosi aldakorraren konfigurazioa ez da baliozkoa",
@@ -341,10 +332,12 @@
       "ZONES_NO_VALUE": "Ez dago balio-atributurik (value, mean, ndvi edo rate). Fitxategiko atributuak: {{attributes}}",
       "ZONES_FILE_TOO_LARGE": "Zonen fitxategia 5 MB baino handiagoa da",
       "PLAN_TOO_LARGE": "Plana handiegia da gordetzeko ({{size_kb}} KB). Erabili eremu gutxiago, eremu handiagoak edo azalera txikiagoa.",
-      "ZONES_UNAVAILABLE": "Ezin izan dira kudeaketa-eremuak irakurri. Saiatu berriro."
+      "ZONES_UNAVAILABLE": "Ezin izan dira kudeaketa-eremuak irakurri. Saiatu berriro.",
+      "PLAN_TOO_LARGE_TO_SAVE": "Plana handiegia da gordetzeko. Erabili zona gutxiago eta handiagoak, edo eremu txikiagoa."
     },
     "actions": {
       "regenerate": "Birsortu",
+      "generateAgain": "Sortu berriro",
       "sendToTractor": "Bidali traktorera",
       "sent": "Bidalita ({{id}})",
       "copyId": "Kopiatu ID",
@@ -359,7 +352,8 @@
       "work": "Lana",
       "transit": "A-B igarotzea"
     },
-    "empty": "Hautatu lur-sail bat hasteko"
+    "empty": "Hautatu lur-sail bat hasteko",
+    "regeneratedOnSave": "Plana berriro sortu da uneko dosiarekin gorde aurretik"
   },
   "autosave": {
     "saved": "Gordeta {{time}}",
@@ -394,6 +388,89 @@
       "swaths": "Pasaldiak",
       "warnings": "Abisuak",
       "vra": "VRA klaseak"
+    }
+  },
+  "transit": {
+    "points": "Puntuak",
+    "pointA": "A puntua (lat, lon)",
+    "pointB": "B puntua (lat, lon)",
+    "markA": "Markatu A",
+    "markB": "Markatu B",
+    "pickingA": "Egin klik mapan A jartzeko. Gero markatzailea arrastatu dezakezu.",
+    "pickingB": "Egin klik mapan B jartzeko. Gero markatzailea arrastatu dezakezu.",
+    "useEntrance": "Erabili {{parcel}} partzelaren sarrera B gisa",
+    "exportName": "Igarobidea",
+    "machine": {
+      "title": "Makina",
+      "manual": "Eskuzko zabalera",
+      "width": "Lan-zabalera (m)",
+      "slope": "Gehieneko malda (°)",
+      "slopeHelp": "0 eta 45° artean. Ibilbideak malda handiagoko lurzorua saihesten du (lehenetsia 15°).",
+      "noWidth": "Makina honek ez du lan-zabalerarik: idatzi ezazu.",
+      "pick": "Erabili beharreko makina"
+    },
+    "calculate": "Kalkulatu ibilbidea",
+    "status": {
+      "queued": "Ilaran itxaroten...",
+      "running": "Ibilbideak kalkulatzen..."
+    },
+    "results": "Emaitzak",
+    "stale": "Zaharkituta: datuak aldatu dira. Kalkulatu berriro gordetzeko.",
+    "alt": {
+      "least_slope": "Malda txikiena",
+      "fastest": "Azkarrena"
+    },
+    "distance": "Distantzia",
+    "climb": "Metatutako desnibela",
+    "maxSlopeFound": "Gehienezko malda",
+    "profile": {
+      "label": "Hautatutako ibilbidearen garaiera-profila",
+      "at": "{{dist}} m · {{z}} m itsas mailaren gainetik"
+    },
+    "save": {
+      "title": "Gorde",
+      "noParcel": "Partzelarik gabe",
+      "needParcel": "Aukeratu helburuko partzela gordetzeko. Hura gabe esportatu besterik ezin duzu.",
+      "button": "Gorde eragiketa gisa",
+      "saving": "Gordetzen...",
+      "saved": "Aplikazioan eskuragarri · #{{id}} eragiketa",
+      "parcel": "Helburuko partzela"
+    },
+    "export": {
+      "title": "Esportatu",
+      "gpx": "GPX",
+      "geojson": "GeoJSON",
+      "stale": "Azken kalkuluaren ibilbidea esportatzen da;ordutik datuak aldatu dira."
+    },
+    "context": {
+      "zoomIn": "Hurbildu partzelak, ateak eta NO-GO eremuak ikusteko",
+      "error": "Ezin izan da partzelen testuingurua kargatu"
+    },
+    "errors": {
+      "DEM_UNAVAILABLE": "Ez dago garaiera-daturik eremu honetarako.",
+      "POINT_IN_ZONE": "{{point}} puntua NO-GO eremu baten barruan dago. Mugitu ezazu.",
+      "POINT_ON_BARRIER": "{{point}} puntua ate duen partzela baten hesian dago. Mugitu ezazu edo erabili atea.",
+      "NO_PATH": "Ez dago NO-GO eremuak eta ate duten partzelak saihesten dituen ibilbiderik.",
+      "NO_PATH_MARGIN": "Ez dago NO-GO eremuak eta ate duten partzelak saihesten dituen ibilbiderik (A-B inguruko {{search_margin_m}} m miatu dira).",
+      "MACHINE_WIDTH_MISSING": "Makinak ez du lan-zabalerarik. Idatzi ezazu.",
+      "AREA_TOO_LARGE": "A eta B urrunegi daude ibilbidea kalkulatzeko.",
+      "ENGINE_FAILURE": "Ibilbide-motorraren barne-errorea.",
+      "PLAN_EXPIRED": "Kalkulatutako ibilbidea iraungi da. Kalkulatu berriro.",
+      "PARCEL_REQUIRED": "Aukeratu helburuko partzela gordetzeko.",
+      "PARCEL_NOT_FOUND": "Ez da helburuko partzela aurkitu.",
+      "JOB_NOT_FOUND": "Kalkulua ez dago eskuragarri jada. Kalkulatu berriro.",
+      "JOB_NOT_READY": "Kalkulua ez da oraindik amaitu.",
+      "ALTERNATIVE_NOT_FOUND": "Ibilbide hori ez dago emaitzan. Kalkulatu berriro.",
+      "INVALID_DATES": "Datak ez dira baliozkoak.",
+      "EXPORT_NOT_SUPPORTED": "Esportazio-formatu hau ez dago erabilgarri igarobideetarako.",
+      "PERSIST_FAILED": "Ezin izan da eragiketa gorde.",
+      "JOB_TIMEOUT": "Kalkuluak luze jo du. Saiatu berriro.",
+      "UNKNOWN": "Ezin izan da ibilbidea kalkulatu: {{detail}}",
+      "JOBS_LIMIT": "Kalkulu gehiegi martxan daude ({{max_jobs}}). Itxaron bat amaitu arte."
+    },
+    "warnings": {
+      "PARCELS_UNREADABLE": "Eremuko {{count}} lursailek ez dute muga irakurgarririk: haien ateak ez dira aplikatzen.",
+      "UNKNOWN": "Abisua {{code}}"
     }
   }
 }

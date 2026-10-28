@@ -4,11 +4,11 @@ import uuid
 
 
 class JobLimitError(Exception):
-    """The tenant already has the maximum number of live jobs."""
+    """The tenant already has the maximum number of queued or running jobs."""
 
 
 class JobStore:
-    def __init__(self, ttl_s: int = 3600, max_per_tenant: int = 20, clock=time.monotonic) -> None:
+    def __init__(self, ttl_s: int = 3600, max_per_tenant: int = 3, clock=time.monotonic) -> None:
         self._ttl_s = ttl_s
         self._max_per_tenant = max_per_tenant
         self._clock = clock
@@ -25,8 +25,10 @@ class JobStore:
 
     def create(self, tenant_id: str) -> str:
         self.purge()
-        live = sum(1 for e in self._jobs.values() if e["tenant_id"] == tenant_id)
-        if live >= self._max_per_tenant:
+        # Finished jobs stay readable until the TTL but do not count against the limit.
+        active = sum(1 for e in self._jobs.values()
+                     if e["tenant_id"] == tenant_id and e["payload"].get("status") in ("queued", "running"))
+        if active >= self._max_per_tenant:
             raise JobLimitError(tenant_id)
         job_id = uuid.uuid4().hex[:12]
         self._jobs[job_id] = {

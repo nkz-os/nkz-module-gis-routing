@@ -195,9 +195,14 @@ _LABELS = {
 }
 
 
-def terminus_blocked(start: tuple, end: tuple, blocked: set) -> bool:
-    """True if either endpoint cell is in the blocked set (A* would start/end in a no-go zone)."""
-    return start in blocked or end in blocked
+def blocked_terminus(start: tuple, end: tuple, blocked: set) -> str | None:
+    """"A" or "B" for the first endpoint cell in the blocked set (A* would start/end
+    in a no-go zone); None when both are clear. A is reported before B."""
+    if start in blocked:
+        return "A"
+    if end in blocked:
+        return "B"
+    return None
 
 
 def _line_of_sight(c0: int, r0: int, c1: int, r1: int, blocked: set) -> bool:

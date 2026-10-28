@@ -108,3 +108,13 @@ def test_malformed_zone_config_raises_naming_entity(value):
 def test_empty_zone_config_is_no_zones():
     assert pc._zone_polygons({}, entity_id="x") == []
     assert pc._zone_polygons(None, entity_id="x") == []
+
+
+@pytest.mark.asyncio
+async def test_tenant_parcels_read_without_attrs_filter(monkeypatch):
+    # Orion-LD returns zero entities for an attrs list naming one IRI twice
+    # (e.g. a term and its full IRI): no attrs filter at all, read every attribute.
+    fake = _fake(lambda k: [])
+    monkeypatch.setattr(pc, "OrionClient", fake)
+    await pc.fetch_tenant_zones_in_bbox("tenant-a", (-0.005, -0.005, 0.005, 0.005))
+    assert fake.calls and all("attrs" not in c for c in fake.calls)
