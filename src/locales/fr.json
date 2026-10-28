@@ -310,5 +310,59 @@
   "direction": {
     "outsideIn": "Outside → In",
     "insideOut": "Inside → Out"
+  },
+  "work": {
+    "steps": {
+      "parcel": "Parcelle",
+      "zones": "Zones exclues",
+      "access": "Entrée",
+      "machine": "Machine",
+      "pattern": "Motif",
+      "vra": "VRA"
+    },
+    "zones": {
+      "summary": "{{count}} zones · {{ha}} ha",
+      "draw": "Dessiner une zone",
+      "drawing": "Dessin… cliquez pour terminer",
+      "invalid": "Invalide",
+      "fixedRing": "Anneau fixe de la parcelle",
+      "delete": "Supprimer la zone",
+      "empty": "Aucune zone exclue",
+      "zoneN": "Zone {{n}}"
+    },
+    "access": {
+      "set": "Entrée définie",
+      "unset": "Pas d'entrée",
+      "issue_outside": "L'entrée est hors de la parcelle",
+      "issue_in_zone": "L'entrée est dans une zone exclue",
+      "place": "Placer l'entrée",
+      "placing": "Placement… cliquez pour annuler",
+      "remove": "Retirer l'entrée",
+      "returnToAccess": "Revenir à l'entrée à la fin"
+    },
+    "machine": {
+      "incomplete": "Largeur ou rayon manquant",
+      "fromMachine": "De la machine",
+      "manual": "Manuel",
+      "effectiveWidth": "Largeur effective : {{w}} m",
+      "width": "Largeur de travail (m)",
+      "radius": "Rayon de braquage (m)",
+      "overlap": "Chevauchement (%)",
+      "summary": "{{w}} m · R {{r}} m"
+    },
+    "pattern": {
+      "auto": "Automatique",
+      "summary": "{{pattern}} · fourrières : {{n}}"
+    },
+    "vra": {
+      "nextPhase": "Prescription variable : phase suivante"
+    }
+  },
+  "autosave": {
+    "saved": "Enregistré {{time}}",
+    "saving": "Enregistrement…",
+    "error": "Échec de l'enregistrement",
+    "retry": "Réessayer",
+    "dirty": "Modifications non enregistrées"
   }
 }

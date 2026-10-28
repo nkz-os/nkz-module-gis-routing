@@ -310,5 +310,59 @@
   "direction": {
     "outsideIn": "Outside → In",
     "insideOut": "Inside → Out"
+  },
+  "work": {
+    "steps": {
+      "parcel": "Parcela",
+      "zones": "Zonas excluídas",
+      "access": "Entrada",
+      "machine": "Máquina",
+      "pattern": "Padrão",
+      "vra": "VRA"
+    },
+    "zones": {
+      "summary": "{{count}} zonas · {{ha}} ha",
+      "draw": "Desenhar zona",
+      "drawing": "A desenhar… clique para terminar",
+      "invalid": "Inválida",
+      "fixedRing": "Anel fixo da parcela",
+      "delete": "Eliminar zona",
+      "empty": "Sem zonas excluídas",
+      "zoneN": "Zona {{n}}"
+    },
+    "access": {
+      "set": "Entrada definida",
+      "unset": "Sem entrada",
+      "issue_outside": "A entrada está fora da parcela",
+      "issue_in_zone": "A entrada está dentro de uma zona excluída",
+      "place": "Marcar entrada",
+      "placing": "A marcar… clique para cancelar",
+      "remove": "Remover entrada",
+      "returnToAccess": "Voltar à entrada no fim"
+    },
+    "machine": {
+      "incomplete": "Falta a largura ou o raio",
+      "fromMachine": "Da máquina",
+      "manual": "Manual",
+      "effectiveWidth": "Largura efetiva: {{w}} m",
+      "width": "Largura de trabalho (m)",
+      "radius": "Raio de viragem (m)",
+      "overlap": "Sobreposição (%)",
+      "summary": "{{w}} m · R {{r}} m"
+    },
+    "pattern": {
+      "auto": "Automático",
+      "summary": "{{pattern}} · cabeceiras: {{n}}"
+    },
+    "vra": {
+      "nextPhase": "Prescrição variável: próxima fase"
+    }
+  },
+  "autosave": {
+    "saved": "Guardado {{time}}",
+    "saving": "A guardar…",
+    "error": "Erro ao guardar",
+    "retry": "Tentar novamente",
+    "dirty": "Alterações por guardar"
   }
 }

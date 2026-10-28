@@ -310,5 +310,59 @@
   "direction": {
     "outsideIn": "Outside → In",
     "insideOut": "Inside → Out"
+  },
+  "work": {
+    "steps": {
+      "parcel": "Parcel",
+      "zones": "Excluded zones",
+      "access": "Entrance",
+      "machine": "Machine",
+      "pattern": "Pattern",
+      "vra": "VRA"
+    },
+    "zones": {
+      "summary": "{{count}} zones · {{ha}} ha",
+      "draw": "Draw zone",
+      "drawing": "Drawing… click to finish",
+      "invalid": "Invalid",
+      "fixedRing": "Fixed parcel ring",
+      "delete": "Delete zone",
+      "empty": "No excluded zones",
+      "zoneN": "Zone {{n}}"
+    },
+    "access": {
+      "set": "Entrance set",
+      "unset": "No entrance",
+      "issue_outside": "Entrance is outside the parcel",
+      "issue_in_zone": "Entrance is inside an excluded zone",
+      "place": "Place entrance",
+      "placing": "Placing… click to cancel",
+      "remove": "Remove entrance",
+      "returnToAccess": "Return to the entrance when done"
+    },
+    "machine": {
+      "incomplete": "Width or radius missing",
+      "fromMachine": "From machine",
+      "manual": "Manual",
+      "effectiveWidth": "Effective width: {{w}} m",
+      "width": "Working width (m)",
+      "radius": "Turning radius (m)",
+      "overlap": "Overlap (%)",
+      "summary": "{{w}} m · R {{r}} m"
+    },
+    "pattern": {
+      "auto": "Automatic",
+      "summary": "{{pattern}} · headlands: {{n}}"
+    },
+    "vra": {
+      "nextPhase": "Variable-rate prescription: next phase"
+    }
+  },
+  "autosave": {
+    "saved": "Saved {{time}}",
+    "saving": "Saving…",
+    "error": "Save failed",
+    "retry": "Retry",
+    "dirty": "Unsaved changes"
   }
 }

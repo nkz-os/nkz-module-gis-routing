@@ -310,5 +310,59 @@
   "direction": {
     "outsideIn": "Outside → In",
     "insideOut": "Inside → Out"
+  },
+  "work": {
+    "steps": {
+      "parcel": "Parcel·la",
+      "zones": "Zones excloses",
+      "access": "Entrada",
+      "machine": "Màquina",
+      "pattern": "Patró",
+      "vra": "VRA"
+    },
+    "zones": {
+      "summary": "{{count}} zones · {{ha}} ha",
+      "draw": "Dibuixar zona",
+      "drawing": "Dibuixant… clica per acabar",
+      "invalid": "Invàlida",
+      "fixedRing": "Anell fix de la parcel·la",
+      "delete": "Eliminar zona",
+      "empty": "Sense zones excloses",
+      "zoneN": "Zona {{n}}"
+    },
+    "access": {
+      "set": "Entrada marcada",
+      "unset": "Sense entrada",
+      "issue_outside": "L'entrada és fora de la parcel·la",
+      "issue_in_zone": "L'entrada és dins d'una zona exclosa",
+      "place": "Marcar entrada",
+      "placing": "Marcant… clica per cancel·lar",
+      "remove": "Treure entrada",
+      "returnToAccess": "Tornar a l'entrada en acabar"
+    },
+    "machine": {
+      "incomplete": "Falta l'amplada o el radi",
+      "fromMachine": "De la màquina",
+      "manual": "Manual",
+      "effectiveWidth": "Amplada efectiva: {{w}} m",
+      "width": "Amplada de treball (m)",
+      "radius": "Radi de gir (m)",
+      "overlap": "Solapament (%)",
+      "summary": "{{w}} m · R {{r}} m"
+    },
+    "pattern": {
+      "auto": "Automàtic",
+      "summary": "{{pattern}} · capçaleres: {{n}}"
+    },
+    "vra": {
+      "nextPhase": "Prescripció variable: propera fase"
+    }
+  },
+  "autosave": {
+    "saved": "Desat {{time}}",
+    "saving": "Desant…",
+    "error": "Error en desar",
+    "retry": "Reintentar",
+    "dirty": "Canvis sense desar"
   }
 }

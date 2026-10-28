@@ -310,5 +310,59 @@
   "direction": {
     "outsideIn": "Outside → In",
     "insideOut": "Inside → Out"
+  },
+  "work": {
+    "steps": {
+      "parcel": "Partzela",
+      "zones": "Baztertutako zonak",
+      "access": "Sarrera",
+      "machine": "Makina",
+      "pattern": "Eredua",
+      "vra": "VRA"
+    },
+    "zones": {
+      "summary": "{{count}} zona · {{ha}} ha",
+      "draw": "Zona marraztu",
+      "drawing": "Marrazten… sakatu amaitzeko",
+      "invalid": "Baliogabea",
+      "fixedRing": "Partzelaren eraztun finkoa",
+      "delete": "Zona ezabatu",
+      "empty": "Baztertutako zonarik ez",
+      "zoneN": "{{n}}. zona"
+    },
+    "access": {
+      "set": "Sarrera markatuta",
+      "unset": "Sarrerarik ez",
+      "issue_outside": "Sarrera partzelatik kanpo dago",
+      "issue_in_zone": "Sarrera baztertutako zona baten barruan dago",
+      "place": "Sarrera markatu",
+      "placing": "Markatzen… sakatu bertan behera uzteko",
+      "remove": "Sarrera kendu",
+      "returnToAccess": "Amaitzean sarrerara itzuli"
+    },
+    "machine": {
+      "incomplete": "Zabalera edo erradioa falta da",
+      "fromMachine": "Makinatik",
+      "manual": "Eskuz",
+      "effectiveWidth": "Zabalera eraginkorra: {{w}} m",
+      "width": "Lan-zabalera (m)",
+      "radius": "Biraketa-erradioa (m)",
+      "overlap": "Gainjartzea (%)",
+      "summary": "{{w}} m · R {{r}} m"
+    },
+    "pattern": {
+      "auto": "Automatikoa",
+      "summary": "{{pattern}} · burualdeak: {{n}}"
+    },
+    "vra": {
+      "nextPhase": "Dosi aldakorreko preskripzioa: hurrengo fasea"
+    }
+  },
+  "autosave": {
+    "saved": "Gordeta {{time}}",
+    "saving": "Gordetzen…",
+    "error": "Errorea gordetzean",
+    "retry": "Berriro saiatu",
+    "dirty": "Gorde gabeko aldaketak"
   }
 }
