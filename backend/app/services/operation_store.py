@@ -83,6 +83,7 @@ def operation_to_detail(entity: dict) -> dict:
     row["generation_config"] = _prop(entity, "generationConfig")
     row["vra_config"] = _prop(entity, "vraConfig")
     row["prescription_map"] = _prop(entity, "prescriptionMap")
+    row["prescription"] = _prop(entity, "prescription")
     row["tractor_id"] = _rel(entity, "usesTractor")
     row["implement_id"] = _rel(entity, "usesImplement")
     row["source_operation_id"] = _rel(entity, "derivedFrom")
@@ -179,13 +180,9 @@ def build_operation_entity(*, op_id, body, result, prescription_map, is_template
     if body.implement_id:
         entity["usesImplement"] = {"type": "Relationship", "object": body.implement_id}
     if body.vra is not None:
-        entity["vraConfig"] = {"type": "Property", "value": {
-            "enabled": body.vra.enabled,
-            "source": body.vra.source,
-            "base_rate": body.vra.base_rate,
-            "rate_unit": body.vra.rate_unit,
-            "zone_ids": body.vra.zone_ids,
-        }}
+        entity["vraConfig"] = {"type": "Property", "value": body.vra.model_dump(exclude_none=True)}
+    if plan is not None and plan.get("prescription") is not None:
+        entity["prescription"] = {"type": "Property", "value": plan["prescription"]}
     if prescription_map:
         entity["prescriptionMap"] = {"type": "Property", "value": prescription_map}
     # Orion rejects a Property/GeoProperty whose value is null.

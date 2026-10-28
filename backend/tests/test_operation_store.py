@@ -82,11 +82,9 @@ class _PC:
 
 
 class _VRA:
-    enabled = True
-    source = "orion"
-    base_rate = 100.0
-    rate_unit = "l_ha"
-    zone_ids = ["urn:ngsi-ld:AgriManagementZone:z1"]
+    def model_dump(self, **_):
+        return {"enabled": True, "source": "orion", "unit": "kg_ha", "product": "N",
+                "classes": [{"min_pct": 0, "max_pct": 100, "rate": 1.0}]}
 
 
 def _body():
@@ -132,7 +130,7 @@ def test_build_operation_entity_has_metrics_config_and_flag():
     assert e["generationConfig"]["value"]["heading_deg"] == 30.0
     assert e["generationConfig"]["value"]["turning_radius_m"] == 6.5
     assert e["vraConfig"]["value"]["source"] == "orion"
-    assert e["vraConfig"]["value"]["zone_ids"] == ["urn:ngsi-ld:AgriManagementZone:z1"]
+    assert e["vraConfig"]["value"]["unit"] == "kg_ha"
     assert e["hasAgriParcel"]["object"] == "urn:ngsi-ld:AgriParcel:p1"
     assert e["usesTractor"]["object"] == "urn:ngsi-ld:ManufacturingMachine:t1"
     assert "usesImplement" not in e

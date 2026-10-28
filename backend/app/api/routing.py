@@ -11,6 +11,7 @@ import hashlib
 import csv
 import json
 import logging
+import math
 import os
 import time
 import io
@@ -69,6 +70,22 @@ def _to_float(value, default: float = 0.0) -> float:
         return default
 
 
+def _explicit_value(props: dict) -> dict:
+    """Classification value as given: value, else mean_value, else (last resort) an explicit
+    prescription_rate. A defaulted prescription_rate is never used as a value."""
+    for key in ("value", "mean_value", "prescription_rate", "prescriptionRate"):
+        raw = props.get(key)
+        if raw in (None, ""):
+            continue
+        try:
+            v = float(raw)
+        except (TypeError, ValueError):
+            continue
+        if math.isfinite(v):
+            return {"value": v}
+    return {}
+
+
 def _normalize_external_zone_features(raw_features: list[dict]) -> list[dict]:
     normalized: list[dict] = []
     for idx, feat in enumerate(raw_features):
@@ -89,6 +106,7 @@ def _normalize_external_zone_features(raw_features: list[dict]) -> list[dict]:
                         properties.get("prescription_rate", properties.get("prescriptionRate", 1.0)),
                         1.0,
                     ),
+                    **_explicit_value(properties),
                 },
             }
         )
@@ -120,6 +138,7 @@ def _parse_external_zones_csv(content: str) -> list[dict]:
                     "zone_id": (row.get("zone_id") or f"csv-{idx + 1}").strip(),
                     "zone_class": (row.get("zone_class") or "external").strip(),
                     "prescription_rate": _to_float(row.get("prescription_rate"), 1.0),
+                    **_explicit_value(row),
                 },
             }
         )
@@ -375,13 +394,26 @@ class PatternConfigRequest(BaseModel):
     turning_radius_m: Optional[float] = Field(default=None, gt=0)
 
 
+class VRAClass(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    min_pct: float
+    max_pct: float
+    rate: float
+    label: Optional[str] = Field(default=None, max_length=80)
+
+
 class VRAConfig(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     enabled: bool = False
-    source: Literal["vegetation-health", "orion", "external"] = "orion"
-    base_rate: float = Field(default=100, gt=0)
-    rate_unit: str = "l_ha"
-    zone_ids: Optional[list[str]] = None
-    external_features: Optional[list[dict]] = None
+    source: Literal["orion", "external"] = "orion"
+    variable: str = Field(default="NDVI", max_length=40)
+    classes: list[VRAClass] = Field(default_factory=list)
+    unit: Literal["kg_ha", "l_ha"] = "kg_ha"
+    product: str = Field(default="", max_length=80)
+    invert: bool = False
+    external_features: Optional[dict] = None
 
 
 class GenerateRequest(BaseModel):
@@ -495,7 +527,14 @@ async def generate_routing_plan(request: Request, body: GenerateRequest, auth: A
         raise PlanError("ENGINE_FAILURE", "route generation failed", {}) from exc
 
     if body.vra and body.vra.enabled:
-        logger.warning("generate: vra ignored until the class-based prescription contract lands")
+        prescription = await _build_vra_prescription(
+            body.vra, parcel_id=body.parcel_id, tenant_id=auth.tenant_id,
+            swaths_utm=plan.swaths, parcel_utm=parcel_utm, to_utm=to_utm, to_wgs=to_wgs84)
+        plan_dict["prescription"] = prescription
+        if plan_dict.get("validation") is not None:
+            plan_dict["validation"]["warnings"].extend(
+                {"code": w["code"], "geometry": None, "params": w["params"]}
+                for w in prescription["warnings"])
 
     operation_id = None
     if body.persist and body.parcel_id:
@@ -508,6 +547,85 @@ async def generate_routing_plan(request: Request, body: GenerateRequest, auth: A
         "persisted": persisted,
         "plan": plan_dict,
     }
+
+
+async def _vra_zones(vra: VRAConfig, parcel_id, tenant_id: str):
+    from app.services.vra.zones import load_zones, external_zones
+    if vra.source == "external":
+        feats = (vra.external_features or {}).get("features")
+        if not feats:
+            raise PlanError("INVALID_VRA", "external source needs external_features")
+        return external_zones(feats)
+    if not parcel_id:
+        raise PlanError("INVALID_VRA", "orion source needs a parcel_id")
+    return await load_zones(tenant_id, parcel_id)
+
+
+async def _build_vra_prescription(vra: VRAConfig, *, parcel_id, tenant_id: str, swaths_utm,
+                                  parcel_utm, to_utm, to_wgs) -> dict:
+    from app.services.vra.prescription import build_prescription
+    zones, _missing = await _vra_zones(vra, parcel_id, tenant_id)
+    return await run_in_threadpool(
+        lambda: build_prescription(
+            zones=zones, classes=[c.model_dump(exclude={"label"}) for c in vra.classes],
+            unit=vra.unit, product=vra.product, invert=vra.invert, swaths_utm=swaths_utm,
+            parcel_utm=parcel_utm, to_utm=to_utm, to_wgs=to_wgs))
+
+
+async def _load_parcel_polygon(parcel_id: str, tenant_id: str):
+    """WGS84 Polygon of an AgriParcel read from Orion."""
+    from shapely.geometry import shape
+    settings = get_settings()
+    orion = OrionClient(tenant_id, base_url=settings.context_broker_url,
+                        context_url=settings.ngsi_ld_context)
+    try:
+        entity = await orion.get_entity(parcel_id)
+    finally:
+        await orion.close()
+    loc = ((entity or {}).get("location") or {}).get("value")
+    try:
+        poly = shape(loc)
+    except Exception as exc:
+        raise PlanError("INVALID_GEOMETRY", f"parcel geometry not found: {parcel_id}") from exc
+    if poly.geom_type != "Polygon" or poly.is_empty:
+        raise PlanError("INVALID_GEOMETRY", "parcel geometry must be a Polygon")
+    return poly if poly.is_valid else poly.buffer(0)
+
+
+class PrescriptionSwath(BaseModel):
+    index: int
+    kind: Literal["work", "headland"] = "work"
+    geometry: dict
+
+
+class PrescriptionRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    parcel_id: str
+    swaths: list[PrescriptionSwath]
+    vra: VRAConfig
+
+
+@router.post("/prescription")
+async def compute_prescription(body: PrescriptionRequest, auth: AuthContext = require_auth()):
+    """Stateless class-based prescription for the given swaths (nothing is persisted)."""
+    from shapely.geometry import shape
+    from app.services.coverage.plan import Swath
+    poly = await _load_parcel_polygon(body.parcel_id, auth.tenant_id)
+    parcel_utm, _crs, to_utm, to_wgs84 = project_polygon_to_utm(poly)
+    swaths = []
+    for s in body.swaths:
+        try:
+            line = shape(s.geometry)
+        except Exception as exc:
+            raise PlanError("INVALID_GEOMETRY", f"swath {s.index} geometry is not valid") from exc
+        if line.geom_type != "LineString":
+            raise PlanError("INVALID_GEOMETRY", f"swath {s.index} must be a LineString")
+        swaths.append(Swath(index=s.index, kind=s.kind, geometry=shp_transform(to_utm, line)))
+    prescription = await _build_vra_prescription(
+        body.vra, parcel_id=body.parcel_id, tenant_id=auth.tenant_id, swaths_utm=swaths,
+        parcel_utm=parcel_utm, to_utm=to_utm, to_wgs=to_wgs84)
+    return {"prescription": prescription}
 
 
 async def _resolve_machine(body: GenerateRequest, auth: AuthContext) -> dict:
@@ -622,11 +740,14 @@ async def ingest_external_zones(body: ExternalZonesIngestRequest, auth: AuthCont
         out = _parse_external_zones_csv(body.content)
     if not out:
         raise HTTPException(status_code=400, detail="No valid zone features found in external file.")
+    from app.services.vra.zones import distribution, external_zones
+    zones, missing = external_zones(out)
     return {
         "success": True,
         "data": {
             "count": len(out),
             "zones": out,
+            "distribution": distribution(zones, missing, source="external", variable="value"),
         },
     }
 
@@ -666,27 +787,32 @@ async def get_offline_tiles(request: Request, parcel_id: str = Query(..., descri
 @router.get("/zones/{parcel_id}")
 async def get_parcel_zones(request: Request, parcel_id: str, auth: AuthContext = require_auth()):
     """Fetch AgriManagementZone entities for a parcel from Orion-LD."""
-    tenant_id = auth.tenant_id
-    settings = get_settings()
-    orion = OrionClient(tenant_id=tenant_id, base_url=settings.context_broker_url, context_url=settings.ngsi_ld_context)
-    zones = await orion.query_entities("AgriManagementZone")
-    await orion.close()
+    from app.services.vra.zones import load_zone_entities
+    zones = await load_zone_entities(auth.tenant_id, parcel_id)
 
     matched = []
     for z in zones:
-        ref = _relationship_target(z, "hasAgriParcel")
-        if parcel_id in ref:
-            location = z.get("location", {}).get("value", {})
-            matched.append({
-                "id": z["id"],
-                "zone_id": z.get("zoneId", {}).get("value", ""),
-                "zone_class": z.get("zoneClass", {}).get("value", ""),
-                "prescription_rate": z.get("prescriptionRate", {}).get("value", 1.0),
-                "mean_value": z.get("meanValue", {}).get("value", 0),
-                "area_ha": z.get("areaHa", {}).get("value", 0),
-                "geometry": location,
-            })
+        location = z.get("location", {}).get("value", {})
+        matched.append({
+            "id": z["id"],
+            "zone_id": z.get("zoneId", {}).get("value", ""),
+            "zone_class": z.get("zoneClass", {}).get("value", ""),
+            "prescription_rate": z.get("prescriptionRate", {}).get("value", 1.0),
+            "mean_value": z.get("meanValue", {}).get("value", 0),
+            "area_ha": z.get("areaHa", {}).get("value", 0),
+            "geometry": location,
+        })
     return {"success": True, "data": {"parcel_id": parcel_id, "zones": matched, "count": len(matched)}}
+
+
+@router.get("/zones/{parcel_id}/distribution")
+async def zone_distribution(parcel_id: str, source: Literal["orion"] = "orion",
+                            variable: str = Query("NDVI", max_length=40),
+                            auth: AuthContext = require_auth()):
+    """Area-weighted value distribution of the parcel's current zones (5 % steps)."""
+    from app.services.vra.zones import distribution, load_zones
+    zones, missing = await load_zones(auth.tenant_id, parcel_id)
+    return distribution(zones, missing, source=source, variable=variable)
 
 
 @router.post("/zones/{parcel_id}/generate")
@@ -697,7 +823,9 @@ async def generate_vra_zones(request: Request, parcel_id: str, auth: AuthContext
         body = await request.json()
     except Exception:
         raise HTTPException(status_code=422, detail="Invalid JSON body")
-    n_zones = body.get("n_zones", 3)
+    n_zones = body.get("n_zones", 8) if isinstance(body, dict) else None
+    if isinstance(n_zones, bool) or not isinstance(n_zones, int) or not 2 <= n_zones <= 12:
+        raise HTTPException(status_code=422, detail="n_zones must be an integer from 2 to 12")
 
     # vegetation-prime performs its own JWT validation (Bearer/cookie) AND requires
     # X-Tenant-ID, so forward the caller's auth context. ASSUMPTION: the inbound
