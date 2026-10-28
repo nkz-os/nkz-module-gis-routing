@@ -398,14 +398,22 @@
       "copied": "Copiat!",
       "saveTemplate": "Desar com a plantilla",
       "exportFormat": "Format d'exportació"
-    }
+    },
+    "title": "Rutes GIS",
+    "tabs": {
+      "work": "Treball",
+      "transit": "Trànsit A-B"
+    },
+    "empty": "Selecciona una parcel·la per començar"
   },
   "autosave": {
     "saved": "Desat {{time}}",
     "saving": "Desant…",
     "error": "Error en desar",
     "retry": "Reintentar",
-    "dirty": "Canvis sense desar"
+    "dirty": "Canvis sense desar",
+    "restored": "Configuració restaurada des del servidor",
+    "verifyFailed": "No s'ha pogut verificar la configuració desada"
   },
   "result": {
     "swaths_one": "{{count}} passada",
@@ -420,5 +428,16 @@
     "fallbacksTitle": "Ajustos aplicats",
     "collapse": "Contreure",
     "expand": "Expandir"
+  },
+  "map": {
+    "refit": "Reencuadrar",
+    "loadError": "No s'ha pogut carregar el mapa",
+    "layers": {
+      "zones": "Zones",
+      "access": "Accés",
+      "route": "Ruta",
+      "swaths": "Passades",
+      "warnings": "Avisos"
+    }
   }
 }

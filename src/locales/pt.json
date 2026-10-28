@@ -398,14 +398,22 @@
       "copied": "Copiado!",
       "saveTemplate": "Guardar como modelo",
       "exportFormat": "Formato de exportação"
-    }
+    },
+    "title": "Rotas SIG",
+    "tabs": {
+      "work": "Trabalho",
+      "transit": "Trânsito A-B"
+    },
+    "empty": "Selecione uma parcela para começar"
   },
   "autosave": {
     "saved": "Guardado {{time}}",
     "saving": "A guardar…",
     "error": "Erro ao guardar",
     "retry": "Tentar novamente",
-    "dirty": "Alterações por guardar"
+    "dirty": "Alterações por guardar",
+    "restored": "Configuração restaurada a partir do servidor",
+    "verifyFailed": "Não foi possível verificar a configuração guardada"
   },
   "result": {
     "swaths_one": "{{count}} passagem",
@@ -420,5 +428,16 @@
     "fallbacksTitle": "Ajustes aplicados",
     "collapse": "Recolher",
     "expand": "Expandir"
+  },
+  "map": {
+    "refit": "Reenquadrar",
+    "loadError": "Não foi possível carregar o mapa",
+    "layers": {
+      "zones": "Zonas",
+      "access": "Acesso",
+      "route": "Rota",
+      "swaths": "Passagens",
+      "warnings": "Avisos"
+    }
   }
 }

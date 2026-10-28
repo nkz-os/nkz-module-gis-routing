@@ -398,14 +398,22 @@
       "copied": "¡Copiado!",
       "saveTemplate": "Guardar como plantilla",
       "exportFormat": "Formato de exportación"
-    }
+    },
+    "title": "Rutas GIS",
+    "tabs": {
+      "work": "Trabajo",
+      "transit": "Tránsito A-B"
+    },
+    "empty": "Selecciona una parcela para empezar"
   },
   "autosave": {
     "saved": "Guardado {{time}}",
     "saving": "Guardando…",
     "error": "Error al guardar",
     "retry": "Reintentar",
-    "dirty": "Cambios sin guardar"
+    "dirty": "Cambios sin guardar",
+    "restored": "Configuración restaurada desde el servidor",
+    "verifyFailed": "No se pudo verificar la configuración guardada"
   },
   "result": {
     "swaths_one": "{{count}} pasada",
@@ -420,5 +428,16 @@
     "fallbacksTitle": "Ajustes aplicados",
     "collapse": "Contraer",
     "expand": "Expandir"
+  },
+  "map": {
+    "refit": "Reencuadrar",
+    "loadError": "No se pudo cargar el mapa",
+    "layers": {
+      "zones": "Zonas",
+      "access": "Acceso",
+      "route": "Ruta",
+      "swaths": "Pasadas",
+      "warnings": "Avisos"
+    }
   }
 }

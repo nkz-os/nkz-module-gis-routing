@@ -398,14 +398,22 @@
       "copied": "Copied!",
       "saveTemplate": "Save as template",
       "exportFormat": "Export format"
-    }
+    },
+    "title": "GIS Routing",
+    "tabs": {
+      "work": "Work",
+      "transit": "Transit A-B"
+    },
+    "empty": "Select a parcel to start"
   },
   "autosave": {
     "saved": "Saved {{time}}",
     "saving": "Saving…",
     "error": "Save failed",
     "retry": "Retry",
-    "dirty": "Unsaved changes"
+    "dirty": "Unsaved changes",
+    "restored": "Configuration restored from the server",
+    "verifyFailed": "Could not verify the saved configuration"
   },
   "result": {
     "swaths_one": "{{count}} swath",
@@ -420,5 +428,16 @@
     "fallbacksTitle": "Adjustments applied",
     "collapse": "Collapse",
     "expand": "Expand"
+  },
+  "map": {
+    "refit": "Re-fit",
+    "loadError": "The map could not be loaded",
+    "layers": {
+      "zones": "Zones",
+      "access": "Access",
+      "route": "Route",
+      "swaths": "Swaths",
+      "warnings": "Warnings"
+    }
   }
 }

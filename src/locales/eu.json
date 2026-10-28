@@ -398,14 +398,22 @@
       "copied": "Kopiatuta!",
       "saveTemplate": "Gorde txantiloi gisa",
       "exportFormat": "Esportazio formatua"
-    }
+    },
+    "title": "GIS ibilbideak",
+    "tabs": {
+      "work": "Lana",
+      "transit": "A-B igarotzea"
+    },
+    "empty": "Hautatu lur-sail bat hasteko"
   },
   "autosave": {
     "saved": "Gordeta {{time}}",
     "saving": "Gordetzen…",
     "error": "Errorea gordetzean",
     "retry": "Berriro saiatu",
-    "dirty": "Gorde gabeko aldaketak"
+    "dirty": "Gorde gabeko aldaketak",
+    "restored": "Konfigurazioa zerbitzaritik berreskuratu da",
+    "verifyFailed": "Ezin izan da gordetako konfigurazioa egiaztatu"
   },
   "result": {
     "swaths_one": "{{count}} pasada",
@@ -420,5 +428,16 @@
     "fallbacksTitle": "Aplikatutako doikuntzak",
     "collapse": "Tolestu",
     "expand": "Zabaldu"
+  },
+  "map": {
+    "refit": "Birzentratu",
+    "loadError": "Ezin izan da mapa kargatu",
+    "layers": {
+      "zones": "Eremuak",
+      "access": "Sarbidea",
+      "route": "Ibilbidea",
+      "swaths": "Pasaldiak",
+      "warnings": "Abisuak"
+    }
   }
 }

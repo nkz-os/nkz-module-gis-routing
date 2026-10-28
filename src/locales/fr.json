@@ -398,14 +398,22 @@
       "copied": "Copié !",
       "saveTemplate": "Enregistrer comme modèle",
       "exportFormat": "Format d'export"
-    }
+    },
+    "title": "Itinéraires SIG",
+    "tabs": {
+      "work": "Travail",
+      "transit": "Transit A-B"
+    },
+    "empty": "Sélectionnez une parcelle pour commencer"
   },
   "autosave": {
     "saved": "Enregistré {{time}}",
     "saving": "Enregistrement…",
     "error": "Échec de l'enregistrement",
     "retry": "Réessayer",
-    "dirty": "Modifications non enregistrées"
+    "dirty": "Modifications non enregistrées",
+    "restored": "Configuration restaurée depuis le serveur",
+    "verifyFailed": "Impossible de vérifier la configuration enregistrée"
   },
   "result": {
     "swaths_one": "{{count}} passage",
@@ -420,5 +428,16 @@
     "fallbacksTitle": "Ajustements appliqués",
     "collapse": "Réduire",
     "expand": "Développer"
+  },
+  "map": {
+    "refit": "Recadrer",
+    "loadError": "La carte n'a pas pu être chargée",
+    "layers": {
+      "zones": "Zones",
+      "access": "Accès",
+      "route": "Itinéraire",
+      "swaths": "Passes",
+      "warnings": "Avertissements"
+    }
   }
 }

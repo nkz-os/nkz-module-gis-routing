@@ -13,6 +13,8 @@ export interface MapModel {
   stale: boolean;
   hoveredSwath: number | null;
   selectedWarning: number | null;
+  /** Geometry of a failed request (no plan): drawn as a synthetic warning and used for fitting. */
+  focus?: GeoJSON.Geometry | null;
 }
 
 export const SOURCE_IDS = ['parcel', 'parcel-rings', 'zones', 'zones-margin', 'swaths', 'route', 'access', 'markers', 'warnings'] as const;
@@ -82,6 +84,12 @@ export function buildSources(m: MapModel): Record<SourceId, GeoJSON.FeatureColle
     if (w.geometry.type !== 'Point') warnings.push(feature(w.geometry, { ...props, part: 'shape' }));
     warnings.push(feature(anchorOf(w.geometry), { ...props, part: 'anchor' }));
   });
+
+  if (m.focus && !plan) {
+    const props = { n: 0, code: 'ERROR', selected: true };
+    if (m.focus.type !== 'Point') warnings.push(feature(m.focus, { ...props, part: 'shape' }));
+    warnings.push(feature(anchorOf(m.focus), { ...props, part: 'anchor' }));
+  }
 
   return {
     parcel: fc(m.parcel ? [feature(m.parcel, {})] : []),
@@ -166,6 +174,7 @@ export function layerSpecs(): LayerSpecification[] {
 }
 
 export function planBounds(m: MapModel): [number, number, number, number] | null {
+  if (m.focus) return bboxOf(m.focus);
   if (m.parcel) return bboxOf(m.parcel);
   if (m.plan) return bboxOf(m.plan.route);
   return null;

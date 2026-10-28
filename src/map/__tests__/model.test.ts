@@ -50,4 +50,13 @@ describe('map model', () => {
     expect(f.filter(x => x.properties?.part === 'anchor').map(x => (x.geometry as any).coordinates)).toEqual([[1, 2], [5, 5]]);
     expect(f.filter(x => x.properties?.part === 'shape')).toHaveLength(1);
   });
+  it('draws a failed-request focus geometry as a synthetic warning and fits to it', () => {
+    const focus: any = { type: 'Point', coordinates: [20, 30] };
+    const s = buildSources({ ...base, focus });
+    expect(s.warnings.features).toHaveLength(1);
+    expect(s.warnings.features[0].properties).toMatchObject({ n: 0, code: 'ERROR', selected: true, part: 'anchor' });
+    expect(planBounds({ ...base, focus })).toEqual([20, 30, 20, 30]);
+    const line: any = { type: 'LineString', coordinates: [[1, 1], [2, 2]] };
+    expect(buildSources({ ...base, focus: line }).warnings.features.map(f => f.properties?.part).sort()).toEqual(['anchor', 'shape']);
+  });
 });

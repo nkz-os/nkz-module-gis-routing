@@ -116,13 +116,15 @@ export const ActionsBar: React.FC<Props> = ({
       </div>
 
       <div className="flex flex-wrap items-center gap-2">
-        <Select
-          value={format}
-          onValueChange={(v: string) => setFormat(v as ExportFormat)}
-          options={FORMATS.map((f) => ({ value: f, label: f.toUpperCase() }))}
-          disabled={!operationId}
-          aria-label={t('work.actions.exportFormat')}
-        />
+        <label className="flex items-center gap-2">
+          <span className="sr-only">{t('work.actions.exportFormat')}</span>
+          <Select
+            value={format}
+            onValueChange={(v: string) => setFormat(v as ExportFormat)}
+            options={FORMATS.map((f) => ({ value: f, label: f.toUpperCase() }))}
+            disabled={!operationId}
+          />
+        </label>
         <Button variant="secondary" onClick={() => onExport(format)} disabled={!operationId}>
           {t('actions.export')}
         </Button>
