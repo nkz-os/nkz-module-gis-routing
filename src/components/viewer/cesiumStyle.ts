@@ -9,6 +9,9 @@ import { NOGO_COLOR, gateDataUrl } from '../../map/markers';
 type CesiumNs = any;
 
 const lonlatFlat = (ring: number[][]) => ring.flatMap(([lon, lat]) => [lon, lat]);
+const isClosed = (r: number[][]) => r.length > 1 && r[0][0] === r[r.length - 1][0] && r[0][1] === r[r.length - 1][1];
+const open = (r: number[][]) => (isClosed(r) ? r.slice(0, -1) : r);
+const closed = (r: number[][]) => (isClosed(r) ? r : [...r, r[0]]);
 
 function textLabel(Cesium: CesiumNs, text: string, fill: string, extra: Record<string, unknown>) {
   return {
@@ -50,11 +53,9 @@ export function gateEntityOptions(Cesium: CesiumNs, id: string, lon: number, lat
 export function noGoEntityOptions(
   Cesium: CesiumNs, id: string, part: PolygonPart, labelAt?: number[], labelText?: string,
 ) {
-  const o = part.outer;
-  const closed = o.length > 1 && o[0][0] === o[o.length - 1][0] && o[0][1] === o[o.length - 1][1];
   const hierarchy = new Cesium.PolygonHierarchy(
-    Cesium.Cartesian3.fromDegreesArray(lonlatFlat(closed ? o.slice(0, -1) : o)),
-    part.holes.map((h) => new Cesium.PolygonHierarchy(Cesium.Cartesian3.fromDegreesArray(lonlatFlat(h)))),
+    Cesium.Cartesian3.fromDegreesArray(lonlatFlat(open(part.outer))),
+    part.holes.map((h) => new Cesium.PolygonHierarchy(Cesium.Cartesian3.fromDegreesArray(lonlatFlat(open(h))))),
   );
   const red = Cesium.Color.fromCssColorString(NOGO_COLOR);
   const material = Cesium.StripeMaterialProperty
@@ -76,7 +77,7 @@ export function noGoEntityOptions(
       outline: false,
     },
     polyline: {
-      positions: Cesium.Cartesian3.fromDegreesArray(lonlatFlat(closed ? o : [...o, o[0]])),
+      positions: Cesium.Cartesian3.fromDegreesArray(lonlatFlat(closed(part.outer))),
       width: 4,
       material: red,
       clampToGround: true,
@@ -87,4 +88,18 @@ export function noGoEntityOptions(
     entity.label = textLabel(Cesium, labelText, NOGO_COLOR, { verticalOrigin: Cesium.VerticalOrigin.CENTER });
   }
   return entity;
+}
+
+/** Red border of each hole of a NO-GO part: an entity has one polyline, so holes get their own. */
+export function noGoHoleEntities(Cesium: CesiumNs, id: string, part: PolygonPart) {
+  const red = Cesium.Color.fromCssColorString(NOGO_COLOR);
+  return part.holes.map((h, i) => ({
+    id: `${id}-hole-${i}`,
+    polyline: {
+      positions: Cesium.Cartesian3.fromDegreesArray(lonlatFlat(closed(h))),
+      width: 4,
+      material: red,
+      clampToGround: true,
+    },
+  }));
 }

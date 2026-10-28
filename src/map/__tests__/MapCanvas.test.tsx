@@ -112,6 +112,23 @@ describe('MapCanvas', () => {
     expect(h.markers.map((k) => k.o.element.textContent).sort()).toEqual(['NO-GO', 'NO-GO', 'Portón']);
   });
 
+  it('keeps the gate label when the zones group is hidden; only the zone labels go', async () => {
+    const zone = { id: 'a', polygon: { type: 'Polygon', coordinates: [[[0, 0], [0.001, 0], [0.001, 0.001], [0, 0.001], [0, 0]]] }, areaHa: 1, valid: true };
+    const m = { ...model, zones: [zone], accessPoint: { type: 'Point', coordinates: [0.002, 0.002] }, marginM: null } as unknown as MapModel;
+    render(<MapCanvas {...props} model={m} visibleLayers={{ zones: false }} />);
+    await waitFor(() => expect(h.handlers.load).toBeTypeOf('function'));
+    h.handlers.load();
+    await waitFor(() => expect(h.markers).toHaveLength(1));
+    expect(h.markers[0].o.element.textContent).toBe('Portón');
+  });
+
+  it('puts the legend in the bottom-left corner above the result strip, away from the layers panel', async () => {
+    const { getByTestId } = render(<MapCanvas {...props} bottomInset={120} />);
+    const legend = getByTestId('map-legend');
+    expect(legend.className).not.toMatch(/\btop-2\b/);
+    expect(legend.style.bottom).toBe('128px');
+  });
+
   it('shows a legend', async () => {
     const { getByTestId } = render(<MapCanvas {...props} />);
     expect(getByTestId('map-legend')).toBeInTheDocument();

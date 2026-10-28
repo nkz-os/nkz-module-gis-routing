@@ -3,6 +3,8 @@
  * the gate icon (own SVG), the red diagonal hatch and the legend swatches.
  */
 
+import pointOnFeature from '@turf/point-on-feature';
+
 export const GATE_IMAGE = 'nkz-gate';
 export const HATCH_IMAGE = 'nkz-nogo-hatch';
 export const NOGO_COLOR = '#DC2626';
@@ -96,7 +98,10 @@ export async function ensureMapImages(map: ImageMap, loadGate: () => Promise<unk
   }
 }
 
-/** Where a label sits: the point itself, a line's middle, or the bbox centre of a polygon's first part. */
+/**
+ * Where a label sits: the point itself, a line's middle, or a point guaranteed to lie on the
+ * first polygon part (a concave zone's bounding-box centre can fall outside it).
+ */
 export function labelAnchor(g: GeoJSON.Geometry): [number, number] {
   if (g.type === 'Point') return [g.coordinates[0], g.coordinates[1]];
   if (g.type === 'LineString' || g.type === 'MultiLineString') {
@@ -104,9 +109,16 @@ export function labelAnchor(g: GeoJSON.Geometry): [number, number] {
     const p = line[Math.floor(line.length / 2)];
     return [p[0], p[1]];
   }
-  const ring = g.type === 'MultiPolygon' ? g.coordinates[0]?.[0] : g.type === 'Polygon' ? g.coordinates[0] : undefined;
-  if (!ring || ring.length === 0) return [0, 0];
-  let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
-  for (const [x, y] of ring) { x0 = Math.min(x0, x); x1 = Math.max(x1, x); y0 = Math.min(y0, y); y1 = Math.max(y1, y); }
-  return [(x0 + x1) / 2, (y0 + y1) / 2];
+  if (g.type === 'GeometryCollection') {
+    const first = g.geometries.find((x) => x.type === 'Polygon' || x.type === 'MultiPolygon');
+    return first ? labelAnchor(first) : [0, 0];
+  }
+  const rings = g.type === 'MultiPolygon' ? g.coordinates[0] : g.type === 'Polygon' ? g.coordinates : undefined;
+  if (!rings || !rings[0] || rings[0].length === 0) return [0, 0];
+  try {
+    const p = pointOnFeature({ type: 'Polygon', coordinates: rings }).geometry.coordinates;
+    return [p[0], p[1]];
+  } catch {
+    return [rings[0][0][0], rings[0][0][1]];
+  }
 }

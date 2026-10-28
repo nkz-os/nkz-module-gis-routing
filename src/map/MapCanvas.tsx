@@ -276,12 +276,11 @@ export const MapCanvas: React.FC<MapCanvasProps> = (props) => {
     const Ctor = markerCtorRef.current;
     if (!ready || !map || !Ctor) return;
     if (!labelsRef.current) labelsRef.current = new LabelMarkers(map, Ctor);
-    labelsRef.current.sync(zonesVisible
-      ? [
-          ...gateLabels(model.plan?.access_point ?? model.accessPoint, gateText),
-          ...zoneLabels(model.zones.map((z) => ({ id: z.id, geometry: z.polygon })), nogoText),
-        ]
-      : []);
+    // The gate icon is not part of the zones group, so its label is always shown.
+    labelsRef.current.sync([
+      ...gateLabels(model.plan?.access_point ?? model.accessPoint, gateText),
+      ...(zonesVisible ? zoneLabels(model.zones.map((z) => ({ id: z.id, geometry: z.polygon })), nogoText) : []),
+    ]);
   }, [model.zones, model.accessPoint, model.plan, gateText, nogoText, zonesVisible, ready]);
 
   // Parcel → basemap by region (tiles cannot be swapped in place).
@@ -369,7 +368,12 @@ export const MapCanvas: React.FC<MapCanvasProps> = (props) => {
   return (
     <div className="absolute inset-0" data-testid="map-canvas">
       <div ref={ref} className="h-full w-full" data-testid="map-container" />
-      <MapLegend margin={model.marginM !== null && model.zones.length > 0} />
+      {/* Bottom-left above the result strip: the layers panel owns the top-left corner. */}
+      <MapLegend
+        margin={model.marginM !== null && model.zones.length > 0}
+        className="absolute left-2 z-10"
+        style={{ bottom: (props.bottomInset ?? 0) + 8 }}
+      />
     </div>
   );
 };

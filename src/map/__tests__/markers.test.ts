@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
+import booleanPointInPolygon from '@turf/boolean-point-in-polygon';
 import {
   GATE_IMAGE, HATCH_IMAGE, NOGO_COLOR, gateDataUrl, gateSvg, hatchPixels, nogoSwatchDataUrl, ensureMapImages, labelAnchor,
 } from '../markers';
@@ -72,6 +73,17 @@ describe('labelAnchor', () => {
   it('uses the first part of a MultiPolygon', () => {
     const a = labelAnchor({ type: 'MultiPolygon', coordinates: [[[[0, 0], [2, 0], [2, 2], [0, 2], [0, 0]]], [[[10, 10], [11, 10], [11, 11], [10, 10]]]] });
     expect(a).toEqual([1, 1]);
+  });
+  // A U-shape: the bounding-box centre lies in the notch, outside the zone.
+  const U: GeoJSON.Polygon = { type: 'Polygon', coordinates: [[[0, 0], [9, 0], [9, 10], [6, 10], [6, 3], [3, 3], [3, 10], [0, 10], [0, 0]]] };
+  it('puts the label inside a concave zone', () => {
+    const a = labelAnchor(U);
+    expect(booleanPointInPolygon({ type: 'Point', coordinates: a }, U)).toBe(true);
+  });
+  it('anchors a GeometryCollection on its first polygon, not at [0,0]', () => {
+    const far: GeoJSON.Polygon = { type: 'Polygon', coordinates: [U.coordinates[0].map(([x, y]) => [x + 20, y + 20])] };
+    const a = labelAnchor({ type: 'GeometryCollection', geometries: [{ type: 'Point', coordinates: [50, 50] }, far] });
+    expect(booleanPointInPolygon({ type: 'Point', coordinates: a }, far)).toBe(true);
   });
   it('uses a point as is', () => expect(labelAnchor({ type: 'Point', coordinates: [3, 4] })).toEqual([3, 4]));
   it('exposes the no-go colour', () => expect(NOGO_COLOR).toMatch(/^#/));

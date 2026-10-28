@@ -5,7 +5,9 @@ import { gateDataUrl, marginSwatchDataUrl, nogoSwatchDataUrl } from './markers';
 const NS = 'gis-routing';
 
 /** Small key to the gate and NO-GO drawing, shared by the Work, Transit and 3D maps. */
-export const MapLegend: React.FC<{ margin?: boolean; className?: string }> = ({ margin = false, className = 'absolute top-2 left-2 z-10' }) => {
+export const MapLegend: React.FC<{ margin?: boolean; className?: string; style?: React.CSSProperties }> = ({
+  margin = false, className = 'absolute top-2 left-2 z-10', style,
+}) => {
   const { t } = useTranslation(NS);
   const rows: { src: string; label: string }[] = [
     { src: gateDataUrl(), label: t('map.legend.gate') },
@@ -15,6 +17,7 @@ export const MapLegend: React.FC<{ margin?: boolean; className?: string }> = ({ 
   return (
     <ul
       data-testid="map-legend"
+      style={style}
       className={`${className} flex flex-col gap-1 rounded-nkz-md bg-nkz-surface/90 px-2 py-1 text-nkz-xs text-nkz-text-primary shadow`}
     >
       {rows.map((r) => (

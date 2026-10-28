@@ -33,6 +33,22 @@ describe('map model', () => {
     expect(ids.lastIndexOf('markers')).toBeLessThan(ids.indexOf('warnings'));
   });
   it('planBounds follows the parcel', () => { expect(planBounds(base)).toEqual([0, 0, 10, 10]); expect(planBounds({ ...base, parcel: null })).toBeNull(); });
+  it('draws the safety margin as a real buffer of marginM metres around the zone', () => {
+    const f = buildSources(base)['zones-margin'].features;
+    expect(f).toHaveLength(1);
+    const xs = (f[0].geometry as any).coordinates[0].map((c: number[]) => c[0]);
+    const grow = 1 - Math.min(...xs); // zone starts at lon 1
+    expect(grow).toBeGreaterThan(1.5e-5);
+    expect(grow).toBeLessThan(2.2e-5); // 2 m is about 1.8e-5 deg
+  });
+  it('draws the margin dashed red, below the zone border so it never covers it', () => {
+    const specs = layerSpecs() as any[];
+    const margin = specs.find((l) => l.id === 'zones-margin-line');
+    expect(margin.paint['line-color']).toBe('#DC2626');
+    expect(margin.paint['line-dasharray']).toBeTruthy();
+    const ids = specs.map((l) => l.id);
+    expect(ids.indexOf('zones-margin-line')).toBeLessThan(ids.indexOf('zones-line'));
+  });
   it('handles null margin, null validation and MultiLineString routes', () => {
     expect(buildSources({ ...base, marginM: null })['zones-margin'].features).toHaveLength(0);
     const route = { type: 'MultiLineString', coordinates: [[[0, 0], [1, 1]], [[2, 2], [3, 3]]] };
@@ -141,10 +157,19 @@ describe('changedSources', () => {
       // [case, hovered, H, [==, kind, headland], Hc, Wc]
       expect(wc[5]).toBeGreaterThan(wl[5]); expect(wc[4]).toBeGreaterThan(wl[4]); expect(wc[4]).toBeLessThan(wc[5]);
     });
-    it('vra-classes layers sit between zones-margin and swaths', () => {
-      const ids = layerSpecs().map(l => (l as any).source);
+    it('vra class fills sit between zones-margin and swaths; the dose labels sit above the swaths', () => {
+      const specs = layerSpecs() as any[];
+      const ids = specs.map(l => l.source);
+      const label = specs.findIndex((l) => l.id === 'vra-classes-label');
       expect(ids.indexOf('vra-classes')).toBeGreaterThan(ids.lastIndexOf('zones-margin'));
-      expect(ids.lastIndexOf('vra-classes')).toBeLessThan(ids.indexOf('swaths'));
+      expect(specs.findIndex((l) => l.id === 'vra-classes-line')).toBeLessThan(ids.indexOf('swaths'));
+      expect(label).toBeGreaterThan(ids.lastIndexOf('swaths'));
+    });
+    it('dose labels are large, with a thick dark halo, and never dropped for overlap', () => {
+      const l = (layerSpecs() as any[]).find((x) => x.id === 'vra-classes-label');
+      expect(l.layout['text-size']).toBeGreaterThanOrEqual(14);
+      expect(l.layout['text-allow-overlap']).toBe(true);
+      expect(l.paint['text-halo-width']).toBeGreaterThanOrEqual(2.5);
     });
   });
 });

@@ -233,7 +233,7 @@ describe('TransitScreen', () => {
     expect(api.saveOperation).toHaveBeenCalledWith({ kind: 'transit', job_id: 'j1', alternative_id: 'least_slope', parcel_id: 'p1' });
     await act(async () => { resolve({ success: true, operation_id: 'op-abcdefgh12345678', persisted: true, alert: 'failed' }); });
     expect((await screen.findByText('Disponible en la app · operación #12345678'))).toBeTruthy();
-    expect(screen.getByText('No se pudo enviar el aviso')).toBeTruthy();
+    expect(screen.getByText('No se pudo registrar el aviso')).toBeTruthy();
     expect((screen.getByRole('button', { name: 'Guardar como operación' }) as HTMLButtonElement).disabled).toBe(true);
   });
 
