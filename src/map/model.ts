@@ -35,6 +35,24 @@ type Feature = GeoJSON.Feature;
 const feature = (geometry: GeoJSON.Geometry, properties: GeoJSON.GeoJsonProperties): Feature => ({ type: 'Feature', geometry, properties });
 const fc = (features: Feature[]): GeoJSON.FeatureCollection => ({ type: 'FeatureCollection', features });
 
+function anchorOf(g: GeoJSON.Geometry): GeoJSON.Point {
+  switch (g.type) {
+    case 'Point':
+      return g;
+    case 'LineString':
+    case 'MultiLineString': {
+      const line = g.type === 'LineString' ? g.coordinates : g.coordinates[0];
+      return { type: 'Point', coordinates: line[Math.floor(line.length / 2)] };
+    }
+    default:
+      break;
+  }
+  // Polygons (first part) and anything else: centre of the bounding box.
+  const target = g.type === 'MultiPolygon' ? ({ type: 'Polygon', coordinates: g.coordinates[0] } as GeoJSON.Polygon) : g;
+  const [x0, y0, x1, y1] = bboxOf(target.type === 'Polygon' ? { type: 'Polygon', coordinates: [target.coordinates[0]] } : target);
+  return { type: 'Point', coordinates: [(x0 + x1) / 2, (y0 + y1) / 2] };
+}
+
 export function buildSources(m: MapModel): Record<SourceId, GeoJSON.FeatureCollection> {
   const plan = m.plan;
 
@@ -56,9 +74,13 @@ export function buildSources(m: MapModel): Record<SourceId, GeoJSON.FeatureColle
   if (plan) markers.push(feature(plan.exit_point, { kind: 'exit' }));
 
   // Numbering counts every warning so it matches the list in the result strip.
+  // Each warning yields its shape (lines/polygons) plus one anchor point that carries the number.
   const warnings: Feature[] = [];
   (plan?.validation?.warnings ?? []).forEach((w, i) => {
-    if (w.geometry) warnings.push(feature(w.geometry, { n: i + 1, code: w.code, selected: m.selectedWarning === i + 1 }));
+    if (!w.geometry) return;
+    const props = { n: i + 1, code: w.code, selected: m.selectedWarning === i + 1 };
+    if (w.geometry.type !== 'Point') warnings.push(feature(w.geometry, { ...props, part: 'shape' }));
+    warnings.push(feature(anchorOf(w.geometry), { ...props, part: 'anchor' }));
   });
 
   return {
@@ -123,7 +145,11 @@ export function layerSpecs(): LayerSpecification[] {
       },
     },
     {
-      id: 'warnings-circle', type: 'circle', source: 'warnings',
+      id: 'warnings-shape', type: 'line', source: 'warnings', filter: ['==', ['get', 'part'], 'shape'],
+      paint: { 'line-color': C.warning, 'line-width': 3, 'line-dasharray': [2, 1] },
+    },
+    {
+      id: 'warnings-circle', type: 'circle', source: 'warnings', filter: ['==', ['get', 'part'], 'anchor'],
       paint: {
         'circle-radius': ['case', ['get', 'selected'], 13, 10],
         'circle-color': C.warning,
@@ -132,7 +158,7 @@ export function layerSpecs(): LayerSpecification[] {
       },
     },
     {
-      id: 'warnings-label', type: 'symbol', source: 'warnings',
+      id: 'warnings-label', type: 'symbol', source: 'warnings', filter: ['==', ['get', 'part'], 'anchor'],
       layout: { 'text-field': ['to-string', ['get', 'n']], 'text-size': 12, 'text-allow-overlap': true },
       paint: { 'text-color': C.route },
     },
