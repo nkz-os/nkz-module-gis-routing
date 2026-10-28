@@ -157,7 +157,7 @@ describe('WorkScreen', () => {
     fireEvent.click(screen.getByRole('button', { name: /Generar ruta/i }));
     await screen.findByText(/12 pasadas/);
     fireEvent.click(screen.getByRole('button', { name: 'Enviar al tractor' }));
-    await screen.findByText('Enviada (12345678)');
+    await screen.findByText('Guardada (12345678)');
     expect(api.generate).toHaveBeenCalledTimes(1);
     expect((api.generate as any).mock.calls[0][0].persist).toBe(false);
     expect(api.saveOperation).toHaveBeenCalledWith({ kind: 'plan', plan_id: 'plan-1' });
@@ -266,7 +266,7 @@ describe('WorkScreen request flow', () => {
     fireEvent.click(btn);
     await waitFor(() => expect(api.saveOperation).toHaveBeenCalledTimes(1));
     await act(async () => { resolve({ success: true, operation_id: 'op-12345678', persisted: true }); });
-    await screen.findByText('Enviada (12345678)');
+    await screen.findByText('Guardada (12345678)');
     expect(api.saveOperation).toHaveBeenCalledTimes(1);
   });
 
@@ -296,7 +296,7 @@ describe('WorkScreen request flow', () => {
     await waitFor(() => expect((screen.getByRole('button', { name: 'Enviar al tractor' }) as HTMLButtonElement).disabled).toBe(false));
 
     fireEvent.click(screen.getByRole('button', { name: 'Enviar al tractor' }));
-    await screen.findByText('Enviada (12345678)');
+    await screen.findByText('Guardada (12345678)');
     expect(api.generate).toHaveBeenCalledTimes(2);
     expect((api.generate as any).mock.calls[1][0]).toMatchObject({ persist: false, vra: expect.objectContaining({ enabled: true }) });
     expect(api.saveOperation).toHaveBeenCalledTimes(1);

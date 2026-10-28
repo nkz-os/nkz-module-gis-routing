@@ -344,7 +344,7 @@
       "regenerate": "Régénérer",
       "generateAgain": "Générer à nouveau",
       "sendToTractor": "Envoyer au tracteur",
-      "sent": "Envoyée ({{id}})",
+      "sent": "Enregistrée ({{id}})",
       "copyId": "Copier l'ID",
       "copied": "Copié !",
       "saveTemplate": "Enregistrer comme modèle",
@@ -361,9 +361,9 @@
     "empty": "Sélectionnez une parcelle pour commencer",
     "regeneratedOnSave": "Plan régénéré avec la dose actuelle avant l'enregistrement",
     "alert": {
-      "sent": "Alerte envoyée aux notifications",
+      "sent": "Alerte enregistrée",
       "skipped": "Pas d'alerte : désactivée dans les réglages",
-      "failed": "L'alerte n'a pas pu être envoyée"
+      "failed": "L'alerte n'a pas pu être enregistrée"
     }
   },
   "autosave": {

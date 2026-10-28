@@ -81,7 +81,7 @@ const bar = (state: WorkState, over: Record<string, unknown> = {}) => {
 
 describe('save confirmation and alert status', () => {
   it.each([
-    ['sent', /Aviso enviado/], ['skipped', /Sin aviso: desactivado en ajustes/], ['failed', /No se pudo enviar el aviso/],
+    ['sent', /Aviso registrado/], ['skipped', /Sin aviso: desactivado en ajustes/], ['failed', /No se pudo registrar el aviso/],
   ])('ActionsBar shows availability and alert %s after saving', (alert, text) => {
     const base = withResult({ phase: 'saved' }, 'urn:ngsi-ld:Op:abcdefgh12345678');
     bar({ ...base, result: { ...base.result!, alert } as any });
@@ -134,7 +134,7 @@ describe('result strip and actions bar', () => {
     expect(ready.onGenerate).not.toHaveBeenCalled();
     cleanup();
     bar(withResult({ phase: 'saved', stale: true }, 'op-abcdef1234567890'));
-    expect(screen.getByText(/Enviada.*34567890/)).toBeInTheDocument();
+    expect(screen.getByText(/Guardada.*34567890/)).toBeInTheDocument();
     expect(screen.getByText('op-abcdef1234567890')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Regenerar' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Enviar al tractor' })).toBeDisabled();

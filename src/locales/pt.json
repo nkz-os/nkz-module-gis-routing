@@ -344,7 +344,7 @@
       "regenerate": "Regenerar",
       "generateAgain": "Gerar novamente",
       "sendToTractor": "Enviar ao trator",
-      "sent": "Enviada ({{id}})",
+      "sent": "Guardada ({{id}})",
       "copyId": "Copiar ID",
       "copied": "Copiado!",
       "saveTemplate": "Guardar como modelo",
@@ -361,9 +361,9 @@
     "empty": "Selecione uma parcela para começar",
     "regeneratedOnSave": "Plano regenerado com a dose atual antes de guardar",
     "alert": {
-      "sent": "Alerta enviado para as notificações",
+      "sent": "Alerta registado",
       "skipped": "Sem alerta: desativado nas definições",
-      "failed": "Não foi possível enviar o alerta"
+      "failed": "Não foi possível registar o alerta"
     }
   },
   "autosave": {

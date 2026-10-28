@@ -344,7 +344,7 @@
       "regenerate": "Regenerate",
       "generateAgain": "Generate again",
       "sendToTractor": "Send to tractor",
-      "sent": "Sent ({{id}})",
+      "sent": "Saved ({{id}})",
       "copyId": "Copy ID",
       "copied": "Copied!",
       "saveTemplate": "Save as template",
@@ -361,9 +361,9 @@
     "empty": "Select a parcel to start",
     "regeneratedOnSave": "Plan regenerated with the current dose before saving",
     "alert": {
-      "sent": "Alert sent to notifications",
+      "sent": "Alert registered",
       "skipped": "No alert: turned off in settings",
-      "failed": "The alert could not be sent"
+      "failed": "The alert could not be registered"
     }
   },
   "autosave": {

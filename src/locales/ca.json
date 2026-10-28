@@ -344,7 +344,7 @@
       "regenerate": "Regenerar",
       "generateAgain": "Generar de nou",
       "sendToTractor": "Enviar al tractor",
-      "sent": "Enviada ({{id}})",
+      "sent": "Desada ({{id}})",
       "copyId": "Copiar ID",
       "copied": "Copiat!",
       "saveTemplate": "Desar com a plantilla",
@@ -361,9 +361,9 @@
     "empty": "Selecciona una parcel·la per començar",
     "regeneratedOnSave": "Pla regenerat amb la dosi actual abans de desar",
     "alert": {
-      "sent": "Avís enviat a notificacions",
+      "sent": "Avís registrat",
       "skipped": "Sense avís: desactivat als ajustos",
-      "failed": "No s'ha pogut enviar l'avís"
+      "failed": "No s'ha pogut registrar l'avís"
     }
   },
   "autosave": {

@@ -344,7 +344,7 @@
       "regenerate": "Birsortu",
       "generateAgain": "Sortu berriro",
       "sendToTractor": "Bidali traktorera",
-      "sent": "Bidalita ({{id}})",
+      "sent": "Gordeta ({{id}})",
       "copyId": "Kopiatu ID",
       "copied": "Kopiatuta!",
       "saveTemplate": "Gorde txantiloi gisa",
@@ -361,9 +361,9 @@
     "empty": "Hautatu lur-sail bat hasteko",
     "regeneratedOnSave": "Plana berriro sortu da uneko dosiarekin gorde aurretik",
     "alert": {
-      "sent": "Abisua jakinarazpenetara bidali da",
+      "sent": "Abisua erregistratu da",
       "skipped": "Abisurik ez: ezarpenetan desaktibatuta",
-      "failed": "Ezin izan da abisua bidali"
+      "failed": "Ezin izan da abisua erregistratu"
     }
   },
   "autosave": {
