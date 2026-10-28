@@ -24,7 +24,14 @@ export interface MapCanvasProps {
   onReady?: () => void;
   onError?: (e: Error) => void;
   visibleLayers?: Partial<Record<LayerGroup, boolean>>;
+  /** Pixels at the bottom covered by an overlay; added to the fitBounds bottom padding. */
+  bottomInset?: number;
 }
+
+const FIT_PADDING = 40;
+const fitPadding = (bottomInset = 0) => ({
+  top: FIT_PADDING, left: FIT_PADDING, right: FIT_PADDING, bottom: FIT_PADDING + Math.max(0, bottomInset),
+});
 
 const DEFAULT_CENTER: [number, number] = [-3.7, 40.4];
 const GROUP_SOURCES: Record<LayerGroup, SourceId[]> = {
@@ -127,7 +134,7 @@ export const MapCanvas: React.FC<MapCanvasProps> = (props) => {
 
         const m = propsRef.current.model;
         const b = planBounds(m);
-        if (b) mapNow.fitBounds(b, { padding: 40, duration: 0 });
+        if (b) mapNow.fitBounds(b, { padding: fitPadding(propsRef.current.bottomInset), duration: 0 });
 
         mapNow.on('mousemove', 'swaths-line', (e) => {
           const idx = e.features?.[0]?.properties?.index;
@@ -255,7 +262,7 @@ export const MapCanvas: React.FC<MapCanvasProps> = (props) => {
     const map = mapRef.current;
     if (!ready || !map || fitKey === null) return;
     const b = planBounds(model);
-    if (b) map.fitBounds(b, { padding: 40, duration: 400 });
+    if (b) map.fitBounds(b, { padding: fitPadding(propsRef.current.bottomInset), duration: 400 });
     // eslint-disable-next-line react-hooks/exhaustive-deps -- refit only when fitKey changes
   }, [fitKey, ready]);
 
@@ -306,5 +313,11 @@ export const MapCanvas: React.FC<MapCanvasProps> = (props) => {
     draw.setMode('select');
   }, [model.zones, model.accessPoint, drawMode, ready]);
 
-  return <div ref={ref} className="absolute inset-0" data-testid="map-canvas" />;
+  // MapLibre's CSS sets position:relative on the element it owns, so it gets an
+  // inner box with a real height inside the absolutely positioned wrapper.
+  return (
+    <div className="absolute inset-0" data-testid="map-canvas">
+      <div ref={ref} className="h-full w-full" data-testid="map-container" />
+    </div>
+  );
 };

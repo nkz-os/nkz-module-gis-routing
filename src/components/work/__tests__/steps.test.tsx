@@ -143,6 +143,14 @@ describe('work steps', () => {
     expect(width.value).toBe('0.5');
   });
 
+  it('StepMachine ties the width and radius labels to their inputs', async () => {
+    (api.listEquipment as any).mockResolvedValue([]);
+    render(<StepMachine state={parcelState()} dispatch={vi.fn()} />);
+    await waitFor(() => expect(screen.getAllByRole('spinbutton')).toHaveLength(2));
+    expect(screen.getByLabelText(i18n.t('work.machine.width', { ns: 'gis-routing' })).tagName).toBe('INPUT');
+    expect(screen.getByLabelText(i18n.t('work.machine.radius', { ns: 'gis-routing' })).tagName).toBe('INPUT');
+  });
+
   it('StepZones lists zones with area and invalid badge; delete dispatches ZONES_CHANGED without it', () => {
     const dispatch = vi.fn();
     const state = parcelState({ zones: [zone('a'), zone('b', false, 0.002)] });

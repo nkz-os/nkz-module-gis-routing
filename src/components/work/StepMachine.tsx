@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useId, useState } from 'react';
 import { useTranslation } from '@nekazari/sdk';
 import { Badge, Input, Select, Slider, Spinner } from '@nekazari/ui-kit';
 import { api } from '../../services/api';
@@ -15,7 +15,7 @@ const num = (v: unknown): number | null => {
 
 // Keeps the typed text locally so partial input ("0.", "0.5") is never rewritten;
 // the draft only follows the state when the value changes from outside (prefill).
-const NumberField: React.FC<{ value: number | null; onValue: (v: number | null) => void }> = ({ value, onValue }) => {
+const NumberField: React.FC<{ id?: string; value: number | null; onValue: (v: number | null) => void }> = ({ id, value, onValue }) => {
   const [draft, setDraft] = useState<string>(value === null ? '' : String(value));
   useEffect(() => {
     if (num(draft) !== value) setDraft(value === null ? '' : String(value));
@@ -23,6 +23,7 @@ const NumberField: React.FC<{ value: number | null; onValue: (v: number | null) 
   }, [value]);
   return (
     <Input
+      id={id}
       type="number" min={0.1} step={0.1}
       value={draft}
       onChange={(e) => { setDraft(e.target.value); onValue(num(e.target.value)); }}
@@ -36,6 +37,8 @@ export const StepMachine: React.FC<StepProps> = ({ state, dispatch }) => {
   const [equipment, setEquipment] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const m = state.machine;
+  const widthId = useId();
+  const radiusId = useId();
 
   useEffect(() => {
     let cancelled = false;
@@ -102,17 +105,17 @@ export const StepMachine: React.FC<StepProps> = ({ state, dispatch }) => {
 
   return (
     <div className="space-y-3">
-      <div>
-        <label className="text-nkz-sm text-nkz-text-secondary">{t('parameters.operationType')}</label>
+      <label className="block">
+        <span className="text-nkz-sm text-nkz-text-secondary">{t('parameters.operationType')}</span>
         <Select
           value={m.operationType}
           onValueChange={(v) => dispatch({ type: 'MACHINE_CHANGED', machine: { operationType: v } })}
           options={OPERATIONS.map((o) => ({ value: o, label: t(`operationType.${o}`) }))}
           className="w-full mt-1"
         />
-      </div>
-      <div>
-        <label className="text-nkz-sm text-nkz-text-secondary">{t('equipment.tractorLabel')}</label>
+      </label>
+      <label className="block">
+        <span className="text-nkz-sm text-nkz-text-secondary">{t('equipment.tractorLabel')}</span>
         <Select
           value={m.tractorId ?? ''}
           onValueChange={(v) => pick('tractor', v)}
@@ -120,9 +123,9 @@ export const StepMachine: React.FC<StepProps> = ({ state, dispatch }) => {
           placeholder={t('equipment.selectTractor')}
           className="w-full mt-1"
         />
-      </div>
-      <div>
-        <label className="text-nkz-sm text-nkz-text-secondary">{t('equipment.implementLabel')}</label>
+      </label>
+      <label className="block">
+        <span className="text-nkz-sm text-nkz-text-secondary">{t('equipment.implementLabel')}</span>
         <Select
           value={m.implementId ?? ''}
           onValueChange={(v) => pick('implement', v)}
@@ -130,20 +133,20 @@ export const StepMachine: React.FC<StepProps> = ({ state, dispatch }) => {
           placeholder={t('equipment.selectImplement')}
           className="w-full mt-1"
         />
-      </div>
+      </label>
       <div>
         <div className="flex items-center justify-between">
-          <label className="text-nkz-sm text-nkz-text-secondary">{t('work.machine.width')}</label>
+          <label htmlFor={widthId} className="text-nkz-sm text-nkz-text-secondary">{t('work.machine.width')}</label>
           {source(m.widthSource)}
         </div>
-        <NumberField value={m.widthM} onValue={(v) => dispatch({ type: 'MACHINE_CHANGED', machine: { widthM: v, widthSource: 'manual' } })} />
+        <NumberField id={widthId} value={m.widthM} onValue={(v) => dispatch({ type: 'MACHINE_CHANGED', machine: { widthM: v, widthSource: 'manual' } })} />
       </div>
       <div>
         <div className="flex items-center justify-between">
-          <label className="text-nkz-sm text-nkz-text-secondary">{t('work.machine.radius')}</label>
+          <label htmlFor={radiusId} className="text-nkz-sm text-nkz-text-secondary">{t('work.machine.radius')}</label>
           {source(m.radiusSource)}
         </div>
-        <NumberField value={m.turningRadiusM} onValue={(v) => dispatch({ type: 'MACHINE_CHANGED', machine: { turningRadiusM: v, radiusSource: 'manual' } })} />
+        <NumberField id={radiusId} value={m.turningRadiusM} onValue={(v) => dispatch({ type: 'MACHINE_CHANGED', machine: { turningRadiusM: v, radiusSource: 'manual' } })} />
       </div>
       <Slider
         label={t('work.machine.overlap')}

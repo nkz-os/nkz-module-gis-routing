@@ -66,6 +66,18 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({ onContextChange }) => {
   const [focus, setFocus] = useState<GeoJSON.Geometry | null>(null);
   const [focusCounter, setFocusCounter] = useState(0);
   const [stripCollapsed, setStripCollapsed] = useState(false);
+  const stripRef = useRef<HTMLDivElement>(null);
+  const [stripHeight, setStripHeight] = useState(0);
+  useEffect(() => {
+    const el = stripRef.current;
+    if (!el) return undefined;
+    const measure = () => setStripHeight(Math.round(el.getBoundingClientRect().height));
+    measure();
+    if (typeof ResizeObserver === 'undefined') return undefined;
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
   const [toast, setToast] = useState<string | null>(null);
   const [mapReady, setMapReady] = useState(false);
   const [mapError, setMapError] = useState(false);
@@ -258,6 +270,7 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({ onContextChange }) => {
             drawMode={drawMode}
             fitKey={fitKey}
             visibleLayers={visibleLayers}
+            bottomInset={stripHeight}
             onZoneDrawn={onZoneDrawn}
             onZoneEdited={onZoneEdited}
             onZoneRemoved={onZoneRemoved}
@@ -276,7 +289,7 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({ onContextChange }) => {
         )}
 
         {!mapError && (
-          <div className="absolute top-2 right-2 z-10 p-2 rounded-md bg-nkz-surface border border-nkz-border space-y-1">
+          <div className="absolute top-2 left-2 z-10 p-2 rounded-md bg-nkz-surface border border-nkz-border space-y-1">
             {LAYER_GROUPS.map((g) => (
               <Checkbox
                 key={g}
@@ -290,7 +303,7 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({ onContextChange }) => {
           </div>
         )}
 
-        <div className="absolute bottom-0 left-0 right-0 z-10">
+        <div ref={stripRef} className="absolute bottom-0 left-0 right-0 z-10">
           <ResultStrip
             state={state}
             onWarningSelect={onWarningSelect}

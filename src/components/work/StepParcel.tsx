@@ -76,9 +76,9 @@ export const StepParcel: React.FC<Props> = ({ state, dispatch, onLoadError }) =>
         />
       )}
       {loading && (
-        <p className="text-nkz-sm text-nkz-text-secondary flex items-center gap-1">
-          <Spinner />{t('parcel.loadingGeo')}
-        </p>
+        <div className="text-nkz-sm text-nkz-text-secondary flex items-center gap-1">
+          <Spinner /><span>{t('parcel.loadingGeo')}</span>
+        </div>
       )}
       {error && (
         <div className="space-y-1">
