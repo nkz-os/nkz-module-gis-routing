@@ -339,7 +339,9 @@
       "INVALID_VRA": "La configuración de dosis variable no es válida",
       "ZONES_FILE_INVALID": "El fichero de zonas no es válido o no se ha podido leer",
       "ZONES_NO_VALUE": "No hay atributo de valor (value, mean, ndvi o rate). Atributos del fichero: {{attributes}}",
-      "ZONES_FILE_TOO_LARGE": "El fichero de zonas supera los 5 MB"
+      "ZONES_FILE_TOO_LARGE": "El fichero de zonas supera los 5 MB",
+      "PLAN_TOO_LARGE": "El plan es demasiado grande para guardarlo ({{size_kb}} KB). Usa menos zonas, zonas más grandes o una superficie menor.",
+      "ZONES_UNAVAILABLE": "No se pudieron leer las zonas de manejo. Inténtalo de nuevo."
     },
     "actions": {
       "regenerate": "Regenerar",
@@ -348,7 +350,9 @@
       "copyId": "Copiar ID",
       "copied": "¡Copiado!",
       "saveTemplate": "Guardar como plantilla",
-      "exportFormat": "Formato de exportación"
+      "exportFormat": "Formato de exportación",
+      "vraIncomplete": "Completa las dosis de todas las clases (o el fichero de zonas externo), o desactiva la dosis variable, para enviar.",
+      "vraPending": "Esperando a que se calcule la prescripción antes de enviar."
     },
     "title": "Rutas GIS",
     "tabs": {

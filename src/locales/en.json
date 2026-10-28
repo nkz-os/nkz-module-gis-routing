@@ -339,7 +339,9 @@
       "INVALID_VRA": "The variable-rate configuration is not valid",
       "ZONES_FILE_INVALID": "The zones file is not valid or could not be read",
       "ZONES_NO_VALUE": "No value attribute found (value, mean, ndvi or rate). Attributes in the file: {{attributes}}",
-      "ZONES_FILE_TOO_LARGE": "The zones file is larger than 5 MB"
+      "ZONES_FILE_TOO_LARGE": "The zones file is larger than 5 MB",
+      "PLAN_TOO_LARGE": "The plan is too large to save ({{size_kb}} KB). Use fewer or larger zones or a smaller area.",
+      "ZONES_UNAVAILABLE": "The management zones could not be read. Try again."
     },
     "actions": {
       "regenerate": "Regenerate",
@@ -348,7 +350,9 @@
       "copyId": "Copy ID",
       "copied": "Copied!",
       "saveTemplate": "Save as template",
-      "exportFormat": "Export format"
+      "exportFormat": "Export format",
+      "vraIncomplete": "Complete all class rates (or the external zones file), or turn off variable rate, to send.",
+      "vraPending": "Waiting for the prescription to be calculated before sending."
     },
     "title": "GIS Routing",
     "tabs": {

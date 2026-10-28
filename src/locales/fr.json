@@ -339,7 +339,9 @@
       "INVALID_VRA": "La configuration de dose variable n'est pas valide",
       "ZONES_FILE_INVALID": "Le fichier de zones n'est pas valide ou n'a pas pu être lu",
       "ZONES_NO_VALUE": "Aucun attribut de valeur (value, mean, ndvi ou rate). Attributs du fichier : {{attributes}}",
-      "ZONES_FILE_TOO_LARGE": "Le fichier de zones dépasse 5 Mo"
+      "ZONES_FILE_TOO_LARGE": "Le fichier de zones dépasse 5 Mo",
+      "PLAN_TOO_LARGE": "Le plan est trop volumineux pour être enregistré ({{size_kb}} Ko). Utilisez moins de zones, des zones plus grandes ou une surface plus petite.",
+      "ZONES_UNAVAILABLE": "Les zones de gestion n'ont pas pu être lues. Réessayez."
     },
     "actions": {
       "regenerate": "Régénérer",
@@ -348,7 +350,9 @@
       "copyId": "Copier l'ID",
       "copied": "Copié !",
       "saveTemplate": "Enregistrer comme modèle",
-      "exportFormat": "Format d'export"
+      "exportFormat": "Format d'export",
+      "vraIncomplete": "Renseignez les doses de toutes les classes (ou le fichier de zones externe), ou désactivez la dose variable, pour envoyer.",
+      "vraPending": "En attente du calcul de la prescription avant l'envoi."
     },
     "title": "Itinéraires SIG",
     "tabs": {

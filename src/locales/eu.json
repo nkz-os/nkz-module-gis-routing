@@ -339,7 +339,9 @@
       "INVALID_VRA": "Dosi aldakorraren konfigurazioa ez da baliozkoa",
       "ZONES_FILE_INVALID": "Zonen fitxategia ez da baliozkoa edo ezin izan da irakurri",
       "ZONES_NO_VALUE": "Ez dago balio-atributurik (value, mean, ndvi edo rate). Fitxategiko atributuak: {{attributes}}",
-      "ZONES_FILE_TOO_LARGE": "Zonen fitxategia 5 MB baino handiagoa da"
+      "ZONES_FILE_TOO_LARGE": "Zonen fitxategia 5 MB baino handiagoa da",
+      "PLAN_TOO_LARGE": "Plana handiegia da gordetzeko ({{size_kb}} KB). Erabili eremu gutxiago, eremu handiagoak edo azalera txikiagoa.",
+      "ZONES_UNAVAILABLE": "Ezin izan dira kudeaketa-eremuak irakurri. Saiatu berriro."
     },
     "actions": {
       "regenerate": "Birsortu",
@@ -348,7 +350,9 @@
       "copyId": "Kopiatu ID",
       "copied": "Kopiatuta!",
       "saveTemplate": "Gorde txantiloi gisa",
-      "exportFormat": "Esportazio formatua"
+      "exportFormat": "Esportazio formatua",
+      "vraIncomplete": "Bete klase guztien dosiak (edo kanpoko eremuen fitxategia), edo desaktibatu dosi aldakorra, bidaltzeko.",
+      "vraPending": "Errezeta kalkulatu arte itxaroten, bidali aurretik."
     },
     "title": "GIS ibilbideak",
     "tabs": {

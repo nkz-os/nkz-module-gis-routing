@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useTranslation } from '@nekazari/sdk';
 import { Badge, Button, Select } from '@nekazari/ui-kit';
-import { canGenerate, type WorkEvent, type WorkState } from '../../state/workMachine';
+import { canGenerate, vraSaveBlocker, type WorkEvent, type WorkState } from '../../state/workMachine';
 import type { Plan } from '../../services/api';
 import { PatternSaveLoad } from '../patterns/PatternSaveLoad';
 
@@ -52,12 +52,13 @@ export const ActionsBar: React.FC<Props> = ({
   const [templateOpen, setTemplateOpen] = useState(false);
 
   const { phase, stale, error } = state;
+  const vraBlocker = vraSaveBlocker(state);
   const operationId = state.result?.operationId ?? null;
   const shortId = operationId ? operationId.slice(-8) : '';
   const errGeometry = error && GEOMETRIC_CODES.has(error.code) ? errorGeometry(error.params) : null;
 
   const errorText = error
-    ? t(`work.errors.${error.code}`, { detail: error.detail, defaultValue: '' }) ||
+    ? t(`work.errors.${error.code}`, { ...error.params, detail: error.detail, defaultValue: '' }) ||
       t('work.errors.UNKNOWN', { detail: error.detail })
     : '';
 
@@ -99,7 +100,7 @@ export const ActionsBar: React.FC<Props> = ({
         <Button
           variant="secondary"
           onClick={onSave}
-          disabled={phase !== 'generated'}
+          disabled={phase !== 'generated' || vraBlocker !== null}
           loading={phase === 'saving'}
         >
           {t('work.actions.sendToTractor')}
@@ -114,6 +115,12 @@ export const ActionsBar: React.FC<Props> = ({
           </>
         )}
       </div>
+
+      {phase === 'generated' && vraBlocker !== null && (
+        <p className="text-nkz-sm text-nkz-danger" role="status" data-testid="vra-save-blocked">
+          {t(vraBlocker === 'incomplete' ? 'work.actions.vraIncomplete' : 'work.actions.vraPending')}
+        </p>
+      )}
 
       <div className="flex flex-wrap items-center gap-2">
         <label className="flex items-center gap-2">

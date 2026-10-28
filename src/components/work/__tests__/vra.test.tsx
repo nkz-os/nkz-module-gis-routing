@@ -6,6 +6,7 @@ import '../../../i18n';
 import { initialWorkState, stepStatus, workReducer, type WorkState } from '../../../state/workMachine';
 import { useVraSync } from '../../../state/useVraSync';
 import { StepVra } from '../StepVra';
+import { ActionsBar } from '../ActionsBar';
 import { equalClasses, moveCut } from '../vraClasses';
 
 vi.mock('@nekazari/ui-kit', async (importOriginal) => {
@@ -135,11 +136,57 @@ describe('StepVra', () => {
     expect(latest.vra.config.classes.map((c) => [c.minPct, c.maxPct])).toEqual([[0, 66], [66, 67], [67, 100]]);
   });
 
-  it('invert toggles the config', async () => {
-    await mount(baseState());
+  it('invert swaps the entered rates; the request always carries invert:false', async () => {
+    await mount(baseState({}, {}, { classes: rated([80, 120, 160]) }));
     fireEvent.click(screen.getByRole('button', { name: 'Invertir' }));
-    expect(latest.vra.config.invert).toBe(true);
+    expect(latest.vra.config.classes.map((c) => c.rate)).toEqual([160, 120, 80]);
+    expect((screen.getByLabelText('Dosis de la clase 1') as HTMLInputElement).value).toBe('160');
+    await flush(500);
+    const arg = (api.prescription as any).mock.calls[0][0];
+    expect(arg.vra.invert).toBe(false);
+    expect(arg.vra.classes.map((c: any) => c.rate)).toEqual([160, 120, 80]);
+    fireEvent.click(screen.getByRole('button', { name: 'Invertir' }));
+    expect(latest.vra.config.classes.map((c) => c.rate)).toEqual([80, 120, 160]);
   });
+
+  it('re-enabling VRA requests the prescription again (same config)', async () => {
+    await mount(baseState({}, {}, { classes: rated([1, 2, 3]) }));
+    await flush(500);
+    expect(api.prescription).toHaveBeenCalledTimes(1);
+    fireEvent.click(screen.getByRole('switch'));
+    await flush(500);
+    expect(latest.vra.config.enabled).toBe(false);
+    fireEvent.click(screen.getByRole('switch'));
+    await flush(500);
+    expect(api.prescription).toHaveBeenCalledTimes(2);
+    expect(latest.vra.prescription).not.toBeNull();
+  });
+
+  it('renders no Spinner (div) inside a paragraph', async () => {
+    const err = vi.spyOn(console, 'error').mockImplementation(() => {});
+    (api.getDistribution as any).mockResolvedValue({ source: 'orion', variable: 'NDVI', zones: [], missing: [], percentiles: [] });
+    (api.requestZones as any).mockResolvedValue({});
+    await mount(baseState({}, { status: 'loading' }, { classes: rated([1, 2, 3]) }));
+    fireEvent.click(screen.getByRole('button', { name: 'Generar zonas (8)' }));
+    await flush(0);
+    const nesting = err.mock.calls.filter((c) => String(c[0]).includes('validateDOMNesting') || String(c.join(' ')).includes('cannot be a descendant'));
+    err.mockRestore();
+    expect(nesting).toEqual([]);
+    expect(document.querySelectorAll('p [role="status"], p .animate-spin, p svg.animate-spin').length).toBe(0);
+  });
+
+  it('histogram bars carry the class colours of the map (rank based, stacked by class)', async () => {
+    const { vraClassColors } = await import('../../../map/model');
+    // areas 2 ha each, means ascending: ranks 12.5/37.5/62.5/87.5 -> classes 0,1,1,2 for cuts 33/67
+    await mount(baseState({}, {}, { classes: rated([1, 2, 3]) }));
+    const colors = vraClassColors(3);
+    const fills = screen.getAllByTestId('vra-bar').map((b) => b.getAttribute('fill'));
+    expect(new Set(fills)).toEqual(new Set([colors[0], colors[1], colors[2]]));
+    // the lowest-valued bar is class 0, the highest class 2
+    expect(fills[0]).toBe(colors[0]);
+    expect(fills[fills.length - 1]).toBe(colors[2]);
+  });
+
 
   it('keeps the typed text in the rate field and stores a number', async () => {
     await mount(baseState());
@@ -281,8 +328,40 @@ describe('zone generation polling', () => {
     expect((api.getDistribution as any).mock.calls.length).toBe(before + 1);
     (api.getDistribution as any).mockResolvedValue(dist([0.3, 0.6]));
     await flush(5000);
+    // one poll with zones is not enough: the run may still be publishing
+    expect(screen.getByText('Generando zonas…')).toBeTruthy();
+    await flush(5000);
     expect(screen.getAllByTestId('vra-row')).toHaveLength(3);
     expect(screen.queryByText('Generando zonas…')).toBeNull();
+  });
+
+  it('keeps polling while the zone count still grows', async () => {
+    (api.getDistribution as any).mockResolvedValue(empty);
+    (api.requestZones as any).mockResolvedValue({});
+    await mount(baseState());
+    fireEvent.click(screen.getByRole('button', { name: 'Generar zonas (8)' }));
+    await flush(0);
+    (api.getDistribution as any).mockResolvedValue(dist([0.3, 0.6]));
+    await flush(5000);
+    (api.getDistribution as any).mockResolvedValue(dist([0.3, 0.6, 0.7, 0.8]));
+    await flush(5000);
+    expect(screen.getByText('Generando zonas…')).toBeTruthy();
+    await flush(5000);
+    expect(screen.queryByText('Generando zonas…')).toBeNull();
+    expect(latest.vra.distribution?.zones).toHaveLength(4);
+  });
+
+  it('on timeout the last distribution is kept', async () => {
+    (api.getDistribution as any).mockResolvedValue(empty);
+    (api.requestZones as any).mockResolvedValue({});
+    await mount(baseState());
+    fireEvent.click(screen.getByRole('button', { name: 'Generar zonas (8)' }));
+    await flush(0);
+    let n = 0;
+    (api.getDistribution as any).mockImplementation(async () => dist(Array.from({ length: ++n }, (_, i) => 0.1 * (i + 1))));
+    expect(latest.vra.distribution?.zones ?? []).toHaveLength(0);
+    await flush(120_000);
+    expect(latest.vra.distribution?.zones.length).toBeGreaterThan(0);
   });
 
   it('gives up after 2 minutes and offers a retry', async () => {
@@ -381,5 +460,36 @@ describe('StepVra failure and source handling', () => {
     expect(screen.queryByTestId('vra-histogram')).toBeNull();
     expect(screen.queryByTestId('vra-table')).toBeNull();
     expect(screen.getByTestId('vra-uploadprompt')).toBeTruthy();
+  });
+});
+
+
+describe('Save is blocked with a visible reason when VRA is incomplete', () => {
+  const bar = (st: WorkState) => render(
+    <ActionsBar state={st} dispatch={() => {}} onGenerate={() => {}} onSave={() => {}} onExport={() => {}} onShowError={() => {}} plan={null} />);
+  const send = () => screen.getByRole('button', { name: 'Enviar al tractor' }) as HTMLButtonElement;
+
+  it('missing rate: disabled with the message', () => {
+    bar(baseState({}, {}, { classes: rated([1, null, 3]) }));
+    expect(send().disabled).toBe(true);
+    expect(screen.getByTestId('vra-save-blocked').textContent).toContain('dosis');
+  });
+  it('external source without features: disabled', () => {
+    bar(baseState({}, {}, { source: 'external', classes: rated([1, 2, 3]) }));
+    expect(send().disabled).toBe(true);
+    expect(screen.getByTestId('vra-save-blocked')).toBeTruthy();
+  });
+  it('complete with prescription: enabled, no message', () => {
+    bar(baseState({}, { prescription: presc() }, { classes: rated([1, 2, 3]) }));
+    expect(send().disabled).toBe(false);
+    expect(screen.queryByTestId('vra-save-blocked')).toBeNull();
+  });
+  it('PLAN_TOO_LARGE shows its size in the translated error', () => {
+    bar(baseState({ phase: 'failed', error: { code: 'PLAN_TOO_LARGE', detail: 'x', params: { size_kb: 1234 } } }, {}, { enabled: false }));
+    expect(screen.getByRole('alert').textContent).toContain('1234');
+  });
+  it('VRA off: enabled', () => {
+    bar(baseState({}, {}, { enabled: false }));
+    expect(send().disabled).toBe(false);
   });
 });

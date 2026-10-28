@@ -76,7 +76,7 @@ export type WorkEvent =
 
 export const initialVraState: VraState = {
   config: {
-    enabled: false, source: 'orion', variable: 'NDVI', unit: 'kg_ha', product: '', invert: false,
+    enabled: false, source: 'orion', variable: 'NDVI', unit: 'kg_ha', product: '',
     classes: [
       { minPct: 0, maxPct: 33, rate: null },
       { minPct: 33, maxPct: 67, rate: null },
@@ -141,12 +141,25 @@ export function toVraRequest(c: VraConfig): VraRequest | null {
     && c.classes.every((k) => typeof k.rate === 'number' && Number.isFinite(k.rate) && k.rate >= 0);
   if (!ok) return null;
   return {
-    enabled: true, source: c.source, variable: c.variable, unit: c.unit, product: c.product, invert: c.invert,
+    enabled: true, source: c.source, variable: c.variable, unit: c.unit, product: c.product,
+    // Inversion is applied to the entered rates (StepVra); the backend never inverts.
+    invert: false,
     classes: c.classes.map((k) => ({
       min_pct: k.minPct, max_pct: k.maxPct, rate: k.rate as number, ...(k.label ? { label: k.label } : {}),
     })),
     ...(c.source === 'external' && c.externalFeatures ? { external_features: c.externalFeatures } : {}),
   };
+}
+
+/**
+ * Why Save would drop or misstate the VRA, or null when it is safe: enabled but incomplete
+ * (a rate missing, external source without features), or enabled and complete but with no
+ * prescription yet (still computing or failed). Never save a plan without the VRA the user sees.
+ */
+export function vraSaveBlocker(s: WorkState): 'incomplete' | 'pending' | null {
+  if (!s.vra.config.enabled) return null;
+  if (toVraRequest(s.vra.config) === null) return 'incomplete';
+  return s.vra.prescription === null ? 'pending' : null;
 }
 
 function withPlanPrescription(s: WorkState, plan: Plan): VraState {
@@ -194,10 +207,11 @@ export function workReducer(state: WorkState, event: WorkEvent): WorkState {
       // Deliberately not an "edit": changing the VRA config never marks the route stale.
       const config = { ...state.vra.config, ...event.config };
       const status = state.vra.status === 'error' ? 'idle' : state.vra.status;
-      if (config.enabled && toVraRequest(config) !== null) {
+      const sameCount = config.classes.length === state.vra.config.classes.length;
+      if (config.enabled && toVraRequest(config) !== null && sameCount) {
         return { ...state, vra: { ...state.vra, config, error: null, status } };
       }
-      // Disabled or incomplete: what Save would send is "no VRA", so no prescription may stay
+      // Disabled, incomplete or a different class count: what Save would send is "no VRA", so no prescription may stay
       // visible, and a result still in flight must be ignored (new requestId).
       return { ...state, vra: { ...state.vra, config, error: null, prescription: null,
         requestId: state.vra.requestId + 1, status: status === 'loading' ? 'idle' : status } };
@@ -229,7 +243,7 @@ export function workReducer(state: WorkState, event: WorkEvent): WorkState {
       if (state.phase !== 'generating') return state;
       return { ...state, phase: 'failed', error: event.error };
     case 'SAVE_REQUESTED':
-      if (state.phase !== 'generated') return state;
+      if (state.phase !== 'generated' || vraSaveBlocker(state) !== null) return state;
       return { ...state, phase: 'saving', error: null };
     case 'SAVE_RESULT': {
       if (state.phase !== 'saving') return state;
@@ -298,7 +312,8 @@ export function stepStatus(
 export function buildGenerateRequest(s: WorkState, persist: boolean): GenerateRequest {
   if (!canGenerate(s) || s.parcel === null) throw new Error('not ready');
   const { machine, pattern, parcel } = s;
-  const vra = toVraRequest(s.vra.config);
+  // Only when a prescription exists for the current plan: a parcel change must not lock generation.
+  const vra = s.vra.prescription !== null ? toVraRequest(s.vra.config) : null;
   return {
     parcel_geometry: parcel.geometry,
     parcel_id: parcel.id,

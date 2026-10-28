@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { workReducer, initialWorkState, canGenerate, stepStatus, buildGenerateRequest } from '../workMachine';
+import { workReducer, initialWorkState, canGenerate, stepStatus, buildGenerateRequest, vraSaveBlocker } from '../workMachine';
 const geom = { type: 'Polygon', coordinates: [[[0, 0], [1, 0], [1, 1], [0, 1], [0, 0]]] } as const;
 const loaded = (s = initialWorkState, requestId = 1) => workReducer(
   workReducer(s, { type: 'PARCEL_SELECTED', id: 'p1', requestId }),
@@ -129,14 +129,14 @@ describe('VRA slice', () => {
 
   it('has the default config', () => {
     const c = initialWorkState.vra.config;
-    expect(c.enabled).toBe(false); expect(c.unit).toBe('kg_ha'); expect(c.invert).toBe(false);
+    expect(c.enabled).toBe(false); expect(c.unit).toBe('kg_ha');
     expect(c.classes.map((k) => [k.minPct, k.maxPct, k.rate])).toEqual([[0, 33, null], [33, 67, null], [67, 100, null]]);
     expect(initialWorkState.vra.status).toBe('idle');
   });
   it('config change does not mark stale', () => {
     const g = generated(machineReady(loaded()), null);
-    const s = workReducer(g, { type: 'VRA_CONFIG_CHANGED', config: { invert: true } });
-    expect(s.stale).toBe(false); expect(s.vra.config.invert).toBe(true); expect(s.phase).toBe('generated');
+    const s = workReducer(g, { type: 'VRA_CONFIG_CHANGED', config: { product: 'Z' } });
+    expect(s.stale).toBe(false); expect(s.vra.config.product).toBe('Z'); expect(s.phase).toBe('generated');
   });
   it('GENERATED keeps config, takes or clears prescription', () => {
     const r = full(machineReady(loaded()));
@@ -167,21 +167,55 @@ describe('VRA slice', () => {
     expect(stepStatus(g, 'vra')).toBe('optional');
     expect(stepStatus(generated(full(machineReady(loaded())), prescription), 'vra')).toBe('complete');
   });
-  it('buildGenerateRequest sends vra only when enabled with all rates >= 0', () => {
+  it('buildGenerateRequest sends vra only when a prescription exists and the config is enabled and complete', () => {
     const base = machineReady(loaded());
-    expect(buildGenerateRequest(base, false)).not.toHaveProperty('vra');
-    expect(buildGenerateRequest(full(base, [10, null, 30]), false)).not.toHaveProperty('vra');
-    expect(buildGenerateRequest(full(base, [10, -1, 30]), false)).not.toHaveProperty('vra');
+    const withP = (s: any) => ({ ...s, vra: { ...s.vra, prescription } });
+    expect(buildGenerateRequest(withP(base), false)).not.toHaveProperty('vra');
+    expect(buildGenerateRequest(withP(full(base, [10, null, 30])), false)).not.toHaveProperty('vra');
+    expect(buildGenerateRequest(withP(full(base, [10, -1, 30])), false)).not.toHaveProperty('vra');
     const off = workReducer(full(base), { type: 'VRA_CONFIG_CHANGED', config: { enabled: false } });
-    expect(buildGenerateRequest(off, false)).not.toHaveProperty('vra');
-    const body = buildGenerateRequest(workReducer(full(base, [0, 20, 30]), { type: 'VRA_CONFIG_CHANGED', config: { product: 'N', variable: 'NDVI' } }), true);
+    expect(buildGenerateRequest(withP(off), false)).not.toHaveProperty('vra');
+    // enabled and complete but no prescription yet: no vra (a new parcel must be able to generate)
+    expect(buildGenerateRequest(full(base), false)).not.toHaveProperty('vra');
+    const body = buildGenerateRequest(withP(workReducer(full(base, [0, 20, 30]), { type: 'VRA_CONFIG_CHANGED', config: { product: 'N', variable: 'NDVI' } })), true);
     expect(body.vra).toEqual({ enabled: true, source: 'orion', variable: 'NDVI', unit: 'kg_ha', product: 'N', invert: false,
       classes: [{ min_pct: 0, max_pct: 33, rate: 0 }, { min_pct: 33, max_pct: 67, rate: 20 }, { min_pct: 67, max_pct: 100, rate: 30 }] });
+  });
+  it('after a parcel change with VRA on, generate carries no vra and the VRA step becomes usable', () => {
+    let s = generated(full(machineReady(loaded())), prescription);
+    expect(s.vra.prescription).toBe(prescription);
+    s = workReducer(s, { type: 'PARCEL_SELECTED', id: 'p2', requestId: 2 });
+    s = workReducer(s, { type: 'PARCEL_LOADED', requestId: 2, id: 'p2', name: 'P2', geometry: geom as any, config: { accessPoint: null, exclusionZones: null } });
+    s = machineReady(s);
+    expect(s.vra.config.enabled).toBe(true); expect(s.vra.prescription).toBeNull();
+    expect(buildGenerateRequest(s, false)).not.toHaveProperty('vra');
+    const g = workReducer(workReducer(s, { type: 'GENERATE_REQUESTED' }), { type: 'GENERATED', response: planWith(null) });
+    expect(g.phase).toBe('generated');
+    expect(stepStatus(g, 'vra')).toBe('pending');
+  });
+  it('save is blocked while VRA is enabled but incomplete or its prescription is missing', () => {
+    const g = generated(full(machineReady(loaded()), [10, null, 30]), null);
+    expect(vraSaveBlocker(g)).toBe('incomplete');
+    expect(workReducer(g, { type: 'SAVE_REQUESTED' })).toBe(g);
+    const ext = generated(workReducer(full(machineReady(loaded())), { type: 'VRA_CONFIG_CHANGED', config: { source: 'external' } }), null);
+    expect(vraSaveBlocker(ext)).toBe('incomplete');
+    const complete = generated(full(machineReady(loaded())), null);
+    expect(vraSaveBlocker(complete)).toBe('pending');
+    expect(workReducer(complete, { type: 'SAVE_REQUESTED' })).toBe(complete);
+    expect(vraSaveBlocker(generated(full(machineReady(loaded())), prescription))).toBeNull();
+    expect(workReducer(generated(full(machineReady(loaded())), prescription), { type: 'SAVE_REQUESTED' }).phase).toBe('saving');
+    const off = workReducer(complete, { type: 'VRA_CONFIG_CHANGED', config: { enabled: false } });
+    expect(vraSaveBlocker(off)).toBeNull();
+  });
+  it('changing the number of classes drops the prescription computed for the old count', () => {
+    const g = generated(full(machineReady(loaded())), prescription);
+    const four = [0, 25, 50, 75].map((m, i) => ({ minPct: m, maxPct: [25, 50, 75, 100][i], rate: 1 }));
+    expect(workReducer(g, { type: 'VRA_CONFIG_CHANGED', config: { classes: four } }).vra.prescription).toBeNull();
   });
   it('external source sends external_features', () => {
     const fc = { type: 'FeatureCollection', features: [] };
     const s = workReducer(full(machineReady(loaded())), { type: 'VRA_CONFIG_CHANGED', config: { source: 'external', externalFeatures: fc as any } });
-    expect(buildGenerateRequest(s, false).vra?.external_features).toEqual(fc);
+    expect(buildGenerateRequest({ ...s, vra: { ...s.vra, prescription } }, false).vra?.external_features).toEqual(fc);
   });
 
   it('new parcel keeps rates but resets source and external features', () => {

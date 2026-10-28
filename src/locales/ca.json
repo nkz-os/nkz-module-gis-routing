@@ -339,7 +339,9 @@
       "INVALID_VRA": "La configuració de dosi variable no és vàlida",
       "ZONES_FILE_INVALID": "El fitxer de zones no és vàlid o no s'ha pogut llegir",
       "ZONES_NO_VALUE": "No hi ha cap atribut de valor (value, mean, ndvi o rate). Atributs del fitxer: {{attributes}}",
-      "ZONES_FILE_TOO_LARGE": "El fitxer de zones supera els 5 MB"
+      "ZONES_FILE_TOO_LARGE": "El fitxer de zones supera els 5 MB",
+      "PLAN_TOO_LARGE": "El pla és massa gran per desar-lo ({{size_kb}} KB). Fes servir menys zones, zones més grans o una superfície menor.",
+      "ZONES_UNAVAILABLE": "No s'han pogut llegir les zones de maneig. Torna-ho a provar."
     },
     "actions": {
       "regenerate": "Regenerar",
@@ -348,7 +350,9 @@
       "copyId": "Copiar ID",
       "copied": "Copiat!",
       "saveTemplate": "Desar com a plantilla",
-      "exportFormat": "Format d'exportació"
+      "exportFormat": "Format d'exportació",
+      "vraIncomplete": "Completa les dosis de totes les classes (o el fitxer de zones extern), o desactiva la dosi variable, per enviar.",
+      "vraPending": "Esperant que es calculi la prescripció abans d'enviar."
     },
     "title": "Rutes GIS",
     "tabs": {

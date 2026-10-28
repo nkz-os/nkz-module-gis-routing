@@ -64,7 +64,6 @@ export interface VraConfig {
   classes: VraClass[];
   unit: 'kg_ha' | 'l_ha';
   product: string;
-  invert: boolean;
   externalFeatures?: FeatureCollection;
 }
 

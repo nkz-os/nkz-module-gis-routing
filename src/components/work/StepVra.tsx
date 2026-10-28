@@ -120,9 +120,9 @@ export const StepVra: React.FC<Props> = ({ state, dispatch, sync }) => {
           {config.source === 'orion' && zones.length === 0 && (
             <div className="space-y-2" data-testid="vra-nozones">
               {polling ? (
-                <p className="flex items-center gap-2 text-nkz-sm text-nkz-text-secondary">
+                <div className="flex items-center gap-2 text-nkz-sm text-nkz-text-secondary">
                   <Spinner /> {t('work.vra.polling')}
-                </p>
+                </div>
               ) : (
                 <>
                   <p className="text-nkz-sm text-nkz-text-secondary">
@@ -150,9 +150,9 @@ export const StepVra: React.FC<Props> = ({ state, dispatch, sync }) => {
                 </Button>
               )}
               {config.source === 'orion' && polling && (
-                <p className="flex items-center gap-2 text-nkz-sm text-nkz-text-secondary">
+                <div className="flex items-center gap-2 text-nkz-sm text-nkz-text-secondary">
                   <Spinner /> {t('work.vra.polling')}
-                </p>
+                </div>
               )}
             </div>
           )}
@@ -265,11 +265,12 @@ export const StepVra: React.FC<Props> = ({ state, dispatch, sync }) => {
               </table>
 
               <Button
-                variant={config.invert ? 'primary' : 'secondary'}
+                variant="secondary"
                 size="sm"
-                aria-pressed={config.invert}
                 disabled={locked}
-                onClick={() => change({ invert: !config.invert })}
+                onClick={() => change({
+                  classes: config.classes.map((k, i) => ({ ...k, rate: config.classes[config.classes.length - 1 - i].rate })),
+                })}
               >
                 {t('work.vra.invert')}
               </Button>
@@ -282,9 +283,9 @@ export const StepVra: React.FC<Props> = ({ state, dispatch, sync }) => {
             </p>
           )}
           {status === 'loading' && (
-            <p className="flex items-center gap-2 text-nkz-sm text-nkz-text-secondary">
+            <div className="flex items-center gap-2 text-nkz-sm text-nkz-text-secondary">
               <Spinner /> {t('work.vra.calculating')}
-            </p>
+            </div>
           )}
           {error && (
             <div className="flex items-center justify-between gap-2">
