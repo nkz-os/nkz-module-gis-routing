@@ -1,3 +1,5 @@
+/// <reference types="vite/client" />
+
 /**
  * Global type declarations for the Nekazari host runtime.
  * In Module Federation 2.0, shared dependencies (React, SDK, UI-kit, etc.)
