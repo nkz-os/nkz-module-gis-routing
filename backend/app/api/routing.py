@@ -30,13 +30,14 @@ from nkz_platform_sdk.orion import OrionClient
 from app.services.timescale_client import TimescaleDBClient
 from app.services.export_service import RouteExporter
 from app.services.pmtiles_generator import PMTileGenerator
-from app.services.parcel_constraints import fetch_parcel_constraints
+from app.services.parcel_constraints import fetch_parcel_constraints, fetch_tenant_parcels_in_bbox
 from app.api.pathfinding_router import build_dem_registry
 from app.services.pathfinding.grid_sampler import make_grid_sampler
 from app.config import get_settings
 from app.services.machines import fetch_machine_kinematics
 from app.services.coverage.errors import PlanError
 from app.services.coverage.ladder import plan_with_fallbacks, LadderInput
+from shapely.geometry import mapping
 from app.services.exclusion import validate_access_point
 from app.services.routing.base import project_polygon_to_utm
 from shapely.geometry import Point
@@ -194,6 +195,41 @@ async def list_parcels(request: Request, auth: AuthContext = require_auth()):
         ]
     finally:
         await orion.close()
+
+_CONTEXT_MAX_SIDE_DEG = 0.2
+
+
+@router.get("/parcels/context")
+async def parcels_context(bbox: str = Query(..., description="minLon,minLat,maxLon,maxLat"),
+                          auth: AuthContext = require_auth()):
+    """Light parcel context for a map area: geometry, gate and no-go zones of the tenant's parcels."""
+    tenant_id = auth.tenant_id
+    if not tenant_id or tenant_id == "default":
+        raise HTTPException(status_code=404, detail="Tenant not found")
+    try:
+        min_lon, min_lat, max_lon, max_lat = (float(v) for v in bbox.split(","))
+        valid = (min_lon < max_lon and min_lat < max_lat and
+                 all(math.isfinite(v) for v in (min_lon, min_lat, max_lon, max_lat)))
+    except ValueError:
+        valid = False
+    if not valid:
+        raise PlanError("BBOX_INVALID", "bbox must be minLon,minLat,maxLon,maxLat with min < max")
+    if max_lon - min_lon > _CONTEXT_MAX_SIDE_DEG or max_lat - min_lat > _CONTEXT_MAX_SIDE_DEG:
+        raise PlanError("AREA_TOO_LARGE", "The requested area is too large",
+                        {"max_side_deg": _CONTEXT_MAX_SIDE_DEG})
+    parcels = await fetch_tenant_parcels_in_bbox(tenant_id, (min_lon, min_lat, max_lon, max_lat))
+    return {"parcels": [
+        {
+            "id": p["id"],
+            "name": p["name"],
+            "geometry": p["geometry"],
+            "access_point": ({"type": "Point", "coordinates": list(p["access_point"])}
+                             if p["access_point"] else None),
+            "zones": [mapping(z) for z in p["zones"]],
+        }
+        for p in parcels
+    ]}
+
 
 @router.get("/parcels/{parcel_id}/geometry")
 async def get_parcel_geometry(request: Request, parcel_id: str, auth: AuthContext = require_auth()):
