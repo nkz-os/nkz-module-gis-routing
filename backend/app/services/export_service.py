@@ -66,8 +66,54 @@ class RouteExporter:
             f'  <FRM A="{farm}" FRMID="FRM1"/>\n  <CTR A="NKZ Farmer" CTRID="CTR1"/>\n'
             f'  <TSK TSKID="TSK1" FRMID="FRM1" CTRID="CTR1" TSKNAME="{op_type} - {parcel}" TSKSTATUS="1">\n'
             f'    <GPN GPNID="GPN1" GPNDESIGN="{op_type} A-B lines" GPNTYPE="AB" WIDTH="{width}">\n'
-            f"{chr(10).join(lsg)}\n    </GPN>\n  </TSK>\n</ISO11783TaskData>"
+            f"{chr(10).join(lsg)}\n    </GPN>\n{self._treatment_zones(operation.get('prescription'))}"
+            f"  </TSK>\n</ISO11783TaskData>"
         )
+
+    # ASSUMPTION: DDI numbers/units per ISO 11783-11 DDI database
+    # (DDI 1 volume/area mm3/m2, DDI 6 mass/area mg/m2); PDV B = rate * 100
+    # for both (1 l/ha = 100 mm3/m2, 1 kg/ha = 100 mg/m2). PLN A=2 treatment
+    # zone, LSG A=1 exterior / 2 interior, PNT A=2 other (ISO 11783-10).
+    _DDI = {"l_ha": "0001", "kg_ha": "0006"}
+
+    def _treatment_zones(self, rx) -> str:
+        rx = self._parse_geojson(rx) if rx else {}
+        ddi = self._DDI.get(rx.get("unit")) if rx else None
+        if not ddi:
+            return ""
+        by_class: dict = {}
+        for f in (rx.get("zones") or {}).get("features", []):
+            ci = (f.get("properties") or {}).get("class_index")
+            if ci is None:
+                continue
+            by_class.setdefault(int(ci), []).append(f.get("geometry") or {})
+        out = []
+        for cls in sorted(rx.get("classes") or [], key=lambda c: c["index"]):
+            idx = int(cls["index"])
+            value = int(round(float(cls["rate"]) * 100))
+            label = self._xml_escape(f"Class {idx + 1} ({cls.get('min_pct')}-{cls.get('max_pct')}%)")
+            out.append(f'    <TZN A="{idx}" B="{label}">')
+            out.append(f'      <PDV A="{ddi}" B="{value}"/>')
+            for geom in by_class.get(idx, []):
+                if geom.get("type") == "Polygon":
+                    parts = [geom.get("coordinates") or []]
+                elif geom.get("type") == "MultiPolygon":
+                    parts = geom.get("coordinates") or []
+                else:
+                    continue
+                for rings in parts:
+                    if not rings:
+                        continue
+                    out.append('      <PLN A="2">')
+                    for r, ring in enumerate(rings):
+                        pts = ring[:-1] if len(ring) > 1 and ring[0] == ring[-1] else ring
+                        out.append(f'        <LSG A="{1 if r == 0 else 2}">')
+                        for c in pts:
+                            out.append(f'          <PNT A="2" C="{c[1]}" D="{c[0]}"/>')
+                        out.append("        </LSG>")
+                    out.append("      </PLN>")
+            out.append("    </TZN>")
+        return "\n".join(out) + "\n" if out else ""
 
     def _parse_geojson(self, value) -> dict:
         if isinstance(value, str):
