@@ -35,22 +35,57 @@ export function valueAtPct(percentiles: readonly number[], pct: number): number 
   return percentiles[lo] + (percentiles[hi] - percentiles[lo]) * (pos - lo);
 }
 
-export interface HistogramBin { x0: number; x1: number; areaHa: number }
+export interface HistogramBin { x0: number; x1: number; areaHa: number; byClass: number[] }
 
-/** Area (ha) per value bin over the zones that have a value. */
-export function histogramBins(distribution: Distribution, nBins = HISTOGRAM_BINS): HistogramBin[] {
+/**
+ * Class index per zone, as the backend assigns it: area-weighted midpoint rank of the zone's
+ * mean (equal means share a rank), class k where min_pct <= rank < max_pct, the last class takes
+ * the top; all-equal means go to class 0.
+ */
+export function zoneClassIndexes(distribution: Distribution, classes: readonly VraClass[]): number[] {
+  const zones = distribution.zones;
+  const total = zones.reduce((a, z) => a + z.area_ha, 0);
+  if (zones.length === 0 || classes.length === 0) return zones.map(() => 0);
+  const means = [...new Set(zones.map((z) => z.mean))].sort((a, b) => a - b);
+  if (means.length === 1 || total <= 0) return zones.map(() => 0);
+  const rank = new Map<number, number>();
+  let below = 0;
+  for (const m of means) {
+    const area = zones.filter((z) => z.mean === m).reduce((a, z) => a + z.area_ha, 0);
+    rank.set(m, ((below + area / 2) / total) * 100);
+    below += area;
+  }
+  return zones.map((z) => {
+    const r = rank.get(z.mean) as number;
+    const k = classes.slice(0, -1).findIndex((c) => r < c.maxPct);
+    return k === -1 ? classes.length - 1 : k;
+  });
+}
+
+/** Area (ha) per value bin over the zones that have a value, also split by class. */
+export function histogramBins(
+  distribution: Distribution, nBins = HISTOGRAM_BINS, classes: readonly VraClass[] = [],
+): HistogramBin[] {
   const zones = distribution.zones;
   if (zones.length === 0) return [];
+  const cls = zoneClassIndexes(distribution, classes);
+  const nCls = Math.max(1, classes.length);
+  const empty = () => Array.from({ length: nCls }, () => 0);
   const min = Math.min(...zones.map((z) => z.mean));
   const max = Math.max(...zones.map((z) => z.mean));
-  if (min === max) return [{ x0: min, x1: max, areaHa: zones.reduce((a, z) => a + z.area_ha, 0) }];
+  if (min === max) {
+    const byClass = empty();
+    zones.forEach((z, i) => { byClass[cls[i]] += z.area_ha; });
+    return [{ x0: min, x1: max, areaHa: zones.reduce((a, z) => a + z.area_ha, 0), byClass }];
+  }
   const width = (max - min) / nBins;
   const bins: HistogramBin[] = Array.from({ length: nBins }, (_, i) => ({
-    x0: min + i * width, x1: min + (i + 1) * width, areaHa: 0,
+    x0: min + i * width, x1: min + (i + 1) * width, areaHa: 0, byClass: empty(),
   }));
-  for (const z of zones) {
+  zones.forEach((z, zi) => {
     const i = Math.min(nBins - 1, Math.floor((z.mean - min) / width));
     bins[i].areaHa += z.area_ha;
-  }
+    bins[i].byClass[cls[zi]] += z.area_ha;
+  });
   return bins;
 }

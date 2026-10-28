@@ -130,6 +130,17 @@ describe('changedSources', () => {
       expect(changedSources(a, withVra)).toEqual(expect.arrayContaining(['vra-classes', 'swaths']));
       expect(changedSources(withVra, { ...withVra, hoveredSwath: 3 })).toEqual(['swaths']);
     });
+    it('class-coloured swaths get a wider dark casing underneath; headland stays thinner', () => {
+      const specs = layerSpecs() as any[];
+      const ci = specs.findIndex(l => l.id === 'swaths-casing'); const li = specs.findIndex(l => l.id === 'swaths-line');
+      expect(ci).toBeGreaterThanOrEqual(0); expect(ci).toBeLessThan(li);
+      expect(specs[ci].source).toBe('swaths'); expect(specs[ci].type).toBe('line');
+      expect(specs[ci].filter).toEqual(['has', 'color']);
+      expect(specs[ci].paint['line-color']).toBe('#111827');
+      const wc = specs[ci].paint['line-width']; const wl = specs[li].paint['line-width'];
+      // [case, hovered, H, [==, kind, headland], Hc, Wc]
+      expect(wc[5]).toBeGreaterThan(wl[5]); expect(wc[4]).toBeGreaterThan(wl[4]); expect(wc[4]).toBeLessThan(wc[5]);
+    });
     it('vra-classes layers sit between zones-margin and swaths', () => {
       const ids = layerSpecs().map(l => (l as any).source);
       expect(ids.indexOf('vra-classes')).toBeGreaterThan(ids.lastIndexOf('zones-margin'));

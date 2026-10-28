@@ -193,6 +193,14 @@ export function layerSpecs(): LayerSpecification[] {
       paint: { 'text-color': '#FFFFFF', 'text-halo-color': C.route, 'text-halo-width': 1.5 },
     },
     {
+      // Dark casing under class-coloured segments so they stand out over the class fill.
+      id: 'swaths-casing', type: 'line', source: 'swaths', filter: ['has', 'color'],
+      paint: {
+        'line-color': '#111827',
+        'line-width': ['case', ['get', 'hovered'], 7, ['==', ['get', 'kind'], 'headland'], 3, 5],
+      },
+    },
+    {
       id: 'swaths-line', type: 'line', source: 'swaths',
       paint: {
         'line-color': ['case', ['has', 'color'], ['get', 'color'], ['match', ['get', 'kind'], 'headland', C.headland, C.work]],
