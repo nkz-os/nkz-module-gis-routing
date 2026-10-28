@@ -43,7 +43,9 @@ export const StepParcel: React.FC<Props> = ({ state, dispatch, onLoadError }) =>
       })
       .catch((e) => {
         if (requestId !== latestRequestRef.current) return;
-        const msg = e?.message ?? t('errors.geoFailed');
+        // Translated prefix plus the HTTP status; raw backend text is never shown.
+        const status = typeof e?.status === 'number' ? ` (HTTP ${e.status})` : '';
+        const msg = `${t('errors.geoFailed')}${status}`;
         setError(msg);
         onLoadError?.(msg);
       })
@@ -89,7 +91,7 @@ export const StepParcel: React.FC<Props> = ({ state, dispatch, onLoadError }) =>
         </div>
       )}
       {state.parcel && (
-        <a className="text-nkz-xs text-nkz-accent-base" href={`/viewer?entity=${encodeURIComponent(state.parcel.id)}`}>
+        <a className="text-nkz-xs text-nkz-accent-base" href={`/entities?parcel=${encodeURIComponent(state.parcel.id)}`}>
           {t('actions.viewInCesium')}
         </a>
       )}

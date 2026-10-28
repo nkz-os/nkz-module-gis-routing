@@ -52,7 +52,12 @@ export const ResultStrip: React.FC<Props> = ({ state, onWarningSelect, collapsed
   const nf0 = new Intl.NumberFormat(i18n.language, { maximumFractionDigits: 0 });
 
   const reported = plan.validation?.warnings ?? [];
-  const rows: Row[] = reported.map((w, i) => ({ code: w.code, params: w.params, n: w.geometry ? i + 1 : null }));
+  // The backend reports the area as `area_ha`; the strings use `{{ha}}`, formatted for the locale.
+  const paramsFor = (code: string, params: Record<string, unknown>): Record<string, unknown> =>
+    code === 'UNREACHED_AREA' && typeof params.area_ha === 'number' && params.ha === undefined
+      ? { ...params, ha: nf1.format(params.area_ha) }
+      : params;
+  const rows: Row[] = reported.map((w, i) => ({ code: w.code, params: paramsFor(w.code, w.params), n: w.geometry ? i + 1 : null }));
   if (!reported.some((w) => w.code === 'UNREACHED_AREA')) {
     for (const part of plan.unreached_parts) {
       rows.push({ code: 'UNREACHED_AREA', params: { ha: nf1.format(part.area_ha) }, n: null });
@@ -69,7 +74,7 @@ export const ResultStrip: React.FC<Props> = ({ state, onWarningSelect, collapsed
   ].join(' · ');
 
   return (
-    <div className="absolute bottom-0 left-0 right-0 z-10 bg-nkz-surface border-t border-nkz-border shadow-lg p-3 space-y-2 max-h-[40vh] overflow-y-auto">
+    <div className="bg-nkz-surface border-t border-nkz-border shadow-lg p-3 space-y-2 max-h-[40vh] overflow-y-auto">
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-2 flex-wrap">
           <span className="text-nkz-sm font-semibold">{metrics}</span>

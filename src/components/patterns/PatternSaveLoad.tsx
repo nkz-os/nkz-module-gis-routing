@@ -22,6 +22,7 @@ export const PatternSaveLoad: React.FC<Props> = ({
   const { t } = useTranslation(NS);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [failed, setFailed] = useState(false);
   const [name, setName] = useState('');
 
   if (!plan || !parcelId) return null;
@@ -29,6 +30,7 @@ export const PatternSaveLoad: React.FC<Props> = ({
   const handleSave = async () => {
     if (!name.trim()) return;
     setSaving(true);
+    setFailed(false);
     try {
       await api.savePattern({
         parcel_id: parcelId,
@@ -42,7 +44,10 @@ export const PatternSaveLoad: React.FC<Props> = ({
         source_operation_id: operationId ?? null,
       });
       setSaved(true);
-    } catch {} finally { setSaving(false); }
+    } catch (e) {
+      console.error('[gis-routing] template save failed', e);
+      setFailed(true);
+    } finally { setSaving(false); }
   };
 
   return (
@@ -61,6 +66,7 @@ export const PatternSaveLoad: React.FC<Props> = ({
             placeholder={t('patterns.namePlaceholder')}
             className="w-full"
           />
+          {failed && <p role="alert" className="text-nkz-xs text-nkz-danger">{t('patterns.saveFailed')}</p>}
           <Button onClick={handleSave} disabled={saving || !name.trim()}
             className="w-full py-2 flex justify-center items-center">
             {saving ? <Loader2 className="w-3 h-3 animate-spin inline mr-1" /> : null}

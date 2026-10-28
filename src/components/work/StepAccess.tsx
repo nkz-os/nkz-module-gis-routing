@@ -17,6 +17,8 @@ interface Props extends StepProps {
 
 export const StepAccess: React.FC<Props> = ({ state, dispatch, drawMode, setDrawMode, autosave }) => {
   const { t } = useTranslation(NS);
+  // Edits are blocked while a request runs: the reducer would drop them and the map would diverge.
+  const locked = state.phase === 'generating' || state.phase === 'saving';
   const placing = drawMode === 'access';
   const issue = state.accessIssue;
   return (
@@ -25,6 +27,7 @@ export const StepAccess: React.FC<Props> = ({ state, dispatch, drawMode, setDraw
         <Button
           variant={placing ? 'primary' : 'secondary'}
           size="sm"
+          disabled={locked}
           leadingIcon={<MapPin className="w-4 h-4" />}
           onClick={() => setDrawMode(placing ? 'none' : 'access')}
         >
@@ -34,6 +37,7 @@ export const StepAccess: React.FC<Props> = ({ state, dispatch, drawMode, setDraw
           <Button
             variant="ghost"
             size="sm"
+            disabled={locked}
             onClick={() => dispatch({ type: 'ACCESS_CHANGED', point: null, issue: null })}
           >
             {t('work.access.remove')}

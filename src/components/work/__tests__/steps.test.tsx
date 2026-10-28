@@ -95,14 +95,16 @@ describe('work steps', () => {
     const dispatch = vi.fn();
     const onLoadError = vi.fn();
     (api.listParcels as any).mockResolvedValue([{ id: 'p1', name: 'Alpha' }]);
-    (api.getParcelGeometry as any).mockRejectedValue(new Error('boom'));
+    (api.getParcelGeometry as any).mockRejectedValue(Object.assign(new Error('Parcel not found'), { status: 404 }));
     (api.getParcelConfig as any).mockResolvedValue({ accessPoint: null, exclusionZones: null });
     render(<StepParcel state={initialWorkState} dispatch={dispatch} onLoadError={onLoadError} />);
     const select = await screen.findByRole('combobox');
     await screen.findByText('Alpha');
     fireEvent.change(select, { target: { value: 'p1' } });
-    await screen.findByText('boom');
-    expect(onLoadError).toHaveBeenCalledWith('boom');
+    // Translated prefix + status; the raw backend message is not shown.
+    await screen.findByText('Error al cargar la geometría (HTTP 404)');
+    expect(screen.queryByText(/Parcel not found/)).toBeNull();
+    expect(onLoadError).toHaveBeenCalledWith('Error al cargar la geometría (HTTP 404)');
     expect(screen.getByRole('button', { name: 'Reintentar' })).toBeTruthy();
   });
 
@@ -193,6 +195,26 @@ describe('work steps', () => {
     dispatch.mockClear();
     fireEvent.click(screen.getByRole('button', { name: 'Quitar entrada' }));
     expect(dispatch).toHaveBeenCalledWith({ type: 'ACCESS_CHANGED', point: null, issue: null });
+  });
+
+  it('StepZones and StepAccess block drawing and removing while a request runs', () => {
+    const busy = parcelState({ zones: [zone('a')], accessPoint: { type: 'Point', coordinates: [0, 0] }, phase: 'generating' });
+    render(
+      <>
+        <StepZones state={busy} dispatch={vi.fn()} drawMode="none" setDrawMode={vi.fn()} autosave={autosave()} />
+        <StepAccess state={busy} dispatch={vi.fn()} drawMode="none" setDrawMode={vi.fn()} autosave={autosave()} />
+      </>,
+    );
+    expect(screen.getByRole('button', { name: /Dibujar zona/ })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Eliminar zona' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Quitar entrada' })).toBeDisabled();
+  });
+
+  it('StepParcel links back to the entities view with the parcel query', async () => {
+    (api.listParcels as any).mockResolvedValue([{ id: 'urn:p 1', name: 'Alpha' }]);
+    render(<StepParcel state={parcelState({ parcel: { id: 'urn:p 1', name: 'Alpha', geometry: poly(0, 0.01) } })} dispatch={vi.fn()} />);
+    const a = await screen.findByRole('link');
+    expect(a.getAttribute('href')).toBe('/entities?parcel=urn%3Ap%201');
   });
 
   it('StepMachine prefills width and radius from the implement and marks them "from machine"; typing marks manual', async () => {

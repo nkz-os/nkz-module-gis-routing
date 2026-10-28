@@ -161,4 +161,26 @@ describe('result strip and actions bar', () => {
     expect(body.vra_prescription_map).toBeNull();
     expect(body.source_operation_id).toBe('op-1');
   });
+  it('ResultStrip formats the backend UNREACHED_AREA area_ha param and has no own positioning', () => {
+    const p = plan();
+    p.validation!.warnings = [{ code: 'UNREACHED_AREA', geometry: point, params: { area_ha: 2.54 } }];
+    const state = withResult(); state.result!.plan = p;
+    const { container } = render(<ResultStrip state={state} onWarningSelect={vi.fn()} collapsed={false} onToggle={vi.fn()} />);
+    expect(screen.getByText('Zona sin cubrir de 2,5 ha')).toBeInTheDocument();
+    expect(container.textContent).not.toContain('{{');
+    // The wrapper positions the strip: an absolute root would measure as height 0.
+    expect((container.firstElementChild as HTMLElement).className).not.toMatch(/\babsolute\b/);
+  });
+
+  it('PatternSaveLoad tells the user when saving the template fails', async () => {
+    (api.savePattern as any).mockRejectedValueOnce(new Error('x'));
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    render(
+      <PatternSaveLoad plan={plan()} parcelId="p1" tractorId={null} implementId={null}
+        pattern="boustrophedon" patternConfig={{}} operationId="op-1" />,
+    );
+    fireEvent.change(screen.getByPlaceholderText(/./), { target: { value: 'T' } });
+    fireEvent.click(screen.getByRole('button', { name: /Guardar/ }));
+    expect(await screen.findByRole('alert')).toHaveTextContent('No se pudo guardar la plantilla');
+  });
 });

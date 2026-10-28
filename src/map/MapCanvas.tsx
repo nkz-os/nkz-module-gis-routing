@@ -168,7 +168,8 @@ export const MapCanvas: React.FC<MapCanvasProps> = (props) => {
               styles: { fillOpacity: 0, outlineColor: '#F59E0B', outlineWidth: 2 },
             }),
             new td.TerraDrawPointMode({ styles: { pointColor: '#2563EB', pointWidth: 6 } }),
-            new td.TerraDrawStaticMode(),
+            // Non-interactive mode used while a request runs (features stay visible).
+            new td.TerraDrawRenderMode({ styles: {} }),
             new td.TerraDrawSelectMode({
               flags: {
                 polygon: { feature: { draggable: false, coordinates: { midpoints: false, draggable: true, deletable: true } } },
@@ -299,7 +300,7 @@ export const MapCanvas: React.FC<MapCanvasProps> = (props) => {
   useEffect(() => {
     const draw = drawRef.current;
     if (!ready || !draw) return;
-    if (locked) { draw.setMode('static'); return; }
+    if (locked) { draw.setMode('render'); return; }
     draw.setMode(drawMode === 'zone' ? 'polygon' : drawMode === 'access' ? 'point' : 'select');
   }, [drawMode, ready, locked]);
 

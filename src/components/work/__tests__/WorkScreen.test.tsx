@@ -185,6 +185,132 @@ describe('WorkScreen', () => {
   });
 });
 
+describe('WorkScreen request flow', () => {
+  const okResponse = () => ({ success: true, operation_id: null, persisted: false, plan: planFixture() });
+  const clickGenerate = () => fireEvent.click(screen.getByRole('button', { name: /Generar ruta|Regenerar/i }));
+
+  it('a double click on Generar sends one request (state machine locks before any await)', async () => {
+    let resolve!: (v: unknown) => void;
+    (api.generate as any).mockImplementation(() => new Promise((r) => { resolve = r; }));
+    await loadAndConfigure();
+    const btn = screen.getByRole('button', { name: /Generar ruta/i });
+    fireEvent.click(btn);
+    fireEvent.click(btn);
+    await waitFor(() => expect(api.generate).toHaveBeenCalledTimes(1));
+    expect(screen.getByRole('button', { name: /Generar ruta/i })).toBeDisabled();
+    expect(mapProps().locked).toBe(true);
+    await act(async () => { resolve(okResponse()); });
+    await screen.findByText(/12 pasadas/);
+    expect(api.generate).toHaveBeenCalledTimes(1);
+    expect(mapProps().locked).toBe(false);
+  });
+
+  it('Generar works again straight from a failed generation (no Reintentar needed)', async () => {
+    (api.generate as any)
+      .mockRejectedValueOnce(new ApiError(500, { code: 'ENGINE_FAILURE', detail: 'x' }))
+      .mockResolvedValueOnce(okResponse());
+    await loadAndConfigure();
+    clickGenerate();
+    await screen.findByRole('alert');
+    clickGenerate();
+    await screen.findByText(/12 pasadas/);
+    expect(api.generate).toHaveBeenCalledTimes(2);
+  });
+
+  it('a failed self-check blocks generation with a coded error', async () => {
+    await loadAndConfigure();
+    (api.getParcelConfig as any).mockRejectedValue(new Error('down'));
+    clickGenerate();
+    const alert = await screen.findByRole('alert');
+    expect(alert.textContent).toContain('No se pudo verificar la configuración guardada');
+    expect(api.generate).not.toHaveBeenCalled();
+  });
+
+  it('a failed self-check also blocks saving', async () => {
+    (api.generate as any).mockResolvedValue(okResponse());
+    await loadAndConfigure();
+    clickGenerate();
+    await screen.findByText(/12 pasadas/);
+    (api.getParcelConfig as any).mockRejectedValue(new Error('down'));
+    fireEvent.click(screen.getByRole('button', { name: 'Enviar al tractor' }));
+    await screen.findByRole('alert');
+    expect(api.generate).toHaveBeenCalledTimes(1);
+  });
+
+  it('an error without a backend code shows the HTTP status, not an engine fault', async () => {
+    (api.generate as any).mockRejectedValue(new ApiError(401, { detail: 'Invalid token' }));
+    await loadAndConfigure();
+    clickGenerate();
+    const alert = await screen.findByRole('alert');
+    expect(alert.textContent).toContain('HTTP 401');
+    expect(alert.textContent).toContain('Invalid token');
+    expect(alert.textContent).not.toContain('Error interno del motor');
+  });
+
+  it('save shows the persisted plan returned by the server', async () => {
+    const second = planFixture(); second.swath_count = 7;
+    (api.generate as any)
+      .mockResolvedValueOnce(okResponse())
+      .mockResolvedValueOnce({ success: true, operation_id: 'op-12345678', persisted: true, plan: second });
+    await loadAndConfigure();
+    clickGenerate();
+    await screen.findByText(/12 pasadas/);
+    fireEvent.click(screen.getByRole('button', { name: 'Enviar al tractor' }));
+    await screen.findByText(/7 pasadas/);
+  });
+
+  it('removing the entrance: verify sees a cleared broker (no re-PUT); a stale broker gets an explicit null', async () => {
+    (api.getParcelConfig as any).mockResolvedValue({ accessPoint: point, exclusionZones: emptyFc });
+    (api.generate as any).mockResolvedValue(okResponse());
+    render(<WorkScreen />);
+    fireEvent.change(await parcelSelect(), { target: { value: 'p1' } });
+    await waitFor(() => expect(mapProps().model.accessPoint).toEqual(point));
+    fireEvent.click(screen.getByRole('button', { name: /Máquina/ }));
+    fireEvent.change((await screen.findByText('Sprayer')).closest('select') as HTMLSelectElement, { target: { value: 'i1' } });
+    fireEvent.click(screen.getByRole('button', { name: /Entrada/ }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Quitar entrada' }));
+    await waitFor(() => expect(mapProps().model.accessPoint).toBeNull());
+
+    (api.getParcelConfig as any).mockResolvedValue({ accessPoint: null, exclusionZones: emptyFc });
+    clickGenerate();
+    await screen.findByText(/12 pasadas/);
+    expect(api.saveParcelConfig).not.toHaveBeenCalled();
+
+    (api.getParcelConfig as any).mockResolvedValue({ accessPoint: point, exclusionZones: emptyFc });
+    clickGenerate();
+    await waitFor(() => expect(api.saveParcelConfig).toHaveBeenCalled());
+    const [id, body] = (api.saveParcelConfig as any).mock.calls[0];
+    expect(id).toBe('p1');
+    expect(JSON.parse(JSON.stringify(body)).accessPoint).toBeNull();
+  });
+
+  it('a MultiPolygon zone loads as editable parts and survives the autosave payload', async () => {
+    const part = (o: number) => [[[o, o], [o + 0.001, o], [o + 0.001, o + 0.001], [o, o + 0.001], [o, o]]];
+    (api.getParcelConfig as any).mockResolvedValue({
+      accessPoint: null,
+      exclusionZones: { type: 'FeatureCollection', features: [
+        { type: 'Feature', properties: { id: 'm' }, geometry: { type: 'MultiPolygon', coordinates: [part(0.002), part(0.006)] } },
+      ] },
+    });
+    render(<WorkScreen />);
+    fireEvent.change(await parcelSelect(), { target: { value: 'p1' } });
+    await waitFor(() => expect(mapProps().model.zones.map((z: any) => z.id)).toEqual(['m#0', 'm#1']));
+  });
+
+  it('measures the result strip wrapper and refits when the strip appears', async () => {
+    const spy = vi.spyOn(Element.prototype, 'getBoundingClientRect').mockImplementation(function (this: Element) {
+      const h = this.getAttribute('data-testid') === 'result-strip' ? 90 : 0;
+      return { height: h, width: 0, top: 0, left: 0, right: 0, bottom: h, x: 0, y: 0, toJSON() {} } as DOMRect;
+    });
+    try {
+      (api.generate as any).mockResolvedValue(okResponse());
+      render(<WorkScreen />);
+      await waitFor(() => expect(mapProps()).toBeDefined());
+      expect(mapProps().bottomInset).toBe(90);
+    } finally { spy.mockRestore(); }
+  });
+});
+
 describe('App', () => {
   it('switching to the transit tab passes the work context to the pathfinding panel', async () => {
     render(<App />);

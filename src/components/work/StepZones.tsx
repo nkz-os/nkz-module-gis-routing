@@ -35,6 +35,8 @@ interface Props extends StepProps {
 
 export const StepZones: React.FC<Props> = ({ state, dispatch, drawMode, setDrawMode, autosave }) => {
   const { t } = useTranslation(NS);
+  // Edits are blocked while a request runs: the reducer would drop them and the map would diverge.
+  const locked = state.phase === 'generating' || state.phase === 'saving';
   const rings = state.parcel ? state.parcel.geometry.coordinates.slice(1) : [];
   const drawing = drawMode === 'zone';
   return (
@@ -42,6 +44,7 @@ export const StepZones: React.FC<Props> = ({ state, dispatch, drawMode, setDrawM
       <Button
         variant={drawing ? 'primary' : 'secondary'}
         size="sm"
+        disabled={locked}
         leadingIcon={<Pencil className="w-4 h-4" />}
         onClick={() => setDrawMode(drawing ? 'none' : 'zone')}
       >
@@ -63,6 +66,7 @@ export const StepZones: React.FC<Props> = ({ state, dispatch, drawMode, setDrawM
                 variant="ghost"
                 size="sm"
                 aria-label={t('work.zones.delete')}
+                disabled={locked}
                 onClick={() => dispatch({ type: 'ZONES_CHANGED', zones: state.zones.filter((o) => o.id !== z.id) })}
               >
                 <Trash2 className="w-4 h-4" />

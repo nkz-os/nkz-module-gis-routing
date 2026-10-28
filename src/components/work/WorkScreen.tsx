@@ -6,6 +6,7 @@ import { api, ApiError } from '../../services/api';
 import { areaHa, isValidPolygon, type Zone } from '../../services/geo';
 import {
   buildGenerateRequest,
+  canGenerate,
   initialWorkState,
   workReducer,
   type WorkState,
@@ -37,13 +38,16 @@ export function computeAccessIssue(
   return null;
 }
 
-function toWorkError(e: unknown): NonNullable<WorkState['error']> {
+/** Backend-coded errors keep their code; anything else is UNKNOWN with the HTTP status/message visible. */
+export function toWorkError(e: unknown): NonNullable<WorkState['error']> {
   const err = e as { detail?: string; message?: string; params?: Record<string, unknown> } | null;
-  return {
-    code: e instanceof ApiError && e.code ? e.code : 'ENGINE_FAILURE',
-    detail: err?.detail ?? err?.message ?? '',
-    params: err?.params ?? {},
-  };
+  const message = err?.detail ?? err?.message ?? '';
+  if (e instanceof ApiError && e.code) {
+    return { code: e.code, detail: message, params: err?.params ?? {} };
+  }
+  const status = e instanceof ApiError ? `HTTP ${e.status}` : '';
+  const detail = status && message && message !== status ? `${status}: ${message}` : status || message;
+  return { code: 'UNKNOWN', detail, params: err?.params ?? {} };
 }
 
 export interface WorkContext {
@@ -138,10 +142,12 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({ onContextChange }) => {
       focus,
     }),
     [state.parcel, state.zones, state.machine.widthM, state.accessPoint, state.accessIssue,
-      plan, state.stale, state.phase, hoveredSwath, selectedWarning, focus],
+      plan, state.stale, hoveredSwath, selectedWarning, focus],
   );
 
-  const fitKey = parcelId ? `${parcelId}:${focusCounter}` : null;
+  // The strip appearing shrinks the visible map: refit once (not on every collapse/expand).
+  const fitKey = parcelId ? `${parcelId}:${focusCounter}:${stripHeight > 0 ? 'strip' : 'nostrip'}` : null;
+  const locked = state.phase === 'generating' || state.phase === 'saving';
 
   // --- Map callbacks ------------------------------------------------------
   const changeZones = useCallback((zones: Zone[]) => {
@@ -205,16 +211,35 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({ onContextChange }) => {
   const onMapReady = useCallback(() => setMapReady(true), []);
 
   // --- Actions ------------------------------------------------------------
+  const inFlight = useRef(false);
   const run = useCallback(async (persist: boolean) => {
-    const body = buildGenerateRequest(stateRef.current, persist);
-    const v = await autosave.verifyBeforeGenerate();
-    setToast(v === 'restored' ? t('autosave.restored') : v === 'failed' ? t('autosave.verifyFailed') : null);
+    // The state machine decides whether a request may start; the ref covers the same tick.
+    const cur = stateRef.current;
+    if (inFlight.current) return;
+    if (persist ? cur.phase !== 'generated' : !canGenerate(cur)) return;
+    const body = buildGenerateRequest(cur, persist);
+    inFlight.current = true;
+    setDrawMode('none');
+    // Dispatch first: the buttons and the draw tools lock before any await.
     dispatch({ type: persist ? 'SAVE_REQUESTED' : 'GENERATE_REQUESTED' });
     try {
+      const v = await autosave.verifyBeforeGenerate();
+      if (v === 'failed') {
+        // Fail-safe: the route is computed from the broker, so an unverified broker means no route.
+        setToast(null);
+        dispatch({
+          type: persist ? 'SAVE_FAILED' : 'GENERATE_FAILED',
+          error: { code: 'CONFIG_UNVERIFIED', detail: '', params: {} },
+        });
+        return;
+      }
+      setToast(v === 'restored' ? t('autosave.restored') : null);
       const response = await api.generate(body);
       dispatch({ type: persist ? 'SAVE_RESULT' : 'GENERATED', response });
     } catch (e) {
       dispatch({ type: persist ? 'SAVE_FAILED' : 'GENERATE_FAILED', error: toWorkError(e) });
+    } finally {
+      inFlight.current = false;
     }
   }, [autosave, t]);
 
@@ -232,7 +257,10 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({ onContextChange }) => {
   };
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-4 gap-3 h-[calc(100vh-4rem)] min-h-0">
+        <div
+      className="grid grid-cols-1 lg:grid-cols-4 gap-3"
+      style={{ height: 'calc(100dvh - 10rem)', minHeight: '32rem' }}
+    >
       <div className="lg:col-span-1 flex flex-col min-h-0 overflow-y-auto space-y-3 p-3">
         {toast && <Badge intent="info">{toast}</Badge>}
         <StepList state={state} dispatch={dispatch}>
@@ -269,6 +297,7 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({ onContextChange }) => {
             model={model}
             drawMode={drawMode}
             fitKey={fitKey}
+            locked={locked}
             visibleLayers={visibleLayers}
             bottomInset={stripHeight}
             onZoneDrawn={onZoneDrawn}
@@ -303,7 +332,7 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({ onContextChange }) => {
           </div>
         )}
 
-        <div ref={stripRef} className="absolute bottom-0 left-0 right-0 z-10">
+        <div ref={stripRef} data-testid="result-strip" className="absolute bottom-0 left-0 right-0 z-10">
           <ResultStrip
             state={state}
             onWarningSelect={onWarningSelect}

@@ -65,7 +65,7 @@
     "pathfindingFailed": "Pathfinding failed",
     "pathfindingTimeout": "Pathfinding timed out",
     "pathCalculationFailed": "Path calculation failed",
-    "geoFailed": "Geometry loading failed",
+    "geoFailed": "Échec du chargement de la géométrie",
     "authRequired": "Autenticación requerida",
     "generateFailed": "Error al generar la ruta",
     "missingTurningRadius": "Falta el radio de giro de la máquina. Introduce uno o configúralo en el editor de entidades."

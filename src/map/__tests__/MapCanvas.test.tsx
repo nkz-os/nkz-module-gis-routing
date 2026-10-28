@@ -26,7 +26,7 @@ vi.mock('terra-draw', () => {
   class TerraDraw {
     start() {} stop() {} setMode(m: string) { h.setMode(m); } on() {} clear() {} addFeatures() {} removeFeatures() {} getSnapshotFeature() { return null; }
   }
-  return { TerraDraw, TerraDrawPolygonMode: M, TerraDrawPointMode: M, TerraDrawSelectMode: M, TerraDrawStaticMode: M };
+  return { TerraDraw, TerraDrawPolygonMode: M, TerraDrawPointMode: M, TerraDrawSelectMode: M, TerraDrawRenderMode: M };
 });
 vi.mock('terra-draw-maplibre-gl-adapter', () => ({ TerraDrawMapLibreGLAdapter: class {} }));
 
@@ -79,14 +79,14 @@ describe('MapCanvas', () => {
     expect(onError).toHaveBeenCalledTimes(1);
   });
 
-  it('switches terra-draw to static mode while locked', async () => {
+  it('switches terra-draw to a non-interactive mode while locked', async () => {
     const { rerender } = render(<MapCanvas {...props} />);
     await waitFor(() => expect(h.handlers.load).toBeTypeOf('function'));
     h.handlers.load();
     await waitFor(() => expect(h.setMode).toHaveBeenCalledWith('select'));
     h.setMode.mockClear();
     rerender(<MapCanvas {...props} locked />);
-    await waitFor(() => expect(h.setMode).toHaveBeenCalledWith('static'));
+    await waitFor(() => expect(h.setMode).toHaveBeenCalledWith('render'));
     h.setMode.mockClear();
     rerender(<MapCanvas {...props} locked={false} />);
     await waitFor(() => expect(h.setMode).toHaveBeenCalledWith('select'));
