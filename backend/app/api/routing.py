@@ -21,7 +21,7 @@ from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import JSONResponse
 from fastapi.responses import Response as FastAPIResponse
 from pydantic import BaseModel, ConfigDict, Field, field_validator
-from typing import Optional, Literal
+from typing import Annotated, Optional, Literal, Union
 
 import httpx
 from app.services.sync_service import SyncService, SyncConflictError
@@ -734,17 +734,28 @@ def _zones_from_orion(zones: list[dict], parcel_id: str, zone_ids: list[str] | N
 
 
 async def _persist_operation(result, body: GenerateRequest, auth: AuthContext,
-                             prescription_map: dict | None, plan_dict: dict | None = None) -> Optional[str]:
-    """Persist route as AgriParcelOperation in Orion-LD. Returns operation URN."""
+                             prescription_map: dict | None, plan_dict: dict | None = None,
+                             *, strict: bool = False) -> Optional[str]:
+    """Persist route as AgriParcelOperation in Orion-LD. Returns operation URN.
+
+    Orion failure: None (reported as persisted=false) unless strict, which raises
+    PERSIST_FAILED.
+    """
     from app.services import operation_store
     tenant_id = auth.tenant_id
-    settings = get_settings()
     op_id = operation_store.new_operation_id(tenant_id)
     entity = operation_store.build_operation_entity(
         op_id=op_id, body=body, result=result,
         prescription_map=prescription_map, is_template=False, plan=plan_dict,
         planned_start_at=_iso_utc(body.planned_start_at), planned_end_at=_iso_utc(body.planned_end_at),
     )
+    return await _create_operation_entity(entity, op_id, tenant_id, strict=strict)
+
+
+async def _create_operation_entity(entity: dict, op_id: str, tenant_id: str, *,
+                                   strict: bool) -> Optional[str]:
+    from app.services import operation_store
+    settings = get_settings()
     size = len(json.dumps(entity, separators=(",", ":")).encode("utf-8"))
     if size > operation_store.MAX_ENTITY_BYTES:
         raise PlanError("PLAN_TOO_LARGE", "operation is too large to store",
@@ -754,12 +765,87 @@ async def _persist_operation(result, body: GenerateRequest, auth: AuthContext,
     try:
         await orion.create_entity(entity)
         return op_id
-    except Exception:
+    except Exception as exc:
+        logger.exception("Failed to persist operation: op_id=%s tenant_id=%s", op_id, tenant_id)
+        if strict:
+            raise PlanError("PERSIST_FAILED", "operation could not be stored") from exc
         # Reported to the client as persisted=false; the plan itself is still returned.
-        logger.exception("Failed to persist operation: op_id=%s parcel_id=%s", op_id, body.parcel_id)
         return None
     finally:
         await orion.close()
+
+
+class SavePlanRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    kind: Literal["plan"]
+    plan_id: str
+    planned_start_at: Optional[datetime] = None
+    planned_end_at: Optional[datetime] = None
+
+    _utc = field_validator("planned_start_at", "planned_end_at")(
+        GenerateRequest.planned_dates_are_utc.__func__)
+
+
+class SaveTransitRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    kind: Literal["transit"]
+    job_id: str
+    alternative_id: Literal["least_slope", "fastest"]
+    parcel_id: Optional[str] = None
+    name: Optional[str] = None
+    planned_start_at: Optional[datetime] = None
+    planned_end_at: Optional[datetime] = None
+
+    _utc = field_validator("planned_start_at", "planned_end_at")(
+        GenerateRequest.planned_dates_are_utc.__func__)
+
+
+SaveOperationRequest = Annotated[Union[SavePlanRequest, SaveTransitRequest],
+                                 Field(discriminator="kind")]
+
+
+@router.post("/operations")
+async def save_operation(body: SaveOperationRequest, auth: AuthContext = require_auth()):
+    """Persist a stored work plan or a computed A-B transit as an operation."""
+    from app.api.pathfinding_router import JOBS
+    from app.services import operation_store
+
+    if body.kind == "plan":
+        rec = PLAN_STORE.get(auth.tenant_id, body.plan_id)
+        if rec is None:
+            raise PlanError("PLAN_EXPIRED", "plan not found or expired; generate it again")
+        stored = GenerateRequest(**rec["body"])
+        if not stored.parcel_id:
+            raise PlanError("PARCEL_REQUIRED", "a parcel is required to save an operation")
+        update = {}
+        if body.planned_start_at is not None:
+            update["planned_start_at"] = body.planned_start_at
+        if body.planned_end_at is not None:
+            update["planned_end_at"] = body.planned_end_at
+        gen = stored.model_copy(update=update)
+        op_id = await _persist_operation(rec["result"], gen, auth, None, rec["plan_dict"],
+                                         strict=True)
+        return {"success": True, "operation_id": op_id, "persisted": True}
+
+    if not body.parcel_id:
+        raise PlanError("PARCEL_REQUIRED", "a destination parcel is required to save a transit")
+    job = JOBS.get(body.job_id, auth.tenant_id)
+    if job is None:
+        raise HTTPException(status_code=404, detail="Job not found")
+    if job.get("status") != "completed":
+        raise PlanError("JOB_NOT_READY", "the transit calculation has not completed",
+                        {"status": job.get("status")})
+    alt = next((a for a in job.get("alternatives", []) if a.get("id") == body.alternative_id), None)
+    if alt is None:
+        raise HTTPException(status_code=422, detail="Alternative not found in job")
+    op_id = operation_store.new_operation_id(auth.tenant_id)
+    entity = operation_store.build_transit_entity(
+        op_id=op_id, parcel_id=body.parcel_id, name=body.name, alternative=alt,
+        planned_start_at=_iso_utc(body.planned_start_at), planned_end_at=_iso_utc(body.planned_end_at))
+    await _create_operation_entity(entity, op_id, auth.tenant_id, strict=True)
+    return {"success": True, "operation_id": op_id, "persisted": True}
 
 
 def _iso_utc(value: Optional[datetime]) -> Optional[str]:
@@ -931,6 +1017,9 @@ async def export_operation(request: Request, operation_id: str, format: str = Qu
     if not entity:
         raise HTTPException(status_code=404, detail="Operation not found")
     location = entity.get("location", {}).get("value", {})
+    if entity.get("operationType", {}).get("value") == "transit" and format == "isoxml":
+        raise PlanError("EXPORT_NOT_SUPPORTED", "transit operations cannot be exported as ISOXML",
+                        {"format": "isoxml"})
     op_record = {
         "id": entity["id"],
         "name": entity.get("name", {}).get("value", ""),

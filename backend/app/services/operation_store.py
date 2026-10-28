@@ -196,6 +196,37 @@ def build_operation_entity(*, op_id, body, result, prescription_map, is_template
             if k in ("id", "type") or not (isinstance(v, dict) and "value" in v and v["value"] is None)}
 
 
+def build_transit_entity(*, op_id: str, parcel_id: str, name: Optional[str], alternative: dict,
+                         planned_start_at: Optional[str] = None,
+                         planned_end_at: Optional[str] = None) -> dict:
+    """AgriParcelOperation for a computed A-B transit (destination parcel required).
+
+    ASSUMPTION: operationType "transit" is outside the SDM enum, like the module's
+    other operation types.
+    """
+    now = time.time()
+    return {
+        "id": op_id,
+        "type": "AgriParcelOperation",
+        "name": {"type": "Property",
+                 "value": name or f"transit - {alternative.get('label') or alternative['id']}"},
+        "operationType": {"type": "Property", "value": "transit"},
+        "status": {"type": "Property", "value": "planned"},
+        "location": {"type": "GeoProperty", "value": alternative["geometry"]},
+        "elevationProfile": {"type": "Property", "value": alternative.get("elevation_profile") or []},
+        "transitMetrics": {"type": "Property", "value": {
+            "distance_m": alternative.get("distance_m"),
+            "cumulative_climb_m": alternative.get("cumulative_climb_m"),
+            "max_slope_deg_found": alternative.get("max_slope_deg_found")}},
+        "totalDistanceM": {"type": "Property", "value": alternative.get("distance_m")},
+        "isTemplate": {"type": "Property", "value": False},
+        "dateCreated": {"type": "Property", "value": _now_iso()},
+        "hasAgriParcel": {"type": "Relationship", "object": parcel_id},
+        "plannedStartAt": {"type": "Property", "value": _planned_value(planned_start_at, now)},
+        "plannedEndAt": {"type": "Property", "value": _planned_value(planned_end_at, now + 86400)},
+    }
+
+
 def build_template_entity(*, op_id, parcel_id, name, pattern_type, pattern_config,
                           route_geojson, vra_prescription_map,
                           equipment_tractor_id, equipment_implement_id,
