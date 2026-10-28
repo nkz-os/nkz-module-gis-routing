@@ -105,3 +105,114 @@ def test_isoxml_liquid_uses_volume_ddi(sample_op):
 
 def test_isoxml_without_prescription_has_no_tzn(sample_op):
     assert "<TZN" not in RouteExporter().to_isoxml(sample_op)
+
+
+def _iso(op):
+    return RouteExporter().to_isoxml(op)
+
+
+def test_isoxml_prescription_null_is_no_prescription(sample_op):
+    sample_op["prescription"] = None
+    assert "<TZN" not in _iso(sample_op)
+
+
+def test_isoxml_zones_json_string_accepted(sample_op):
+    rx = _rx()
+    rx["zones"] = json.dumps(rx["zones"])
+    sample_op["prescription"] = json.dumps(rx)
+    assert _iso(sample_op).count("<TZN") == 2
+
+
+def _bad_cases():
+    out = {}
+    out["list"] = [1, 2]
+    out["unit"] = {**_rx(), "unit": "t_ha"}
+    out["rate_none"] = {**_rx(), "classes": [{"index": 0, "rate": None}]}
+    out["rate_nan"] = {**_rx(), "classes": [{"index": 0, "rate": float("nan")}]}
+    out["rate_neg"] = {**_rx(), "classes": [{"index": 0, "rate": -1}]}
+    out["no_classes"] = {k: v for k, v in _rx().items() if k != "classes"}
+    out["zones_bad_str"] = {**_rx(), "zones": "{nope"}
+    out["dup_index"] = {**_rx(), "classes": [{"index": 0, "rate": 1}, {"index": 0, "rate": 2}]}
+    return out
+
+
+@pytest.mark.parametrize("name", list(_bad_cases()))
+def test_isoxml_invalid_prescription_raises(sample_op, name):
+    from app.services.coverage.errors import PlanError
+    sample_op["prescription"] = _bad_cases()[name]
+    with pytest.raises(PlanError) as ei:
+        _iso(sample_op)
+    assert ei.value.code == "INVALID_VRA"
+
+
+def test_isoxml_escapes_op_type_and_width(sample_op):
+    import xml.etree.ElementTree as ET
+    sample_op["operation_type"] = 'sp"ray<&'
+    sample_op["implement_width"] = '2"4'
+    root = ET.fromstring(_iso(sample_op))
+    assert root.find(f"{NS}TSK").get("TSKNAME").startswith('sp"ray<&')
+
+
+def test_isoxml_skips_degenerate_rings_and_polygons(sample_op):
+    import xml.etree.ElementTree as ET
+    rx = _rx()
+    sq = rx["zones"]["features"][1]["geometry"]["coordinates"][0]
+    tiny = [[0, 0], [1, 1], [0, 0]]
+    rx["zones"]["features"][0]["geometry"] = {
+        "type": "MultiPolygon",
+        "coordinates": [[tiny], [sq, tiny]],
+    }
+    sample_op["prescription"] = rx
+    root = ET.fromstring(_iso(sample_op))
+    tzn0 = root.find(f"{NS}TSK/{NS}TZN")
+    plns = tzn0.findall(f"{NS}PLN")
+    assert len(plns) == 1 and len(plns[0].findall(f"{NS}LSG")) == 1
+
+
+def _entity(rx):
+    return {
+        "id": "urn:ngsi-ld:AgriParcelOperation:t:op1",
+        "name": {"value": "n"},
+        "operationType": {"value": "spraying"},
+        "location": {"value": {"type": "LineString", "coordinates": [[0, 0], [1, 1]]}},
+        "prescription": rx,
+    }
+
+
+class _Orion:
+    def __init__(self, ent):
+        self.ent = ent
+
+    async def get_entity(self, *a, **k):
+        return self.ent
+
+    async def close(self):
+        pass
+
+
+def _client(monkeypatch, ent):
+    from fastapi.testclient import TestClient
+    from app.main import create_app
+    monkeypatch.setattr("app.api.routing.OrionClient", lambda *a, **k: _Orion(ent))
+    return TestClient(create_app())
+
+
+def test_export_route_isoxml_includes_zones(monkeypatch):
+    c = _client(monkeypatch, _entity({"type": "Property", "value": _rx()}))
+    r = c.get("/api/routing/export/op1?format=isoxml")
+    assert r.status_code == 200 and r.text.count("<TZN") == 2
+
+
+def test_export_route_null_prescription_ok(monkeypatch):
+    c = _client(monkeypatch, _entity(None))
+    r = c.get("/api/routing/export/op1?format=isoxml")
+    assert r.status_code == 200 and "<TZN" not in r.text
+
+
+def test_export_route_invalid_prescription_422_only_isoxml(monkeypatch):
+    c = _client(monkeypatch, _entity({"type": "Property", "value": [1]}))
+    r = c.get("/api/routing/export/op1?format=isoxml")
+    assert r.status_code == 422
+    assert r.json()["code"] == "INVALID_VRA" and r.json()["detail"] and "params" in r.json()
+    assert c.get("/api/routing/export/op1?format=geojson").status_code == 200
+    assert c.get("/api/routing/export/op1?format=gpx").status_code == 200

@@ -879,7 +879,7 @@ async def export_operation(request: Request, operation_id: str, format: str = Qu
         "ab_line_geojson": json.dumps(location) if location else "{}",
         "implement_width": entity.get("implementWidth", {}).get("value", 24.0),
         "vra_enabled": entity.get("vraEnabled", {}).get("value", False),
-        "prescription": entity.get("prescription", {}).get("value"),
+        "prescription": (entity.get("prescription") or {}).get("value"),
     }
     exporter = RouteExporter()
     if format == "isoxml":
