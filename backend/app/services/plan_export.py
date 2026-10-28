@@ -5,6 +5,8 @@ operation without the plan attributes yields what it has, flagged ``partial``.
 """
 from __future__ import annotations
 
+import logging
+
 from pyproj import Transformer
 from shapely.geometry import shape, mapping
 from shapely.ops import transform as shp_transform
@@ -13,7 +15,11 @@ from app.services.parcel_constraints import _attr_value
 from app.services.routing.base import get_utm_crs
 from app.services.vra.prescription import _lines
 
+logger = logging.getLogger(__name__)
+
 PLAN_VERSION = 1
+# Swath parts outside every prescription zone carry rate 0 (no dose), as in the ISOXML export.
+OUTSIDE_RATE = 0
 _MIN_LEN_M = 1e-6
 
 
@@ -46,13 +52,20 @@ def _swath_features(swaths: list[dict], prescription: dict | None) -> list[dict]
             continue
     out = []
     for sw in swaths:
-        props = sw.get("properties") or {}
+        props = sw.get("properties") or {} if isinstance(sw, dict) else {}
         index, kind = props.get("index"), props.get("kind")
-        geom = sw.get("geometry")
-        if not classes or not isinstance(geom, dict):
+        geom = sw.get("geometry") if isinstance(sw, dict) else None
+        if not isinstance(geom, dict) or not geom.get("coordinates"):
+            logger.warning("plan export skipped a swath without geometry: index=%s", index)
+            continue
+        if not classes:
             out.append(_feat("swath", geom, index=index, kind=kind))
             continue
-        line = shape(geom)
+        try:
+            line = shape(geom)
+        except Exception:
+            logger.warning("plan export skipped an unreadable swath: index=%s", index)
+            continue
         c = line.centroid
         crs = get_utm_crs(c.x, c.y)
         to_utm = Transformer.from_crs("EPSG:4326", crs, always_xy=True).transform
@@ -71,12 +84,17 @@ def _swath_features(swaths: list[dict], prescription: dict | None) -> list[dict]
         for part in _lines(rest):
             if part.length > _MIN_LEN_M:
                 out.append(_feat("swath", mapping(shp_transform(to_wgs, part)), index=index,
-                                 kind=kind, class_index=None, rate=None))
+                                 kind=kind, class_index=None, rate=OUTSIDE_RATE))
     return out
 
 
-def plan_feature_collection(entity: dict, parcel_geometry: dict | None = None) -> dict:
-    """FeatureCollection of every element of the stored operation."""
+def plan_feature_collection(entity: dict, parcel_geometry: dict | None = None,
+                            parcel_unavailable: bool = False) -> dict:
+    """FeatureCollection of every element of the stored operation.
+
+    ``parcel_unavailable``: the operation names a parcel that could not be read; the plan is
+    returned without its boundary and flagged ``partial``.
+    """
     op_type = _attr_value(entity, "operationType")
     location = _attr_value(entity, "location")
     features: list[dict] = []
@@ -105,9 +123,16 @@ def plan_feature_collection(entity: dict, parcel_geometry: dict | None = None) -
             features.append(_feat("access_path", access_path))
         if access_point:
             features.append(_feat("access_point", access_point))
-        end = _last_coord(return_path) or _last_coord(location)
-        if end:
-            features.append(_feat("exit_point", {"type": "Point", "coordinates": end}))
+        exit_point = _attr_value(entity, "exitPoint")
+        if isinstance(exit_point, dict) and exit_point.get("coordinates"):
+            features.append(_feat("exit_point", exit_point))
+        else:
+            # Old operations stored no exit point: the end of the route is the best they have.
+            end = _last_coord(location)
+            if end:
+                features.append(_feat("exit_point", {"type": "Point", "coordinates": end}))
+        if return_path:
+            features.append(_feat("return_path", return_path))
         if isinstance(zones_fc, dict):
             for z in zones_fc.get("features") or []:
                 if isinstance(z, dict) and z.get("geometry"):
@@ -124,7 +149,9 @@ def plan_feature_collection(entity: dict, parcel_geometry: dict | None = None) -
                 p = z.get("properties") or {}
                 features.append(_feat("prescription_zone", z.get("geometry"),
                                       class_index=p.get("class_index"), rate=p.get("rate"), unit=unit))
-        partial = _attr_value(entity, "planVersion") is None or not swaths
-    return {"type": "FeatureCollection", "features": features,
-            "properties": {"plan_version": PLAN_VERSION, "operation_id": entity.get("id"),
-                           "operation_type": op_type, "partial": partial}}
+        partial = _attr_value(entity, "planVersion") is None or not swaths or parcel_unavailable
+    properties = {"plan_version": PLAN_VERSION, "operation_id": entity.get("id"),
+                  "operation_type": op_type, "partial": partial}
+    if op_type != "transit" and isinstance(_attr_value(entity, "prescription"), dict):
+        properties["outside_rate"] = OUTSIDE_RATE
+    return {"type": "FeatureCollection", "features": features, "properties": properties}

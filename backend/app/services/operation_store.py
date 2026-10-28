@@ -199,6 +199,8 @@ def build_operation_entity(*, op_id, body, result, prescription_map, is_template
             entity["workingArea"] = {"type": "GeoProperty", "value": plan["working_area"]}
         if plan.get("validation") is not None:
             entity["validation"] = {"type": "Property", "value": plan["validation"]}
+        if plan.get("exit_point") is not None:
+            entity["exitPoint"] = {"type": "GeoProperty", "value": plan["exit_point"]}
         entity["planVersion"] = {"type": "Property", "value": 1}
         entity["headlandPasses"] = {"type": "Property", "value": plan.get("headland_passes")}
     if body.tractor_id:

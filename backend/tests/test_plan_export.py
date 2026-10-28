@@ -155,3 +155,68 @@ def test_endpoint_missing_parcel_keeps_plan(client):
     r = client.get(f"/api/routing/operations/{OP_ID}/plan")
     assert r.status_code == 200
     assert "parcel_boundary" not in _els(r.json())
+
+
+def test_outside_prescription_zones_rate_is_zero():
+    """Same semantics as the ISOXML fallback: no dose outside the zones (owner decision)."""
+    e = _work(vra=True)
+    e["swaths"]["value"]["features"][0]["geometry"] = {
+        "type": "LineString", "coordinates": [[-1.9999, 43.0002], [-1.9976, 43.0002]]}
+    # shrink class 1 so part of the swath is outside every zone
+    e["prescription"]["value"]["zones"]["features"][1]["geometry"] = {
+        "type": "Polygon", "coordinates": [[[-1.99875, 43.0], [-1.9985, 43.0], [-1.9985, 43.0009],
+                                            [-1.99875, 43.0009], [-1.99875, 43.0]]]}
+    fc = plan_feature_collection(e, parcel_geometry=PARCEL)
+    outside = [f for f in fc["features"] if f["properties"]["element"] == "swath"
+               and f["properties"].get("class_index") is None and f["properties"]["index"] == 0]
+    assert outside and all(f["properties"]["rate"] == 0 for f in outside)
+    assert fc["properties"]["outside_rate"] == 0
+
+
+def test_stored_exit_point_and_return_path_are_emitted():
+    ret = {"type": "LineString", "coordinates": [[-1.9976, 43.0006], [-2.0, 43.0001]]}
+    e = _work()
+    e["returnPath"] = _geo(ret)
+    e["exitPoint"] = _geo({"type": "Point", "coordinates": [-1.9976, 43.0006]})
+    els = _els(plan_feature_collection(e, parcel_geometry=PARCEL))
+    assert els["exit_point"][0]["geometry"]["coordinates"] == [-1.9976, 43.0006]
+    assert els["return_path"][0]["geometry"] == ret
+
+
+def test_malformed_swath_is_skipped_not_a_500():
+    e = _work(vra=True)
+    e["swaths"]["value"]["features"].append({"type": "Feature", "geometry": None, "properties": {"index": 9}})
+    e["swaths"]["value"]["features"].append({"type": "Feature", "geometry": {"type": "LineString"}, "properties": {"index": 10}})
+    fc = plan_feature_collection(e, parcel_geometry=PARCEL)
+    assert {f["properties"]["index"] for f in fc["features"] if f["properties"]["element"] == "swath"} == {0, 1}
+    assert fc["properties"]["partial"] is False
+
+
+def test_non_operation_entity_is_rejected(client):
+    _Orion.entities[OP_ID] = {"id": OP_ID, "type": "AgriParcel"}
+    r = client.get(f"/api/routing/operations/{OP_ID}/plan")
+    assert r.status_code == 404 and r.json()["code"] == "OPERATION_NOT_FOUND"
+
+
+def test_failed_parcel_read_marks_plan_partial(client, monkeypatch):
+    del _Orion.entities[PID]
+    r = client.get(f"/api/routing/operations/{OP_ID}/plan")
+    assert r.json()["properties"]["partial"] is True
+
+
+def test_transit_does_not_fetch_the_parcel(client):
+    e = {"id": OP_ID, "type": "AgriParcelOperation", "operationType": _p("transit"),
+         "location": _geo(SW0), "hasAgriParcel": {"type": "Relationship", "object": PID}}
+    _Orion.entities[OP_ID] = e
+    asked = []
+    orig = _Orion.get_entity
+
+    async def spy(self, eid, *a, **k):
+        asked.append(eid)
+        return await orig(self, eid, *a, **k)
+    _Orion.get_entity = spy
+    try:
+        client.get(f"/api/routing/operations/{OP_ID}/plan")
+    finally:
+        _Orion.get_entity = orig
+    assert asked == [OP_ID]

@@ -356,6 +356,7 @@ async def get_operation_plan(operation_id: str, auth: AuthContext = require_auth
     """The whole operation (route, swaths, gate, zones, VRA, parcel boundary) as a FeatureCollection."""
     from app.services.plan_export import plan_feature_collection
     from app.services.operation_store import _parcel_rel
+    from app.services.parcel_constraints import _attr_value
     tenant_id = auth.tenant_id
     settings = get_settings()
     orion = OrionClient(tenant_id, base_url=settings.context_broker_url,
@@ -371,21 +372,27 @@ async def get_operation_plan(operation_id: str, auth: AuthContext = require_auth
         except Exception as e:
             logger.error("Failed to get operation %s: %s", operation_id, e)
             raise HTTPException(status_code=502, detail="Operation store unavailable")
-        if not entity:
+        if not entity or str(entity.get("type", "")).rsplit("/", 1)[-1] != "AgriParcelOperation":
             raise PlanError("OPERATION_NOT_FOUND", "Operation not found", {"operation_id": operation_id})
         parcel_geometry = None
+        parcel_unavailable = False
         parcel_id = _parcel_rel(entity)
-        if parcel_id:
+        is_transit = _attr_value(entity, "operationType") == "transit"
+        if parcel_id and not is_transit:
             try:
                 parcel = await orion.get_entity(parcel_id)
                 loc = ((parcel or {}).get("location") or {}).get("value")
                 if isinstance(loc, dict) and loc.get("type") in ("Polygon", "MultiPolygon"):
                     parcel_geometry = loc
+                else:
+                    parcel_unavailable = True
             except Exception as e:
+                parcel_unavailable = True
                 logger.warning("Parcel boundary unavailable for plan %s: %s", operation_id, e)
     finally:
         await orion.close()
-    return plan_feature_collection(entity, parcel_geometry=parcel_geometry)
+    return plan_feature_collection(entity, parcel_geometry=parcel_geometry,
+                                   parcel_unavailable=parcel_unavailable)
 
 
 @router.get("/operations/{operation_id}")
