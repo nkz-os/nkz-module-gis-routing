@@ -76,7 +76,7 @@ def test_isoxml_treatment_zones(sample_op):
     root = ET.fromstring(RouteExporter().to_isoxml(sample_op))
     tsk = root.find(f"{NS}TSK")
     tzns = tsk.findall(f"{NS}TZN")
-    assert [t.get("A") for t in tzns] == ["0", "1"]
+    assert [t.get("A") for t in tzns] == ["0", "1", "254"]  # + rate-0 fallback
     assert all(t.get("B") for t in tzns)
     pdv0 = tzns[0].find(f"{NS}PDV")
     assert pdv0.get("A") == "0006" and pdv0.get("B") == "12050"
@@ -121,7 +121,7 @@ def test_isoxml_zones_json_string_accepted(sample_op):
     rx = _rx()
     rx["zones"] = json.dumps(rx["zones"])
     sample_op["prescription"] = json.dumps(rx)
-    assert _iso(sample_op).count("<TZN") == 2
+    assert _iso(sample_op).count("<TZN") == 3
 
 
 def _bad_cases():
@@ -201,7 +201,7 @@ def _client(monkeypatch, ent):
 def test_export_route_isoxml_includes_zones(monkeypatch):
     c = _client(monkeypatch, _entity({"type": "Property", "value": _rx()}))
     r = c.get("/api/routing/export/op1?format=isoxml")
-    assert r.status_code == 200 and r.text.count("<TZN") == 2
+    assert r.status_code == 200 and r.text.count("<TZN") == 3
 
 
 def test_export_route_null_prescription_ok(monkeypatch):
@@ -286,7 +286,7 @@ def test_isoxml_swaths_and_vra_together(sample_op):
     sample_op["prescription"] = _rx()
     root = _rootx(sample_op)
     assert len(root.findall("PFD/GGP/GPN")) == 3
-    assert len(root.findall("TSK/TZN")) == 2
+    assert len(root.findall("TSK/TZN")) == 3
 
 
 def test_isoxml_malformed_swath_skipped(sample_op):
@@ -343,3 +343,119 @@ def test_isoxml_mixed_straight_and_curved_validates(sample_op):
         from lxml import etree
         schema = etree.XMLSchema(etree.parse(path))
         assert schema.validate(etree.fromstring(_iso(sample_op).encode())), schema.error_log
+
+
+# ---- fail-safe round -------------------------------------------------------
+
+RING = [[-0.9999, 42.0001], [-0.9991, 42.0001], [-0.9991, 42.0009], [-0.9999, 42.0009], [-0.9999, 42.0001]]
+
+
+def _xsd_check(op):
+    import os
+    path = os.environ.get("NKZ_ISOXML_XSD")
+    if not path:
+        return
+    from lxml import etree
+    schema = etree.XMLSchema(etree.parse(path))
+    assert schema.validate(etree.fromstring(_iso(op).encode())), schema.error_log
+
+
+def test_isoxml_closed_headland_ring_kept_as_curve(sample_op):
+    sample_op["swaths"] = [{"type": "Feature", "properties": {"index": 0, "kind": "headland"},
+                            "geometry": {"type": "LineString", "coordinates": RING}}]
+    root = _rootx(sample_op)
+    gpns = root.findall("PFD/GGP/GPN")
+    assert len(gpns) == 1 and gpns[0].get("C") == "3"
+    pnts = gpns[0].find("LSG").findall("PNT")
+    assert len(pnts) == 5 and pnts[0].get("C") == pnts[-1].get("C")
+    _xsd_check(sample_op)
+
+
+def test_isoxml_gpn_no_propagation(sample_op):
+    sample_op["swaths"] = _swaths()
+    assert {g.get("E") for g in _rootx(sample_op).findall("PFD/GGP/GPN")} == {"4"}
+
+
+def test_isoxml_rate_zero_fallback_zone(sample_op):
+    sample_op["prescription"] = _rx()
+    root = _rootx(sample_op)
+    tsk = root.find("TSK")
+    code = tsk.get("H")
+    assert code and tsk.get("I") == code and tsk.get("J") == code
+    tzn = [t for t in tsk.findall("TZN") if t.get("A") == code]
+    assert len(tzn) == 1 and tzn[0].find("PLN") is None
+    pdv = tzn[0].find("PDV")
+    assert pdv.get("A") == "0006" and pdv.get("B") == "0"
+    assert code not in {t.get("A") for t in tsk.findall("TZN") if t is not tzn[0]}
+    _xsd_check(sample_op)
+
+
+def test_isoxml_no_prescription_no_default_zone(sample_op):
+    tsk = _rootx(sample_op).find("TSK")
+    assert tsk.get("H") is None and tsk.get("I") is None and tsk.get("J") is None
+
+
+def test_isoxml_empty_guidance_raises_export_empty(sample_op):
+    from app.services.coverage.errors import PlanError
+    for op in ({**sample_op, "ab_line_geojson": "{}"},
+               {**sample_op, "swaths": [{"type": "Feature", "properties": {}, "geometry": None}]}):
+        with pytest.raises(PlanError) as ei:
+            _iso(op)
+        assert ei.value.code == "EXPORT_EMPTY" and ei.value.status == 422
+
+
+def test_isoxml_zone_with_unknown_class_raises(sample_op):
+    from app.services.coverage.errors import PlanError
+    rx = _rx()
+    rx["zones"]["features"][1]["properties"]["class_index"] = 7
+    sample_op["prescription"] = rx
+    with pytest.raises(PlanError) as ei:
+        _iso(sample_op)
+    assert ei.value.code == "INVALID_VRA"
+
+
+def test_isoxml_long_float_labels_cut_and_valid(sample_op):
+    rx = _rx()
+    rx["classes"][0].update(min_pct=0.123456789123, max_pct=33.3333333333333)
+    sample_op["prescription"] = rx
+    root = _rootx(sample_op)
+    assert all(len(t.get("B")) <= 32 for t in root.findall("TSK/TZN"))
+    _xsd_check(sample_op)
+
+
+def test_isoxml_hole_only_polygon_is_not_a_boundary(sample_op):
+    bad = {"type": "Polygon", "coordinates": [[[0, 0], [1, 1]], PARCEL["coordinates"][0]]}
+    sample_op["parcel_geometry"] = bad
+    assert _rootx(sample_op).find("PFD/PLN") is None
+
+
+def test_isoxml_huge_width_omitted_and_valid(sample_op):
+    sample_op["implement_width"] = 5_000_000
+    sample_op["swaths"] = _swaths()
+    assert all(g.find("LSG").get("C") is None for g in _rootx(sample_op).findall("PFD/GGP/GPN"))
+    _xsd_check(sample_op)
+
+
+def test_export_route_empty_is_422(monkeypatch):
+    ent = _entity(None)
+    ent["location"] = {"value": {}}
+    r = _client(monkeypatch, ent).get("/api/routing/export/op1?format=isoxml")
+    assert r.status_code == 422 and r.json()["code"] == "EXPORT_EMPTY"
+
+
+def test_export_route_parcel_read_failure_is_502(monkeypatch):
+    ent = _entity(None)
+    ent["hasAgriParcel"] = {"type": "Relationship", "object": "urn:ngsi-ld:AgriParcel:parcelx"}
+
+    class O(_Orion):
+        async def get_entity(self, eid, *a, **k):
+            if eid.endswith("parcelx"):
+                raise RuntimeError("broker down")
+            return self.ent
+
+    from fastapi.testclient import TestClient
+    from app.main import create_app
+    monkeypatch.setattr("app.api.routing.OrionClient", lambda *a, **k: O(ent))
+    r = TestClient(create_app()).get("/api/routing/export/op1?format=isoxml")
+    assert r.status_code == 502 and r.json()["code"] == "PARCEL_READ_FAILED"
+    assert TestClient(create_app()).get("/api/routing/export/op1?format=geojson").status_code == 200

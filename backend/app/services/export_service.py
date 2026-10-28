@@ -1,9 +1,13 @@
 """Export routing operations to ISOXML 11783-10, GeoJSON, and GPX formats."""
 import json
+import logging
 import math
 from datetime import datetime
 
 from app.services.coverage.errors import PlanError
+
+logger = logging.getLogger(__name__)
+_U32 = 4294967294
 
 
 class RouteExporter:
@@ -55,6 +59,11 @@ class RouteExporter:
     #   LSG A=1 exterior, 2 interior, 5 guidance pattern | PNT A=2 other, 6 guidance A,
     #   7 guidance B, 9 guidance point (curve), C north, D east (9 decimals) | GPN A id, B designator, C=1 AB, 3 Curve
     #   TSK A id, B designator, C/D/E refs, G=1 planned
+    #   GPN E=4 (no propagation: each swath is one planned pass), C=3 curve with PNT 9
+    #   TSK H/I/J = Default / PositionLost / OutOfField TreatmentZoneCode (XSD names): all
+    #   point at an explicit rate-0 TZN whenever a prescription exists (owner decision).
+    # Out of scope: no DVC / device-element binding (PDV C, D), no GAN (needs an ASP time
+    # span): the terminal needs a device mapping; test on a real terminal before field use.
     # ASSUMPTION: LSG C (guidance line width) is in millimetres, as the XSD names it
     # LineStringWidth without a unit; ISO 11783-10 gives mm for lengths.
     # ASSUMPTION: polygon rings are written without repeating the first point.
@@ -64,9 +73,12 @@ class RouteExporter:
         op_type = self._cut(operation.get("operation_type", "spraying"))
         width_mm = self._width_mm(operation.get("implement_width"))
         lines = self._guidance_lines(operation)
+        if not lines:
+            raise PlanError("EXPORT_EMPTY", "operation has no exportable swath or route",
+                            {"operation_id": str(operation.get("id", ""))})
         boundary = self._boundary_plns(operation.get("parcel_geometry"))
         area = self._area_m2(operation.get("parcel_geometry"))
-        zones = self._treatment_zones(operation.get("prescription"))
+        zones, fallback = self._treatment_zones(operation.get("prescription"))
         out = [
             '<?xml version="1.0" encoding="UTF-8"?>',
             '<ISO11783_TaskData VersionMajor="4" VersionMinor="3" '
@@ -85,14 +97,15 @@ class RouteExporter:
             else:
                 # GPN C=3 Curve: every vertex kept as PNT A=9 (Guidance Point)
                 gtype, pnts = 3, [(9, p) for p in pts]
-            out += [f'      <GPN A="GPN{i + 1}" B="{self._xml_escape(self._cut(label))}" C="{gtype}">',
+            out += [f'      <GPN A="GPN{i + 1}" B="{self._xml_escape(self._cut(label))}" C="{gtype}" E="4">',
                     f'        <LSG A="5"{w}>']
             out += [f'          <PNT A="{t}" C="{self._f(p[1])}" D="{self._f(p[0])}"/>' for t, p in pnts]
             out += ["        </LSG>", "      </GPN>"]
         out.append("    </GGP>")
         out.append("  </PFD>")
+        fb = f' H="{fallback}" I="{fallback}" J="{fallback}"' if fallback is not None else ""
         out.append(f'  <TSK A="TSK1" B="{self._xml_escape(self._cut(op_type + " - " + parcel_name))}" '
-                   f'C="CTR1" D="FRM1" E="PFD1" G="1">')
+                   f'C="CTR1" D="FRM1" E="PFD1" G="1"{fb}>')
         out.append(zones.rstrip("\n"))
         out.append("  </TSK>")
         out.append("</ISO11783_TaskData>")
@@ -112,19 +125,25 @@ class RouteExporter:
             w = float(width)
         except (TypeError, ValueError):
             return 0
-        return int(round(w * 1000)) if math.isfinite(w) and w > 0 else 0
+        mm = int(round(w * 1000)) if math.isfinite(w) and w > 0 else 0
+        return mm if mm <= _U32 else 0
 
     def _guidance_lines(self, operation: dict) -> list:
-        """(label, [A, B]) per guidance line: one per stored swath, else one per route line."""
-        out = []
+        """(label, points) per guidance line: one per stored swath, else one per route line."""
+        out, skipped = [], 0
         swaths = operation.get("swaths")
         if isinstance(swaths, list) and swaths:
             for n, f in enumerate(swaths):
-                geom = (f or {}).get("geometry") if isinstance(f, dict) else None
-                props = (f or {}).get("properties") or {} if isinstance(f, dict) else {}
-                for c in self._line_parts(geom):
-                    idx = props.get("index", n)
-                    out.append((f"{props.get('kind') or 'swath'} {idx}", c))
+                geom = f.get("geometry") if isinstance(f, dict) else None
+                props = (f.get("properties") or {}) if isinstance(f, dict) else {}
+                parts = self._line_parts(geom)
+                if not parts:
+                    skipped += 1
+                for c in parts:
+                    out.append((f"{props.get('kind') or 'swath'} {props.get('index', n)}", c))
+            if skipped:
+                logger.warning("isoxml export skipped swaths", extra={
+                    "operation_id": operation.get("id"), "skipped": skipped, "total": len(swaths)})
             return out
         ab = self._parse_geojson(operation.get("ab_line_geojson", "{}"))
         for i, c in enumerate(self._line_parts(ab)):
@@ -133,6 +152,8 @@ class RouteExporter:
 
     @staticmethod
     def _line_parts(geom) -> list:
+        """Usable lines. Closed rings (headland passes) are kept; a line needs >= 2 distinct
+        points inside lon/lat range."""
         if not isinstance(geom, dict):
             return []
         coords = geom.get("coordinates") or []
@@ -141,11 +162,12 @@ class RouteExporter:
         res = []
         for c in parts:
             try:
-                if len(c) >= 2 and tuple(c[0][:2]) != tuple(c[-1][:2]):
-                    float(c[0][0]), float(c[0][1]), float(c[-1][0]), float(c[-1][1])
-                    res.append(c)
+                pts = [(float(p[0]), float(p[1])) for p in c]
             except (TypeError, ValueError, IndexError):
                 continue
+            if len(set(pts)) < 2 or any(not (-180 <= x <= 180 and -90 <= y <= 90) for x, y in pts):
+                continue
+            res.append(pts)
         return res
 
     def _boundary_plns(self, geom) -> list:
@@ -173,6 +195,8 @@ class RouteExporter:
             return []
         res = []
         for rings in parts:
+            if not rings or len(rings[0]) < 3:
+                continue  # unusable exterior: never promote a hole
             rings = [r if (len(r) > 1 and r[0] == r[-1]) else list(r) + [r[0]]
                      for r in rings if len(r) >= 3]
             rings = [r for r in rings if len(r) >= 4]
@@ -209,12 +233,12 @@ class RouteExporter:
     def _treatment_zones(self, rx) -> str:
         """TZN blocks for the stored prescription.
 
-        No prescription (None / "" / "null") -> "". A prescription that is
+        Returns (xml, fallback_code). No prescription (None / "" / "null") -> ("", None). A prescription that is
         present but malformed raises INVALID_VRA: a tractor must never run a
         file whose VRA was silently dropped.
         """
         if rx is None or (isinstance(rx, str) and rx.strip() in ("", "null")):
-            return ""
+            return "", None
         try:
             return self._build_zones(rx)
         except PlanError:
@@ -250,11 +274,6 @@ class RouteExporter:
         if not isinstance(classes, list) or not classes:
             bad("classes_missing")
         by_class: dict = {}
-        for f in zones["features"]:
-            ci = (f.get("properties") or {}).get("class_index")
-            if ci is None:
-                continue
-            by_class.setdefault(int(ci), []).append(f.get("geometry") or {})
         norm = []
         seen = set()
         for cls in classes:
@@ -269,11 +288,22 @@ class RouteExporter:
                 bad("class_index_duplicate", class_index=cls["index"])
             seen.add(cls["index"])
             norm.append(cls)
+        for f in zones["features"]:
+            ci = (f.get("properties") or {}).get("class_index")
+            if isinstance(ci, bool) or not isinstance(ci, int) or ci not in seen:
+                bad("zone_class_unknown", class_index=str(ci))
+            by_class.setdefault(ci, []).append(f.get("geometry") or {})
+        # Rate-0 zone for everything outside the prescription zones, position loss and
+        # out of field (owner decision); highest unused code.
+        fallback = next(c for c in range(254, -1, -1) if c not in seen)
         out = []
         for cls in sorted(norm, key=lambda c: c["index"]):
             idx = cls["index"]
             value = int(round(float(cls["rate"]) * self._PDV_PER_UNIT[unit]))
-            label = self._xml_escape(f"Class {idx + 1} ({cls.get('min_pct')}-{cls.get('max_pct')}%)")
+            label = self._xml_escape(self._cut(f"Class {idx + 1} ({self._pct(cls.get('min_pct'))}-"
+                                               f"{self._pct(cls.get('max_pct'))}%)"))
+            if not by_class.get(idx):
+                logger.warning("isoxml class without zone polygons", extra={"class_index": idx})
             out.append(f'    <TZN A="{idx}" B="{label}">')
             out.append(f'      <PDV A="{self._DDI[unit]}" B="{value}"/>')
             for geom in by_class.get(idx, []):
@@ -299,7 +329,17 @@ class RouteExporter:
                         out.append("        </LSG>")
                     out.append("      </PLN>")
             out.append("    </TZN>")
-        return "\n".join(out) + "\n"
+        out.append(f'    <TZN A="{fallback}" B="Rate 0 outside zones">')
+        out.append(f'      <PDV A="{self._DDI[unit]}" B="0"/>')
+        out.append("    </TZN>")
+        return "\n".join(out) + "\n", fallback
+
+    @staticmethod
+    def _pct(v) -> str:
+        try:
+            return f"{round(float(v), 1):g}"
+        except (TypeError, ValueError):
+            return "?"
 
     @staticmethod
     def _ring_ok(ring) -> bool:

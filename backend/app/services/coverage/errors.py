@@ -34,6 +34,8 @@ CODES = (
     "OPERATION_NOT_FOUND",
     "FORBIDDEN",
     "INVALID_SETTING",
+    "EXPORT_EMPTY",
+    "PARCEL_READ_FAILED",
 )
 
 
@@ -56,7 +58,7 @@ class PlanError(ValueError):
             return 413
         if self.code == "ENGINE_FAILURE":
             return 500
-        if self.code in ("ZONES_UNAVAILABLE", "PERSIST_FAILED"):
+        if self.code in ("ZONES_UNAVAILABLE", "PERSIST_FAILED", "PARCEL_READ_FAILED"):
             return 502
         if self.code in ("JOB_NOT_FOUND", "PARCEL_NOT_FOUND", "OPERATION_NOT_FOUND"):
             return 404

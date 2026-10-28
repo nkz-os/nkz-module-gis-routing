@@ -1223,7 +1223,10 @@ async def export_operation(request: Request, operation_id: str, format: str = Qu
                 if pname:
                     op_record["parcel_name"] = pname
             except Exception as e:
-                logger.warning("Parcel boundary unavailable for export %s: %s", operation_id, e)
+                logger.error("Parcel read failed for export: operation=%s tenant=%s error=%s",
+                             operation_id, tenant_id, e)
+                raise PlanError("PARCEL_READ_FAILED", "parcel could not be read for the export",
+                                {"operation_id": operation_id}) from e
     exporter = RouteExporter()
     if format == "isoxml":
         content = exporter.to_isoxml(op_record)
