@@ -29,6 +29,11 @@ class _Orion:
         _Orion.created.append(entity)
 
     async def get_entity(self, *a, **k):
+        if _Orion.stored is None:
+            # The real client raises on 404 (raise_for_status); it never returns None.
+            import httpx
+            req = httpx.Request("GET", "http://orion/ngsi-ld/v1/entities/x")
+            raise httpx.HTTPStatusError("404", request=req, response=httpx.Response(404, request=req))
         return _Orion.stored
 
     async def close(self):
@@ -292,3 +297,69 @@ def test_stored_body_drops_external_features(client):
     assert r.status_code == 200, r.text
     rec = PLAN_STORE.get("tenant-a", r.json()["plan_id"])
     assert "external_features" not in (rec["body"].get("vra") or {})
+
+
+def test_generate_too_large_to_save_is_not_stored_and_warns(client, monkeypatch):
+    from app.services.plan_store import PLAN_STORE
+    monkeypatch.setattr("app.services.operation_store.MAX_ENTITY_BYTES", 10)
+    before = len(PLAN_STORE._plans)
+    r = client.post("/api/routing/generate", json={
+        "parcel_geometry": _POLY, "parcel_id": PARCEL, "pattern": "boustrophedon", "persist": False,
+        "pattern_config": {"width_m": 20, "headland_passes": 1, "turning_radius_m": 6.0}})
+    assert r.status_code == 200, r.text
+    b = r.json()
+    assert b["plan_id"] is None
+    codes = [w["code"] for w in b["plan"]["validation"]["warnings"]]
+    assert "PLAN_TOO_LARGE_TO_SAVE" in codes
+    assert len(PLAN_STORE._plans) == before
+
+
+def test_generate_normal_plan_is_stored_without_that_warning(client):
+    r = client.post("/api/routing/generate", json={
+        "parcel_geometry": _POLY, "parcel_id": PARCEL, "pattern": "boustrophedon", "persist": False,
+        "pattern_config": {"width_m": 20, "headland_passes": 1, "turning_radius_m": 6.0}})
+    b = r.json()
+    assert b["plan_id"]
+    assert "PLAN_TOO_LARGE_TO_SAVE" not in [w["code"] for w in b["plan"]["validation"]["warnings"]]
+
+
+def test_transit_save_for_another_parcel_is_a_new_operation(client):
+    jid = _job()
+    body = {"kind": "transit", "job_id": jid, "alternative_id": "fastest", "parcel_id": PARCEL}
+    a = client.post(URL, json=body).json()
+    other = client.post(URL, json={**body, "parcel_id": "urn:ngsi-ld:AgriParcel:p2"}).json()
+    again = client.post(URL, json=body).json()
+    assert other["operation_id"] != a["operation_id"] and again == a
+    assert _Orion.created[1]["hasAgriParcel"]["object"] == "urn:ngsi-ld:AgriParcel:p2"
+    assert len(_Orion.created) == 2
+
+
+def test_transit_entity_records_constraints_used(client):
+    from app.api.pathfinding_router import JOBS
+    jid = _job()
+    JOBS.set(jid, {"status": "completed", "alternatives": [_alt("fastest")],
+                   "report": {"constraints_used": {"parcels": 4, "gated": 2, "zones": 3}}})
+    client.post(URL, json={"kind": "transit", "job_id": jid, "alternative_id": "fastest", "parcel_id": PARCEL})
+    assert _Orion.created[0]["constraintsUsed"]["value"] == {"parcels": 4, "gated": 2, "zones": 3}
+
+
+@pytest.mark.asyncio
+async def test_save_lock_entry_survives_release_while_a_waiter_is_pending():
+    import asyncio
+    from app.api import routing
+    key = ("t", "lock-race")
+    a = routing._save_lock(key)
+    await a.__aenter__()
+    entered = []
+
+    async def waiter():
+        async with routing._save_lock(key):
+            entered.append(1)
+
+    w = asyncio.create_task(waiter())
+    await asyncio.sleep(0)
+    entry = routing._SAVE_LOCKS[key]
+    await a.__aexit__(None, None, None)
+    assert routing._SAVE_LOCKS.get(key) is entry     # a third request meets the same lock
+    await w
+    assert entered == [1] and key not in routing._SAVE_LOCKS

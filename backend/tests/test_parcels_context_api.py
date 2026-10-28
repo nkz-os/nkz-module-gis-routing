@@ -124,3 +124,57 @@ def test_context_endpoint_empty_for_unknown_tenant(monkeypatch):
     monkeypatch.setattr(pc, "OrionClient", _orion_raising(404, ""))
     r = client.get("/api/routing/parcels/context", params={"bbox": "0,0,0.1,0.1"})
     assert r.status_code == 200 and r.json() == {"parcels": []}
+
+
+def test_context_is_cached_per_tenant_and_bbox_for_60s(monkeypatch):
+    from app.api import routing
+    routing._CONTEXT_CACHE.clear()
+    now = {"t": 1000.0}
+    monkeypatch.setattr(routing, "_context_clock", lambda: now["t"])
+    calls = []
+
+    async def fake(tenant_id, bbox):
+        calls.append((tenant_id, bbox))
+        return []
+
+    monkeypatch.setattr(routing, "fetch_tenant_parcels_in_bbox", fake)
+    q = {"bbox": "0,0,0.1,0.1"}
+    client.get("/api/routing/parcels/context", params=q)
+    client.get("/api/routing/parcels/context", params=q)
+    assert len(calls) == 1
+    client.get("/api/routing/parcels/context", params={"bbox": "0,0,0.1,0.11"})
+    assert len(calls) == 2
+    client.get("/api/routing/parcels/context", params=q, headers={"X-Tenant-ID": "tenant-b"})
+    assert len(calls) == 3
+    now["t"] += 61
+    client.get("/api/routing/parcels/context", params=q)
+    assert len(calls) == 4
+    routing._CONTEXT_CACHE.clear()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("form", ["accessPoint", "nkz:accessPoint", "https://nkz-os.org/ns/accessPoint"])
+async def test_gate_and_zones_are_read_in_short_prefixed_and_iri_forms(monkeypatch, form):
+    from app.services import parcel_constraints as pc
+    zform = form.replace("accessPoint", "exclusionZones")
+    zone = {"type": "FeatureCollection", "features": [{"type": "Feature", "geometry": {
+        "type": "Polygon", "coordinates": [[[0.002, 0.002], [0.003, 0.002], [0.003, 0.003], [0.002, 0.002]]]}}]}
+    ents = [{"id": "in", "location": {"value": SQ},
+             form: {"value": {"type": "Point", "coordinates": [0.005, 0.0]}},
+             zform: {"value": zone}}]
+    seen = {}
+
+    class FakeOrion:
+        def __init__(self, *a, **k): ...
+        async def query_entities(self, *a, **k):
+            seen.update(k)
+            return ents
+        async def get_entity(self, eid): return ents[0]
+        async def close(self): ...
+
+    monkeypatch.setattr(pc, "OrionClient", FakeOrion)
+    got = (await pc.fetch_tenant_parcels_in_bbox("tenant-a", (-0.01, -0.01, 0.02, 0.02)))[0]
+    assert got["access_point"] == (0.005, 0.0) and len(got["zones"]) == 1
+    assert form in seen["attrs"] and zform in seen["attrs"]
+    one = await pc.fetch_parcel_constraints("in", "tenant-a")
+    assert one["access_point"] == (0.005, 0.0) and len(one["zones"]) == 1

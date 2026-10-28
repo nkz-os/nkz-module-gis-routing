@@ -219,14 +219,15 @@ def build_operation_entity(*, op_id, body, result, prescription_map, is_template
 
 def build_transit_entity(*, op_id: str, parcel_id: str, name: Optional[str], alternative: dict,
                          planned_start_at: Optional[str] = None,
-                         planned_end_at: Optional[str] = None) -> dict:
+                         planned_end_at: Optional[str] = None,
+                         constraints_used: Optional[dict] = None) -> dict:
     """AgriParcelOperation for a computed A-B transit (destination parcel required).
 
     ASSUMPTION: operationType "transit" is outside the SDM enum, like the module's
     other operation types.
     """
     start, end = resolve_planned(planned_start_at, planned_end_at)
-    return {
+    entity = {
         "id": op_id,
         "type": "AgriParcelOperation",
         "name": {"type": "Property",
@@ -246,6 +247,10 @@ def build_transit_entity(*, op_id: str, parcel_id: str, name: Optional[str], alt
         "plannedStartAt": {"type": "Property", "value": start},
         "plannedEndAt": {"type": "Property", "value": end},
     }
+    if constraints_used:
+        # What the route had to respect: {parcels, gated, zones} seen when it was computed.
+        entity["constraintsUsed"] = {"type": "Property", "value": dict(constraints_used)}
+    return entity
 
 
 def build_template_entity(*, op_id, parcel_id, name, pattern_type, pattern_config,

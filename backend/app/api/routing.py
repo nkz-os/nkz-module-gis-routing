@@ -201,6 +201,28 @@ async def list_parcels(request: Request, auth: AuthContext = require_auth()):
         await orion.close()
 
 _CONTEXT_MAX_SIDE_DEG = 0.2
+_CONTEXT_TTL_S = 60.0
+_CONTEXT_CACHE_MAX = 256
+_CONTEXT_CACHE: dict[tuple, tuple[float, list]] = {}
+_context_clock = time.monotonic
+
+
+async def _context_parcels(tenant_id: str, bbox: tuple) -> list:
+    """The tenant's parcels in bbox, cached per tenant + bbox for 60 s (a pan re-asks every ~400 ms
+    and each read pages through all of the tenant's parcels). Only the map context is cached; A-B
+    searches always read fresh."""
+    now = _context_clock()
+    for k in [k for k, (at, _p) in _CONTEXT_CACHE.items() if now - at >= _CONTEXT_TTL_S]:
+        del _CONTEXT_CACHE[k]
+    key = (tenant_id, bbox)
+    hit = _CONTEXT_CACHE.get(key)
+    if hit is not None:
+        return hit[1]
+    parcels = await fetch_tenant_parcels_in_bbox(tenant_id, bbox)
+    while len(_CONTEXT_CACHE) >= _CONTEXT_CACHE_MAX:
+        del _CONTEXT_CACHE[min(_CONTEXT_CACHE, key=lambda k: _CONTEXT_CACHE[k][0])]
+    _CONTEXT_CACHE[key] = (now, parcels)
+    return parcels
 
 
 @router.get("/parcels/context")
@@ -221,7 +243,7 @@ async def parcels_context(bbox: str = Query(..., description="minLon,minLat,maxL
     if max_lon - min_lon > _CONTEXT_MAX_SIDE_DEG or max_lat - min_lat > _CONTEXT_MAX_SIDE_DEG:
         raise PlanError("AREA_TOO_LARGE", "The requested area is too large",
                         {"max_side_deg": _CONTEXT_MAX_SIDE_DEG})
-    parcels = await fetch_tenant_parcels_in_bbox(tenant_id, (min_lon, min_lat, max_lon, max_lat))
+    parcels = await _context_parcels(tenant_id, (min_lon, min_lat, max_lon, max_lat))
     return {"parcels": [
         {
             "id": p["id"],
@@ -583,15 +605,27 @@ async def generate_routing_plan(request: Request, body: GenerateRequest, auth: A
         operation_id = await _persist_operation(result, body, auth, None, plan_dict)
     persisted = operation_id is not None
 
-    plan_id = PLAN_STORE.put(auth.tenant_id, {
-        "operation_id": operation_id,
-        "plan_dict": plan_dict,
-        # external_features can be MBs and is not needed to build the entity.
-        "body": body.model_dump(exclude={"vra": {"external_features"}}),
-        # Only what build_operation_entity reads; the route geometry is in plan_dict.
-        "result": SimpleNamespace(swath_count=result.swath_count,
-                                  total_distance_m=result.total_distance_m,
-                                  metrics=result.metrics)})
+    plan_id = None
+    if operation_id is None:
+        from app.services import operation_store
+        entity = operation_store.build_operation_entity(
+            op_id=operation_store.new_operation_id(auth.tenant_id), body=body, result=result,
+            prescription_map=None, is_template=False, plan=plan_dict,
+            planned_start_at=_iso_utc(body.planned_start_at), planned_end_at=_iso_utc(body.planned_end_at))
+        entity_bytes = len(json.dumps(entity, separators=(",", ":")).encode("utf-8"))
+        if entity_bytes <= operation_store.MAX_ENTITY_BYTES:
+            plan_id = _store_plan(auth.tenant_id, operation_id, plan_dict, body, result)
+        if plan_id is None:
+            # Saving would fail with PLAN_TOO_LARGE (or the store cannot hold it): do not keep it.
+            logger.warning("generate: plan not stored, too large to save: tenant_id=%s entity_bytes=%d",
+                           auth.tenant_id, entity_bytes)
+            if plan_dict.get("validation") is None:
+                plan_dict["validation"] = {"ok": True, "checks": [], "fallbacks_applied": [], "warnings": []}
+            plan_dict["validation"]["warnings"].append(
+                {"code": "PLAN_TOO_LARGE_TO_SAVE", "geometry": None,
+                 "params": {"size_kb": round(entity_bytes / 1024)}})
+    else:
+        plan_id = _store_plan(auth.tenant_id, operation_id, plan_dict, body, result)
 
     return {
         "success": True,
@@ -600,6 +634,18 @@ async def generate_routing_plan(request: Request, body: GenerateRequest, auth: A
         "plan": plan_dict,
         "plan_id": plan_id,
     }
+
+
+def _store_plan(tenant_id: str, operation_id, plan_dict: dict, body: GenerateRequest, result) -> Optional[str]:
+    return PLAN_STORE.put(tenant_id, {
+        "operation_id": operation_id,
+        "plan_dict": plan_dict,
+        # external_features can be MBs and is not needed to build the entity.
+        "body": body.model_dump(exclude={"vra": {"external_features"}}),
+        # Only what build_operation_entity reads; the route geometry is in plan_dict.
+        "result": SimpleNamespace(swath_count=result.swath_count,
+                                  total_distance_m=result.total_distance_m,
+                                  metrics=result.metrics)})
 
 
 async def _vra_zones(vra: VRAConfig, parcel_id, tenant_id: str):
@@ -855,32 +901,41 @@ async def save_operation(body: SaveOperationRequest, auth: AuthContext = require
     if alt is None:
         raise PlanError("ALTERNATIVE_NOT_FOUND", "Alternative not found in job",
                         {"alternative_id": body.alternative_id})
-    async with _save_lock(("transit", auth.tenant_id, body.job_id, body.alternative_id)):
-        if alt.get("operation_id"):
-            return {"success": True, "operation_id": alt["operation_id"], "persisted": True}
+    async with _save_lock(("transit", auth.tenant_id, body.job_id, body.alternative_id, body.parcel_id)):
+        # Idempotent per destination parcel: saving the same route for another parcel is a new operation.
+        saved = alt.setdefault("operation_ids", {})
+        if saved.get(body.parcel_id):
+            return {"success": True, "operation_id": saved[body.parcel_id], "persisted": True}
         await _require_parcel(body.parcel_id, auth.tenant_id)
         op_id = operation_store.new_operation_id(auth.tenant_id)
         entity = operation_store.build_transit_entity(
             op_id=op_id, parcel_id=body.parcel_id, name=body.name, alternative=alt,
             planned_start_at=_iso_utc(body.planned_start_at),
-            planned_end_at=_iso_utc(body.planned_end_at))
+            planned_end_at=_iso_utc(body.planned_end_at),
+            constraints_used=(job.get("report") or {}).get("constraints_used"))
         await _create_operation_entity(entity, op_id, auth.tenant_id, strict=True)
-        alt["operation_id"] = op_id
+        saved[body.parcel_id] = op_id
     return {"success": True, "operation_id": op_id, "persisted": True}
 
 
-_SAVE_LOCKS: dict[tuple, asyncio.Lock] = {}
+_SAVE_LOCKS: dict[tuple, list] = {}   # key -> [lock, holders and waiters]
 
 
 @asynccontextmanager
 async def _save_lock(key: tuple):
-    """One save at a time per plan / transit, so a double click creates one entity."""
-    lock = _SAVE_LOCKS.setdefault(key, asyncio.Lock())
+    """One save at a time per plan / transit, so a double click creates one entity.
+
+    The entry is reference-counted: it is dropped only when nobody holds or awaits it, so a
+    request arriving while another waits always meets the same lock.
+    """
+    entry = _SAVE_LOCKS.setdefault(key, [asyncio.Lock(), 0])
+    entry[1] += 1
     try:
-        async with lock:
+        async with entry[0]:
             yield
     finally:
-        if not lock.locked():
+        entry[1] -= 1
+        if entry[1] == 0:
             _SAVE_LOCKS.pop(key, None)
 
 
@@ -890,6 +945,11 @@ async def _require_parcel(parcel_id: str, tenant_id: str) -> None:
                         context_url=settings.ngsi_ld_context)
     try:
         entity = await orion.get_entity(parcel_id)
+    except httpx.HTTPStatusError as exc:
+        if exc.response.status_code == 404:
+            raise PlanError("PARCEL_NOT_FOUND", "parcel not found", {"parcel_id": parcel_id}) from exc
+        logger.exception("Parcel lookup failed: parcel_id=%s tenant_id=%s", parcel_id, tenant_id)
+        raise PlanError("PERSIST_FAILED", "parcel could not be verified") from exc
     except Exception as exc:
         logger.exception("Parcel lookup failed: parcel_id=%s tenant_id=%s", parcel_id, tenant_id)
         raise PlanError("PERSIST_FAILED", "parcel could not be verified") from exc

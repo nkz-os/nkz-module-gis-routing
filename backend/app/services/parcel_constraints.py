@@ -9,8 +9,25 @@ from nkz_platform_sdk.orion import OrionClient
 
 logger = logging.getLogger(__name__)
 
+_NKZ_NS = "https://nkz-os.org/ns/"
+# Orion returns a term outside the @context as its full IRI; a writer may also use the nkz: prefix.
+_ATTR_FORMS = ("{n}", "nkz:{n}", _NKZ_NS + "{n}")
 _PAGE_LIMIT = 500
 _MAX_PAGES = 20
+
+
+def _attr_value(entity: dict, name: str):
+    """Value of the module's own attribute `name`, whichever form Orion returns it in
+    (short, nkz: prefixed, full IRI). None when absent."""
+    for form in _ATTR_FORMS:
+        node = entity.get(form.format(n=name))
+        if isinstance(node, dict) and node.get("value") is not None:
+            return node["value"]
+    return None
+
+
+def _attrs_param(*names: str) -> str:
+    return ",".join(form.format(n=n) for n in names for form in _ATTR_FORMS)
 
 
 def _flatten_polygons(geom) -> list[Polygon]:
@@ -77,9 +94,9 @@ async def fetch_parcel_constraints(parcel_id: str, tenant_id: str) -> dict:
         await orion.close()
     if not entity:
         return {"access_point": None, "zones": []}
-    ap = (entity.get("accessPoint", {}) or {}).get("value")
+    ap = _attr_value(entity, "accessPoint")
     access_point = tuple(ap["coordinates"]) if ap and ap.get("coordinates") else None
-    fc = (entity.get("exclusionZones", {}) or {}).get("value") or {}
+    fc = _attr_value(entity, "exclusionZones") or {}
     zones = _zone_polygons(fc, entity_id=entity.get("id") or parcel_id)
     return {"access_point": access_point, "zones": zones}
 
@@ -121,7 +138,7 @@ async def fetch_tenant_parcels_in_bbox(tenant_id: str, bbox: tuple[float, float,
     read is kept with polygon/geometry None: it cannot be drawn or fenced, but its
     no-go zones still count (fail safe).
     """
-    entities = await _read_tenant_parcels(tenant_id, "name,location,accessPoint,exclusionZones")
+    entities = await _read_tenant_parcels(tenant_id, "name,location," + _attrs_param("accessPoint", "exclusionZones"))
     area = box(*bbox)
     out: list[dict] = []
     for ent in entities:
@@ -135,11 +152,11 @@ async def fetch_tenant_parcels_in_bbox(tenant_id: str, bbox: tuple[float, float,
             logger.error("tenant parcels: unreadable parcel location, keeping its zones only: id=%s",
                          ent_id, exc_info=True)
             geom, loc = None, None
-        ap = (ent.get("accessPoint", {}) or {}).get("value")
+        ap = _attr_value(ent, "accessPoint")
         access_point = None
         if isinstance(ap, dict) and isinstance(ap.get("coordinates"), (list, tuple)) and len(ap["coordinates"]) >= 2:
             access_point = (float(ap["coordinates"][0]), float(ap["coordinates"][1]))
-        fc = (ent.get("exclusionZones", {}) or {}).get("value") or {}
+        fc = _attr_value(ent, "exclusionZones") or {}
         try:
             zones = _zone_polygons(fc, entity_id=ent_id)
         except Exception as exc:
