@@ -19,7 +19,7 @@ from fastapi import APIRouter, Request, Query, HTTPException
 from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import JSONResponse
 from fastapi.responses import Response as FastAPIResponse
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 from typing import Optional, Literal
 
 import httpx
@@ -365,21 +365,14 @@ async def push_changes(request: Request, collections: str = Query(..., descripti
 
 
 class PatternConfigRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     heading_deg: Optional[float] = Field(default=None, ge=0, lt=360)
     width_m: float = Field(default=24, gt=0)
     overlap_pct: float = Field(default=0, ge=0, le=30)
-    headland_passes: int = Field(default=1, ge=0, le=3)
-    direction: Optional[Literal["inside-out", "outside-in"]] = None  # deprecated, ignored
+    headland_passes: int = Field(default=1, ge=1, le=3)
     heading_objective: Literal["efficiency", "contour"] = "efficiency"
     turning_radius_m: Optional[float] = Field(default=None, gt=0)
-
-    @field_validator("headland_passes")
-    @classmethod
-    def coerce_zero_headland(cls, value: int) -> int:
-        if value == 0:
-            logger.warning("generate: headland_passes=0 coerced to 1")
-            return 1
-        return value
 
 
 class VRAConfig(BaseModel):
@@ -392,6 +385,8 @@ class VRAConfig(BaseModel):
 
 
 class GenerateRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     parcel_geometry: dict
     parcel_id: Optional[str] = None
     tractor_id: Optional[str] = None
@@ -407,9 +402,6 @@ class GenerateRequest(BaseModel):
     planned_end_at: Optional[datetime] = None
     persist: bool = True
     vra: Optional[VRAConfig] = None
-    coupling_model: Optional[str] = None  # deprecated, ignored
-    selected_alternative_id: Optional[str] = None  # deprecated, ignored
-    base_pattern_id: Optional[str] = None  # deprecated, ignored
 
     @field_validator("planned_start_at", "planned_end_at")
     @classmethod
@@ -420,27 +412,15 @@ class GenerateRequest(BaseModel):
             raise ValueError("planned dates must carry a timezone offset (e.g. Z)")
         return value.astimezone(timezone.utc)
 
-    def deprecated_fields_present(self) -> list[str]:
-        names = [
-            name for name in ("coupling_model", "selected_alternative_id", "base_pattern_id")
-            if getattr(self, name) is not None
-        ]
-        if self.pattern_config.direction is not None:
-            names.append("direction")
-        return names
-
 
 @router.post("/generate")
 async def generate_routing_plan(request: Request, body: GenerateRequest, auth: AuthContext = require_auth()):
     """Unified route generation endpoint (Fields2Cover coverage engine)."""
-    deprecated = body.deprecated_fields_present()
-    if deprecated:
-        logger.warning("generate: deprecated fields ignored: %s", ", ".join(deprecated))
 
     if body.parcel_geometry.get("type") != "Polygon":
         raise PlanError("INVALID_GEOMETRY", "parcel_geometry must be a GeoJSON Polygon")
 
-    from shapely.geometry import shape, mapping as _map
+    from shapely.geometry import shape
     from app.services.coverage.robot_model import build_robot
     from app.services.coverage.f2c_engine import CoverageConfig
 
@@ -514,37 +494,19 @@ async def generate_routing_plan(request: Request, body: GenerateRequest, auth: A
                          pattern, body.parcel_id)
         raise PlanError("ENGINE_FAILURE", "route generation failed", {}) from exc
 
-    prescription_map = None
     if body.vra and body.vra.enabled:
-        zone_features = await _resolve_vra_zones(body, auth)
-        if zone_features:
-            from app.services.vra_intersector import intersect_swaths_with_zones
-            prescription_map = intersect_swaths_with_zones(
-                result.geometry, zone_features, body.vra.base_rate, pc.width_m,
-            )
+        logger.warning("generate: vra ignored until the class-based prescription contract lands")
 
     operation_id = None
     if body.persist and body.parcel_id:
-        operation_id = await _persist_operation(result, body, auth, prescription_map, plan_dict)
+        operation_id = await _persist_operation(result, body, auth, None, plan_dict)
     persisted = operation_id is not None
 
-    selected = {
-        "pattern": result.pattern,
-        "route": _map(result.geometry),
-        "swath_count": result.swath_count,
-        "headland_count": result.headland_count,
-        "total_distance_m": result.total_distance_m,
-        "pass_order": result.pass_order,
-        "metrics": result.metrics,
-        "metadata": result.metadata,
-    }
     return {
         "success": True,
         "operation_id": operation_id,
         "persisted": persisted,
         "plan": plan_dict,
-        "selected": selected,
-        "prescription_map": prescription_map,
     }
 
 
@@ -586,29 +548,6 @@ async def _resolve_contour_dem(parcel_geometry: dict):
     if not grid:
         return None, None
     return make_grid_sampler(grid), bbox
-
-
-async def _resolve_vra_zones(body: GenerateRequest, auth: AuthContext) -> list[dict]:
-    """Resolve VRA zone features from the configured source.
-
-    Both "orion" (default) and the legacy "vegetation-health" source resolve to
-    Orion-LD AgriManagementZone entities. vegetation-prime persists its computed
-    zones to Orion (the platform source of truth), so gis-routing reads them
-    there rather than via a redundant cross-service HTTP call. (Re)computation is
-    triggered explicitly via POST /zones/{parcel_id}/generate.
-    """
-    if body.vra.source == "external":
-        return _normalize_external_zone_features(body.vra.external_features or [])
-
-    # "orion" and legacy "vegetation-health" → Orion-LD AgriManagementZone
-    settings = get_settings()
-    orion = OrionClient(auth.tenant_id, base_url=settings.context_broker_url,
-                       context_url=settings.ngsi_ld_context)
-    try:
-        zones = await orion.query_entities("AgriManagementZone")
-    finally:
-        await orion.close()
-    return _zones_from_orion(zones, body.parcel_id, body.vra.zone_ids if body.vra else None)
 
 
 def _zones_from_orion(zones: list[dict], parcel_id: str, zone_ids: list[str] | None) -> list[dict]:
