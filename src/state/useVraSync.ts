@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { FeatureCollection } from 'geojson';
-import { api, ApiError } from '../services/api';
+import { api, ApiError, type Distribution } from '../services/api';
 import { toVraRequest, type WorkEvent, type WorkState } from './workMachine';
 
 export const VRA_DEBOUNCE_MS = 500;
@@ -91,6 +91,9 @@ export function useVraSync(state: WorkState, dispatch: React.Dispatch<WorkEvent>
     setJob('polling');
     setPollError(null);
     let ticks = 0;
+    // The run is published zone by zone: only two consecutive polls with the same count mean it is done.
+    let prevCount = -1;
+    let last: Distribution | null = null;
     const tick = () => {
       pollRef.current = setTimeout(async () => {
         if (token !== jobToken.current) return;
@@ -98,18 +101,27 @@ export function useVraSync(state: WorkState, dispatch: React.Dispatch<WorkEvent>
         try {
           const distribution = await api.getDistribution(id);
           if (token !== jobToken.current) return;
-          if (distribution.zones.length > 0 && distribution.missing.length === 0) {
+          last = distribution;
+          const count = distribution.zones.length + distribution.missing.length;
+          if (count > 0 && count === prevCount) {
             dispatch({ type: 'VRA_DISTRIBUTION_LOADED', parcelRequestId: prId, distribution });
             setJob('idle');
             setPollError(null);
             return;
           }
+          prevCount = count;
         } catch (e) {
           // transient: shown, and polling continues until the deadline
+          prevCount = -1;
           if (token === jobToken.current) setPollError(vraError(e));
         }
-        if (ticks >= ZONES_POLL_MAX_TICKS) setJob('timeout');
-        else tick();
+        if (ticks >= ZONES_POLL_MAX_TICKS) {
+          // Keep what the last poll saw (partial but real) instead of discarding it.
+          if (last && last.zones.length + last.missing.length > 0) {
+            dispatch({ type: 'VRA_DISTRIBUTION_LOADED', parcelRequestId: prId, distribution: last });
+          }
+          setJob('timeout');
+        } else tick();
       }, ZONES_POLL_MS);
     };
     api.requestZones(id, DEFAULT_N_ZONES)
@@ -158,6 +170,8 @@ export function useVraSync(state: WorkState, dispatch: React.Dispatch<WorkEvent>
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [plan]);
   useEffect(() => {
+    // Disabled or incomplete: forget the last request so re-enabling the same config asks again.
+    if (!key) lastKey.current = null;
     if (!key || !request || !plan || !parcelId || key === lastKey.current) return undefined;
     const handle = setTimeout(() => {
       const cur = stateRef.current;
