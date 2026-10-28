@@ -18,8 +18,9 @@
  *   nekazari:gis-routing:parcelConfig:zoneDrawn    { ring: [[lon,lat], ...] }
  */
 import React, { useEffect, useRef } from 'react';
-import { useViewer } from '@nekazari/sdk';
+import { useTranslation, useViewer } from '@nekazari/sdk';
 import { accent } from '../../config/accent';
+import { labelAnchor } from '../../map/markers';
 import { gateEntityOptions, noGoEntityOptions } from './cesiumStyle';
 
 interface Props {
@@ -31,7 +32,11 @@ const ZONE_TEMP_LINE_ID = 'gis-routing-parcel-config-zone-temp';
 
 export const ParcelConfigDrawTool: React.FC<Props> = ({ viewer: propViewer }) => {
   const { cesiumViewer } = useViewer();
+  const { t } = useTranslation('gis-routing');
   const viewer = propViewer || cesiumViewer;
+  // Read at draw time: a language change must not rebuild the tool (it would drop its entities).
+  const labelsRef = useRef({ gate: '', nogo: '' });
+  labelsRef.current = { gate: t('map.legend.gate'), nogo: t('map.legend.nogo') };
 
   const stateRef = useRef<{
     mode: 'off' | 'access' | 'zone';
@@ -129,7 +134,7 @@ export const ParcelConfigDrawTool: React.FC<Props> = ({ viewer: propViewer }) =>
       removeEntity(ACCESS_POINT_ID);
       try {
         st.entityIds.push(ACCESS_POINT_ID);
-        viewer.entities.add(gateEntityOptions(Cesium, ACCESS_POINT_ID, lon, lat, accent.base));
+        viewer.entities.add(gateEntityOptions(Cesium, ACCESS_POINT_ID, lon, lat, labelsRef.current.gate));
       } catch {
         /* skip */
       }
@@ -141,7 +146,10 @@ export const ParcelConfigDrawTool: React.FC<Props> = ({ viewer: propViewer }) =>
       const entityId = `gis-routing-parcel-config-zone-${st.zoneIndex++}`;
       try {
         st.entityIds.push(entityId);
-        viewer.entities.add(noGoEntityOptions(Cesium, entityId, { outer: st.zoneVerts.map((v) => [v[0], v[1]]), holes: [] }));
+        const outer = st.zoneVerts.map((v) => [v[0], v[1]]);
+        viewer.entities.add(noGoEntityOptions(
+          Cesium, entityId, { outer, holes: [] },
+          labelAnchor({ type: 'Polygon', coordinates: [[...outer, outer[0]]] }), labelsRef.current.nogo));
       } catch {
         /* skip */
       }
