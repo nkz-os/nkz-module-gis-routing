@@ -207,7 +207,9 @@
     "equipment": "Equipo",
     "noEquipment": "Sin equipo",
     "generate": "Generar ruta de trabajo",
-    "generateError": "No se pudo generar la ruta"
+    "generateError": "No se pudo generar la ruta",
+    "saved": "Ruta guardada",
+    "typeManually": "Falta el ancho o el radio de giro: escríbelos."
   },
   "work": {
     "steps": {

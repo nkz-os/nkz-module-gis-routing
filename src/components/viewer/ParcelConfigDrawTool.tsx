@@ -20,6 +20,7 @@
 import React, { useEffect, useRef } from 'react';
 import { useViewer } from '@nekazari/sdk';
 import { accent } from '../../config/accent';
+import { gateEntityOptions, noGoEntityOptions } from './cesiumStyle';
 
 interface Props {
   viewer?: any;
@@ -128,26 +129,7 @@ export const ParcelConfigDrawTool: React.FC<Props> = ({ viewer: propViewer }) =>
       removeEntity(ACCESS_POINT_ID);
       try {
         st.entityIds.push(ACCESS_POINT_ID);
-        viewer.entities.add({
-          id: ACCESS_POINT_ID,
-          position: Cesium.Cartesian3.fromDegrees(lon, lat),
-          point: {
-            pixelSize: 14,
-            color: Cesium.Color.fromCssColorString(accent.base),
-            outlineColor: Cesium.Color.WHITE,
-            outlineWidth: 2,
-          },
-          label: {
-            text: '⚑', // flag glyph
-            font: 'bold 18px sans-serif',
-            fillColor: Cesium.Color.WHITE,
-            style: Cesium.LabelStyle.FILL_AND_OUTLINE,
-            outlineColor: Cesium.Color.fromCssColorString('#1e293b'),
-            outlineWidth: 3,
-            verticalOrigin: Cesium.VerticalOrigin.BOTTOM,
-            pixelOffset: new Cesium.Cartesian2(0, -12),
-          },
-        });
+        viewer.entities.add(gateEntityOptions(Cesium, ACCESS_POINT_ID, lon, lat, accent.base));
       } catch {
         /* skip */
       }
@@ -159,26 +141,7 @@ export const ParcelConfigDrawTool: React.FC<Props> = ({ viewer: propViewer }) =>
       const entityId = `gis-routing-parcel-config-zone-${st.zoneIndex++}`;
       try {
         st.entityIds.push(entityId);
-        const hierarchy = st.zoneVerts.map(([lon, lat]) =>
-          Cesium.Cartesian3.fromDegrees(lon, lat),
-        );
-        viewer.entities.add({
-          id: entityId,
-          polygon: {
-            hierarchy,
-            clampToGround: true,
-            material: Cesium.Color.RED.withAlpha(0.3),
-            outline: false,
-          },
-          polyline: {
-            positions: Cesium.Cartesian3.fromDegreesArray(
-              ring.flatMap(([lon, lat]) => [lon, lat])
-            ),
-            width: 4,
-            material: Cesium.Color.RED,
-            clampToGround: true,
-          }
-        });
+        viewer.entities.add(noGoEntityOptions(Cesium, entityId, { outer: st.zoneVerts.map((v) => [v[0], v[1]]), holes: [] }));
       } catch {
         /* skip */
       }

@@ -193,6 +193,17 @@ export interface ParcelConfig {
   exclusionZones: FeatureCollection | null;
 }
 
+/** Body of PUT /parcels/{id}/config: an absent field is left unchanged, a null accessPoint deletes the gate. */
+export interface ParcelConfigPatch {
+  accessPoint?: Point | null;
+  exclusionZones?: FeatureCollection | null;
+}
+
+/** The whole operation as drawn by the cockpit (spec 6.2); `partial` is set for operations of older phases. */
+export type OperationPlan = FeatureCollection & {
+  properties?: { plan_version?: number; operation_id?: string; operation_type?: string; partial?: boolean };
+};
+
 export type PathAlternativeId = 'least_slope' | 'fastest';
 
 export interface PathAlternative {
@@ -278,7 +289,7 @@ export const api = {
       `/parcels/${encodeURIComponent(parcelId)}/config`);
   },
   saveParcelConfig(parcelId: string,
-                   body: ParcelConfig) {
+                   body: ParcelConfigPatch) {
     return request<{ success: boolean; updated: string[] }>(`/parcels/${encodeURIComponent(parcelId)}/config`,
       { method: 'PUT', body: JSON.stringify(body) });
   },
@@ -306,6 +317,9 @@ export const api = {
     });
   },
   getActiveOperation() { return request<any>('/operations/active'); },
+  getOperationPlan(operationId: string) {
+    return request<OperationPlan>(`/operations/${encodeURIComponent(operationId)}/plan`);
+  },
   getOperationCoverage(operationId: string) {
     return request<any>(`/operations/coverage/${encodeURIComponent(operationId)}`);
   },

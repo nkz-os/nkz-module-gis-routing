@@ -207,7 +207,9 @@
     "equipment": "Equipamento",
     "noEquipment": "Sem equipamento",
     "generate": "Gerar rota de trabalho",
-    "generateError": "Não foi possível gerar a rota"
+    "generateError": "Não foi possível gerar a rota",
+    "saved": "Rota guardada",
+    "typeManually": "Falta a largura ou o raio de viragem: escreva-os."
   },
   "work": {
     "steps": {

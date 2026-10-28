@@ -207,7 +207,9 @@
     "equipment": "Équipement",
     "noEquipment": "Sans équipement",
     "generate": "Générer itinéraire",
-    "generateError": "Impossible de générer itinéraire"
+    "generateError": "Impossible de générer itinéraire",
+    "saved": "Itinéraire enregistré",
+    "typeManually": "Largeur ou rayon de braquage manquant : saisissez-les."
   },
   "work": {
     "steps": {

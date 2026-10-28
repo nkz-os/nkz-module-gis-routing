@@ -207,7 +207,9 @@
     "equipment": "Ekipamendua",
     "noEquipment": "Ekipamendurik gabe",
     "generate": "Lan-ibilbidea sortu",
-    "generateError": "Ezin izan da ibilbidea sortu"
+    "generateError": "Ezin izan da ibilbidea sortu",
+    "saved": "Ibilbidea gordeta",
+    "typeManually": "Zabalera edo biraketa-erradioa falta da: idatzi ezazu."
   },
   "work": {
     "steps": {

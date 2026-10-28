@@ -207,7 +207,9 @@
     "equipment": "Equip",
     "noEquipment": "Sense equip",
     "generate": "Generar ruta de treball",
-    "generateError": "No s'ha pogut generar la ruta"
+    "generateError": "No s'ha pogut generar la ruta",
+    "saved": "Ruta desada",
+    "typeManually": "Falta l'amplada o el radi de gir: escriu-los."
   },
   "work": {
     "steps": {

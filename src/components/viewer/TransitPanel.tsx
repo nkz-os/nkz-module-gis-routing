@@ -9,11 +9,13 @@ const NS = 'gis-routing';
 interface Props {
   pfState: string;           // 'picking-a'|'picking-b'|'calculating'|'review'|'idle'
   alt: any | null;
+  /** Failure of the A-B job, by backend code; shown translated. */
+  error?: { code: string; params?: Record<string, unknown>; detail?: string } | null;
   onSave: (alt: any) => void;
   onCancel: () => void;
 }
 
-export const TransitPanel: React.FC<Props> = ({ pfState, alt, onSave, onCancel }) => {
+export const TransitPanel: React.FC<Props> = ({ pfState, alt, error, onSave, onCancel }) => {
   const { t } = useTranslation(NS);
   return (
     <div className="space-y-2">
@@ -33,6 +35,12 @@ export const TransitPanel: React.FC<Props> = ({ pfState, alt, onSave, onCancel }
         <div className="flex items-center gap-2 text-nkz-sm text-nkz-text-secondary py-2">
           <Loader2 className="w-4 h-4 animate-spin" />{t('pathfinding.calculating')}
         </div>
+      )}
+      {error && (
+        <p className="text-nkz-xs text-nkz-danger">
+          {t(`transit.errors.${error.code}`, { ...error.params, detail: error.detail, defaultValue: '' })
+            || t('transit.errors.UNKNOWN', { detail: error.detail })}
+        </p>
       )}
       {alt && (
         <div className="space-y-1.5">

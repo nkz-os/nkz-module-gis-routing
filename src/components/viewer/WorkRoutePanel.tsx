@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useTranslation } from '@nekazari/sdk';
-import { Loader2, Play } from 'lucide-react';
-import { api, type GenerateRequest } from '../../services/api';
+import { Loader2, Play, Save } from 'lucide-react';
+import { api, ApiError, type AlertStatus, type GenerateRequest, type GenerateResponse } from '../../services/api';
 import { EV } from './routingMode';
 import { Button, Select } from '@nekazari/ui-kit';
 
@@ -10,25 +10,60 @@ const PATTERNS = ['boustrophedon', 'snake', 'spiral', 'headland-only'] as const;
 
 interface Props { parcelId: string; }
 
+const num = (v: unknown): number | null => {
+  if (v === null || v === undefined || v === '') return null;
+  const n = typeof v === 'number' ? v : Number(String(v).replace(',', '.'));
+  return Number.isFinite(n) && n > 0 ? n : null;
+};
+
 export const WorkRoutePanel: React.FC<Props> = ({ parcelId }) => {
   const { t } = useTranslation(NS);
   const [equipment, setEquipment] = useState<any[]>([]);
   const [implementId, setImplementId] = useState<string>('');
   const [pattern, setPattern] = useState<string>('boustrophedon');
+  // Typed as text so a half-typed number is not rewritten under the cursor.
+  const [widthText, setWidthText] = useState('');
+  const [radiusText, setRadiusText] = useState('');
   const [busy, setBusy] = useState(false);
+  const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [metrics, setMetrics] = useState<any>(null);
+  const [result, setResult] = useState<GenerateResponse | null>(null);
+  const [saved, setSaved] = useState<{ operationId: string; alert?: AlertStatus } | null>(null);
+
+  const applyMachine = (list: any[], id: string) => {
+    const m = list.find((x) => x.id === id);
+    const w = num(m?.implementWidth);
+    const r = num(m?.minTurningRadius);
+    setWidthText(w === null ? '' : String(w));
+    setRadiusText(r === null ? '' : String(r));
+  };
 
   useEffect(() => {
     api.listEquipment().then((e: any[]) => {
-      setEquipment(e || []);
-      const impl = (e || []).find((m: any) => m.machine_role === 'implement') || (e || [])[0];
-      if (impl) setImplementId(impl.id);
+      const list = e || [];
+      setEquipment(list);
+      const impl = list.find((m: any) => m.machine_role === 'implement') || list[0];
+      if (impl) { setImplementId(impl.id); applyMachine(list, impl.id); }
     }).catch(() => setEquipment([]));
   }, []);
 
+  const message = (err: unknown): string => {
+    if (err instanceof ApiError) {
+      const code = err.code || 'UNKNOWN';
+      return t(`work.errors.${code}`, { ...err.params, detail: err.detail, defaultValue: '' })
+        || t('work.errors.UNKNOWN', { detail: err.detail });
+    }
+    return t('cockpit.generateError');
+  };
+
+  const onMachine = (id: string) => { setImplementId(id); applyMachine(equipment, id); };
+
   const generate = async () => {
-    setBusy(true); setError(null); setMetrics(null);
+    setError(null); setResult(null); setSaved(null);
+    const widthM = num(widthText);
+    if (widthM === null) { setError(t('work.errors.MACHINE_WIDTH_MISSING')); return; }
+    const radiusM = num(radiusText);
+    setBusy(true);
     try {
       const geom = await api.getParcelGeometry(parcelId);
       const res = await api.generate({
@@ -37,23 +72,48 @@ export const WorkRoutePanel: React.FC<Props> = ({ parcelId }) => {
         tractor_id: null,
         implement_id: implementId || null,
         pattern: pattern as GenerateRequest['pattern'],
-        pattern_config: { width_m: 24, overlap_pct: 10, headland_passes: 1,
-                          heading_objective: 'efficiency' },
+        pattern_config: {
+          width_m: widthM, overlap_pct: 10, headland_passes: 1, heading_objective: 'efficiency',
+          ...(radiusM !== null ? { turning_radius_m: radiusM } : {}),
+        },
         operation_type: 'spraying',
         return_to_access: false,
-        persist: true,
+        persist: false,
       });
-      const route = res.plan.route;
-      setMetrics(res.plan.metrics);
+      setResult(res);
+      if (res.plan_id === null) setError(t('work.errors.PLAN_TOO_LARGE_TO_SAVE'));
+      // Preview only: the plan is not an operation until the user saves it.
       window.dispatchEvent(new CustomEvent(EV.routeGenerated, {
-        detail: { geometry: route, prescriptionMap: null },
+        detail: { geometry: res.plan.route, prescriptionMap: null },
       }));
-    } catch (err: any) {
-      setError(err?.message || t('cockpit.generateError'));
+    } catch (err) {
+      setError(message(err));
     } finally {
       setBusy(false);
     }
   };
+
+  const save = async () => {
+    if (!result?.plan_id) return;
+    setSaving(true); setError(null);
+    try {
+      const res = await api.saveOperation({ kind: 'plan', plan_id: result.plan_id });
+      if (!res.persisted || !res.operation_id) {
+        throw new ApiError(502, { code: 'PERSIST_FAILED', detail: 'Plan was not persisted' });
+      }
+      setSaved({ operationId: res.operation_id, alert: res.alert });
+      window.dispatchEvent(new CustomEvent(EV.routeGenerated, {
+        detail: { geometry: result.plan.route, prescriptionMap: null, operation_id: res.operation_id },
+      }));
+    } catch (err) {
+      setError(message(err));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const metrics = result?.plan.metrics;
+  const missing = num(widthText) === null || num(radiusText) === null;
 
   return (
     <div className="space-y-2">
@@ -72,9 +132,9 @@ export const WorkRoutePanel: React.FC<Props> = ({ parcelId }) => {
       </div>
       <div>
         <label className="text-nkz-xs text-nkz-text-secondary">{t('cockpit.equipment')}</label>
-        <Select 
-          value={implementId} 
-          onValueChange={setImplementId}
+        <Select
+          value={implementId}
+          onValueChange={onMachine}
           options={[
             { value: '', label: t('cockpit.noEquipment') },
             ...equipment.map((m: any) => ({ value: m.id, label: m.name }))
@@ -82,7 +142,22 @@ export const WorkRoutePanel: React.FC<Props> = ({ parcelId }) => {
           className="w-full mt-1"
         />
       </div>
-      <Button onClick={generate} disabled={busy}
+      <div className="grid grid-cols-2 gap-2">
+        <div>
+          <label htmlFor="cockpit-width" className="text-nkz-xs text-nkz-text-secondary">{t('work.machine.width')}</label>
+          <input id="cockpit-width" inputMode="decimal" value={widthText}
+            onChange={(e) => setWidthText(e.target.value)}
+            className="w-full mt-1 px-2 py-1 rounded-nkz-md border border-nkz-border bg-nkz-surface text-nkz-sm text-nkz-text-primary" />
+        </div>
+        <div>
+          <label htmlFor="cockpit-radius" className="text-nkz-xs text-nkz-text-secondary">{t('work.machine.radius')}</label>
+          <input id="cockpit-radius" inputMode="decimal" value={radiusText}
+            onChange={(e) => setRadiusText(e.target.value)}
+            className="w-full mt-1 px-2 py-1 rounded-nkz-md border border-nkz-border bg-nkz-surface text-nkz-sm text-nkz-text-primary" />
+        </div>
+      </div>
+      {missing && <p className="text-nkz-xs text-nkz-text-secondary">{t('cockpit.typeManually')}</p>}
+      <Button onClick={generate} disabled={busy || saving}
         className="w-full flex items-center justify-center gap-1.5 py-2">
         {busy ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Play className="w-3.5 h-3.5" />}
         {t('cockpit.generate')}
@@ -94,7 +169,19 @@ export const WorkRoutePanel: React.FC<Props> = ({ parcelId }) => {
           <span>{metrics.covered_area_ha?.toFixed(2)} ha</span>
         </div>
       )}
+      {result?.plan_id && !saved && (
+        <Button onClick={save} disabled={saving || busy}
+          className="w-full flex items-center justify-center gap-1.5 py-2">
+          {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
+          {t(saving ? 'actions.saving' : 'actions.save')}
+        </Button>
+      )}
+      {saved && (
+        <div className="text-nkz-xs text-nkz-success space-y-1">
+          <p>{t('cockpit.saved')}</p>
+          {saved.alert && <p className="text-nkz-text-secondary">{t(`work.alert.${saved.alert}`)}</p>}
+        </div>
+      )}
     </div>
   );
 };
-

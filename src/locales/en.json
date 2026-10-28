@@ -207,7 +207,9 @@
     "equipment": "Equipment",
     "noEquipment": "No equipment",
     "generate": "Generate work route",
-    "generateError": "Could not generate route"
+    "generateError": "Could not generate route",
+    "saved": "Route saved",
+    "typeManually": "Width or turning radius missing: type them in."
   },
   "work": {
     "steps": {

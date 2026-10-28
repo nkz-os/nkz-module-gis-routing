@@ -8,13 +8,21 @@
  */
 import React, { useEffect, useRef } from 'react';
 import { useViewer } from '@nekazari/sdk';
-import { api } from '../../services/api';
+import { api, ApiError } from '../../services/api';
+import { planEntitySpecs, type PlanSpec } from './cockpitPlan';
+import { gateEntityOptions, noGoEntityOptions } from './cesiumStyle';
 
 interface Props {
   viewer?: any;
 }
 
 const ALT_COLORS = ['#22c55e', '#F59E0B', '#3b82f6'];
+
+/** A-B jobs are polled once a second for up to five minutes. */
+const POLL_INTERVAL_MS = 1000;
+const POLL_MAX_MS = 5 * 60 * 1000;
+
+interface PfError { code: string; params?: Record<string, unknown>; detail?: string }
 
 export const GisRoutingMapLayer: React.FC<Props> = ({ viewer: propViewer }) => {
   const { cesiumViewer, selectedEntityId } = useViewer();
@@ -36,8 +44,8 @@ export const GisRoutingMapLayer: React.FC<Props> = ({ viewer: propViewer }) => {
   });
 
   // Helper: emit state to context panel
-  const emitPfState = (s: string) => {
-    window.dispatchEvent(new CustomEvent('nekazari:pf:stateChange', { detail: { state: s } }));
+  const emitPfState = (s: string, error?: PfError) => {
+    window.dispatchEvent(new CustomEvent('nekazari:pf:stateChange', { detail: error ? { state: s, error } : { state: s } }));
   };
 
   // Cancel pick mode when entity selection changes
@@ -67,13 +75,70 @@ export const GisRoutingMapLayer: React.FC<Props> = ({ viewer: propViewer }) => {
     const Cesium = (window as any).Cesium;
     if (!Cesium) return;
 
-    const handler = (e: CustomEvent) => {
-      const { geometry, prescriptionMap } = e.detail || {};
+    let drawToken = 0;
+
+    const clearRoute = () => {
       routeEntitiesRef.current.forEach(id => {
         if (!viewer.isDestroyed?.()) viewer.entities.removeById(id);
       });
       routeEntitiesRef.current = [];
+    };
 
+    const addEntity = (opts: any) => {
+      routeEntitiesRef.current.push(opts.id);
+      try { viewer.entities.add(opts); } catch { /* skip */ }
+    };
+
+    const drawSpec = (spec: PlanSpec) => {
+      const flat = (c: number[][]) => c.flatMap(([lon, lat]) => [lon, lat]);
+      const css = (c: string) => Cesium.Color.fromCssColorString(c);
+      if (spec.kind === 'line') {
+        (spec.lines ?? []).forEach((coords, n) => addEntity({
+          id: `${spec.id}-${n}`,
+          polyline: {
+            positions: Cesium.Cartesian3.fromDegreesArray(flat(coords)),
+            width: spec.width ?? 3, material: css(spec.color ?? '#F59E0B'), clampToGround: true,
+          },
+        }));
+      } else if (spec.kind === 'point' && spec.point) {
+        const [lon, lat] = spec.point;
+        if (spec.element === 'access_point') addEntity(gateEntityOptions(Cesium, spec.id, lon, lat, '#22c55e'));
+        else addEntity({
+          id: spec.id, position: Cesium.Cartesian3.fromDegrees(lon, lat),
+          point: { pixelSize: 12, color: css('#ef4444'), outlineColor: Cesium.Color.WHITE, outlineWidth: 2 },
+        });
+      } else if (spec.kind === 'polygon') {
+        (spec.polygons ?? []).forEach((part, n) => {
+          const id = `${spec.id}-${n}`;
+          if (spec.element === 'exclusion_zone') { addEntity(noGoEntityOptions(Cesium, id, part)); return; }
+          const hierarchy = new Cesium.PolygonHierarchy(
+            Cesium.Cartesian3.fromDegreesArray(flat(part.outer)),
+            part.holes.map((h) => new Cesium.PolygonHierarchy(Cesium.Cartesian3.fromDegreesArray(flat(h)))),
+          );
+          const color = css(spec.color ?? '#ffffff');
+          const prescription = spec.element === 'prescription_zone';
+          const entity: any = {
+            id,
+            polygon: { hierarchy, clampToGround: true, material: color.withAlpha(prescription ? 0.6 : 0.08) },
+            polyline: {
+              positions: Cesium.Cartesian3.fromDegreesArray(flat(part.outer)),
+              width: prescription ? 1 : 2, material: color, clampToGround: true,
+            },
+          };
+          if (prescription && spec.label && n === 0 && spec.labelAt) {
+            entity.position = Cesium.Cartesian3.fromDegrees(spec.labelAt[0], spec.labelAt[1]);
+            entity.label = {
+              text: spec.label, font: 'bold 14px sans-serif', fillColor: Cesium.Color.WHITE,
+              style: Cesium.LabelStyle.FILL_AND_OUTLINE, outlineColor: css('#1e293b'), outlineWidth: 3,
+              verticalOrigin: Cesium.VerticalOrigin.CENTER,
+            };
+          }
+          addEntity(entity);
+        });
+      }
+    };
+
+    const drawLegacy = (geometry: any, prescriptionMap: any) => {
       const lines: number[][][] =
         geometry?.type === 'MultiLineString' ? geometry.coordinates
         : geometry?.type === 'LineString' ? [geometry.coordinates]
@@ -113,6 +178,23 @@ export const GisRoutingMapLayer: React.FC<Props> = ({ viewer: propViewer }) => {
       }
     };
 
+    const handler = (e: CustomEvent) => {
+      const { geometry, prescriptionMap, operation_id: operationId } = e.detail || {};
+      const token = ++drawToken;
+      clearRoute();
+      if (!operationId) { drawLegacy(geometry, prescriptionMap); return; }
+      // The stored operation is the source of truth; a failed read falls back to the route we were given.
+      api.getOperationPlan(operationId).then((plan) => {
+        if (token !== drawToken || viewer.isDestroyed?.()) return;
+        const specs = planEntitySpecs(plan);
+        if (specs.length === 0) { drawLegacy(geometry, prescriptionMap); return; }
+        specs.forEach(drawSpec);
+      }).catch(() => {
+        if (token !== drawToken || viewer.isDestroyed?.()) return;
+        drawLegacy(geometry, prescriptionMap);
+      });
+    };
+
     // On mount, check for cross-tab saved route
     try {
       const stored = sessionStorage.getItem('nkz:gis-routing:lastSaved');
@@ -128,9 +210,8 @@ export const GisRoutingMapLayer: React.FC<Props> = ({ viewer: propViewer }) => {
     window.addEventListener('nekazari:gis-routing:routeGenerated', handler as EventListener);
     return () => {
       window.removeEventListener('nekazari:gis-routing:routeGenerated', handler as EventListener);
-      routeEntitiesRef.current.forEach(id => {
-        if (!viewer.isDestroyed?.()) viewer.entities.removeById(id);
-      });
+      drawToken++;
+      clearRoute();
     };
   }, [viewer]);
 
@@ -307,18 +388,30 @@ export const GisRoutingMapLayer: React.FC<Props> = ({ viewer: propViewer }) => {
       }).then((res: any) => {
         const jobId = res?.job_id;
         if (jobId) startPolling(jobId);
-        else { pf.state = 'done'; emitPfState('done'); }
-      }).catch(() => {
-        pf.state = 'done'; emitPfState('done');
+        else finishWithError({ code: 'UNKNOWN' });
+      }).catch((err: any) => {
+        finishWithError(err instanceof ApiError
+          ? { code: err.code || 'UNKNOWN', params: err.params, detail: err.detail }
+          : { code: 'UNKNOWN', detail: err?.message });
       });
     };
 
+    const finishWithError = (error: PfError) => {
+      clearPolling();
+      pf.state = 'done';
+      emitPfState('done', error);
+    };
+
     const startPolling = (jobId: string) => {
-      let attempts = 0;
-      pf.pollTimer = setInterval(async () => {
-        attempts++;
+      const startedAt = Date.now();
+      let inFlight = false;
+      const timer = setInterval(async () => {
+        if (inFlight) return;
+        if (Date.now() - startedAt >= POLL_MAX_MS) { finishWithError({ code: 'JOB_TIMEOUT' }); return; }
+        inFlight = true;
         try {
           const result: any = await api.getPathResult(jobId);
+          if (pf.pollTimer !== timer) return; // cancelled while the request was in flight
           if (result?.status === 'completed') {
             clearPolling();
             pf.alternatives = result.alternatives || [];
@@ -326,18 +419,20 @@ export const GisRoutingMapLayer: React.FC<Props> = ({ viewer: propViewer }) => {
             emitPfState('done');
             renderAlternatives();
           } else if (result?.status === 'failed') {
-            clearPolling();
-            pf.state = 'done';
-            emitPfState('done');
-          } else if (attempts >= 30) {
-            clearPolling();
-            pf.state = 'done';
-            emitPfState('done');
+            finishWithError({
+              code: result.error_code || 'UNKNOWN',
+              params: result.error_params || {},
+              detail: result.error,
+            });
           }
+          // queued | running: keep polling
         } catch {
-          if (attempts >= 30) { clearPolling(); pf.state = 'done'; emitPfState('done'); }
+          // transient read error: the next tick retries until the deadline
+        } finally {
+          inFlight = false;
         }
-      }, 2000);
+      }, POLL_INTERVAL_MS);
+      pf.pollTimer = timer;
     };
 
     const renderAlternatives = () => {
