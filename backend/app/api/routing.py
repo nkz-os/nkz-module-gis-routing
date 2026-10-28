@@ -1179,6 +1179,8 @@ async def generate_vra_zones(request: Request, parcel_id: str, auth: AuthContext
 async def export_operation(request: Request, operation_id: str, format: str = Query("geojson", description="Export format: isoxml, geojson, gpx"),
     auth: AuthContext = require_auth()
 ):
+    from app.services.operation_store import _parcel_rel
+    from app.services.parcel_constraints import _attr_value
     tenant_id = auth.tenant_id
     settings = get_settings()
     orion = OrionClient(
@@ -1200,8 +1202,29 @@ async def export_operation(request: Request, operation_id: str, format: str = Qu
         "ab_line_geojson": json.dumps(location) if location else "{}",
         "implement_width": entity.get("implementWidth", {}).get("value", 24.0),
         "vra_enabled": entity.get("vraEnabled", {}).get("value", False),
-        "prescription": (entity.get("prescription") or {}).get("value"),
+        "prescription": _attr_value(entity, "prescription"),
     }
+    swaths_fc = _attr_value(entity, "swaths")
+    if isinstance(swaths_fc, dict) and swaths_fc.get("features"):
+        op_record["swaths"] = swaths_fc["features"]
+    if format == "isoxml":
+        parcel_id = _parcel_rel(entity)
+        if parcel_id:
+            try:
+                orion = OrionClient(tenant_id, base_url=settings.context_broker_url,
+                                    context_url=settings.ngsi_ld_context)
+                try:
+                    parcel = await orion.get_entity(parcel_id)
+                finally:
+                    await orion.close()
+                loc = ((parcel or {}).get("location") or {}).get("value")
+                if isinstance(loc, dict):
+                    op_record["parcel_geometry"] = loc
+                pname = ((parcel or {}).get("name") or {}).get("value")
+                if pname:
+                    op_record["parcel_name"] = pname
+            except Exception as e:
+                logger.warning("Parcel boundary unavailable for export %s: %s", operation_id, e)
     exporter = RouteExporter()
     if format == "isoxml":
         content = exporter.to_isoxml(op_record)
