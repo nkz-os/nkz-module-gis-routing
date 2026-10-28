@@ -68,4 +68,14 @@ describe('SettingsBlock', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent('Solo los administradores');
     expect(select.value).toBe('immediate');
   });
+
+  it('under StrictMode (simulated unmount) a change still re-enables the select and confirms', async () => {
+    setRoles(['TenantAdmin']);
+    render(<React.StrictMode><SettingsBlock /></React.StrictMode>);
+    const select = (await screen.findByLabelText('Aviso al guardar una ruta')) as HTMLSelectElement;
+    await waitFor(() => expect(api.getSettings).toHaveBeenCalled());
+    fireEvent.change(select, { target: { value: 'digest' } });
+    expect(await screen.findByText('Ajuste guardado')).toBeInTheDocument();
+    await waitFor(() => expect(select.disabled).toBe(false));
+  });
 });

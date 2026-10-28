@@ -56,6 +56,14 @@ export function toWorkError(e: unknown): NonNullable<WorkState['error']> {
   return { code: 'UNKNOWN', detail, params: err?.params ?? {} };
 }
 
+/** The cockpit (another page of the host, same tab) draws the plan just saved when it mounts. */
+function handOverToCockpit(operationId: string, geometry: GeoJSON.Geometry | null): void {
+  try {
+    sessionStorage.setItem('nkz:gis-routing:lastSaved', JSON.stringify({
+      operation_id: operationId, geometry, prescriptionMap: null, timestamp: Date.now() }));
+  } catch { /* storage unavailable: the cockpit simply starts empty */ }
+}
+
 export interface WorkContext {
   parcelId: string | null;
   parcelGeometry: GeoJSON.Polygon | null;
@@ -255,6 +263,7 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({ onContextChange }) => {
         // Save the plan under review by id; no recomputation unless the VRA changed since generating.
         const saved = await savePlan(cur, api);
         dispatch({ type: 'SAVE_RESULT', ...saved });
+        handOverToCockpit(saved.operationId, (saved.regenerated?.plan ?? cur.result?.plan)?.route ?? null);
         if (saved.regenerated) setToast(t('work.regeneratedOnSave'));
       } else {
         dispatch({ type: 'GENERATED', response: await api.generate(body!) });

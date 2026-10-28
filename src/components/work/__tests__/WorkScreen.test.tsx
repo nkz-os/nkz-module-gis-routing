@@ -178,6 +178,15 @@ describe('WorkScreen', () => {
     await screen.findByText('Guardada (12345678)');
   }
 
+  it('a saved plan is handed to the cockpit through sessionStorage', async () => {
+    sessionStorage.removeItem('nkz:gis-routing:lastSaved');
+    await savedPlan();
+    const stored = JSON.parse(sessionStorage.getItem('nkz:gis-routing:lastSaved') ?? 'null');
+    expect(stored.operation_id).toBe('op-12345678');
+    expect(stored.geometry).toEqual({ type: 'LineString', coordinates: [[0, 0], [1, 1]] });
+    expect(typeof stored.timestamp).toBe('number');
+  });
+
   it('export downloads the file through fetch, not a new tab', async () => {
     await savedPlan();
     const blob = new Blob(['x']);

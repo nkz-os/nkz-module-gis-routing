@@ -17,7 +17,11 @@ export const SettingsBlock: React.FC = () => {
   const [busy, setBusy] = useState(false);
   const alive = useRef(true);
 
-  useEffect(() => () => { alive.current = false; }, []);
+  // StrictMode mounts, unmounts and mounts again: the flag must be set true on every mount.
+  useEffect(() => {
+    alive.current = true;
+    return () => { alive.current = false; };
+  }, []);
   useEffect(() => {
     if (!isAdmin) return undefined;
     let cancelled = false;

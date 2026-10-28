@@ -237,9 +237,10 @@ export const GisRoutingMapLayer: React.FC<Props> = ({ viewer: propViewer }) => {
     try {
       const stored = sessionStorage.getItem('nkz:gis-routing:lastSaved');
       if (stored) {
-        const { geometry, prescriptionMap, timestamp } = JSON.parse(stored);
-        if (geometry && (Date.now() - timestamp < 60000)) {
-          handler(new CustomEvent('nekazari:gis-routing:routeGenerated', { detail: { geometry, prescriptionMap } }));
+        const { geometry, prescriptionMap, operation_id: operationId, timestamp } = JSON.parse(stored);
+        if ((geometry || operationId) && (Date.now() - timestamp < 60000)) {
+          handler(new CustomEvent('nekazari:gis-routing:routeGenerated',
+            { detail: { geometry, prescriptionMap, operation_id: operationId } }));
           sessionStorage.removeItem('nkz:gis-routing:lastSaved');
         }
       }

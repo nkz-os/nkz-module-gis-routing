@@ -279,3 +279,20 @@ describe('language change', () => {
   });
 });
 
+
+describe('plan saved on the Work page', () => {
+  afterEach(() => sessionStorage.clear());
+  it('is drawn in full when the cockpit mounts, from the stored operation', async () => {
+    sessionStorage.setItem('nkz:gis-routing:lastSaved', JSON.stringify({
+      geometry: { type: 'LineString', coordinates: [[0, 0], [1, 1]] }, prescriptionMap: null,
+      operation_id: 'op-7', timestamp: Date.now() }));
+    vi.mocked(api.getOperationPlan).mockResolvedValue({
+      type: 'FeatureCollection', properties: { plan_version: 1 },
+      features: [feat('swath', { type: 'LineString', coordinates: [[0, 0], [1, 1]] })],
+    } as any);
+    render(<GisRoutingMapLayer />);
+    await act(async () => {});
+    expect(api.getOperationPlan).toHaveBeenCalledWith('op-7');
+    expect(added.some((a) => a.id.startsWith('gis-plan-swath'))).toBe(true);
+  });
+});
