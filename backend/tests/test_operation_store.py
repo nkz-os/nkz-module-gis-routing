@@ -351,3 +351,9 @@ def test_build_operation_entity_writes_return_path_when_present():
     plan["return_path"] = None
     e2 = store.build_operation_entity(op_id="urn:x", body=_body(), result=_result(), prescription_map=None, plan=plan)
     assert "returnPath" not in e2
+
+
+def test_build_operation_entity_stores_implement_width_and_turning_radius():
+    e = store.build_operation_entity(op_id="urn:x", body=_body(), result=_result(), prescription_map=None)
+    assert e["implementWidth"]["value"] == _body().pattern_config.width_m
+    assert e["turningRadius"]["value"] == 6.5

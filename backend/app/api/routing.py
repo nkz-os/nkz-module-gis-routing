@@ -867,7 +867,7 @@ async def _send_alert(entity: dict, tenant_id: str) -> str:
         lambda: OrionClient(tenant_id, base_url=settings.context_broker_url,
                             context_url=settings.ngsi_ld_context),
         tenant_id=tenant_id, module_id=settings.module_id,
-        operation_id=entity["id"], operation_name=entity["name"]["value"],
+        operation_id=entity["id"], operation_type=entity["operationType"]["value"],
         parcel_id=(entity.get("hasAgriParcel") or {}).get("object"))
 
 
@@ -1206,7 +1206,7 @@ async def export_operation(request: Request, operation_id: str, format: str = Qu
         "name": entity.get("name", {}).get("value", ""),
         "operation_type": entity.get("operationType", {}).get("value", ""),
         "ab_line_geojson": json.dumps(location) if location else "{}",
-        "implement_width": entity.get("implementWidth", {}).get("value", 24.0),
+        "implement_width": _attr_value(entity, "implementWidth"),
         "vra_enabled": entity.get("vraEnabled", {}).get("value", False),
         "prescription": _attr_value(entity, "prescription"),
     }

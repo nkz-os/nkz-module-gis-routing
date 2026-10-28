@@ -51,7 +51,7 @@ class RouteExporter:
         parts.append("  </trk></gpx>")
         return "\n".join(parts)
 
-    # ISO 11783-10 element/attribute codes, checked against the AEF/isobus.net
+    # ISO 11783-10 element/attribute codes, checked against the AEF ISOXML
     # TaskFile XSD v4.3 (Common_V4-3: PFD, PLN, LSG, PNT, GGP, GPN, TSK, TZN, PDV,
     # FRM, CTR; ISO11783_TaskData root). The data has no XML namespace.
     #   root: VersionMajor=4 VersionMinor=3 DataTransferOrigin=1 (FMIS)
@@ -72,6 +72,11 @@ class RouteExporter:
         parcel_name = self._cut(operation.get("parcel_name", "Parcel"))
         op_type = self._cut(operation.get("operation_type", "spraying"))
         width_mm = self._width_mm(operation.get("implement_width"))
+        if not width_mm:
+            # A physical machine parameter: never guessed, the file would carry a made-up width.
+            raise PlanError("IMPLEMENT_WIDTH_MISSING",
+                            "the operation has no saved implement width; plan it again",
+                            {"operation_id": str(operation.get("id", ""))})
         lines = self._guidance_lines(operation)
         if not lines:
             raise PlanError("EXPORT_EMPTY", "operation has no exportable swath or route",
@@ -95,8 +100,8 @@ class RouteExporter:
             if len(pts) == 2:
                 gtype, pnts = 1, [(6, pts[0]), (7, pts[1])]
             else:
-                # GPN C=3 Curve: every vertex kept as PNT A=9 (Guidance Point)
-                gtype, pnts = 3, [(9, p) for p in pts]
+                # GPN C=3 Curve: Guidance Reference A first, B last, Guidance Points between
+                gtype, pnts = 3, [(6, pts[0])] + [(9, p) for p in pts[1:-1]] + [(7, pts[-1])]
             out += [f'      <GPN A="GPN{i + 1}" B="{self._xml_escape(self._cut(label))}" C="{gtype}" E="4">',
                     f'        <LSG A="5"{w}>']
             out += [f'          <PNT A="{t}" C="{self._f(p[1])}" D="{self._f(p[0])}"/>' for t, p in pnts]

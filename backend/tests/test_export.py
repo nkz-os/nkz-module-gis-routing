@@ -149,7 +149,6 @@ def test_isoxml_invalid_prescription_raises(sample_op, name):
 def test_isoxml_escapes_op_type_and_width(sample_op):
     import xml.etree.ElementTree as ET
     sample_op["operation_type"] = 'sp"ray<&'
-    sample_op["implement_width"] = '2"4'
     root = ET.fromstring(_iso(sample_op))
     assert root.find(f"{NS}TSK").get("B").startswith('sp"ray<&')
 
@@ -175,6 +174,7 @@ def _entity(rx):
         "id": "urn:ngsi-ld:AgriParcelOperation:t:op1",
         "name": {"value": "n"},
         "operationType": {"value": "spraying"},
+        "implementWidth": {"value": 20},
         "location": {"value": {"type": "LineString", "coordinates": [[0, 0], [1, 1]]}},
         "prescription": rx,
     }
@@ -255,7 +255,7 @@ def test_isoxml_one_guidance_line_per_swath(sample_op):
     ab = gpns[1].find("LSG").findall("PNT")
     assert [x.get("A") for x in ab] == ["6", "7"] and ab[1].get("C") == "42.000100000"
     assert gpns[0].get("C") == "3" and len(gpns[0].find("LSG").findall("PNT")) == 3  # curved: all vertices
-    assert [x.get("A") for x in gpns[0].find("LSG").findall("PNT")] == ["9", "9", "9"]
+    assert [x.get("A") for x in gpns[0].find("LSG").findall("PNT")] == ["6", "9", "7"]
     assert gpns[1].get("C") == "1"  # 2 points stay AB
     assert len({g.get("A") for g in gpns}) == 3
     assert "headland" in gpns[2].get("B")
@@ -429,11 +429,14 @@ def test_isoxml_hole_only_polygon_is_not_a_boundary(sample_op):
     assert _rootx(sample_op).find("PFD/PLN") is None
 
 
-def test_isoxml_huge_width_omitted_and_valid(sample_op):
-    sample_op["implement_width"] = 5_000_000
+@pytest.mark.parametrize("width", [5_000_000, '2"4', 0, -3, float("nan")])
+def test_isoxml_unusable_width_is_a_coded_error(sample_op, width):
+    from app.services.coverage.errors import PlanError
+    sample_op["implement_width"] = width
     sample_op["swaths"] = _swaths()
-    assert all(g.find("LSG").get("C") is None for g in _rootx(sample_op).findall("PFD/GGP/GPN"))
-    _xsd_check(sample_op)
+    with pytest.raises(PlanError) as e:
+        _iso(sample_op)
+    assert e.value.code == "IMPLEMENT_WIDTH_MISSING"
 
 
 def test_export_route_empty_is_422(monkeypatch):
@@ -459,3 +462,27 @@ def test_export_route_parcel_read_failure_is_502(monkeypatch):
     r = TestClient(create_app()).get("/api/routing/export/op1?format=isoxml")
     assert r.status_code == 502 and r.json()["code"] == "PARCEL_READ_FAILED"
     assert TestClient(create_app()).get("/api/routing/export/op1?format=geojson").status_code == 200
+
+
+def test_isoxml_without_implement_width_is_a_coded_error(sample_op):
+    from app.services.coverage.errors import PlanError
+    del sample_op["implement_width"]
+    with pytest.raises(PlanError) as e:
+        RouteExporter().to_isoxml(sample_op)
+    assert e.value.code == "IMPLEMENT_WIDTH_MISSING"
+
+
+def test_curve_guidance_has_reference_points_a_and_b(sample_op):
+    import xml.etree.ElementTree as ET
+    sample_op["swaths"] = [{"type": "Feature", "properties": {"kind": "headland", "index": 0},
+                            "geometry": {"type": "LineString", "coordinates": [
+                                [-1.0, 42.0], [-1.0, 42.001], [-0.999, 42.001], [-1.0, 42.0]]}}]
+    root = ET.fromstring(RouteExporter().to_isoxml(sample_op))
+    codes = [p.get("A") for p in root.findall(".//GPN/LSG/PNT")]
+    assert codes == ["6", "9", "9", "7"]
+
+
+def test_source_has_no_host_name():
+    import inspect
+    import app.services.export_service as m
+    assert "isobus.net" not in inspect.getsource(m)
