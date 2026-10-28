@@ -186,11 +186,14 @@ export interface ParcelConfig {
   exclusionZones: FeatureCollection | null;
 }
 
+export type PathAlternativeId = 'least_slope' | 'fastest';
+
 export interface PathAlternative {
-  id: 'least_slope' | 'fastest';
+  id: PathAlternativeId;
   label: string;
   distance_m: number;
   cumulative_climb_m: number;
+  max_slope_deg_found?: number;
   geometry: { type: 'LineString'; coordinates: number[][] };
   elevation_profile: number[][];
 }
@@ -198,7 +201,31 @@ export interface PathAlternative {
 export interface PathResult {
   status: 'queued' | 'running' | 'completed' | 'failed';
   alternatives?: PathAlternative[];
+  report?: { max_slope_deg?: number; max_slope_deg_found?: number; search_margin_m?: number };
   error?: string;
+  error_code?: string;
+  error_params?: Record<string, unknown>;
+}
+
+export interface PathRequest {
+  point_a: [number, number];
+  point_b: [number, number];
+  machine_width_m: number;
+  max_slope_deg: number;
+  machine_id?: string;
+  parcel_id?: string | null;
+  /** Deprecated and ignored by the backend; the 3D cockpit still sends them. */
+  min_turn_radius_m?: number;
+  elevation_grid?: unknown;
+}
+
+/** One tenant parcel as drawn on the transit map (outline, gate, no-go zones). */
+export interface ContextParcel {
+  id: string;
+  name: string;
+  geometry: GeoJSON.Geometry;
+  access_point: Point | null;
+  zones: GeoJSON.Geometry[];
 }
 
 export interface PatternSummary {
@@ -215,12 +242,18 @@ export const api = {
     return request('/generate', { method: 'POST', body: JSON.stringify(body) });
   },
 
-  saveOperation(body: { kind: 'plan'; plan_id: string }): Promise<SaveOperationResponse> {
+  saveOperation(
+    body: { kind: 'plan'; plan_id: string } |
+      { kind: 'transit'; job_id: string; alternative_id: PathAlternativeId; parcel_id: string; name?: string },
+  ): Promise<SaveOperationResponse> {
     return request('/operations', { method: 'POST', body: JSON.stringify(body) });
   },
 
   // Parcels
   listParcels() { return request<any[]>('/parcels'); },
+  getParcelsContext(bbox: [number, number, number, number]) {
+    return request<{ parcels: ContextParcel[] }>(`/parcels/context?bbox=${bbox.join(',')}`);
+  },
   getParcelGeometry(parcelId: string) {
     return request<{ id: string; name: string; geometry: any }>(`/parcels/${encodeURIComponent(parcelId)}/geometry`);
   },
@@ -281,8 +314,8 @@ export const api = {
   },
 
   // Pathfinding
-  startPathCalculation(body: any) {
-    return request<any>('/path/calculate', { method: 'POST', body: JSON.stringify(body) });
+  startPathCalculation(body: PathRequest) {
+    return request<{ job_id: string }>('/path/calculate', { method: 'POST', body: JSON.stringify(body) });
   },
   getPathResult(jobId: string) {
     return request<PathResult>(`/path/${encodeURIComponent(jobId)}`);
