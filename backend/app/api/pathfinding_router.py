@@ -15,6 +15,7 @@ from app.services.parcel_constraints import (
 )
 from app.services.pathfinding.barriers import parcel_barrier_map
 from app.services.machines import fetch_machine_kinematics
+from app.services.coverage.errors import PlanError
 from app.services.pathfinding.job_store import JobStore, JobLimitError
 from app.services.exclusion import buffered_zones, rasterize_blocked_cells
 from app.services.routing.base import project_polygon_to_utm
@@ -104,8 +105,8 @@ async def start_path_calculation(request: Request, body: PathRequest, auth: Auth
     try:
         job_id = JOBS.create(tenant_id)
     except JobLimitError:
-        raise HTTPException(status_code=429, detail={
-            "code": "JOB_LIMIT", "message": "too many pathfinding jobs for this tenant"})
+        raise PlanError("JOBS_LIMIT", "too many pathfinding jobs running for this tenant",
+                        {"max_jobs": JOBS._max_per_tenant})
     asyncio.create_task(_run_pathfinding(job_id, body, tenant_id))
     return {"job_id": job_id, "status": "queued"}
 

@@ -177,7 +177,8 @@ def test_job_limit_returns_429():
     resp = client.post("/api/routing/path/calculate", json={
         "point_a": [-2.0, 43.0], "point_b": [-1.99, 43.0], "elevation_grid": _grid()})
     assert resp.status_code == 429
-    assert resp.json()["detail"]["code"] == "JOB_LIMIT"
+    body = resp.json()
+    assert body["code"] == "JOBS_LIMIT" and body["params"] == {"max_jobs": pr.JOBS._max_per_tenant}
 
 
 def _post(extra=None, grid=None):
