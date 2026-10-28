@@ -42,7 +42,7 @@ def test_export_isoxml(sample_op):
     assert "<ISO11783TaskData" in result and "<TSK" in result and "<GPN" in result
 
 
-NS = "{http://www.isobus.net/xml/ISO11783_TaskData}"
+NS = "{http://www.isobus.net/xml/ISO11783_TaskData}"  # hygiene:allow ISO 11783-10 XML namespace, not a host
 
 
 def _rx(unit="kg_ha"):
