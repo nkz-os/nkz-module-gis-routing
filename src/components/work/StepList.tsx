@@ -42,7 +42,9 @@ export function summaryFor(state: WorkState, step: StepId, t: TFn): string {
       return t('work.pattern.summary', { pattern: label, n: state.pattern.headlandPasses });
     }
     case 'vra':
-      return t('work.vra.nextPhase');
+      return state.vra.config.enabled
+        ? t('work.vra.summaryOn', { n: state.vra.config.classes.length })
+        : t('work.vra.summaryOff');
     default: {
       const _exhaustive: never = step;
       return _exhaustive;

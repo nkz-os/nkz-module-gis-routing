@@ -1,5 +1,5 @@
 import type {
-  Geometry, FeatureCollection, LineString, MultiLineString, Point, Polygon, MultiPolygon,
+  Feature, Geometry, FeatureCollection, LineString, MultiLineString, Point, Polygon, MultiPolygon,
 } from 'geojson';
 
 function resolveOrigin(): string {
@@ -79,6 +79,11 @@ export interface VraRequest {
   invert: boolean;
   external_features?: FeatureCollection;
 }
+
+/** Response of the zoning job proxy; only the fields the client may show are typed. */
+export interface ZoningJobResponse { job_id?: string; status?: string; [key: string]: unknown }
+
+export type IngestedZone = Feature<Geometry, Record<string, unknown> | null>;
 
 export interface DistributionZone { id: string; mean: number; area_ha: number; geometry: Geometry }
 export interface Distribution {
@@ -275,7 +280,7 @@ export const api = {
     return request<Distribution>(`/zones/${encodeURIComponent(parcelId)}/distribution?source=orion`);
   },
   requestZones(parcelId: string, nZones = 8) {
-    return request<any>(`/zones/${encodeURIComponent(parcelId)}/generate`, {
+    return request<ZoningJobResponse>(`/zones/${encodeURIComponent(parcelId)}/generate`, {
       method: 'POST', body: JSON.stringify({ n_zones: nZones }),
     });
   },
@@ -288,7 +293,7 @@ export const api = {
 
   // External zones
   ingestExternalZones(format: 'geojson' | 'csv', content: string) {
-    return request<{ success: boolean; data: { count: number; zones: any[]; distribution: Distribution } }>('/zones/external/ingest', {
+    return request<{ success: boolean; data: { count: number; zones: IngestedZone[]; distribution: Distribution } }>('/zones/external/ingest', {
       method: 'POST', body: JSON.stringify({ format, content }),
     });
   },

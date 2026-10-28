@@ -12,6 +12,7 @@ import {
   type WorkState,
 } from '../../state/workMachine';
 import { useConfigAutosave } from '../../state/useConfigAutosave';
+import { useVraSync } from '../../state/useVraSync';
 import { MapCanvas, type DrawMode, type LayerGroup } from '../../map/MapCanvas';
 import type { MapModel } from '../../map/model';
 import { StepList } from './StepList';
@@ -125,6 +126,8 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({ onContextChange }) => {
     zones: state.zones,
     enabled: state.phase !== 'empty',
   });
+
+  const vraSync = useVraSync(state, dispatch);
 
   const plan = state.result?.plan ?? null;
 
@@ -282,7 +285,7 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({ onContextChange }) => {
                 return <StepAccess state={state} dispatch={dispatch} drawMode={drawMode} setDrawMode={setDrawMode} autosave={autosave} />;
               case 'machine': return <StepMachine state={state} dispatch={dispatch} />;
               case 'pattern': return <StepPattern state={state} dispatch={dispatch} />;
-              case 'vra': return <StepVra state={state} dispatch={dispatch} />;
+              case 'vra': return <StepVra state={state} dispatch={dispatch} sync={vraSync} />;
               default: return null;
             }
           }}
