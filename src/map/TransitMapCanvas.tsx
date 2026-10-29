@@ -3,6 +3,7 @@ import type { GeoJSONSource, Map as MapLibreMap, Marker } from 'maplibre-gl';
 import { basemapFor, rasterSource, type BasemapId } from './basemap';
 import { useTranslation } from '@nekazari/sdk';
 import { injectMapCss } from './injectMapCss';
+import { loadMapLibre } from './loadMapLibre';
 import { ensureMapImages } from './markers';
 import { LabelMarkers, gateLabels, zoneLabels, type LabelItem } from './labelMarkers';
 import { MapLegend } from './MapLegend';
@@ -93,7 +94,7 @@ export const TransitMapCanvas: React.FC<TransitMapCanvasProps> = (props) => {
     let map: MapLibreMap | null = null;
 
     (async () => {
-      const maplibregl = await import('maplibre-gl');
+      const maplibregl = await loadMapLibre();
       if (cancelled || !ref.current) return;
       const home = propsRef.current.homeBounds;
       const centre: [number, number] = home ? [(home[0] + home[2]) / 2, (home[1] + home[3]) / 2] : DEFAULT_CENTER;
@@ -212,7 +213,7 @@ export const TransitMapCanvas: React.FC<TransitMapCanvasProps> = (props) => {
     if (!ready || !map) return;
     let cancelled = false;
     (async () => {
-      const maplibregl = await import('maplibre-gl');
+      const maplibregl = await loadMapLibre();
       if (cancelled) return;
       for (const which of ['a', 'b'] as const) {
         const point = model[which];

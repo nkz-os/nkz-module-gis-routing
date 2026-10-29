@@ -3,6 +3,7 @@ import type { GeoJSONSource, LayerSpecification, Map as MapLibreMap, Marker } fr
 import type { TerraDraw } from 'terra-draw';
 import { basemapFor, rasterSource, type BasemapId } from './basemap';
 import { useTranslation } from '@nekazari/sdk';
+import { loadMapLibre } from './loadMapLibre';
 import { injectMapCss } from './injectMapCss';
 import { ensureMapImages } from './markers';
 import { LabelMarkers, gateLabels, zoneLabels } from './labelMarkers';
@@ -104,7 +105,7 @@ export const MapCanvas: React.FC<MapCanvasProps> = (props) => {
 
     (async () => {
       const [maplibregl, td, { TerraDrawMapLibreGLAdapter }] = await Promise.all([
-        import('maplibre-gl'),
+        loadMapLibre(),
         import('terra-draw'),
         import('terra-draw-maplibre-gl-adapter'),
       ]);
