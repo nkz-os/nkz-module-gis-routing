@@ -99,3 +99,75 @@ describe('api export download', () => {
     expect(err.code).toBe('IMPLEMENT_WIDTH_MISSING');
   });
 });
+
+
+describe('api.generate (job API)', () => {
+  afterEach(() => { vi.useRealTimers(); vi.unstubAllGlobals(); vi.resetModules(); });
+  const json = (b: unknown, status = 200) => new Response(JSON.stringify(b), { status });
+  const setup = async (responses: Response[]) => {
+    (window as any).__ENV__ = { VITE_API_URL: 'http://api.test' };
+    const f = vi.fn();
+    for (const r of responses) f.mockResolvedValueOnce(r);
+    vi.stubGlobal('fetch', f);
+    return { f, ...(await import('../api')) };
+  };
+
+  it('starts a job, polls every second and returns the result', async () => {
+    vi.useFakeTimers();
+    const result = { success: true, plan: { route: null }, plan_id: 'p1' };
+    const { f, api } = await setup([
+      json({ job_id: 'j1', status: 'queued' }, 202),
+      json({ status: 'running' }),
+      json({ status: 'running' }),
+      json({ status: 'completed', result }),
+    ]);
+    const p = api.generate({ parcel_id: 'x' } as any);
+    await vi.advanceTimersByTimeAsync(3000);
+    expect(await p).toEqual(result);
+    expect(f.mock.calls[0][0]).toBe('http://api.test/api/routing/generate/jobs');
+    expect(f.mock.calls[0][1].method).toBe('POST');
+    expect(f.mock.calls.slice(1).map((c: any[]) => c[0]))
+      .toEqual(Array(3).fill('http://api.test/api/routing/generate/jobs/j1'));
+  });
+
+  it('throws the coded error of a failed job with its http status', async () => {
+    vi.useFakeTimers();
+    const { api, ApiError } = await setup([
+      json({ job_id: 'j1' }, 202),
+      json({ status: 'failed', http_status: 422,
+             error: { code: 'ACCESS_IN_ZONE', detail: 'gate in zone', params: { point: { type: 'Point' } } } }),
+    ]);
+    const p = api.generate({} as any).catch(e => e);
+    await vi.advanceTimersByTimeAsync(1000);
+    const err = await p;
+    expect(err).toBeInstanceOf(ApiError);
+    expect(err.status).toBe(422); expect(err.code).toBe('ACCESS_IN_ZONE'); expect(err.params.point.type).toBe('Point');
+  });
+
+  it('times out after 5 minutes with GENERATE_TIMEOUT', async () => {
+    vi.useFakeTimers();
+    (window as any).__ENV__ = { VITE_API_URL: 'http://api.test' };
+    const f = vi.fn().mockImplementation(async (url: string) =>
+      String(url).endsWith('/jobs') ? json({ job_id: 'j1' }, 202) : json({ status: 'running' }));
+    vi.stubGlobal('fetch', f);
+    const { api } = await import('../api');
+    const p = api.generate({} as any).catch(e => e);
+    await vi.advanceTimersByTimeAsync(301_000);
+    const err = await p;
+    expect(err.code).toBe('GENERATE_TIMEOUT');
+  });
+
+  it('survives a transient network failure while polling', async () => {
+    vi.useFakeTimers();
+    (window as any).__ENV__ = { VITE_API_URL: 'http://api.test' };
+    const f = vi.fn()
+      .mockResolvedValueOnce(json({ job_id: 'j1' }, 202))
+      .mockRejectedValueOnce(new TypeError('network'))
+      .mockResolvedValueOnce(json({ status: 'completed', result: { success: true } }));
+    vi.stubGlobal('fetch', f);
+    const { api } = await import('../api');
+    const p = api.generate({} as any);
+    await vi.advanceTimersByTimeAsync(2000);
+    expect(await p).toEqual({ success: true });
+  });
+});

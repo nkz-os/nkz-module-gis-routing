@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useTranslation } from '@nekazari/sdk';
 import { Loader2, Play, Save } from 'lucide-react';
+import { GenerateProgress } from '../work/GenerateProgress';
 import { api, ApiError, type AlertStatus, type GenerateRequest, type GenerateResponse } from '../../services/api';
 import { EV } from './routingMode';
 import { Button, Select } from '@nekazari/ui-kit';
@@ -162,6 +163,7 @@ export const WorkRoutePanel: React.FC<Props> = ({ parcelId }) => {
         {busy ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Play className="w-3.5 h-3.5" />}
         {t('cockpit.generate')}
       </Button>
+      {busy && <GenerateProgress />}
       {error && <p className="text-nkz-xs text-nkz-danger">{error}</p>}
       {metrics && (
         <div className="text-nkz-xs text-nkz-text-secondary flex gap-3">

@@ -340,7 +340,8 @@
       "EXPORT_EMPTY": "No hi ha res per exportar en aquesta operació.",
       "PARCEL_READ_FAILED": "No s'ha pogut llegir la parcel·la. Torna-ho a provar.",
       "IMPLEMENT_WIDTH_MISSING": "Aquesta operació es va desar sense amplada de treball i no es pot exportar a ISOXML. Planifica-la de nou.",
-      "EXPORT_NOT_SUPPORTED": "Aquest format d'exportació no està disponible per a trànsits."
+      "EXPORT_NOT_SUPPORTED": "Aquest format d'exportació no està disponible per a trànsits.",
+      "GENERATE_TIMEOUT": "La ruta triga massa a calcular-se. Torna-ho a provar."
     },
     "actions": {
       "regenerate": "Regenerar",
@@ -353,7 +354,8 @@
       "exportFormat": "Format d'exportació",
       "vraIncomplete": "Completa les dosis de totes les classes (o el fitxer de zones extern), o desactiva la dosi variable, per enviar.",
       "vraPending": "Esperant que es calculi la prescripció abans d'enviar.",
-      "availableInApp": "Disponible a l'app · operació #{{id}}"
+      "availableInApp": "Disponible a l'app · operació #{{id}}",
+      "calculating": "Calculant… pot trigar fins a un minut ({{s}} s)"
     },
     "title": "Rutes GIS",
     "tabs": {

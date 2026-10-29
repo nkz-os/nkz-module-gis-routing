@@ -1,5 +1,5 @@
 import React from 'react';
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { i18n } from '@nekazari/sdk';
 import '../../../i18n';
@@ -201,5 +201,23 @@ describe('result strip and actions bar', () => {
     fireEvent.change(screen.getByPlaceholderText(/./), { target: { value: 'T' } });
     fireEvent.click(screen.getByRole('button', { name: /Guardar/ }));
     expect(await screen.findByRole('alert')).toHaveTextContent('No se pudo guardar la plantilla');
+  });
+});
+
+
+describe('generate progress', () => {
+  afterEach(() => { vi.useRealTimers(); });
+
+  it('ActionsBar shows a progress line with elapsed seconds while generating', async () => {
+    vi.useFakeTimers();
+    bar(withResult({ phase: 'generating' }));
+    expect(screen.getByRole('status')).toHaveTextContent(/Calculando… puede tardar hasta un minuto \(0 s\)/);
+    await act(async () => { await vi.advanceTimersByTimeAsync(3000); });
+    expect(screen.getByRole('status')).toHaveTextContent(/\(3 s\)/);
+  });
+
+  it('ActionsBar shows no progress line when idle', () => {
+    bar(withResult({ phase: 'generated' }));
+    expect(screen.queryByRole('status')).toBeNull();
   });
 });

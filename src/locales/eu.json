@@ -340,7 +340,8 @@
       "EXPORT_EMPTY": "Eragiketa honetan ez dago esportatzeko ezer.",
       "PARCEL_READ_FAILED": "Ezin izan da partzela irakurri. Saiatu berriro.",
       "IMPLEMENT_WIDTH_MISSING": "Eragiketa hau lan-zabalerarik gabe gorde zen eta ezin da ISOXMLra esportatu. Planifikatu berriro.",
-      "EXPORT_NOT_SUPPORTED": "Esportazio-formatu hau ez dago erabilgarri igarobideetarako."
+      "EXPORT_NOT_SUPPORTED": "Esportazio-formatu hau ez dago erabilgarri igarobideetarako.",
+      "GENERATE_TIMEOUT": "Ibilbidea kalkulatzeak luze jotzen du. Saiatu berriro."
     },
     "actions": {
       "regenerate": "Birsortu",
@@ -353,7 +354,8 @@
       "exportFormat": "Esportazio formatua",
       "vraIncomplete": "Bete klase guztien dosiak (edo kanpoko eremuen fitxategia), edo desaktibatu dosi aldakorra, bidaltzeko.",
       "vraPending": "Errezeta kalkulatu arte itxaroten, bidali aurretik.",
-      "availableInApp": "Aplikazioan eskuragarri · eragiketa #{{id}}"
+      "availableInApp": "Aplikazioan eskuragarri · eragiketa #{{id}}",
+      "calculating": "Kalkulatzen… minutu bat arte ehun daiteke ({{s}} s)"
     },
     "title": "GIS ibilbideak",
     "tabs": {

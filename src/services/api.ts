@@ -258,10 +258,50 @@ export interface PatternSummary {
   created_at: number;
 }
 
+/** Generation runs as a backend job: the gateway cuts calls at ~30 s and a route can take a minute. */
+export const GENERATE_POLL_MS = 1000;
+export const GENERATE_TIMEOUT_MS = 5 * 60 * 1000;
+const GENERATE_POLL_RETRIES = 3;
+
+type GenerateJob =
+  | { status: 'queued' | 'running' }
+  | { status: 'completed'; result: GenerateResponse }
+  | { status: 'failed'; http_status?: number; error?: { code?: string; detail?: string; params?: Record<string, unknown> } };
+
+const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
+
+function isTransient(e: unknown): boolean {
+  return !(e instanceof ApiError) || e.status === 502 || e.status === 503 || e.status === 504;
+}
+
+async function generateViaJob(body: GenerateRequest): Promise<GenerateResponse> {
+  const { job_id } = await request<{ job_id: string }>(
+    '/generate/jobs', { method: 'POST', body: JSON.stringify(body) });
+  const deadline = Date.now() + GENERATE_TIMEOUT_MS;
+  let failures = 0;
+  for (;;) {
+    await sleep(GENERATE_POLL_MS);
+    let job: GenerateJob;
+    try {
+      job = await request<GenerateJob>(`/generate/jobs/${encodeURIComponent(job_id)}`);
+      failures = 0;
+    } catch (e) {
+      // A poll is idempotent: ride out a short network or gateway hiccup.
+      if (!isTransient(e) || ++failures > GENERATE_POLL_RETRIES) throw e;
+      if (Date.now() >= deadline) break;
+      continue;
+    }
+    if (job.status === 'completed') return job.result;
+    if (job.status === 'failed') throw new ApiError(job.http_status ?? 500, job.error ?? {});
+    if (Date.now() >= deadline) break;
+  }
+  throw new ApiError(504, { code: 'GENERATE_TIMEOUT', detail: 'route generation timed out' });
+}
+
 export const api = {
   // Generation
   generate(body: GenerateRequest): Promise<GenerateResponse> {
-    return request('/generate', { method: 'POST', body: JSON.stringify(body) });
+    return generateViaJob(body);
   },
 
   saveOperation(

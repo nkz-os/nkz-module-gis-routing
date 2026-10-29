@@ -340,7 +340,8 @@
       "EXPORT_EMPTY": "Il n'y a rien à exporter pour cette opération.",
       "PARCEL_READ_FAILED": "La parcelle n'a pas pu être lue. Réessayez.",
       "IMPLEMENT_WIDTH_MISSING": "Cette opération a été enregistrée sans largeur de travail et ne peut pas être exportée en ISOXML. Planifiez-la à nouveau.",
-      "EXPORT_NOT_SUPPORTED": "Ce format d'exportation n'est pas disponible pour les transits."
+      "EXPORT_NOT_SUPPORTED": "Ce format d'exportation n'est pas disponible pour les transits.",
+      "GENERATE_TIMEOUT": "Le calcul de l'itinéraire prend trop de temps. Réessayez."
     },
     "actions": {
       "regenerate": "Régénérer",
@@ -353,7 +354,8 @@
       "exportFormat": "Format d'export",
       "vraIncomplete": "Renseignez les doses de toutes les classes (ou le fichier de zones externe), ou désactivez la dose variable, pour envoyer.",
       "vraPending": "En attente du calcul de la prescription avant l'envoi.",
-      "availableInApp": "Disponible dans l'app · opération #{{id}}"
+      "availableInApp": "Disponible dans l'app · opération #{{id}}",
+      "calculating": "Calcul en cours… peut prendre jusqu'à une minute ({{s}} s)"
     },
     "title": "Itinéraires SIG",
     "tabs": {
