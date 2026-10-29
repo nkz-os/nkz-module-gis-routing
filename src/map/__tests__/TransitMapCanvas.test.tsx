@@ -4,6 +4,8 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 const h = vi.hoisted(() => ({ fit: vi.fn(), handlers: {} as Record<string, (...a: any[]) => void>, markers: [] as any[], images: [] as string[], sources: {} as Record<string, any> }));
 
+// The worker Blob is covered by loadMapLibre.test; here MapLibre is the plain mock.
+vi.mock('../loadMapLibre', () => ({ loadMapLibre: () => import('maplibre-gl') }));
 vi.mock('maplibre-gl', () => {
   class Map {
     constructor(public o: any) {}
