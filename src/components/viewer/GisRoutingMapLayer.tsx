@@ -147,7 +147,8 @@ export const GisRoutingMapLayer: React.FC<Props> = ({ viewer: propViewer }) => {
         if (spec.element === 'access_point') addSnapshotEntity(gateEntityOptions(Cesium, spec.id, lon, lat, textsRef.current.gate));
         else addEntity({
           id: spec.id, position: Cesium.Cartesian3.fromDegrees(lon, lat),
-          point: { pixelSize: 12, color: css('#ef4444'), outlineColor: Cesium.Color.WHITE, outlineWidth: 2 },
+          point: { pixelSize: 12, color: css('#ef4444'), outlineColor: Cesium.Color.WHITE, outlineWidth: 2,
+            heightReference: Cesium.HeightReference.CLAMP_TO_GROUND },
         });
       } else if (spec.kind === 'polygon') {
         (spec.polygons ?? []).forEach((part, n) => {
@@ -177,6 +178,7 @@ export const GisRoutingMapLayer: React.FC<Props> = ({ viewer: propViewer }) => {
               text: spec.label, font: 'bold 14px sans-serif', fillColor: Cesium.Color.WHITE,
               style: Cesium.LabelStyle.FILL_AND_OUTLINE, outlineColor: css('#1e293b'), outlineWidth: 3,
               verticalOrigin: Cesium.VerticalOrigin.CENTER,
+              heightReference: Cesium.HeightReference.CLAMP_TO_GROUND,
             };
           }
           addEntity(entity);
@@ -372,10 +374,12 @@ export const GisRoutingMapLayer: React.FC<Props> = ({ viewer: propViewer }) => {
       pf.entities.push(id);
       viewer.entities.add({
         id, position: Cesium.Cartesian3.fromDegrees(lon, lat),
-        point: { pixelSize: 14, color: Cesium.Color.fromCssColorString(color), outlineColor: Cesium.Color.WHITE, outlineWidth: 2 },
+        point: { pixelSize: 14, color: Cesium.Color.fromCssColorString(color), outlineColor: Cesium.Color.WHITE, outlineWidth: 2,
+          heightReference: Cesium.HeightReference.CLAMP_TO_GROUND },
         label: { text: label, font: 'bold 16px sans-serif', fillColor: Cesium.Color.WHITE,
           style: Cesium.LabelStyle.FILL_AND_OUTLINE, outlineColor: Cesium.Color.fromCssColorString('#1e293b'), outlineWidth: 3,
-          verticalOrigin: Cesium.VerticalOrigin.BOTTOM, pixelOffset: new Cesium.Cartesian2(0, -12) },
+          verticalOrigin: Cesium.VerticalOrigin.BOTTOM, pixelOffset: new Cesium.Cartesian2(0, -12),
+          heightReference: Cesium.HeightReference.CLAMP_TO_GROUND },
       });
     };
 

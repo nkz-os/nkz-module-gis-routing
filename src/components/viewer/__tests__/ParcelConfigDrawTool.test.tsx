@@ -35,6 +35,7 @@ beforeEach(() => {
     PolygonHierarchy: class { constructor(public p: any, public h: any) {} },
     Color: { fromCssColorString: (s: string) => color(s), WHITE: color('white') },
     VerticalOrigin: { BOTTOM: 1, TOP: 2, CENTER: 3 },
+    HeightReference: { CLAMP_TO_GROUND: 1 },
     ScreenSpaceEventHandler: class {
       setInputAction(fn: any, type: string) { actions[type] = fn; }
       destroy() {} isDestroyed() { return false; }
