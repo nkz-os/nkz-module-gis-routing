@@ -167,17 +167,18 @@ def _extra_warnings(inp: LadderInput, plan: CoveragePlan, applied: int) -> list[
     return out
 
 
-def _over_budget(inp: LadderInput, budget_s: float | None, first_ok: dict, start: float) -> bool:
-    """auto only: stop once a hard-ok plan exists and the budget is spent."""
-    return (inp.cfg.pattern == "auto" and budget_s is not None and bool(first_ok)
+def _over_budget(inp: LadderInput, budget_s: float | None, attempts: list, start: float) -> bool:
+    """auto only: stop once one attempt has run and the budget is spent."""
+    return (inp.cfg.pattern == "auto" and budget_s is not None and bool(attempts)
             and monotonic() - start > budget_s)
 
 
 def plan_with_fallbacks(inp: LadderInput, time_budget_s: float | None = None) -> CoveragePlan:
     """Plan with the fallback ladder.
 
-    time_budget_s applies to pattern "auto" only: once a hard-ok plan exists and
-    the budget is spent, no further attempts run and "time_budget" is reported.
+    time_budget_s applies to pattern "auto" only: once the budget is spent (and at
+    least one attempt ran) no further attempts run and "time_budget" is reported.
+    Without a hard-ok plan, the best attempt goes to the manual-turn fallback.
     """
     start = monotonic()
     w = inp.robot.cov_width
@@ -203,7 +204,7 @@ def plan_with_fallbacks(inp: LadderInput, time_budget_s: float | None = None) ->
         done = False
         for curve in curves:
             for passes in range(passes0, passes0 + extra + 1):
-                if _over_budget(inp, time_budget_s, first_ok, start):
+                if _over_budget(inp, time_budget_s, attempts, start):
                     budget_hit = True
                     logger.warning("ladder time budget spent: elapsed=%.1fs budget=%.1fs "
                                    "next_pattern=%s ok_patterns=%s", monotonic() - start,
@@ -251,6 +252,8 @@ def plan_with_fallbacks(inp: LadderInput, time_budget_s: float | None = None) ->
             raise RuntimeError("ladder produced no attempt and no error")
         raise last_error
     worst = min(attempts, key=lambda a: a.hard_score)
+    if budget_hit:
+        worst.plan.fallbacks.append("time_budget")
     fixed, manual = remove_violating_turns(worst.plan, inp.parcel_utm, inp.zones_utm, w)
     report = validate_plan(fixed, inp.parcel_utm, inp.zones_utm, w)
     _, _, _, to_wgs84 = project_polygon_to_utm(inp.wgs84_poly)

@@ -64,9 +64,10 @@ class Settings(BaseSettings):
     pmtiles_margin_meters: int = Field(default=500, gt=0)
     pmtiles_max_area_ha: float = Field(default=100.0, gt=0)
 
-    # Coverage planner, pattern "auto": once a valid plan exists and this many seconds
-    # have elapsed, return the best so far (may overshoot by one attempt).
-    LADDER_TIME_BUDGET_S: float = Field(default=30.0, gt=0)
+    # Coverage planner, pattern "auto": once this many seconds have elapsed, stop trying
+    # alternatives and return the best so far (manual turns if none is valid); may
+    # overshoot by one attempt.
+    LADDER_TIME_BUDGET_S: float = Field(default=60.0, gt=0)
 
     # Sync
     sync_default_schema_version: int = 3
