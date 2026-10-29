@@ -268,29 +268,50 @@ type GenerateJob =
   | { status: 'completed'; result: GenerateResponse }
   | { status: 'failed'; http_status?: number; error?: { code?: string; detail?: string; params?: Record<string, unknown> } };
 
-const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
+function abortError(): Error {
+  const e = new Error('aborted');
+  e.name = 'AbortError';
+  return e;
+}
+
+export function isAbortError(e: unknown): boolean {
+  return e instanceof Error && e.name === 'AbortError';
+}
+
+function sleep(ms: number, signal?: AbortSignal): Promise<void> {
+  return new Promise<void>((resolve, reject) => {
+    if (signal?.aborted) { reject(abortError()); return; }
+    const onAbort = () => { clearTimeout(id); reject(abortError()); };
+    const id = setTimeout(() => { signal?.removeEventListener('abort', onAbort); resolve(); }, ms);
+    signal?.addEventListener('abort', onAbort, { once: true });
+  });
+}
 
 function isTransient(e: unknown): boolean {
   return !(e instanceof ApiError) || e.status === 502 || e.status === 503 || e.status === 504;
 }
 
-async function generateViaJob(body: GenerateRequest): Promise<GenerateResponse> {
+/** On abort the polling stops and the promise rejects with an AbortError (see isAbortError): never a result. */
+async function generateViaJob(body: GenerateRequest, signal?: AbortSignal): Promise<GenerateResponse> {
   const { job_id } = await request<{ job_id: string }>(
-    '/generate/jobs', { method: 'POST', body: JSON.stringify(body) });
+    '/generate/jobs', { method: 'POST', body: JSON.stringify(body), signal });
+  if (signal?.aborted) throw abortError();
   const deadline = Date.now() + GENERATE_TIMEOUT_MS;
   let failures = 0;
   for (;;) {
-    await sleep(GENERATE_POLL_MS);
+    await sleep(GENERATE_POLL_MS, signal);
     let job: GenerateJob;
     try {
-      job = await request<GenerateJob>(`/generate/jobs/${encodeURIComponent(job_id)}`);
+      job = await request<GenerateJob>(`/generate/jobs/${encodeURIComponent(job_id)}`, { signal });
       failures = 0;
     } catch (e) {
+      if (signal?.aborted) throw abortError();
       // A poll is idempotent: ride out a short network or gateway hiccup.
       if (!isTransient(e) || ++failures > GENERATE_POLL_RETRIES) throw e;
       if (Date.now() >= deadline) break;
       continue;
     }
+    if (signal?.aborted) throw abortError();
     if (job.status === 'completed') return job.result;
     if (job.status === 'failed') throw new ApiError(job.http_status ?? 500, job.error ?? {});
     if (Date.now() >= deadline) break;
@@ -300,8 +321,8 @@ async function generateViaJob(body: GenerateRequest): Promise<GenerateResponse> 
 
 export const api = {
   // Generation
-  generate(body: GenerateRequest): Promise<GenerateResponse> {
-    return generateViaJob(body);
+  generate(body: GenerateRequest, opts: { signal?: AbortSignal } = {}): Promise<GenerateResponse> {
+    return generateViaJob(body, opts.signal);
   },
 
   saveOperation(

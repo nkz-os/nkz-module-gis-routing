@@ -388,3 +388,18 @@ def test_rebuild_route_trailing_turn_does_not_bridge_a_manual_turn():
     route = _rebuild_route(swaths, [tail])
     assert isinstance(route, MultiLineString) and len(route.geoms) == 2
     assert list(route.geoms[1].coords) == list(SW_B.coords) + [(5.0, 25.0)]
+
+
+def test_auto_tries_every_pattern_before_extra_rungs_under_budget(monkeypatch):
+    calls = _patch(monkeypatch, lambda c, r: _fake_plan(
+        c, r, turn=TURN_OK if c.pattern == "spiral" else TURN_BAD))
+    ticks = iter(range(0, 100000, 100))
+    monkeypatch.setattr(ladder_mod, "monotonic", lambda: next(ticks))
+    inp = LadderInput(RECT, [ZONE_CENTER], ROBOT, CoverageConfig("auto", headland_passes=1),
+                      access_utm=None, wgs84_poly=wgs84(RECT))
+    plan = plan_with_fallbacks(inp, time_budget_s=450.0)
+    assert [c[0] for c in calls[:3]] == ["boustrophedon", "snake", "spiral"]
+    assert len({c[2] for c in calls[:3]}) == 1 and {c[1] for c in calls[:3]} == {"dubins"}
+    assert plan.pattern == "spiral"
+    assert not [f for f in plan.validation.fallbacks_applied if f.startswith("manual_turns")]
+    assert _hard_ok(plan)

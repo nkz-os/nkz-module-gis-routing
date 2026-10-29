@@ -170,4 +170,41 @@ describe('api.generate (job API)', () => {
     await vi.advanceTimersByTimeAsync(2000);
     expect(await p).toEqual({ success: true });
   });
+
+  it('stops polling on abort and never resolves with a late result', async () => {
+    vi.useFakeTimers();
+    (window as any).__ENV__ = { VITE_API_URL: 'http://api.test' };
+    const f = vi.fn().mockImplementation(async (url: string) =>
+      String(url).endsWith('/jobs') ? json({ job_id: 'j1' }, 202)
+        : json({ status: 'completed', result: { success: true } }));
+    vi.stubGlobal('fetch', f);
+    const { api, isAbortError } = await import('../api');
+    const ctrl = new AbortController();
+    const p = api.generate({} as any, { signal: ctrl.signal }).then(() => 'resolved', e => e);
+    await vi.advanceTimersByTimeAsync(0);
+    ctrl.abort();
+    await vi.advanceTimersByTimeAsync(10_000);
+    expect(isAbortError(await p)).toBe(true);
+    expect(f).toHaveBeenCalledTimes(1); // only the start call; no poll after abort
+  });
+
+  it('ignores a poll result that arrives after the abort', async () => {
+    vi.useFakeTimers();
+    (window as any).__ENV__ = { VITE_API_URL: 'http://api.test' };
+    let release!: () => void;
+    const f = vi.fn().mockImplementation(async (url: string) => {
+      if (String(url).endsWith('/jobs')) return json({ job_id: 'j1' }, 202);
+      await new Promise<void>((r) => { release = r; });   // the poll is in flight
+      return json({ status: 'completed', result: { success: true } });
+    });
+    vi.stubGlobal('fetch', f);
+    const { api, isAbortError } = await import('../api');
+    const ctrl = new AbortController();
+    const p = api.generate({} as any, { signal: ctrl.signal }).then(() => 'resolved', e => e);
+    await vi.advanceTimersByTimeAsync(1000);
+    ctrl.abort();
+    release();
+    await vi.advanceTimersByTimeAsync(10);
+    expect(isAbortError(await p)).toBe(true);
+  });
 });

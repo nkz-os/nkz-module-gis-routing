@@ -167,9 +167,9 @@ def _extra_warnings(inp: LadderInput, plan: CoveragePlan, applied: int) -> list[
     return out
 
 
-def _over_budget(inp: LadderInput, budget_s: float | None, attempts: list, start: float) -> bool:
-    """auto only: stop once one attempt has run and the budget is spent."""
-    return (inp.cfg.pattern == "auto" and budget_s is not None and bool(attempts)
+def _over_budget(inp: LadderInput, budget_s: float | None, tried: bool, start: float) -> bool:
+    """auto only: stop once one attempt has run (or failed) and the budget is spent."""
+    return (inp.cfg.pattern == "auto" and budget_s is not None and tried
             and monotonic() - start > budget_s)
 
 
@@ -200,42 +200,43 @@ def plan_with_fallbacks(inp: LadderInput, time_budget_s: float | None = None) ->
     swath_cache: dict = {}
     budget_hit = False
     # TODO: skip curve/passes rungs when the failure comes from straight swath connectors.
-    for pattern in patterns:
-        done = False
-        for curve in curves:
-            for passes in range(passes0, passes0 + extra + 1):
-                if _over_budget(inp, time_budget_s, attempts, start):
-                    budget_hit = True
-                    logger.warning("ladder time budget spent: elapsed=%.1fs budget=%.1fs "
-                                   "next_pattern=%s ok_patterns=%s", monotonic() - start,
-                                   time_budget_s, pattern, sorted(first_ok))
-                    break
-                try:
-                    plan = plan_coverage(
-                        piece, inp.parcel_utm, replace(inp.robot, curve_type=curve),
-                        replace(inp.cfg, pattern=pattern, headland_passes=passes),
-                        access_utm=inp.access_utm, wgs84_poly=inp.wgs84_poly,
-                        swath_cache=swath_cache)
-                except ExclusionError as e:
-                    logger.info("ladder attempt pattern=%s curve=%s passes=%s raised=%s",
-                                pattern, curve, passes, e.code)
-                    last_error = e
-                    continue
-                plan.unreached = list(unreached)
-                plan.exclusion_zones = list(inp.zones_utm)
-                plan.fallbacks = _attempt_fallbacks(inp, pattern, curve, passes)
-                att = _Attempt(plan, validate_plan(plan, inp.parcel_utm, inp.zones_utm, w), pattern, passes)
-                attempts.append(att)
-                logger.info("ladder attempt pattern=%s curve=%s passes=%s hard_ok=%s",
-                            pattern, curve, passes, att.hard_ok)
-                if att.hard_ok:
-                    first_ok[pattern] = att
-                    done = True
-                    break
-            if done or budget_hit:
-                break
-        if budget_hit or (done and inp.cfg.pattern != "auto"):
+    # Every pattern is tried once at the minimum headland (base curve) before the budget is
+    # spent on extra passes or the alternative curve of any of them.
+    first_curve = curves[0]
+    rungs = [(p, first_curve, passes0) for p in patterns] + [
+        (p, c, n) for p in patterns for c in curves for n in range(passes0, passes0 + extra + 1)
+        if not (c == first_curve and n == passes0)]
+    for pattern, curve, passes in rungs:
+        if pattern in first_ok:
+            continue
+        if _over_budget(inp, time_budget_s, bool(attempts) or last_error is not None, start):
+            budget_hit = True
+            logger.warning("ladder time budget spent: elapsed=%.1fs budget=%.1fs "
+                           "next_pattern=%s ok_patterns=%s", monotonic() - start,
+                           time_budget_s, pattern, sorted(first_ok))
             break
+        try:
+            plan = plan_coverage(
+                piece, inp.parcel_utm, replace(inp.robot, curve_type=curve),
+                replace(inp.cfg, pattern=pattern, headland_passes=passes),
+                access_utm=inp.access_utm, wgs84_poly=inp.wgs84_poly,
+                swath_cache=swath_cache)
+        except ExclusionError as e:
+            logger.info("ladder attempt pattern=%s curve=%s passes=%s raised=%s",
+                        pattern, curve, passes, e.code)
+            last_error = e
+            continue
+        plan.unreached = list(unreached)
+        plan.exclusion_zones = list(inp.zones_utm)
+        plan.fallbacks = _attempt_fallbacks(inp, pattern, curve, passes)
+        att = _Attempt(plan, validate_plan(plan, inp.parcel_utm, inp.zones_utm, w), pattern, passes)
+        attempts.append(att)
+        logger.info("ladder attempt pattern=%s curve=%s passes=%s hard_ok=%s",
+                    pattern, curve, passes, att.hard_ok)
+        if att.hard_ok:
+            first_ok[pattern] = att
+            if inp.cfg.pattern != "auto":
+                break
 
     if first_ok:
         best = min(

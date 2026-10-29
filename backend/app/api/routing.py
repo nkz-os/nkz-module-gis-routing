@@ -570,7 +570,7 @@ async def start_generate_job(body: GenerateRequest, auth: AuthContext = require_
         job_id = GENERATE_JOBS.create(auth.tenant_id)
     except JobLimitError:
         raise PlanError("JOBS_LIMIT", "too many route generation jobs running for this tenant",
-                        {"max_jobs": GENERATE_JOBS._max_per_tenant})
+                        {"max_jobs": GENERATE_JOBS.max_per_tenant})
     task = asyncio.create_task(_run_generate_job(job_id, body, auth))
     _GENERATE_TASKS.add(task)
     task.add_done_callback(_GENERATE_TASKS.discard)

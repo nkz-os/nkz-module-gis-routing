@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useTranslation } from '@nekazari/sdk';
 import { Loader2, Play, Save } from 'lucide-react';
 import { GenerateProgress } from '../work/GenerateProgress';
@@ -59,7 +59,14 @@ export const WorkRoutePanel: React.FC<Props> = ({ parcelId }) => {
 
   const onMachine = (id: string) => { setImplementId(id); applyMachine(equipment, id); };
 
+  const abortRef = useRef<AbortController | null>(null);
+  useEffect(() => () => { abortRef.current?.abort(); }, [parcelId]);
+
   const generate = async () => {
+    abortRef.current?.abort();   // a new run supersedes the one in flight
+    const ctrl = new AbortController();
+    abortRef.current = ctrl;
+    const { signal } = ctrl;
     setError(null); setResult(null); setSaved(null);
     const widthM = num(widthText);
     if (widthM === null) { setError(t('work.errors.MACHINE_WIDTH_MISSING')); return; }
@@ -67,6 +74,7 @@ export const WorkRoutePanel: React.FC<Props> = ({ parcelId }) => {
     setBusy(true);
     try {
       const geom = await api.getParcelGeometry(parcelId);
+      if (signal.aborted) return;
       const res = await api.generate({
         parcel_id: parcelId,
         parcel_geometry: geom.geometry,
@@ -80,7 +88,8 @@ export const WorkRoutePanel: React.FC<Props> = ({ parcelId }) => {
         operation_type: 'spraying',
         return_to_access: false,
         persist: false,
-      });
+      }, { signal });
+      if (signal.aborted) return;
       setResult(res);
       if (res.plan_id === null) setError(t('work.errors.PLAN_TOO_LARGE_TO_SAVE'));
       // Preview only: the plan is not an operation until the user saves it.
@@ -88,9 +97,10 @@ export const WorkRoutePanel: React.FC<Props> = ({ parcelId }) => {
         detail: { geometry: res.plan.route, prescriptionMap: null },
       }));
     } catch (err) {
+      if (signal.aborted) return;
       setError(message(err));
     } finally {
-      setBusy(false);
+      if (!signal.aborted) setBusy(false);
     }
   };
 
