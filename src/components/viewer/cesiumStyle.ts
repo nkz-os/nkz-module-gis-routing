@@ -22,6 +22,9 @@ function textLabel(Cesium: CesiumNs, text: string, fill: string, extra: Record<s
     backgroundColor: Cesium.Color.fromCssColorString(fill),
     backgroundPadding: new Cesium.Cartesian2(5, 3),
     disableDepthTestDistance: Number.POSITIVE_INFINITY,
+    // The position has no height: without clamping it sits on the ellipsoid, under the terrain,
+    // and with depth testing off it is drawn far from the real spot once the camera tilts.
+    heightReference: Cesium.HeightReference.CLAMP_TO_GROUND,
     ...extra,
   };
 }
@@ -37,6 +40,7 @@ export function gateEntityOptions(Cesium: CesiumNs, id: string, lon: number, lat
       height: 36,
       verticalOrigin: Cesium.VerticalOrigin.BOTTOM,
       disableDepthTestDistance: Number.POSITIVE_INFINITY,
+      heightReference: Cesium.HeightReference.CLAMP_TO_GROUND,
     },
     label: textLabel(Cesium, labelText, '#2563EB', {
       verticalOrigin: Cesium.VerticalOrigin.TOP,

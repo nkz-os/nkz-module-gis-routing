@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { noGoEntityOptions, noGoHoleEntities } from '../cesiumStyle';
+import { gateEntityOptions, noGoEntityOptions, noGoHoleEntities } from '../cesiumStyle';
 
 const C: any = {
   Cartesian3: { fromDegrees: (...a: number[]) => ({ a }), fromDegreesArray: (a: number[]) => a },
@@ -22,5 +22,25 @@ describe('NO-GO with holes', () => {
       expect(b.polyline.width).toBeGreaterThanOrEqual(3);
       expect(b.polyline.positions).toHaveLength(10); // closed ring: 5 points
     }
+  });
+});
+
+describe('markers sit on the terrain', () => {
+  const CG: any = {
+    ...C,
+    HeightReference: { CLAMP_TO_GROUND: 'clamp' },
+    VerticalOrigin: { BOTTOM: 'b', TOP: 't', CENTER: 'c' },
+    Cartesian2: class { constructor(public x: number, public y: number) {} },
+  };
+  // A position at ellipsoid height 0 under terrain hundreds of metres high is drawn far from
+  // the clicked spot once the camera tilts (depth test is off): clamp icon and label to the ground.
+  it('clamps the gate icon and its label to the ground', () => {
+    const e: any = gateEntityOptions(CG, 'g', -1.6, 42.8, 'Portón');
+    expect(e.billboard.heightReference).toBe('clamp');
+    expect(e.label.heightReference).toBe('clamp');
+  });
+  it('clamps the NO-GO label to the ground', () => {
+    const e: any = noGoEntityOptions(CG, 'z', { outer, holes: [] }, [2, 2], 'NO-GO');
+    expect(e.label.heightReference).toBe('clamp');
   });
 });
