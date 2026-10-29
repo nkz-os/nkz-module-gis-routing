@@ -121,7 +121,7 @@ async def start_path_calculation(request: Request, body: PathRequest, auth: Auth
         job_id = JOBS.create(tenant_id)
     except JobLimitError:
         raise PlanError("JOBS_LIMIT", "too many pathfinding jobs running for this tenant",
-                        {"max_jobs": JOBS._max_per_tenant})
+                        {"max_jobs": JOBS.max_per_tenant})
     asyncio.create_task(_run_pathfinding(job_id, body, tenant_id))
     return {"job_id": job_id, "status": "queued"}
 

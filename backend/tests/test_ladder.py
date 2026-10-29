@@ -289,13 +289,39 @@ def test_time_budget_ignored_for_concrete_pattern(monkeypatch):
     assert len(calls) == 4 and "time_budget" not in plan.validation.fallbacks_applied
 
 
-def test_time_budget_not_applied_without_an_ok_plan(monkeypatch):
+def test_time_budget_without_ok_plan_goes_to_manual_turns(monkeypatch, caplog):
+    import logging
+    calls = _patch(monkeypatch, lambda c, r: _fake_plan(c, r, turn=TURN_BAD))
+    ticks = iter(range(0, 100000, 100))
+    monkeypatch.setattr(ladder_mod, "monotonic", lambda: next(ticks))
+    inp = LadderInput(RECT, [ZONE_CENTER], ROBOT, CoverageConfig("auto", headland_passes=1),
+                      access_utm=None, wgs84_poly=wgs84(RECT))
+    with caplog.at_level(logging.INFO, logger="app.services.coverage.ladder"):
+        plan = plan_with_fallbacks(inp, time_budget_s=250.0)
+    assert 1 <= len(calls) < 18
+    assert isinstance(plan.route, MultiLineString)
+    assert len([w for w in plan.validation.warnings if w.code == "MANUAL_TURN"]) == 1
+    fb = plan.validation.fallbacks_applied
+    assert "time_budget" in fb and "manual_turns:1" in fb
+    assert _hard_ok(plan)
+    assert len([r for r in caplog.records if "time budget" in r.getMessage()]) == 1
+
+
+def test_time_budget_always_runs_one_attempt(monkeypatch):
     calls = _patch(monkeypatch, lambda c, r: _fake_plan(c, r, turn=TURN_BAD))
     ticks = iter(range(0, 100000, 100))
     monkeypatch.setattr(ladder_mod, "monotonic", lambda: next(ticks))
     inp = LadderInput(RECT, [ZONE_CENTER], ROBOT, CoverageConfig("auto", headland_passes=1),
                       access_utm=None, wgs84_poly=wgs84(RECT))
     plan = plan_with_fallbacks(inp, time_budget_s=0.0)
+    assert len(calls) == 1 and "time_budget" in plan.validation.fallbacks_applied
+
+
+def test_time_budget_unspent_still_runs_full_ladder(monkeypatch):
+    calls = _patch(monkeypatch, lambda c, r: _fake_plan(c, r, turn=TURN_BAD))
+    inp = LadderInput(RECT, [ZONE_CENTER], ROBOT, CoverageConfig("auto", headland_passes=1),
+                      access_utm=None, wgs84_poly=wgs84(RECT))
+    plan = plan_with_fallbacks(inp, time_budget_s=3600.0)
     assert len(calls) == 18 and "time_budget" not in plan.validation.fallbacks_applied
 
 
@@ -362,3 +388,18 @@ def test_rebuild_route_trailing_turn_does_not_bridge_a_manual_turn():
     route = _rebuild_route(swaths, [tail])
     assert isinstance(route, MultiLineString) and len(route.geoms) == 2
     assert list(route.geoms[1].coords) == list(SW_B.coords) + [(5.0, 25.0)]
+
+
+def test_auto_tries_every_pattern_before_extra_rungs_under_budget(monkeypatch):
+    calls = _patch(monkeypatch, lambda c, r: _fake_plan(
+        c, r, turn=TURN_OK if c.pattern == "spiral" else TURN_BAD))
+    ticks = iter(range(0, 100000, 100))
+    monkeypatch.setattr(ladder_mod, "monotonic", lambda: next(ticks))
+    inp = LadderInput(RECT, [ZONE_CENTER], ROBOT, CoverageConfig("auto", headland_passes=1),
+                      access_utm=None, wgs84_poly=wgs84(RECT))
+    plan = plan_with_fallbacks(inp, time_budget_s=450.0)
+    assert [c[0] for c in calls[:3]] == ["boustrophedon", "snake", "spiral"]
+    assert len({c[2] for c in calls[:3]}) == 1 and {c[1] for c in calls[:3]} == {"dubins"}
+    assert plan.pattern == "spiral"
+    assert not [f for f in plan.validation.fallbacks_applied if f.startswith("manual_turns")]
+    assert _hard_ok(plan)

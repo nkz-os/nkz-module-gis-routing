@@ -255,6 +255,22 @@ describe('WorkScreen request flow', () => {
     expect(mapProps().locked).toBe(false);
   });
 
+  it('unmounting aborts the request and its late result is ignored', async () => {
+    let resolve!: (v: unknown) => void;
+    let signal: AbortSignal | undefined;
+    (api.generate as any).mockImplementation((_b: unknown, o: { signal: AbortSignal }) => {
+      signal = o.signal;
+      return new Promise((r) => { resolve = r; });
+    });
+    await loadAndConfigure();
+    clickGenerate();
+    await waitFor(() => expect(signal).toBeDefined());
+    cleanup();
+    expect(signal!.aborted).toBe(true);
+    await act(async () => { resolve(okResponse()); });
+    expect(screen.queryByText(/12 pasadas/)).toBeNull();
+  });
+
   it('Generar works again straight from a failed generation (no Reintentar needed)', async () => {
     (api.generate as any)
       .mockRejectedValueOnce(new ApiError(500, { code: 'ENGINE_FAILURE', detail: 'x' }))

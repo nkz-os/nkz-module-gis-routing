@@ -340,7 +340,8 @@
       "EXPORT_EMPTY": "There is nothing to export for this operation.",
       "PARCEL_READ_FAILED": "The parcel could not be read. Try again.",
       "IMPLEMENT_WIDTH_MISSING": "This operation was saved without a working width and cannot be exported to ISOXML. Plan it again.",
-      "EXPORT_NOT_SUPPORTED": "This export format is not available for transits."
+      "EXPORT_NOT_SUPPORTED": "This export format is not available for transits.",
+      "GENERATE_TIMEOUT": "The route is taking too long to calculate. Try again."
     },
     "actions": {
       "regenerate": "Regenerate",
@@ -353,7 +354,8 @@
       "exportFormat": "Export format",
       "vraIncomplete": "Complete all class rates (or the external zones file), or turn off variable rate, to send.",
       "vraPending": "Waiting for the prescription to be calculated before sending.",
-      "availableInApp": "Available in the app · operation #{{id}}"
+      "availableInApp": "Available in the app · operation #{{id}}",
+      "calculating": "Calculating… this can take up to a minute ({{s}} s)"
     },
     "title": "GIS Routing",
     "tabs": {

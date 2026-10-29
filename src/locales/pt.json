@@ -340,7 +340,8 @@
       "EXPORT_EMPTY": "Não há nada para exportar nesta operação.",
       "PARCEL_READ_FAILED": "Não foi possível ler a parcela. Tente novamente.",
       "IMPLEMENT_WIDTH_MISSING": "Esta operação foi guardada sem largura de trabalho e não pode ser exportada para ISOXML. Planeie-a de novo.",
-      "EXPORT_NOT_SUPPORTED": "Este formato de exportação não está disponível para trânsitos."
+      "EXPORT_NOT_SUPPORTED": "Este formato de exportação não está disponível para trânsitos.",
+      "GENERATE_TIMEOUT": "O cálculo da rota está a demorar demasiado. Tente novamente."
     },
     "actions": {
       "regenerate": "Regenerar",
@@ -353,7 +354,8 @@
       "exportFormat": "Formato de exportação",
       "vraIncomplete": "Preencha as doses de todas as classes (ou o ficheiro de zonas externo), ou desative a dose variável, para enviar.",
       "vraPending": "A aguardar o cálculo da prescrição antes de enviar.",
-      "availableInApp": "Disponível na app · operação #{{id}}"
+      "availableInApp": "Disponível na app · operação #{{id}}",
+      "calculating": "A calcular… pode demorar até um minuto ({{s}} s)"
     },
     "title": "Rotas SIG",
     "tabs": {

@@ -237,6 +237,9 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({ onContextChange }) => {
 
   // --- Actions ------------------------------------------------------------
   const inFlight = useRef(false);
+  const abortRef = useRef<AbortController | null>(null);
+  // Leaving the screen or switching parcel drops the request in flight: its late result is never applied.
+  useEffect(() => () => { abortRef.current?.abort(); }, [parcelId]);
   const run = useCallback(async (persist: boolean) => {
     // The state machine decides whether a request may start; the ref covers the same tick.
     const cur = stateRef.current;
@@ -244,11 +247,15 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({ onContextChange }) => {
     if (persist ? cur.phase !== 'generated' || vraSaveBlocker(cur) !== null : !canGenerate(cur)) return;
     const body = persist ? null : buildGenerateRequest(cur, false);
     inFlight.current = true;
+    const ctrl = new AbortController();
+    abortRef.current = ctrl;
+    const { signal } = ctrl;
     setDrawMode('none');
     // Dispatch first: the buttons and the draw tools lock before any await.
     dispatch({ type: persist ? 'SAVE_REQUESTED' : 'GENERATE_REQUESTED' });
     try {
       const v = await autosave.verifyBeforeGenerate();
+      if (signal.aborted) return;
       if (v === 'failed') {
         // Fail-safe: the route is computed from the broker, so an unverified broker means no route.
         setToast(null);
@@ -261,14 +268,21 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({ onContextChange }) => {
       setToast(v === 'restored' ? t('autosave.restored') : null);
       if (persist) {
         // Save the plan under review by id; no recomputation unless the VRA changed since generating.
-        const saved = await savePlan(cur, api);
+        const saved = await savePlan(cur, {
+          generate: (b) => api.generate(b, { signal }),
+          saveOperation: (b) => api.saveOperation(b),
+        });
+        if (signal.aborted) return;
         dispatch({ type: 'SAVE_RESULT', ...saved });
         handOverToCockpit(saved.operationId, (saved.regenerated?.plan ?? cur.result?.plan)?.route ?? null);
         if (saved.regenerated) setToast(t('work.regeneratedOnSave'));
       } else {
-        dispatch({ type: 'GENERATED', response: await api.generate(body!) });
+        const response = await api.generate(body!, { signal });
+        if (signal.aborted) return;
+        dispatch({ type: 'GENERATED', response });
       }
     } catch (e) {
+      if (signal.aborted) return;
       dispatch({ type: persist ? 'SAVE_FAILED' : 'GENERATE_FAILED', error: toWorkError(e) });
     } finally {
       inFlight.current = false;

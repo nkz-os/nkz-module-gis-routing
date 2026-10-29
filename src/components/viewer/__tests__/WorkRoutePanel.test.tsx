@@ -98,4 +98,56 @@ describe('WorkRoutePanel', () => {
     await waitFor(() => expect(screen.getByText(/demasiado grande|too large/i, { selector: 'p' })).toBeTruthy());
     expect(screen.queryByRole('button', { name: /Guardar|Save/i })).toBeNull();
   });
+
+  it('shows a progress line while the job runs and a translated timeout error with retry', async () => {
+    let reject!: (e: unknown) => void;
+    vi.mocked(api.generate).mockReturnValue(new Promise((_, rej) => { reject = rej; }) as any);
+    render(<WorkRoutePanel parcelId="p" />);
+    await waitFor(() => expect((screen.getByLabelText(/Ancho de trabajo|Working width/i) as HTMLInputElement).value).toBe('18'));
+    clickByText(/Generar|Generate/i);
+    expect((await screen.findByRole('status')).textContent).toMatch(/Calculando|Calculating/);
+    reject(new ApiError(504, { code: 'GENERATE_TIMEOUT', detail: 'x' }));
+    await waitFor(() => expect(screen.queryByRole('status')).toBeNull());
+    expect(screen.getByText(/tard|too long/i, { selector: 'p' })).toBeTruthy();
+    expect(screen.queryByText(/GENERATE_TIMEOUT/)).toBeNull();
+    vi.mocked(api.generate).mockResolvedValue({ success: true, operation_id: null, persisted: false, plan: plan as any, plan_id: 'plan-1' });
+    clickByText(/Generar|Generate/i);
+    await waitFor(() => expect(api.generate).toHaveBeenCalledTimes(2));
+  });
+
+  it('aborts the request on unmount and ignores its late result', async () => {
+    let resolve!: (v: any) => void;
+    let signal: AbortSignal | undefined;
+    vi.mocked(api.generate).mockImplementation(((_b: any, o: any) => {
+      signal = o?.signal;
+      return new Promise((r) => { resolve = r; });
+    }) as any);
+    const seen: any[] = [];
+    const on = (e: Event) => seen.push((e as CustomEvent).detail);
+    window.addEventListener(EV.routeGenerated, on);
+    const view = render(<WorkRoutePanel parcelId="p" />);
+    await waitFor(() => expect((screen.getByLabelText(/Ancho de trabajo|Working width/i) as HTMLInputElement).value).toBe('18'));
+    clickByText(/Generar|Generate/i);
+    await waitFor(() => expect(signal).toBeDefined());
+    view.unmount();
+    expect(signal!.aborted).toBe(true);
+    resolve({ success: true, operation_id: null, persisted: false, plan: plan as any, plan_id: 'plan-1' });
+    await Promise.resolve(); await Promise.resolve();
+    expect(seen).toEqual([]);
+    window.removeEventListener(EV.routeGenerated, on);
+  });
+
+  it('passes a live AbortSignal while the request runs', async () => {
+    const signals: AbortSignal[] = [];
+    vi.mocked(api.generate).mockImplementation(((_b: any, o: any) => {
+      signals.push(o.signal);
+      return new Promise(() => {});
+    }) as any);
+    render(<WorkRoutePanel parcelId="p" />);
+    await waitFor(() => expect((screen.getByLabelText(/Ancho de trabajo|Working width/i) as HTMLInputElement).value).toBe('18'));
+    clickByText(/Generar|Generate/i);
+    await waitFor(() => expect(signals.length).toBe(1));
+    // the button is disabled while busy; a parcel switch is the other supersede path
+    expect(signals[0].aborted).toBe(false);
+  });
 });

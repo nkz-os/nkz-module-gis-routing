@@ -340,7 +340,8 @@
       "EXPORT_EMPTY": "No hay nada que exportar en esta operación.",
       "PARCEL_READ_FAILED": "No se pudo leer la parcela. Inténtalo de nuevo.",
       "IMPLEMENT_WIDTH_MISSING": "Esta operación se guardó sin ancho de trabajo y no se puede exportar a ISOXML. Planifícala de nuevo.",
-      "EXPORT_NOT_SUPPORTED": "Este formato de exportación no está disponible para tránsitos."
+      "EXPORT_NOT_SUPPORTED": "Este formato de exportación no está disponible para tránsitos.",
+      "GENERATE_TIMEOUT": "La ruta tarda demasiado en calcularse. Inténtalo de nuevo."
     },
     "actions": {
       "regenerate": "Regenerar",
@@ -353,7 +354,8 @@
       "exportFormat": "Formato de exportación",
       "vraIncomplete": "Completa las dosis de todas las clases (o el fichero de zonas externo), o desactiva la dosis variable, para enviar.",
       "vraPending": "Esperando a que se calcule la prescripción antes de enviar.",
-      "availableInApp": "Disponible en la app · operación #{{id}}"
+      "availableInApp": "Disponible en la app · operación #{{id}}",
+      "calculating": "Calculando… puede tardar hasta un minuto ({{s}} s)"
     },
     "title": "Rutas GIS",
     "tabs": {

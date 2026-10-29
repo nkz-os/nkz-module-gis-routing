@@ -289,7 +289,7 @@ def test_planner_runs_off_the_event_loop_with_budget(monkeypatch):
     monkeypatch.setattr(routing, "plan_with_fallbacks", spy)
     resp = _gen(monkeypatch)
     assert resp.status_code == 200, resp.text
-    assert seen == {"on_loop": False, "budget": 30.0}
+    assert seen == {"on_loop": False, "budget": 60.0}
 
 
 def test_return_to_access_returns_return_path_and_persists_it(monkeypatch):
