@@ -40,6 +40,7 @@ from app.config import get_settings
 from app.services.machines import fetch_machine_kinematics
 from app.services.coverage.errors import PlanError
 from app.services.plan_store import PLAN_STORE
+from app.services.pathfinding.job_store import JobStore, JobLimitError
 from app.services.coverage.ladder import plan_with_fallbacks, LadderInput
 from shapely.geometry import mapping
 from app.services.exclusion import validate_access_point
@@ -554,7 +555,69 @@ class GenerateRequest(BaseModel):
 @router.post("/generate")
 async def generate_routing_plan(request: Request, body: GenerateRequest, auth: AuthContext = require_auth()):
     """Unified route generation endpoint (Fields2Cover coverage engine)."""
+    return await _generate_plan(body, auth)
 
+
+# Async variant for callers behind a proxy timeout: POST starts, GET polls.
+GENERATE_JOBS = JobStore()
+# CPU-bound planner runs: two at a time across tenants; the rest stay "queued".
+_GENERATE_SLOTS = asyncio.Semaphore(2)
+
+
+@router.post("/generate/jobs", status_code=202)
+async def start_generate_job(body: GenerateRequest, auth: AuthContext = require_auth()):
+    try:
+        job_id = GENERATE_JOBS.create(auth.tenant_id)
+    except JobLimitError:
+        raise PlanError("JOBS_LIMIT", "too many route generation jobs running for this tenant",
+                        {"max_jobs": GENERATE_JOBS._max_per_tenant})
+    task = asyncio.create_task(_run_generate_job(job_id, body, auth))
+    _GENERATE_TASKS.add(task)
+    task.add_done_callback(_GENERATE_TASKS.discard)
+    return {"job_id": job_id, "status": "queued"}
+
+
+@router.get("/generate/jobs/{job_id}")
+async def get_generate_job(job_id: str, auth: AuthContext = require_auth()):
+    job = GENERATE_JOBS.get(job_id, auth.tenant_id)
+    if job is None:
+        raise HTTPException(status_code=404, detail="Job not found")
+    return job
+
+
+_GENERATE_TASKS: set = set()
+
+
+async def _run_generate_job(job_id: str, body: GenerateRequest, auth: AuthContext) -> None:
+    async with _GENERATE_SLOTS:
+        GENERATE_JOBS.set(job_id, {"status": "running"})
+        started = time.monotonic()
+        try:
+            result = await _generate_plan(body, auth)
+        except PlanError as exc:
+            logger.info("generate job %s failed: code=%s tenant_id=%s", job_id, exc.code, auth.tenant_id)
+            GENERATE_JOBS.set(job_id, {"status": "failed", "error": exc.to_body(),
+                                       "http_status": exc.status})
+            return
+        except HTTPException as exc:
+            logger.warning("generate job %s failed: http=%s tenant_id=%s", job_id, exc.status_code,
+                           auth.tenant_id)
+            GENERATE_JOBS.set(job_id, {
+                "status": "failed", "http_status": exc.status_code,
+                "error": {"code": "ENGINE_FAILURE", "detail": str(exc.detail), "params": {}}})
+            return
+        except Exception:
+            logger.exception("generate job %s crashed: tenant_id=%s", job_id, auth.tenant_id)
+            GENERATE_JOBS.set(job_id, {
+                "status": "failed", "http_status": 500,
+                "error": {"code": "ENGINE_FAILURE", "detail": "route generation failed", "params": {}}})
+            return
+        logger.info("generate job %s completed: tenant_id=%s elapsed=%.1fs", job_id, auth.tenant_id,
+                    time.monotonic() - started)
+        GENERATE_JOBS.set(job_id, {"status": "completed", "result": result})
+
+
+async def _generate_plan(body: GenerateRequest, auth: AuthContext) -> dict:
     if body.parcel_geometry.get("type") != "Polygon":
         raise PlanError("INVALID_GEOMETRY", "parcel_geometry must be a GeoJSON Polygon")
 
