@@ -126,9 +126,10 @@ describe('TransitScreen', () => {
     await place();
     fireEvent.click(screen.getByRole('button', { name: 'Calcular ruta' }));
     await advance(1100);
-    expect(screen.getByRole('status').textContent).toBe('Esperando en la cola...');
+    expect(screen.getByRole('status').textContent).toMatch(/^En cola\. Calculando el trayecto; puede tardar hasta un minuto \(0:0[12]\)$/);
+    expect(screen.getByRole('status').getAttribute('aria-live')).toBe('polite');
     await advance(1000);
-    expect(screen.getByRole('status').textContent).toBe('Calculando las rutas...');
+    expect(screen.getByRole('status').textContent).toMatch(/^Calculando el trayecto; puede tardar hasta un minuto \(0:0[23]\)$/);
     await advance(1000);
     expect(api.getPathResult).toHaveBeenCalledTimes(3);
     expect(await screen.findByTestId('alt-fastest')).toBeTruthy();

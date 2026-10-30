@@ -272,7 +272,6 @@
       "upload": "Fichier de zones (GeoJSON, CSV, shapefile .zip ou ISOXML .xml)",
       "noZones": "La parcelle n'a pas de zones de gestion.",
       "generateZones": "Générer les zones ({{n}})",
-      "polling": "Génération des zones…",
       "timeout": "La génération des zones prend trop de temps.",
       "retry": "Réessayer",
       "missingTitle": "Zones sans valeur",
@@ -291,7 +290,7 @@
       "rateOfClass": "Dose de la classe {{n}}",
       "total": "Total",
       "invert": "Inverser",
-      "calculating": "Calcul de la prescription…",
+      "calculating": "Calcul des doses…",
       "summaryOn": "{{n}} classes",
       "summaryOff": "Non appliquée",
       "uploadPrompt": "Téléversez un fichier de zones pour continuer."
@@ -354,8 +353,7 @@
       "exportFormat": "Format d'export",
       "vraIncomplete": "Renseignez les doses de toutes les classes (ou le fichier de zones externe), ou désactivez la dose variable, pour envoyer.",
       "vraPending": "En attente du calcul de la prescription avant l'envoi.",
-      "availableInApp": "Disponible dans l'app · opération #{{id}}",
-      "calculating": "Calcul en cours… peut prendre jusqu'à une minute ({{s}} s)"
+      "availableInApp": "Disponible dans l'app · opération #{{id}}"
     },
     "title": "Itinéraires SIG",
     "tabs": {
@@ -368,6 +366,10 @@
       "sent": "Alerte enregistrée",
       "skipped": "Pas d'alerte : désactivée dans les réglages",
       "failed": "L'alerte n'a pas pu être enregistrée"
+    },
+    "wait": {
+      "route": "Calcul de l'itinéraire. Sur de grandes parcelles ou avec beaucoup de zones, cela peut prendre jusqu'à une minute ; ne fermez pas la page.",
+      "zones": "Génération des zones de gestion à partir de l'image satellite. Cela prend en général 1 à 2 minutes."
     }
   },
   "autosave": {
@@ -430,10 +432,6 @@
       "pick": "Machine à utiliser"
     },
     "calculate": "Calculer l'itinéraire",
-    "status": {
-      "queued": "En attente dans la file...",
-      "running": "Calcul des itinéraires..."
-    },
     "results": "Résultats",
     "stale": "Périmé : les données ont changé. Recalculez pour enregistrer.",
     "alt": {
@@ -493,6 +491,10 @@
     "warnings": {
       "PARCELS_UNREADABLE": "{{count}} parcelle(s) de la zone n'ont pas de limite lisible : leurs portails ne sont pas appliqués.",
       "UNKNOWN": "Avertissement {{code}}"
+    },
+    "wait": {
+      "queued": "En file d'attente. Calcul du trajet ; cela peut prendre jusqu'à une minute",
+      "running": "Calcul du trajet ; cela peut prendre jusqu'à une minute"
     }
   },
   "settings": {

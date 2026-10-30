@@ -105,7 +105,9 @@ describe('WorkRoutePanel', () => {
     render(<WorkRoutePanel parcelId="p" />);
     await waitFor(() => expect((screen.getByLabelText(/Ancho de trabajo|Working width/i) as HTMLInputElement).value).toBe('18'));
     clickByText(/Generar|Generate/i);
-    expect((await screen.findByRole('status')).textContent).toMatch(/Calculando|Calculating/);
+    const notice = await screen.findByRole('status');
+    expect(notice.textContent).toMatch(/Calculando la ruta\. En parcelas grandes.*hasta un minuto; no cierres la página\. \(0:00\)/);
+    expect(notice.getAttribute('aria-live')).toBe('polite');
     reject(new ApiError(504, { code: 'GENERATE_TIMEOUT', detail: 'x' }));
     await waitFor(() => expect(screen.queryByRole('status')).toBeNull());
     expect(screen.getByText(/tard|too long/i, { selector: 'p' })).toBeTruthy();

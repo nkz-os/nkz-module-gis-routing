@@ -12,6 +12,7 @@ import { TransitMapCanvas, type TransitViewChange } from '../../map/TransitMapCa
 import { contextBboxOk, type TransitMapModel } from '../../map/transitModel';
 import { ElevationProfile } from './ElevationProfile';
 import { SavedNotice } from '../work/AlertLine';
+import { WaitNotice } from '../work/WaitNotice';
 import type { WorkContext } from '../work/WorkScreen';
 
 const NS = 'gis-routing';
@@ -387,8 +388,8 @@ export const TransitScreen: React.FC<Props> = ({ workContext }) => {
         <Button onClick={calculate} disabled={!canCalculate(state)} className="w-full">
           {t('transit.calculate')}
         </Button>
-        {state.phase === 'calculating' && state.jobStatus && (
-          <p role="status" className="text-nkz-xs text-nkz-text-secondary">{t(`transit.status.${state.jobStatus}`)}</p>
+        {state.phase === 'calculating' && (
+          <WaitNotice messageKey={state.jobStatus === 'running' ? 'transit.wait.running' : 'transit.wait.queued'} />
         )}
 
         {state.error && (

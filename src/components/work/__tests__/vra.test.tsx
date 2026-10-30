@@ -309,6 +309,48 @@ describe('StepVra', () => {
   });
 });
 
+describe('waiting notices', () => {
+  const empty = { source: 'orion' as const, variable: 'NDVI', zones: [], missing: [], percentiles: [] };
+
+  it('zones: notice from the first moment with m:ss elapsed, gone after a timeout', async () => {
+    (api.getDistribution as any).mockResolvedValue(empty);
+    (api.requestZones as any).mockResolvedValue({});
+    await mount(baseState());
+    expect(screen.queryByTestId('wait-notice')).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Generar zonas (8)' }));
+    await flush(0);
+    const n = screen.getByTestId('wait-notice');
+    expect(n.textContent).toMatch(/imagen de sat\u00e9lite.*1\u20132 minutos.*\(0:00\)/);
+    expect(n.getAttribute('aria-live')).toBe('polite');
+    await flush(65000);
+    expect(screen.getByTestId('wait-notice').textContent).toMatch(/\(1:0[45]\)/);
+    await flush(60000);
+    expect(screen.queryByTestId('wait-notice')).toBeNull();
+    expect(screen.getByText('La generación de zonas tarda demasiado.')).toBeTruthy();
+  });
+
+  it('zones: notice disappears when the request is rejected', async () => {
+    (api.getDistribution as any).mockResolvedValue(empty);
+    (api.requestZones as any).mockRejectedValue(new Error('down'));
+    await mount(baseState());
+    fireEvent.click(screen.getByRole('button', { name: 'Generar zonas (8)' }));
+    await flush(0);
+    expect(screen.queryByTestId('wait-notice')).toBeNull();
+  });
+
+  it('prescription: inline "Calculando dosis" while in flight, gone on completion and on error', async () => {
+    let resolve!: (v: any) => void;
+    (api.prescription as any).mockReturnValue(new Promise((r) => { resolve = r; }));
+    await mount(baseState({}, { distribution: dist([0.3, 0.6]) },
+      { classes: [{ minPct: 0, maxPct: 100, rate: 5 }] }));
+    await flush(600);
+    expect(screen.getByText('Calculando dosis…').closest('[aria-live="polite"]')).toBeTruthy();
+    await act(async () => { resolve({ prescription: presc() }); });
+    await flush(0);
+    expect(screen.queryByText('Calculando dosis…')).toBeNull();
+  });
+});
+
 describe('zone generation polling', () => {
   const empty = { source: 'orion' as const, variable: 'NDVI', zones: [], missing: [], percentiles: [] };
 
@@ -322,7 +364,7 @@ describe('zone generation polling', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Generar zonas (8)' }));
     await flush(0);
     expect(api.requestZones).toHaveBeenCalledWith('p1', 8);
-    expect(screen.getByText('Generando zonas…')).toBeTruthy();
+    expect(screen.getByTestId('wait-notice')).toBeTruthy();
     const before = (api.getDistribution as any).mock.calls.length;
     await flush(4999);
     expect((api.getDistribution as any).mock.calls.length).toBe(before);
@@ -330,10 +372,10 @@ describe('zone generation polling', () => {
     expect((api.getDistribution as any).mock.calls.length).toBe(before + 1);
     (api.getDistribution as any).mockResolvedValue(withRun(dist([0.3, 0.6]), 'r1'));
     await flush(5000);
-    expect(screen.getByText('Generando zonas…')).toBeTruthy();
+    expect(screen.getByTestId('wait-notice')).toBeTruthy();
     await flush(5000);
     expect(screen.getAllByTestId('vra-row')).toHaveLength(3);
-    expect(screen.queryByText('Generando zonas…')).toBeNull();
+    expect(screen.queryByTestId('wait-notice')).toBeNull();
   });
 
   it('regenerate: the old run never ends the wait; the new run seen twice does', async () => {
@@ -344,14 +386,14 @@ describe('zone generation polling', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Regenerar zonas' }));
     await flush(0);
     await flush(15000);
-    expect(screen.getByText('Generando zonas…')).toBeTruthy();
+    expect(screen.getByTestId('wait-notice')).toBeTruthy();
     expect(latest.vra.distribution?.run_id).toBe('old');
     (api.getDistribution as any).mockResolvedValue(withRun(dist([0.1, 0.2, 0.3, 0.4]), 'new'));
     await flush(5000);
-    expect(screen.getByText('Generando zonas…')).toBeTruthy();
+    expect(screen.getByTestId('wait-notice')).toBeTruthy();
     expect(latest.vra.distribution?.run_id).toBe('old');
     await flush(5000);
-    expect(screen.queryByText('Generando zonas…')).toBeNull();
+    expect(screen.queryByTestId('wait-notice')).toBeNull();
     expect(latest.vra.distribution?.run_id).toBe('new');
     expect(latest.vra.distribution?.zones).toHaveLength(4);
   });
@@ -457,7 +499,7 @@ describe('StepVra failure and source handling', () => {
     (api.getDistribution as any).mockRejectedValue(new Error('down'));
     await flush(5000);
     expect(screen.getByTestId('vra-pollerror')).toBeTruthy();
-    expect(screen.getByText('Generando zonas…')).toBeTruthy();
+    expect(screen.getByTestId('wait-notice')).toBeTruthy();
   });
 
   it('external source without an upload hides the parcel zones and asks for a file', async () => {
