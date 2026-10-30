@@ -226,6 +226,14 @@ def plan_with_fallbacks(inp: LadderInput, time_budget_s: float | None = None) ->
                         pattern, curve, passes, e.code)
             last_error = e
             continue
+        except RuntimeError as e:
+            # Fields2Cover raises bare RuntimeError (e.g. CubicSpline x not sorted):
+            # one failed rung, not a failed plan.
+            logger.warning("ladder attempt pattern=%s curve=%s passes=%s engine error: %s",
+                           pattern, curve, passes, e)
+            last_error = ExclusionError("route engine failed", code="ENGINE_FAILURE",
+                                        params={"engine_error": str(e)})
+            continue
         plan.unreached = list(unreached)
         plan.exclusion_zones = list(inp.zones_utm)
         plan.fallbacks = _attempt_fallbacks(inp, pattern, curve, passes)
