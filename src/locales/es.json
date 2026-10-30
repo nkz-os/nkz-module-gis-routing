@@ -272,7 +272,6 @@
       "upload": "Fichero de zonas (GeoJSON, CSV, shapefile .zip o ISOXML .xml)",
       "noZones": "La parcela no tiene zonas de manejo.",
       "generateZones": "Generar zonas ({{n}})",
-      "polling": "Generando zonas…",
       "timeout": "La generación de zonas tarda demasiado.",
       "retry": "Reintentar",
       "missingTitle": "Zonas sin valor",
@@ -291,7 +290,7 @@
       "rateOfClass": "Dosis de la clase {{n}}",
       "total": "Total",
       "invert": "Invertir",
-      "calculating": "Calculando la prescripción…",
+      "calculating": "Calculando dosis…",
       "summaryOn": "{{n}} clases",
       "summaryOff": "Sin aplicar",
       "uploadPrompt": "Sube un fichero de zonas para continuar."
@@ -354,8 +353,7 @@
       "exportFormat": "Formato de exportación",
       "vraIncomplete": "Completa las dosis de todas las clases (o el fichero de zonas externo), o desactiva la dosis variable, para enviar.",
       "vraPending": "Esperando a que se calcule la prescripción antes de enviar.",
-      "availableInApp": "Disponible en la app · operación #{{id}}",
-      "calculating": "Calculando… puede tardar hasta un minuto ({{s}} s)"
+      "availableInApp": "Disponible en la app · operación #{{id}}"
     },
     "title": "Rutas GIS",
     "tabs": {
@@ -368,6 +366,10 @@
       "sent": "Aviso registrado",
       "skipped": "Sin aviso: desactivado en ajustes",
       "failed": "No se pudo registrar el aviso"
+    },
+    "wait": {
+      "route": "Calculando la ruta. En parcelas grandes o con muchas zonas puede tardar hasta un minuto; no cierres la página.",
+      "zones": "Generando zonas de manejo a partir de la imagen de satélite. Suele tardar 1–2 minutos."
     }
   },
   "autosave": {
@@ -430,10 +432,6 @@
       "pick": "Máquina a usar"
     },
     "calculate": "Calcular ruta",
-    "status": {
-      "queued": "Esperando en la cola...",
-      "running": "Calculando las rutas..."
-    },
     "results": "Resultados",
     "stale": "Desactualizado: han cambiado los datos. Calcula de nuevo para guardar.",
     "alt": {
@@ -493,6 +491,10 @@
     "warnings": {
       "PARCELS_UNREADABLE": "{{count}} parcela(s) de la zona no tienen límite legible: sus portones no se aplican.",
       "UNKNOWN": "Aviso {{code}}"
+    },
+    "wait": {
+      "queued": "En cola. Calculando el trayecto; puede tardar hasta un minuto",
+      "running": "Calculando el trayecto; puede tardar hasta un minuto"
     }
   },
   "settings": {

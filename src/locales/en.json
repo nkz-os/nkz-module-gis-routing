@@ -272,7 +272,6 @@
       "upload": "Zones file (GeoJSON, CSV, shapefile .zip or ISOXML .xml)",
       "noZones": "This parcel has no management zones.",
       "generateZones": "Generate zones ({{n}})",
-      "polling": "Generating zones…",
       "timeout": "Zone generation is taking too long.",
       "retry": "Retry",
       "missingTitle": "Zones without a value",
@@ -291,7 +290,7 @@
       "rateOfClass": "Rate of class {{n}}",
       "total": "Total",
       "invert": "Invert",
-      "calculating": "Calculating prescription…",
+      "calculating": "Calculating rates…",
       "summaryOn": "{{n}} classes",
       "summaryOff": "Not applied",
       "uploadPrompt": "Upload a zones file to continue."
@@ -354,8 +353,7 @@
       "exportFormat": "Export format",
       "vraIncomplete": "Complete all class rates (or the external zones file), or turn off variable rate, to send.",
       "vraPending": "Waiting for the prescription to be calculated before sending.",
-      "availableInApp": "Available in the app · operation #{{id}}",
-      "calculating": "Calculating… this can take up to a minute ({{s}} s)"
+      "availableInApp": "Available in the app · operation #{{id}}"
     },
     "title": "GIS Routing",
     "tabs": {
@@ -368,6 +366,10 @@
       "sent": "Alert registered",
       "skipped": "No alert: turned off in settings",
       "failed": "The alert could not be registered"
+    },
+    "wait": {
+      "route": "Calculating the route. On large parcels or with many zones it can take up to a minute; do not close the page.",
+      "zones": "Generating management zones from the satellite image. It usually takes 1–2 minutes."
     }
   },
   "autosave": {
@@ -430,10 +432,6 @@
       "pick": "Machine to use"
     },
     "calculate": "Calculate route",
-    "status": {
-      "queued": "Waiting in the queue...",
-      "running": "Calculating the routes..."
-    },
     "results": "Results",
     "stale": "Outdated: inputs changed. Calculate again to save.",
     "alt": {
@@ -493,6 +491,10 @@
     "warnings": {
       "PARCELS_UNREADABLE": "{{count}} parcel(s) in the area have no readable boundary: their gates are not enforced.",
       "UNKNOWN": "Warning {{code}}"
+    },
+    "wait": {
+      "queued": "Queued. Calculating the path; it can take up to a minute",
+      "running": "Calculating the path; it can take up to a minute"
     }
   },
   "settings": {

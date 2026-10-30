@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useTranslation } from '@nekazari/sdk';
 import { Badge, Button, Select } from '@nekazari/ui-kit';
-import { GenerateProgress } from './GenerateProgress';
+import { WaitNotice } from './WaitNotice';
 import { canGenerate, vraSaveBlocker, type WorkEvent, type WorkState } from '../../state/workMachine';
 import type { Plan } from '../../services/api';
 import { PatternSaveLoad } from '../patterns/PatternSaveLoad';
@@ -98,7 +98,7 @@ export const ActionsBar: React.FC<Props> = ({
         </div>
       )}
 
-      {(phase === 'generating' || phase === 'saving') && <GenerateProgress />}
+      {(phase === 'generating' || phase === 'saving') && <WaitNotice messageKey="work.wait.route" />}
 
       <div className="flex flex-wrap items-center gap-2">
         <Button

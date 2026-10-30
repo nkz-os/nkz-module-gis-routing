@@ -403,3 +403,29 @@ def test_auto_tries_every_pattern_before_extra_rungs_under_budget(monkeypatch):
     assert plan.pattern == "spiral"
     assert not [f for f in plan.validation.fallbacks_applied if f.startswith("manual_turns")]
     assert _hard_ok(plan)
+
+
+def test_engine_runtime_error_in_one_attempt_moves_to_next_rung(monkeypatch):
+    n = {"i": 0}
+
+    def builder(c, r):
+        n["i"] += 1
+        if n["i"] == 1:
+            raise RuntimeError("In CubicSpline SetSpline, x array is not sorted")
+        return _fake_plan(c, r)
+
+    calls = _patch(monkeypatch, builder)
+    plan = plan_with_fallbacks(_inp(passes=1, access=None))
+    assert len(calls) >= 2
+    assert _hard_ok(plan)
+
+
+def test_engine_runtime_error_in_every_attempt_is_coded_engine_failure(monkeypatch):
+    def builder(c, r):
+        raise RuntimeError("In CubicSpline SetSpline, x array is not sorted")
+
+    _patch(monkeypatch, builder)
+    with pytest.raises(ExclusionError) as ei:
+        plan_with_fallbacks(_inp(passes=1, access=None))
+    assert ei.value.code == "ENGINE_FAILURE"
+    assert "SetSpline" in ei.value.params["engine_error"]

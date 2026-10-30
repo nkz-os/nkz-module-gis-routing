@@ -211,9 +211,26 @@ describe('generate progress', () => {
   it('ActionsBar shows a progress line with elapsed seconds while generating', async () => {
     vi.useFakeTimers();
     bar(withResult({ phase: 'generating' }));
-    expect(screen.getByRole('status')).toHaveTextContent(/Calculando… puede tardar hasta un minuto \(0 s\)/);
+    const n = screen.getByRole('status');
+    expect(n).toHaveTextContent('Calculando la ruta. En parcelas grandes o con muchas zonas puede tardar hasta un minuto; no cierres la página. (0:00)');
+    expect(n).toHaveAttribute('aria-live', 'polite');
     await act(async () => { await vi.advanceTimersByTimeAsync(3000); });
-    expect(screen.getByRole('status')).toHaveTextContent(/\(3 s\)/);
+    expect(screen.getByRole('status')).toHaveTextContent(/\(0:03\)/);
+  });
+
+  it('the notice is shown while saving and disappears when the phase ends', () => {
+    const { unmount } = render(<ActionsBar {...({ state: withResult({ phase: 'saving' }), dispatch: vi.fn(), onGenerate: vi.fn(), onSave: vi.fn(), onExport: vi.fn(), onShowError: vi.fn(), plan: null } as any)} />);
+    expect(screen.getByTestId('wait-notice')).toBeTruthy();
+    unmount();
+    expect(screen.queryByTestId('wait-notice')).toBeNull();
+  });
+
+  it('the notice disappears when generation fails', () => {
+    const mk = (phase: any) => ({ state: withResult({ phase }), dispatch: vi.fn(), onGenerate: vi.fn(), onSave: vi.fn(), onExport: vi.fn(), onShowError: vi.fn(), plan: null }) as any;
+    const { rerender } = render(<ActionsBar {...mk('generating')} />);
+    expect(screen.getByTestId('wait-notice')).toBeTruthy();
+    rerender(<ActionsBar {...mk('failed')} />);
+    expect(screen.queryByTestId('wait-notice')).toBeNull();
   });
 
   it('ActionsBar shows no progress line when idle', () => {

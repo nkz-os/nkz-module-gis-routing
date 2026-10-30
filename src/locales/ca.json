@@ -272,7 +272,6 @@
       "upload": "Fitxer de zones (GeoJSON, CSV, shapefile .zip o ISOXML .xml)",
       "noZones": "La parcel·la no té zones de maneig.",
       "generateZones": "Generar zones ({{n}})",
-      "polling": "Generant zones…",
       "timeout": "La generació de zones triga massa.",
       "retry": "Reintentar",
       "missingTitle": "Zones sense valor",
@@ -291,7 +290,7 @@
       "rateOfClass": "Dosi de la classe {{n}}",
       "total": "Total",
       "invert": "Invertir",
-      "calculating": "Calculant la prescripció…",
+      "calculating": "Calculant dosis…",
       "summaryOn": "{{n}} classes",
       "summaryOff": "Sense aplicar",
       "uploadPrompt": "Puja un fitxer de zones per continuar."
@@ -354,8 +353,7 @@
       "exportFormat": "Format d'exportació",
       "vraIncomplete": "Completa les dosis de totes les classes (o el fitxer de zones extern), o desactiva la dosi variable, per enviar.",
       "vraPending": "Esperant que es calculi la prescripció abans d'enviar.",
-      "availableInApp": "Disponible a l'app · operació #{{id}}",
-      "calculating": "Calculant… pot trigar fins a un minut ({{s}} s)"
+      "availableInApp": "Disponible a l'app · operació #{{id}}"
     },
     "title": "Rutes GIS",
     "tabs": {
@@ -368,6 +366,10 @@
       "sent": "Avís registrat",
       "skipped": "Sense avís: desactivat als ajustos",
       "failed": "No s'ha pogut registrar l'avís"
+    },
+    "wait": {
+      "route": "Calculant la ruta. En parcel·les grans o amb moltes zones pot trigar fins a un minut; no tanquis la pàgina.",
+      "zones": "Generant zones de maneig a partir de la imatge de satèl·lit. Sol trigar 1–2 minuts."
     }
   },
   "autosave": {
@@ -430,10 +432,6 @@
       "pick": "Màquina a usar"
     },
     "calculate": "Calcular ruta",
-    "status": {
-      "queued": "Esperant a la cua...",
-      "running": "Calculant les rutes..."
-    },
     "results": "Resultats",
     "stale": "Desactualitzat: han canviat les dades. Calcula de nou per desar.",
     "alt": {
@@ -493,6 +491,10 @@
     "warnings": {
       "PARCELS_UNREADABLE": "{{count}} parcel·la(es) de la zona no tenen límit llegible: les seves portes no s'apliquen.",
       "UNKNOWN": "Avís {{code}}"
+    },
+    "wait": {
+      "queued": "En cua. Calculant el trajecte; pot trigar fins a un minut",
+      "running": "Calculant el trajecte; pot trigar fins a un minut"
     }
   },
   "settings": {

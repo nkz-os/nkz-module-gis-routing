@@ -272,7 +272,6 @@
       "upload": "Zonen fitxategia (GeoJSON, CSV, shapefile .zip edo ISOXML .xml)",
       "noZones": "Partzelak ez du kudeaketa-zonarik.",
       "generateZones": "Zonak sortu ({{n}})",
-      "polling": "Zonak sortzen…",
       "timeout": "Zonak sortzeak luze jotzen du.",
       "retry": "Berriro saiatu",
       "missingTitle": "Baliorik gabeko zonak",
@@ -291,7 +290,7 @@
       "rateOfClass": "{{n}}. klasearen dosia",
       "total": "Guztira",
       "invert": "Alderantzikatu",
-      "calculating": "Preskripzioa kalkulatzen…",
+      "calculating": "Dosiak kalkulatzen…",
       "summaryOn": "{{n}} klase",
       "summaryOff": "Aplikatu gabe",
       "uploadPrompt": "Igo zonen fitxategi bat jarraitzeko."
@@ -354,8 +353,7 @@
       "exportFormat": "Esportazio formatua",
       "vraIncomplete": "Bete klase guztien dosiak (edo kanpoko eremuen fitxategia), edo desaktibatu dosi aldakorra, bidaltzeko.",
       "vraPending": "Errezeta kalkulatu arte itxaroten, bidali aurretik.",
-      "availableInApp": "Aplikazioan eskuragarri · eragiketa #{{id}}",
-      "calculating": "Kalkulatzen… minutu bat arte ehun daiteke ({{s}} s)"
+      "availableInApp": "Aplikazioan eskuragarri · eragiketa #{{id}}"
     },
     "title": "GIS ibilbideak",
     "tabs": {
@@ -368,6 +366,10 @@
       "sent": "Abisua erregistratu da",
       "skipped": "Abisurik ez: ezarpenetan desaktibatuta",
       "failed": "Ezin izan da abisua erregistratu"
+    },
+    "wait": {
+      "route": "Ibilbidea kalkulatzen. Lursail handietan edo zona askorekin minutu bat arte ehun daiteke; ez itxi orria.",
+      "zones": "Kudeaketa-zonak sortzen satelite-irudiaren bidez. Normalean 1–2 minutu behar ditu."
     }
   },
   "autosave": {
@@ -430,10 +432,6 @@
       "pick": "Erabili beharreko makina"
     },
     "calculate": "Kalkulatu ibilbidea",
-    "status": {
-      "queued": "Ilaran itxaroten...",
-      "running": "Ibilbideak kalkulatzen..."
-    },
     "results": "Emaitzak",
     "stale": "Zaharkituta: datuak aldatu dira. Kalkulatu berriro gordetzeko.",
     "alt": {
@@ -493,6 +491,10 @@
     "warnings": {
       "PARCELS_UNREADABLE": "Eremuko {{count}} lursailek ez dute muga irakurgarririk: haien ateak ez dira aplikatzen.",
       "UNKNOWN": "Abisua {{code}}"
+    },
+    "wait": {
+      "queued": "Ilaran. Ibilbidea kalkulatzen; minutu bat arte ehun daiteke",
+      "running": "Ibilbidea kalkulatzen; minutu bat arte ehun daiteke"
     }
   },
   "settings": {

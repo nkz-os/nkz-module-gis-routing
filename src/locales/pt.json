@@ -272,7 +272,6 @@
       "upload": "Ficheiro de zonas (GeoJSON, CSV, shapefile .zip ou ISOXML .xml)",
       "noZones": "A parcela não tem zonas de gestão.",
       "generateZones": "Gerar zonas ({{n}})",
-      "polling": "A gerar zonas…",
       "timeout": "A geração de zonas está a demorar demasiado.",
       "retry": "Tentar novamente",
       "missingTitle": "Zonas sem valor",
@@ -291,7 +290,7 @@
       "rateOfClass": "Dose da classe {{n}}",
       "total": "Total",
       "invert": "Inverter",
-      "calculating": "A calcular a prescrição…",
+      "calculating": "A calcular doses…",
       "summaryOn": "{{n}} classes",
       "summaryOff": "Não aplicada",
       "uploadPrompt": "Carregue um ficheiro de zonas para continuar."
@@ -354,8 +353,7 @@
       "exportFormat": "Formato de exportação",
       "vraIncomplete": "Preencha as doses de todas as classes (ou o ficheiro de zonas externo), ou desative a dose variável, para enviar.",
       "vraPending": "A aguardar o cálculo da prescrição antes de enviar.",
-      "availableInApp": "Disponível na app · operação #{{id}}",
-      "calculating": "A calcular… pode demorar até um minuto ({{s}} s)"
+      "availableInApp": "Disponível na app · operação #{{id}}"
     },
     "title": "Rotas SIG",
     "tabs": {
@@ -368,6 +366,10 @@
       "sent": "Alerta registado",
       "skipped": "Sem alerta: desativado nas definições",
       "failed": "Não foi possível registar o alerta"
+    },
+    "wait": {
+      "route": "A calcular a rota. Em parcelas grandes ou com muitas zonas pode demorar até um minuto; não feche a página.",
+      "zones": "A gerar zonas de gestão a partir da imagem de satélite. Costuma demorar 1–2 minutos."
     }
   },
   "autosave": {
@@ -430,10 +432,6 @@
       "pick": "Máquina a usar"
     },
     "calculate": "Calcular rota",
-    "status": {
-      "queued": "A aguardar na fila...",
-      "running": "A calcular as rotas..."
-    },
     "results": "Resultados",
     "stale": "Desatualizado: os dados mudaram. Calcule de novo para guardar.",
     "alt": {
@@ -493,6 +491,10 @@
     "warnings": {
       "PARCELS_UNREADABLE": "{{count}} parcela(s) da zona não têm limite legível: os seus portões não são aplicados.",
       "UNKNOWN": "Aviso {{code}}"
+    },
+    "wait": {
+      "queued": "Em fila. A calcular o trajeto; pode demorar até um minuto",
+      "running": "A calcular o trajeto; pode demorar até um minuto"
     }
   },
   "settings": {

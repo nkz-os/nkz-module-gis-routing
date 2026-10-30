@@ -1,10 +1,11 @@
 import React, { useEffect, useState } from 'react';
 import { useTranslation } from '@nekazari/sdk';
-import { Badge, Button, Input, Select, Slider, Spinner, Switch } from '@nekazari/ui-kit';
+import { Badge, Button, Input, Select, Slider, Switch } from '@nekazari/ui-kit';
 import { vraClassColors } from '../../map/model';
 import type { VraConfig } from '../../services/api';
 import { DEFAULT_N_ZONES, type VraSync } from '../../state/useVraSync';
 import type { StepProps } from './StepList';
+import { WaitNotice } from './WaitNotice';
 import { VraHistogram } from './VraHistogram';
 import { equalClasses, MAX_CLASSES, MIN_CLASSES, moveCut } from './vraClasses';
 
@@ -120,9 +121,7 @@ export const StepVra: React.FC<Props> = ({ state, dispatch, sync }) => {
           {config.source === 'orion' && zones.length === 0 && (
             <div className="space-y-2" data-testid="vra-nozones">
               {polling ? (
-                <div className="flex items-center gap-2 text-nkz-sm text-nkz-text-secondary">
-                  <Spinner /> {t('work.vra.polling')}
-                </div>
+                <WaitNotice messageKey="work.wait.zones" />
               ) : (
                 <>
                   <p className="text-nkz-sm text-nkz-text-secondary">
@@ -159,9 +158,7 @@ export const StepVra: React.FC<Props> = ({ state, dispatch, sync }) => {
                 </Button>
               )}
               {config.source === 'orion' && polling && (
-                <div className="flex items-center gap-2 text-nkz-sm text-nkz-text-secondary">
-                  <Spinner /> {t('work.vra.polling')}
-                </div>
+                <WaitNotice messageKey="work.wait.zones" />
               )}
             </div>
           )}
@@ -291,11 +288,9 @@ export const StepVra: React.FC<Props> = ({ state, dispatch, sync }) => {
               {tr('errors', sync.pollError.code, sync.pollError.params, sync.pollError.detail)}
             </p>
           )}
-          {status === 'loading' && (
-            <div className="flex items-center gap-2 text-nkz-sm text-nkz-text-secondary">
-              <Spinner /> {t('work.vra.calculating')}
-            </div>
-          )}
+          <div aria-live="polite" className="h-5 text-nkz-xs text-nkz-text-secondary">
+            {status === 'loading' && t('work.vra.calculating')}
+          </div>
           {error && (
             <div className="flex items-center justify-between gap-2">
               <p className="text-nkz-sm text-nkz-danger" role="alert">{tr('errors', error.code, error.params, error.detail)}</p>
