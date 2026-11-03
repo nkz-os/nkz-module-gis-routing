@@ -1170,6 +1170,54 @@ async def ingest_external_zones(body: ExternalZonesIngestRequest, auth: AuthCont
     }
 
 
+class ManualZoningRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    parcel_id: str = Field(max_length=300)
+    format: Literal["kml", "kmz", "geojson", "shapefile", "isoxml", "drawn"]
+    content: str = Field(max_length=8 * 1024 * 1024)
+    labels: dict[int, str] = Field(default_factory=dict)
+
+
+async def _manual_preview(body: ManualZoningRequest, tenant_id: str) -> dict:
+    from app.services.vra import manual_zonings as mz
+    parcel = await _load_parcel_polygon(body.parcel_id, tenant_id)
+    features, warnings = mz.parse(body.format, body.content)
+    return mz.preview(features, parcel, warnings)
+
+
+@router.post("/zonings/manual/preview")
+async def preview_manual_zoning(body: ManualZoningRequest, auth: AuthContext = require_auth()):
+    """Zones a file or drawing would create, and the features that would be left out."""
+    return await _manual_preview(body, auth.tenant_id)
+
+
+@router.post("/zonings/manual")
+async def save_manual_zoning(body: ManualZoningRequest, auth: AuthContext = require_auth()):
+    """Save the previewed zones as one new manual zoning of the parcel."""
+    from app.services.vra import manual_zonings as mz
+    pv = await _manual_preview(body, auth.tenant_id)
+    if not pv["zones"]:
+        raise PlanError("ZONES_FILE_INVALID", "no polygon inside the parcel",
+                        {"rejected": len(pv["rejected"])})
+    run_id, entities = mz.zone_entities(auth.tenant_id, body.parcel_id, pv["zones"], body.labels,
+                                        mz.new_run_hex(), mz.utcnow())
+    await mz.save(auth.tenant_id, body.parcel_id, entities)
+    logger.info("manual zoning saved: tenant_id=%s parcel_id=%s run_id=%s zones=%d",
+                auth.tenant_id, body.parcel_id, run_id, len(entities))
+    return {"run_id": run_id, "zone_count": len(entities)}
+
+
+@router.delete("/zonings/{parcel_id}/{run_id}")
+async def delete_manual_zoning(parcel_id: str, run_id: str, auth: AuthContext = require_auth()):
+    """Delete a manual zoning; automatic zonings are refused (409)."""
+    from app.services.vra import manual_zonings as mz
+    deleted = await mz.delete(auth.tenant_id, parcel_id, run_id)
+    logger.info("manual zoning deleted: tenant_id=%s parcel_id=%s run_id=%s zones=%d",
+                auth.tenant_id, parcel_id, run_id, deleted)
+    return {"run_id": run_id, "deleted": deleted}
+
+
 @router.get("/tiles")
 async def get_offline_tiles(request: Request, parcel_id: str = Query(..., description="Parcel entity ID"),
     auth: AuthContext = require_auth()

@@ -76,7 +76,9 @@ def _is_number(v) -> bool:
     return isinstance(v, (int, float)) and not isinstance(v, bool) and math.isfinite(v)
 
 
-def parse_shapefile(data: bytes) -> tuple[list[dict], list[str]]:
+def parse_shapefile(data: bytes, require_value: bool = True) -> tuple[list[dict], list[str]]:
+    """Polygon records as features. ``require_value=False`` (manual zonings) accepts
+    files without a numeric attribute and keeps a text ``name`` for labels."""
     import shapefile
 
     try:
@@ -126,8 +128,10 @@ def parse_shapefile(data: bytes) -> tuple[list[dict], list[str]]:
     candidates = [n for n in names if n.lower() in wanted]
     value_field = next(
         (n for n in candidates if any(_is_number(sr.record.as_dict().get(n)) for sr in records)), None)
-    if value_field is None:
+    if value_field is None and require_value:
         raise PlanError("ZONES_NO_VALUE", "no numeric value|mean|ndvi|rate attribute", {"attributes": names})
+    name_field = next((n for n in names if n.lower() in ("name", "label", "zone_label", "treatment")),
+                      None)
     id_field = next((n for n in names if n.lower() in ("zone_id", "zoneid")), None)
 
     feats: list[dict] = []
@@ -150,8 +154,10 @@ def parse_shapefile(data: bytes) -> tuple[list[dict], list[str]]:
         rec = sr.record.as_dict()
         props: dict = {"zone_id": str(rec.get(id_field)) if id_field and rec.get(id_field) is not None
                        else f"shp-{idx + 1}"}
-        if _is_number(rec.get(value_field)):
+        if value_field is not None and _is_number(rec.get(value_field)):
             props["value"] = float(rec[value_field])
+        if name_field is not None and rec.get(name_field) not in (None, ""):
+            props["name"] = str(rec[name_field])
         feats.append({"type": "Feature", "geometry": mapping(g), "properties": props})
     if not feats:
         raise _invalid("no polygon records")
@@ -208,6 +214,8 @@ def parse_isoxml(data: bytes) -> tuple[list[dict], list[str]]:
         if geom is None:
             continue
         props: dict = {"zone_id": f"TZN{tzn.get('A')}" if tzn.get("A") is not None else f"tzn-{idx + 1}"}
+        if tzn.get("B"):
+            props["name"] = tzn.get("B")
         pdv = next((c for c in tzn if _local(c.tag) == "PDV"), None)
         if pdv is not None:
             try:

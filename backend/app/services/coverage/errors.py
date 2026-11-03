@@ -39,6 +39,7 @@ CODES = (
     "IMPLEMENT_WIDTH_MISSING",
     "SETTINGS_UNAVAILABLE",
     "ZONING_NOT_FOUND",
+    "ZONING_NOT_MANUAL",
 )
 
 
@@ -74,7 +75,7 @@ class PlanError(ValueError):
             return 429
         if self.code == "PLAN_EXPIRED":
             return 410
-        if self.code == "JOB_NOT_READY":
+        if self.code in ("JOB_NOT_READY", "ZONING_NOT_MANUAL"):
             return 409
         return 422
 
