@@ -521,6 +521,10 @@ class VRAConfig(BaseModel):
     product: str = Field(default="", max_length=80)
     invert: bool = False
     external_features: Optional[dict] = None
+    # Zoning of the parcel to use (None = latest automatic) and, for zonings
+    # without values (manual treatment zones), one rate per zone id.
+    zoning_run_id: Optional[str] = Field(default=None, max_length=120)
+    zone_rates: Optional[dict[str, float]] = None
 
 
 class GenerateRequest(BaseModel):
@@ -768,12 +772,40 @@ async def _vra_zones(vra: VRAConfig, parcel_id, tenant_id: str):
         return external_zones(feats)
     if not parcel_id:
         raise PlanError("INVALID_VRA", "orion source needs a parcel_id")
-    return await load_zones(tenant_id, parcel_id)
+    return await load_zones(tenant_id, parcel_id, vra.zoning_run_id)
+
+
+async def _rate_zones(vra: VRAConfig, parcel_id, tenant_id: str) -> list[dict]:
+    """Zones of the chosen zoning as {id, label, rank, geometry} for per-zone rates."""
+    from shapely.geometry import shape
+    from nkz_platform_sdk.gis import group_zonings
+    from app.services.vra.zones import load_zone_entities
+    if vra.source != "orion":
+        raise PlanError("INVALID_VRA", "per-zone rates need a zoning of the parcel")
+    if not parcel_id:
+        raise PlanError("INVALID_VRA", "orion source needs a parcel_id")
+    entities = await load_zone_entities(tenant_id, parcel_id, vra.zoning_run_id)
+    out = []
+    for zoning in group_zonings(entities):
+        for z in zoning.zones:
+            try:
+                geom = shape(z.geometry) if z.geometry else None
+            except Exception:
+                geom = None
+            out.append({"id": z.id, "label": z.label, "rank": z.rank, "geometry": geom})
+    return out
 
 
 async def _build_vra_prescription(vra: VRAConfig, *, parcel_id, tenant_id: str, swaths_utm,
                                   parcel_utm, to_utm, to_wgs) -> dict:
-    from app.services.vra.prescription import build_prescription
+    from app.services.vra.prescription import build_prescription, build_zone_rate_prescription
+    if vra.zone_rates is not None:
+        rate_zones = await _rate_zones(vra, parcel_id, tenant_id)
+        return await run_in_threadpool(
+            lambda: build_zone_rate_prescription(
+                zones=rate_zones, zone_rates=vra.zone_rates, unit=vra.unit,
+                product=vra.product, swaths_utm=swaths_utm, parcel_utm=parcel_utm,
+                to_utm=to_utm, to_wgs=to_wgs))
     zones, _missing = await _vra_zones(vra, parcel_id, tenant_id)
     return await run_in_threadpool(
         lambda: build_prescription(
@@ -1170,11 +1202,28 @@ async def get_offline_tiles(request: Request, parcel_id: str = Query(..., descri
 # ── Zoning (AgriManagementZone via Orion-LD, generation via vegetation-prime proxy) ──
 
 
+@router.get("/zonings/{parcel_id}")
+async def list_parcel_zonings(parcel_id: str, auth: AuthContext = require_auth()):
+    """Every zoning of the parcel, most recent first; ``is_default`` marks the VRA default."""
+    from nkz_platform_sdk.gis import default_zoning
+    from app.services.vra.zones import list_zonings
+    zonings = await list_zonings(auth.tenant_id, parcel_id)
+    default = default_zoning(zonings)
+    return {"zonings": [{
+        "run_id": z.run_id, "method": z.method, "date": z.date, "zone_count": len(z.zones),
+        "labels": [zr.label for zr in sorted(
+            z.zones, key=lambda zr: (zr.rank is None, zr.rank or 0, zr.id))],
+        "is_default": default is not None and z.run_id == default.run_id,
+    } for z in zonings]}
+
+
 @router.get("/zones/{parcel_id}")
-async def get_parcel_zones(request: Request, parcel_id: str, auth: AuthContext = require_auth()):
-    """Fetch AgriManagementZone entities for a parcel from Orion-LD."""
+async def get_parcel_zones(request: Request, parcel_id: str,
+                           zoning_run_id: Optional[str] = Query(None, max_length=120),
+                           auth: AuthContext = require_auth()):
+    """Zones of one zoning of the parcel (default: the latest automatic zoning)."""
     from app.services.vra.zones import load_zone_entities
-    zones = await load_zone_entities(auth.tenant_id, parcel_id)
+    zones = await load_zone_entities(auth.tenant_id, parcel_id, zoning_run_id)
 
     matched = []
     for z in zones:
@@ -1194,11 +1243,12 @@ async def get_parcel_zones(request: Request, parcel_id: str, auth: AuthContext =
 @router.get("/zones/{parcel_id}/distribution")
 async def zone_distribution(parcel_id: str, source: Literal["orion"] = "orion",
                             variable: str = Query("NDVI", max_length=40),
+                            zoning_run_id: Optional[str] = Query(None, max_length=120),
                             auth: AuthContext = require_auth()):
-    """Area-weighted value distribution of the parcel's current zones (5 % steps)."""
+    """Area-weighted value distribution of one zoning's zones (5 % steps)."""
     from app.services.vra.zones import (
         distribution, load_zone_entities, run_id_of, zones_from_entities)
-    entities = await load_zone_entities(auth.tenant_id, parcel_id)
+    entities = await load_zone_entities(auth.tenant_id, parcel_id, zoning_run_id)
     zones, missing = zones_from_entities(entities)
     return {**distribution(zones, missing, source=source, variable=variable),
             "run_id": run_id_of(entities)}

@@ -38,6 +38,7 @@ CODES = (
     "PARCEL_READ_FAILED",
     "IMPLEMENT_WIDTH_MISSING",
     "SETTINGS_UNAVAILABLE",
+    "ZONING_NOT_FOUND",
 )
 
 
@@ -64,7 +65,8 @@ class PlanError(ValueError):
             return 502
         if self.code == "SETTINGS_UNAVAILABLE":
             return 503
-        if self.code in ("JOB_NOT_FOUND", "PARCEL_NOT_FOUND", "OPERATION_NOT_FOUND"):
+        if self.code in ("JOB_NOT_FOUND", "PARCEL_NOT_FOUND", "OPERATION_NOT_FOUND",
+                         "ZONING_NOT_FOUND"):
             return 404
         if self.code == "FORBIDDEN":
             return 403
