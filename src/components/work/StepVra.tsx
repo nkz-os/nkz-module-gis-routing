@@ -66,6 +66,17 @@ export const StepVra: React.FC<Props> = ({ state, dispatch, sync }) => {
 
   const totalProduct = prescription ? prescription.classes.reduce((a, c) => a + c.product_total, 0) : 0;
   const totalHa = prescription ? prescription.classes.reduce((a, c) => a + c.area_ha, 0) : 0;
+  const perZone = config.source === 'orion' && config.zoneRates !== undefined;
+  const massUnit = unitLabel === 'L/ha' ? 'L' : 'kg';
+  const methodName = (m: string | null) => t(`work.vra.methods.${m ?? 'none'}`, { defaultValue: m ?? '' });
+  const zoningLabel = (z: (typeof sync.zonings)[number]) => {
+    const label = t('work.vra.zoningOption', {
+      method: methodName(z.method), date: z.date ? z.date.slice(0, 10) : t('work.vra.noDate'), count: z.zone_count,
+    });
+    return z.is_default ? t('work.vra.zoningDefault', { label }) : label;
+  };
+  const defaultRun = sync.zonings.find((z) => z.is_default)?.run_id ?? '';
+  const selectedRun = config.zoningRunId ?? defaultRun;
 
   return (
     <div className="space-y-3">
@@ -118,7 +129,94 @@ export const StepVra: React.FC<Props> = ({ state, dispatch, sync }) => {
             </div>
           )}
 
-          {config.source === 'orion' && zones.length === 0 && (
+          {config.source === 'orion' && sync.zonings.length > 0 && (
+            <label className="block">
+              <span className="text-nkz-sm text-nkz-text-secondary">{t('work.vra.zoning')}</span>
+              <Select
+                value={selectedRun}
+                disabled={locked || polling}
+                className="w-full mt-1"
+                onValueChange={(v) => sync.selectZoning(v)}
+                options={sync.zonings.map((z) => ({ value: z.run_id, label: zoningLabel(z) }))}
+              />
+            </label>
+          )}
+
+          {perZone && (
+            <div className="space-y-2" data-testid="vra-zone-rates">
+              <p className="text-nkz-sm text-nkz-text-secondary">{t('work.vra.zoneRatesHint')}</p>
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="text-nkz-sm text-nkz-text-secondary">{t('work.vra.product')}</label>
+                  <Input
+                    size="sm"
+                    value={config.product}
+                    disabled={locked}
+                    aria-label={t('work.vra.product')}
+                    onChange={(e) => change({ product: e.target.value })}
+                  />
+                </div>
+                <label className="block">
+                  <span className="text-nkz-sm text-nkz-text-secondary">{t('work.vra.unit')}</span>
+                  <Select
+                    value={config.unit}
+                    disabled={locked}
+                    className="w-full"
+                    onValueChange={(v) => change({ unit: v as VraConfig['unit'] })}
+                    options={[
+                      { value: 'kg_ha', label: UNIT_LABEL.kg_ha },
+                      { value: 'l_ha', label: UNIT_LABEL.l_ha },
+                    ]}
+                  />
+                </label>
+              </div>
+              <table className="w-full text-nkz-sm">
+                <thead>
+                  <tr className="text-left text-nkz-xs text-nkz-text-secondary">
+                    <th>{t('work.vra.colZone')}</th>
+                    <th>{t('work.vra.colHa')}</th>
+                    <th>{t('work.vra.colRate', { unit: unitLabel })}</th>
+                    <th>{t('work.vra.colTotal')}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {Object.keys(config.zoneRates ?? {}).map((zid) => {
+                    const meta = sync.rateZones.find((z) => z.id === zid);
+                    const label = meta?.label ?? zid.split(':').pop() ?? zid;
+                    const pc = prescription?.classes.find((c) => c.zone_id === zid);
+                    const ha = pc ? pc.area_ha : meta?.area_ha;
+                    return (
+                      <tr key={zid} data-testid="vra-zone-row">
+                        <td>{label}</td>
+                        <td className="tabular-nums">{typeof ha === 'number' && ha > 0 ? nf2.format(ha) : '–'}</td>
+                        <td>
+                          <RateInput
+                            value={config.zoneRates?.[zid] ?? null}
+                            disabled={locked}
+                            label={t('work.vra.rateOfZone', { label })}
+                            onChange={(rate) => change({ zoneRates: { ...(config.zoneRates ?? {}), [zid]: rate } })}
+                          />
+                        </td>
+                        <td className="tabular-nums">{pc ? `${nf1.format(pc.product_total)} ${massUnit}` : '–'}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+                {prescription && (
+                  <tfoot>
+                    <tr className="font-semibold" data-testid="vra-zone-total">
+                      <td>{t('work.vra.total')}</td>
+                      <td className="tabular-nums">{nf2.format(totalHa)}</td>
+                      <td />
+                      <td className="tabular-nums">{nf1.format(totalProduct)} {massUnit}</td>
+                    </tr>
+                  </tfoot>
+                )}
+              </table>
+            </div>
+          )}
+
+          {!perZone && config.source === 'orion' && zones.length === 0 && (
             <div className="space-y-2" data-testid="vra-nozones">
               {polling ? (
                 <WaitNotice messageKey="work.wait.zones" />
@@ -135,7 +233,7 @@ export const StepVra: React.FC<Props> = ({ state, dispatch, sync }) => {
             </div>
           )}
 
-          {config.source === 'orion' && zones.length > 0 && sync.job === 'timeout' && (
+          {!perZone && config.source === 'orion' && zones.length > 0 && sync.job === 'timeout' && (
             <div className="space-y-2" data-testid="vra-timeout">
               <p className="text-nkz-sm text-nkz-danger" role="alert">{t('work.vra.timeout')}</p>
               <Button variant="secondary" size="sm" disabled={locked} onClick={sync.generateZones}>
@@ -144,7 +242,7 @@ export const StepVra: React.FC<Props> = ({ state, dispatch, sync }) => {
             </div>
           )}
 
-          {missing.length > 0 && (
+          {!perZone && missing.length > 0 && (
             <div className="space-y-1" data-testid="vra-missing">
               <p className="text-nkz-sm font-semibold">{t('work.vra.missingTitle')}</p>
               <ul className="text-nkz-xs text-nkz-text-secondary">
@@ -163,7 +261,7 @@ export const StepVra: React.FC<Props> = ({ state, dispatch, sync }) => {
             </div>
           )}
 
-          {shown && zones.length > 0 && (
+          {!perZone && shown && zones.length > 0 && (
             <>
               <VraHistogram distribution={shown} classes={config.classes} label={t('work.vra.histogram')} />
 

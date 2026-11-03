@@ -293,7 +293,24 @@
       "calculating": "Calcul des doses…",
       "summaryOn": "{{n}} classes",
       "summaryOff": "Non appliquée",
-      "uploadPrompt": "Téléversez un fichier de zones pour continuer."
+      "uploadPrompt": "Téléversez un fichier de zones pour continuer.",
+      "zoning": "Zonage",
+      "zoningOption": "{{method}} · {{date}} ({{count}} zones)",
+      "zoningDefault": "{{label}} · par défaut",
+      "noDate": "sans date",
+      "colZone": "Zone",
+      "rateOfZone": "Dose de la zone {{label}}",
+      "zoneRatesHint": "Zonage manuel : indiquez une dose pour chaque zone.",
+      "methods": {
+        "manual": "Manuel",
+        "vegetationIndex": "Indice de végétation",
+        "terrain": "Relief",
+        "topographicWetness": "Humidité topographique",
+        "soilSurvey": "Analyse de sol",
+        "yieldMap": "Carte de rendement",
+        "other": "Autre méthode",
+        "none": "Automatique"
+      }
     },
     "warnings": {
       "UNREACHED_AREA": "Zone non couverte de {{ha}} ha",
@@ -340,7 +357,9 @@
       "PARCEL_READ_FAILED": "La parcelle n'a pas pu être lue. Réessayez.",
       "IMPLEMENT_WIDTH_MISSING": "Cette opération a été enregistrée sans largeur de travail et ne peut pas être exportée en ISOXML. Planifiez-la à nouveau.",
       "EXPORT_NOT_SUPPORTED": "Ce format d'exportation n'est pas disponible pour les transits.",
-      "GENERATE_TIMEOUT": "Le calcul de l'itinéraire prend trop de temps. Réessayez."
+      "GENERATE_TIMEOUT": "Le calcul de l'itinéraire prend trop de temps. Réessayez.",
+      "ZONING_NOT_FOUND": "Ce zonage n'existe plus sur cette parcelle.",
+      "ZONING_NOT_MANUAL": "Seuls les zonages manuels peuvent être supprimés."
     },
     "actions": {
       "regenerate": "Régénérer",
@@ -358,7 +377,8 @@
     "title": "Itinéraires SIG",
     "tabs": {
       "work": "Travail",
-      "transit": "Transit A-B"
+      "transit": "Transit A-B",
+      "zonings": "Zones manuelles"
     },
     "empty": "Sélectionnez une parcelle pour commencer",
     "regeneratedOnSave": "Plan régénéré avec la dose actuelle avant l'enregistrement",
@@ -509,5 +529,37 @@
     "saveFailed": "Le réglage n'a pas pu être enregistré",
     "loadFailed": "Le réglage n'a pas pu être chargé",
     "forbidden": "Seuls les administrateurs peuvent modifier ce réglage"
+  },
+  "zonings": {
+    "title": "Zonages manuels",
+    "intro": "Importez un fichier (KML, KMZ, GeoJSON, shapefile .zip ou ISOXML) ou dessinez les zones sur la carte. Ils ne remplacent pas le zonage automatique : ils ne sont utilisés que si vous les choisissez pour la modulation de dose.",
+    "noParcel": "Choisissez une parcelle dans l'onglet Travail.",
+    "upload": "Importer un fichier",
+    "draw": "Dessiner des zones",
+    "drawing": "Dessin en cours… cliquez pour terminer",
+    "drawnCount": "{{count}} zones dessinées",
+    "previewDrawn": "Vérifier les zones dessinées",
+    "clearDrawn": "Effacer le dessin",
+    "previewTitle": "Zones à enregistrer",
+    "colRank": "N°",
+    "colLabel": "Nom",
+    "colArea": "ha",
+    "labelOf": "Nom de la zone {{n}}",
+    "rejectedTitle": "Éléments écartés",
+    "rejectedItem": "Élément {{n}} : {{reason}}",
+    "reasons": {
+      "not_polygon": "pas un polygone",
+      "invalid_geometry": "géométrie non valide",
+      "outside_parcel": "hors de la parcelle"
+    },
+    "save": "Enregistrer le zonage",
+    "saving": "Enregistrement…",
+    "saved": "Zonage enregistré ({{count}} zones).",
+    "cancel": "Annuler",
+    "existingTitle": "Zonages manuels enregistrés",
+    "none": "Aucun zonage manuel pour l'instant.",
+    "delete": "Supprimer",
+    "deleteOf": "Supprimer le zonage {{label}}",
+    "loadError": "Impossible de charger les zonages."
   }
 }

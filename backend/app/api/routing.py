@@ -1250,6 +1250,17 @@ async def get_offline_tiles(request: Request, parcel_id: str = Query(..., descri
 # ── Zoning (AgriManagementZone via Orion-LD, generation via vegetation-prime proxy) ──
 
 
+def _zone_area_ha(z: dict) -> float:
+    """areaHa (vegetation) or area in m2 (manual zonings), else 0."""
+    ha = (z.get("areaHa") or {}).get("value")
+    if isinstance(ha, (int, float)) and not isinstance(ha, bool):
+        return ha
+    m2 = (z.get("area") or {}).get("value")
+    if isinstance(m2, (int, float)) and not isinstance(m2, bool):
+        return round(m2 / 10000.0, 4)
+    return 0
+
+
 @router.get("/zonings/{parcel_id}")
 async def list_parcel_zonings(parcel_id: str, auth: AuthContext = require_auth()):
     """Every zoning of the parcel, most recent first; ``is_default`` marks the VRA default."""
@@ -1271,10 +1282,13 @@ async def get_parcel_zones(request: Request, parcel_id: str,
                            auth: AuthContext = require_auth()):
     """Zones of one zoning of the parcel (default: the latest automatic zoning)."""
     from app.services.vra.zones import load_zone_entities
+    from nkz_platform_sdk.gis import group_zonings
     zones = await load_zone_entities(auth.tenant_id, parcel_id, zoning_run_id)
+    refs = {zr.id: zr for zg in group_zonings(zones) for zr in zg.zones}
 
     matched = []
     for z in zones:
+        ref = refs.get(z["id"])
         location = z.get("location", {}).get("value", {})
         matched.append({
             "id": z["id"],
@@ -1282,8 +1296,10 @@ async def get_parcel_zones(request: Request, parcel_id: str,
             "zone_class": z.get("zoneClass", {}).get("value", ""),
             "prescription_rate": z.get("prescriptionRate", {}).get("value", 1.0),
             "mean_value": z.get("meanValue", {}).get("value", 0),
-            "area_ha": z.get("areaHa", {}).get("value", 0),
+            "area_ha": _zone_area_ha(z),
             "geometry": location,
+            "label": ref.label if ref else None,
+            "rank": ref.rank if ref else None,
         })
     return {"success": True, "data": {"parcel_id": parcel_id, "zones": matched, "count": len(matched)}}
 

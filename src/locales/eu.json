@@ -293,7 +293,24 @@
       "calculating": "Dosiak kalkulatzen…",
       "summaryOn": "{{n}} klase",
       "summaryOff": "Aplikatu gabe",
-      "uploadPrompt": "Igo zonen fitxategi bat jarraitzeko."
+      "uploadPrompt": "Igo zonen fitxategi bat jarraitzeko.",
+      "zoning": "Zonifikazioa",
+      "zoningOption": "{{method}} · {{date}} ({{count}} zona)",
+      "zoningDefault": "{{label}} · lehenetsia",
+      "noDate": "datarik gabe",
+      "colZone": "Zona",
+      "rateOfZone": "{{label}} zonaren dosia",
+      "zoneRatesHint": "Eskuzko zonifikazioa: adierazi dosi bat zona bakoitzeko.",
+      "methods": {
+        "manual": "Eskuzkoa",
+        "vegetationIndex": "Landaredi-indizea",
+        "terrain": "Erliebea",
+        "topographicWetness": "Hezetasun topografikoa",
+        "soilSurvey": "Lur-analisia",
+        "yieldMap": "Uzta-mapa",
+        "other": "Beste metodo bat",
+        "none": "Automatikoa"
+      }
     },
     "warnings": {
       "UNREACHED_AREA": "{{ha}} ha-ko eremu estali gabea",
@@ -340,7 +357,9 @@
       "PARCEL_READ_FAILED": "Ezin izan da partzela irakurri. Saiatu berriro.",
       "IMPLEMENT_WIDTH_MISSING": "Eragiketa hau lan-zabalerarik gabe gorde zen eta ezin da ISOXMLra esportatu. Planifikatu berriro.",
       "EXPORT_NOT_SUPPORTED": "Esportazio-formatu hau ez dago erabilgarri igarobideetarako.",
-      "GENERATE_TIMEOUT": "Ibilbidea kalkulatzeak luze jotzen du. Saiatu berriro."
+      "GENERATE_TIMEOUT": "Ibilbidea kalkulatzeak luze jotzen du. Saiatu berriro.",
+      "ZONING_NOT_FOUND": "Zonifikazio hori ez dago jada partzela honetan.",
+      "ZONING_NOT_MANUAL": "Eskuzko zonifikazioak bakarrik ezaba daitezke."
     },
     "actions": {
       "regenerate": "Birsortu",
@@ -358,7 +377,8 @@
     "title": "GIS ibilbideak",
     "tabs": {
       "work": "Lana",
-      "transit": "A-B igarotzea"
+      "transit": "A-B igarotzea",
+      "zonings": "Eskuzko zonak"
     },
     "empty": "Hautatu lur-sail bat hasteko",
     "regeneratedOnSave": "Plana berriro sortu da uneko dosiarekin gorde aurretik",
@@ -509,5 +529,37 @@
     "saveFailed": "Ezin izan da ezarpena gorde",
     "loadFailed": "Ezin izan da ezarpena kargatu",
     "forbidden": "Administratzaileek bakarrik alda dezakete ezarpen hau"
+  },
+  "zonings": {
+    "title": "Eskuzko zonifikazioak",
+    "intro": "Igo fitxategi bat (KML, KMZ, GeoJSON, shapefile .zip edo ISOXML) edo marraztu zonak mapan. Ez dute zonifikazio automatikoa ordezkatzen: dosi aldakorrean aukeratzen badituzu bakarrik erabiltzen dira.",
+    "noParcel": "Aukeratu partzela bat Lana fitxan.",
+    "upload": "Igo fitxategia",
+    "draw": "Marraztu zonak",
+    "drawing": "Marrazten… sakatu amaitzeko",
+    "drawnCount": "{{count}} zona marraztuta",
+    "previewDrawn": "Berrikusi marraztutako zonak",
+    "clearDrawn": "Ezabatu marrazkia",
+    "previewTitle": "Gordetzeko zonak",
+    "colRank": "Zk.",
+    "colLabel": "Izena",
+    "colArea": "ha",
+    "labelOf": "{{n}}. zonaren izena",
+    "rejectedTitle": "Baztertutako elementuak",
+    "rejectedItem": "{{n}}. elementua: {{reason}}",
+    "reasons": {
+      "not_polygon": "ez da poligono bat",
+      "invalid_geometry": "geometria baliogabea",
+      "outside_parcel": "partzelatik kanpo"
+    },
+    "save": "Gorde zonifikazioa",
+    "saving": "Gordetzen…",
+    "saved": "Zonifikazioa gordeta ({{count}} zona).",
+    "cancel": "Baztertu",
+    "existingTitle": "Gordetako eskuzko zonifikazioak",
+    "none": "Oraindik ez dago eskuzko zonifikaziorik.",
+    "delete": "Ezabatu",
+    "deleteOf": "Ezabatu {{label}} zonifikazioa",
+    "loadError": "Ezin izan dira zonifikazioak kargatu."
   }
 }

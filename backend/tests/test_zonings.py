@@ -204,3 +204,18 @@ def test_generate_persists_zone_rates_config():
     assert r.status_code == 200, r.text
     cfg = FakeOrion.created[0]["vraConfig"]["value"]
     assert cfg["zoning_run_id"] == MANUAL and cfg["zone_rates"] == {T1: 120, T2: 80}
+
+
+def test_zones_route_returns_label_and_rank():
+    FakeOrion.entities = manual()
+    r = client.get(f"/api/routing/zones/{PARCEL}", params={"zoning_run_id": MANUAL})
+    zs = sorted(r.json()["data"]["zones"], key=lambda z: z["rank"])
+    assert [(z["id"], z["label"], z["rank"]) for z in zs] == [(T1, "T1", 1), (T2, "T2", 2)]
+
+
+def test_zones_route_area_ha_from_manual_area_m2():
+    FakeOrion.entities = manual()
+    FakeOrion.entities[0]["area"] = {"type": "Property", "value": 12345.0, "unitCode": "MTK"}
+    r = client.get(f"/api/routing/zones/{PARCEL}", params={"zoning_run_id": MANUAL})
+    by_id = {z["id"]: z for z in r.json()["data"]["zones"]}
+    assert by_id[T1]["area_ha"] == 1.2345

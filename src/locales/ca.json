@@ -293,7 +293,24 @@
       "calculating": "Calculant dosis…",
       "summaryOn": "{{n}} classes",
       "summaryOff": "Sense aplicar",
-      "uploadPrompt": "Puja un fitxer de zones per continuar."
+      "uploadPrompt": "Puja un fitxer de zones per continuar.",
+      "zoning": "Zonificació",
+      "zoningOption": "{{method}} · {{date}} ({{count}} zones)",
+      "zoningDefault": "{{label}} · per defecte",
+      "noDate": "sense data",
+      "colZone": "Zona",
+      "rateOfZone": "Dosi de la zona {{label}}",
+      "zoneRatesHint": "Zonificació manual: indica una dosi per a cada zona.",
+      "methods": {
+        "manual": "Manual",
+        "vegetationIndex": "Índex de vegetació",
+        "terrain": "Relleu",
+        "topographicWetness": "Humitat topogràfica",
+        "soilSurvey": "Anàlisi de sòl",
+        "yieldMap": "Mapa de collita",
+        "other": "Altre mètode",
+        "none": "Automàtica"
+      }
     },
     "warnings": {
       "UNREACHED_AREA": "Zona sense cobrir de {{ha}} ha",
@@ -340,7 +357,9 @@
       "PARCEL_READ_FAILED": "No s'ha pogut llegir la parcel·la. Torna-ho a provar.",
       "IMPLEMENT_WIDTH_MISSING": "Aquesta operació es va desar sense amplada de treball i no es pot exportar a ISOXML. Planifica-la de nou.",
       "EXPORT_NOT_SUPPORTED": "Aquest format d'exportació no està disponible per a trànsits.",
-      "GENERATE_TIMEOUT": "La ruta triga massa a calcular-se. Torna-ho a provar."
+      "GENERATE_TIMEOUT": "La ruta triga massa a calcular-se. Torna-ho a provar.",
+      "ZONING_NOT_FOUND": "Aquesta zonificació ja no existeix en aquesta parcel·la.",
+      "ZONING_NOT_MANUAL": "Només es poden esborrar zonificacions manuals."
     },
     "actions": {
       "regenerate": "Regenerar",
@@ -358,7 +377,8 @@
     "title": "Rutes GIS",
     "tabs": {
       "work": "Treball",
-      "transit": "Trànsit A-B"
+      "transit": "Trànsit A-B",
+      "zonings": "Zones manuals"
     },
     "empty": "Selecciona una parcel·la per començar",
     "regeneratedOnSave": "Pla regenerat amb la dosi actual abans de desar",
@@ -509,5 +529,37 @@
     "saveFailed": "No s'ha pogut desar l'ajust",
     "loadFailed": "No s'ha pogut carregar l'ajust",
     "forbidden": "Només els administradors poden canviar aquest ajust"
+  },
+  "zonings": {
+    "title": "Zonificacions manuals",
+    "intro": "Puja un fitxer (KML, KMZ, GeoJSON, shapefile .zip o ISOXML) o dibuixa les zones al mapa. No substitueixen la zonificació automàtica: només s'usen si les tries a la dosi variable.",
+    "noParcel": "Tria una parcel·la a la pestanya Treball.",
+    "upload": "Puja un fitxer",
+    "draw": "Dibuixa zones",
+    "drawing": "Dibuixant… prem per acabar",
+    "drawnCount": "{{count}} zones dibuixades",
+    "previewDrawn": "Revisa les zones dibuixades",
+    "clearDrawn": "Esborra el dibuix",
+    "previewTitle": "Zones per desar",
+    "colRank": "Núm.",
+    "colLabel": "Nom",
+    "colArea": "ha",
+    "labelOf": "Nom de la zona {{n}}",
+    "rejectedTitle": "Elements descartats",
+    "rejectedItem": "Element {{n}}: {{reason}}",
+    "reasons": {
+      "not_polygon": "no és un polígon",
+      "invalid_geometry": "geometria no vàlida",
+      "outside_parcel": "fora de la parcel·la"
+    },
+    "save": "Desa la zonificació",
+    "saving": "Desant…",
+    "saved": "Zonificació desada ({{count}} zones).",
+    "cancel": "Descarta",
+    "existingTitle": "Zonificacions manuals desades",
+    "none": "Encara no hi ha zonificacions manuals.",
+    "delete": "Esborra",
+    "deleteOf": "Esborra la zonificació {{label}}",
+    "loadError": "No s'han pogut carregar les zonificacions."
   }
 }
