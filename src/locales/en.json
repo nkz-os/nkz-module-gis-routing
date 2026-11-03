@@ -310,7 +310,9 @@
         "yieldMap": "Yield map",
         "other": "Other method",
         "none": "Automatic"
-      }
+      },
+      "restOfParcel": "Rest of the parcel",
+      "rateOfRest": "Rate for the rest of the parcel"
     },
     "warnings": {
       "UNREACHED_AREA": "Uncovered area of {{ha}} ha",
@@ -550,7 +552,8 @@
     "reasons": {
       "not_polygon": "not a polygon",
       "invalid_geometry": "invalid geometry",
-      "outside_parcel": "outside the parcel"
+      "outside_parcel": "outside the parcel",
+      "not_wgs84": "coordinates are not WGS84 degrees"
     },
     "save": "Save zoning",
     "saving": "Saving…",
@@ -560,6 +563,7 @@
     "none": "No manual zonings yet.",
     "delete": "Delete",
     "deleteOf": "Delete zoning {{label}}",
-    "loadError": "Zonings could not be loaded."
+    "loadError": "Zonings could not be loaded.",
+    "rejectedNamed": "{{name}}: {{reason}}"
   }
 }

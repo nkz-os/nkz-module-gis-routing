@@ -72,6 +72,8 @@ export interface VraConfig {
   zoningRunId?: string | null;
   /** Per-zone rates (zone id -> rate); set for zonings without values, e.g. manual. */
   zoneRates?: Record<string, number | null>;
+  /** Per-zone mode: rate for the part of the parcel outside every zone (required there, may be 0). */
+  restRate?: number | null;
 }
 
 // Backend shapes (snake_case, as returned).
@@ -86,6 +88,7 @@ export interface VraRequest {
   external_features?: FeatureCollection;
   zoning_run_id?: string;
   zone_rates?: Record<string, number>;
+  rest_rate?: number;
 }
 
 /** One zoning of a parcel (several coexist: NDVI clustering, manual treatment zones, ...). */
@@ -104,7 +107,8 @@ export type ManualZoningFormat = 'kml' | 'kmz' | 'geojson' | 'shapefile' | 'isox
 export interface ManualZonePreview { rank: number; label: string; geometry: Geometry; area_m2: number }
 export interface ManualZoningPreview {
   zones: ManualZonePreview[];
-  rejected: { index: number; reason: string }[];
+  /** index = position among the features read; null (with name) = left out by the file reader. */
+  rejected: { index: number | null; name?: string; reason: string }[];
   warnings: string[];
 }
 
@@ -127,7 +131,8 @@ export interface Distribution {
 export interface PrescriptionClass {
   /** null for per-zone rates (one row per zone, with zone_id and label). */
   index: number; min_pct: number | null; max_pct: number | null; rate: number; area_ha: number; product_total: number;
-  zone_id?: string; label?: string;
+  /** Per-zone rates: zone_id null + rest true = the rest of the parcel. */
+  zone_id?: string | null; label?: string; rest?: boolean;
 }
 export interface Prescription {
   unit: 'kg_ha' | 'l_ha';

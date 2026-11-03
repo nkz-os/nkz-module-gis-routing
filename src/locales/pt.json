@@ -310,7 +310,9 @@
         "yieldMap": "Mapa de produtividade",
         "other": "Outro método",
         "none": "Automático"
-      }
+      },
+      "restOfParcel": "Resto da parcela",
+      "rateOfRest": "Dose do resto da parcela"
     },
     "warnings": {
       "UNREACHED_AREA": "Zona não coberta de {{ha}} ha",
@@ -550,7 +552,8 @@
     "reasons": {
       "not_polygon": "não é um polígono",
       "invalid_geometry": "geometria inválida",
-      "outside_parcel": "fora da parcela"
+      "outside_parcel": "fora da parcela",
+      "not_wgs84": "coordenadas que não são graus WGS84"
     },
     "save": "Guardar zonamento",
     "saving": "A guardar…",
@@ -560,6 +563,7 @@
     "none": "Ainda não há zonamentos manuais.",
     "delete": "Eliminar",
     "deleteOf": "Eliminar o zonamento {{label}}",
-    "loadError": "Não foi possível carregar os zonamentos."
+    "loadError": "Não foi possível carregar os zonamentos.",
+    "rejectedNamed": "{{name}}: {{reason}}"
   }
 }

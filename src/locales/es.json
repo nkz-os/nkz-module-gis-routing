@@ -310,7 +310,9 @@
         "yieldMap": "Mapa de cosecha",
         "other": "Otro método",
         "none": "Automática"
-      }
+      },
+      "restOfParcel": "Resto de la parcela",
+      "rateOfRest": "Dosis del resto de la parcela"
     },
     "warnings": {
       "UNREACHED_AREA": "Zona sin cubrir de {{ha}} ha",
@@ -550,7 +552,8 @@
     "reasons": {
       "not_polygon": "no es un polígono",
       "invalid_geometry": "geometría no válida",
-      "outside_parcel": "fuera de la parcela"
+      "outside_parcel": "fuera de la parcela",
+      "not_wgs84": "coordenadas que no son grados WGS84"
     },
     "save": "Guardar zonificación",
     "saving": "Guardando…",
@@ -560,6 +563,7 @@
     "none": "Todavía no hay zonificaciones manuales.",
     "delete": "Borrar",
     "deleteOf": "Borrar la zonificación {{label}}",
-    "loadError": "No se pudieron cargar las zonificaciones."
+    "loadError": "No se pudieron cargar las zonificaciones.",
+    "rejectedNamed": "{{name}}: {{reason}}"
   }
 }

@@ -172,10 +172,12 @@ export function toVraRequest(c: VraConfig): VraRequest | null {
     ...(c.source === 'external' && c.externalFeatures ? { external_features: c.externalFeatures } : {}),
     ...(c.source === 'orion' && c.zoningRunId ? { zoning_run_id: c.zoningRunId } : {}),
   };
-  if (c.zoneRates) {
+  // Per-zone rates exist only for a zoning of the parcel, never for an uploaded file.
+  if (c.source === 'orion' && c.zoneRates) {
     const entries = Object.entries(c.zoneRates);
-    if (entries.length === 0 || !entries.every(([, r]) => isRate(r))) return null;
-    return { ...base, classes: [], zone_rates: Object.fromEntries(entries) as Record<string, number> };
+    if (entries.length === 0 || !entries.every(([, r]) => isRate(r)) || !isRate(c.restRate)) return null;
+    return { ...base, classes: [], zone_rates: Object.fromEntries(entries) as Record<string, number>,
+      rest_rate: c.restRate };
   }
   const ok = c.classes.length > 0 && c.classes.every((k) => isRate(k.rate));
   if (!ok) return null;
@@ -242,7 +244,9 @@ export function workReducer(state: WorkState, event: WorkEvent): WorkState {
       return afterEdit(state, { ...state, pattern: { ...state.pattern, ...event.pattern } });
     case 'VRA_CONFIG_CHANGED': {
       // Deliberately not an "edit": changing the VRA config never marks the route stale.
-      const config = { ...state.vra.config, ...event.config };
+      let config = { ...state.vra.config, ...event.config };
+      // Another source: the parcel zoning (and its per-zone rates) no longer applies.
+      if (config.source !== state.vra.config.source) config = { ...config, zoningRunId: null, zoneRates: undefined };
       const status = state.vra.status === 'error' ? 'idle' : state.vra.status;
       const sameCount = config.classes.length === state.vra.config.classes.length;
       // Another zoning (or leaving/entering per-zone rates) makes the shown prescription another plan's.

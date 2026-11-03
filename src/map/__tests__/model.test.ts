@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildSources, changedSources, layerSpecs, planBounds, SOURCE_IDS, VRA_PALETTE, vraClassColors, VRA_UNCOVERED_COLOR } from '../model';
+import { buildSources, changedSources, layerSpecs, planBounds, SOURCE_IDS, VRA_PALETTE, vraClassColors, vraRateColors, VRA_UNCOVERED_COLOR } from '../model';
 const sq = (x0: number, y0: number, x1: number, y1: number, holes: number[][][] = []) => ({ type: 'Polygon', coordinates: [[[x0, y0], [x1, y0], [x1, y1], [x0, y1], [x0, y0]], ...holes] }) as any;
 const base = { parcel: sq(0, 0, 10, 10, [[[4, 4], [6, 4], [6, 6], [4, 6], [4, 4]]]), zones: [{ id: 'z', polygon: sq(1, 1, 2, 2), areaHa: 1, valid: true }], marginM: 2, accessPoint: { type: 'Point', coordinates: [0, 5] } as any, accessIssue: null, plan: null, stale: false, hoveredSwath: null, selectedWarning: null };
 describe('map model', () => {
@@ -172,4 +172,33 @@ describe('changedSources', () => {
       expect(l.paint['text-halo-width']).toBeGreaterThanOrEqual(2.5);
     });
   });
+
+  describe('per-zone rates', () => {
+    const rates = [10, 40, 10, 25, 60, 5, 40];
+    const presc: any = {
+      unit: 'kg_ha', product: 'N', warnings: [],
+      classes: rates.map((rate, i) => ({ index: i, zone_id: `z${i}`, label: `T${i}`, rate })),
+      zones: { type: 'FeatureCollection', features: rates.map((rate, i) => (
+        { type: 'Feature', geometry: sq(i, 0, i + 1, 1), properties: { class_index: i, rate, zone_id: `z${i}` } })) },
+      swath_segments: { type: 'FeatureCollection', features: [] },
+    };
+
+    it('vraRateColors orders the ramp by rate and gives equal rates one colour', () => {
+      const c = vraRateColors(rates);
+      expect(c[5]).toBe(VRA_PALETTE[0]);           // lowest rate
+      expect(c[4]).toBe(VRA_PALETTE[4]);           // highest rate
+      expect(c[0]).toBe(c[2]);                     // 10 and 10
+      expect(c[1]).toBe(c[6]);                     // 40 and 40
+      expect(vraRateColors([7])).toEqual([VRA_PALETTE[0]]);
+    });
+
+    it('more than five zones are never drawn in the uncovered grey', () => {
+      const fills = buildSources({ ...base, vra: presc })['vra-classes'].features
+        .filter((f) => f.properties?.part === 'fill').map((f) => f.properties?.color);
+      expect(fills).toHaveLength(7);
+      expect(fills).not.toContain(VRA_UNCOVERED_COLOR);
+      expect(fills).toEqual(vraRateColors(rates));
+    });
+  });
 });
+

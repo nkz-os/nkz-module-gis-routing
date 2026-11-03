@@ -202,6 +202,26 @@ export const StepVra: React.FC<Props> = ({ state, dispatch, sync }) => {
                     );
                   })}
                 </tbody>
+                {(() => {
+                  const pc = prescription?.classes.find((c) => c.rest);
+                  return (
+                    <tbody>
+                      <tr data-testid="vra-rest-row">
+                        <td>{t('work.vra.restOfParcel')}</td>
+                        <td className="tabular-nums">{pc ? nf2.format(pc.area_ha) : '–'}</td>
+                        <td>
+                          <RateInput
+                            value={config.restRate ?? null}
+                            disabled={locked}
+                            label={t('work.vra.rateOfRest')}
+                            onChange={(restRate) => change({ restRate })}
+                          />
+                        </td>
+                        <td className="tabular-nums">{pc ? `${nf1.format(pc.product_total)} ${massUnit}` : '–'}</td>
+                      </tr>
+                    </tbody>
+                  );
+                })()}
                 {prescription && (
                   <tfoot>
                     <tr className="font-semibold" data-testid="vra-zone-total">

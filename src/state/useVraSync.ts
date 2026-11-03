@@ -82,6 +82,13 @@ export function useVraSync(state: WorkState, dispatch: React.Dispatch<WorkEvent>
 
   // Zonings of the parcel, for the selector (a failure leaves the default zoning in use).
   const [zoningsTick, setZoningsTick] = useState(0);
+  // The chosen zoning was deleted (e.g. in the manual zones tab): back to the default, fresh list.
+  const zoningGone = (e: unknown) => e instanceof ApiError && e.code === 'ZONING_NOT_FOUND';
+  const backToDefault = useCallback(() => {
+    setRateZones([]);
+    dispatch({ type: 'VRA_CONFIG_CHANGED', config: { zoningRunId: null, zoneRates: undefined } });
+    setZoningsTick((n) => n + 1);
+  }, [dispatch]);
   useEffect(() => {
     if (!stepActive || !parcelId || source !== 'orion') return undefined;
     let cancelled = false;
@@ -100,9 +107,12 @@ export function useVraSync(state: WorkState, dispatch: React.Dispatch<WorkEvent>
         if (!cancelled) dispatch({ type: 'VRA_DISTRIBUTION_LOADED', parcelRequestId, distribution });
       })
       .catch((e) => {
-        if (!cancelled) dispatch({ type: 'VRA_FAILED', parcelRequestId, error: vraError(e) });
+        if (cancelled) return;
+        if (zoningGone(e)) { backToDefault(); return; }
+        dispatch({ type: 'VRA_FAILED', parcelRequestId, error: vraError(e) });
       });
     return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [stepActive, parcelId, parcelRequestId, source, zoningRunId, retryTick, dispatch]);
 
   const generateZones = useCallback(() => {
@@ -186,6 +196,7 @@ export function useVraSync(state: WorkState, dispatch: React.Dispatch<WorkEvent>
         setRateZones(zones);
         dispatch({ type: 'VRA_CONFIG_CHANGED', config: {
           zoningRunId: runId, zoneRates: Object.fromEntries(zones.map((zz) => [zz.id, prev[zz.id] ?? null])),
+          restRate: stateRef.current.vra.config.restRate ?? null,
         } });
       })
       .catch((e) => dispatch({ type: 'VRA_FAILED', parcelRequestId: prId, error: vraError(e) }));
@@ -240,9 +251,10 @@ export function useVraSync(state: WorkState, dispatch: React.Dispatch<WorkEvent>
         .then((r) => dispatch({
           type: 'VRA_PRESCRIPTION_RESULT', parcelRequestId: cur.parcelRequestId, requestId, prescription: r.prescription,
         }))
-        .catch((e) => dispatch({
-          type: 'VRA_FAILED', parcelRequestId: cur.parcelRequestId, requestId, error: vraError(e),
-        }));
+        .catch((e) => {
+          if (zoningGone(e)) { backToDefault(); return; }
+          dispatch({ type: 'VRA_FAILED', parcelRequestId: cur.parcelRequestId, requestId, error: vraError(e) });
+        });
     }, VRA_DEBOUNCE_MS);
     return () => clearTimeout(handle);
     // eslint-disable-next-line react-hooks/exhaustive-deps

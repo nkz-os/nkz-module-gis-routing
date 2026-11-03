@@ -31,7 +31,7 @@ vi.mock('../../../services/api', async (importOriginal) => {
     },
   };
 });
-import { api } from '../../../services/api';
+import { api, ApiError } from '../../../services/api';
 
 const poly = (x = 0, s = 0.001): GeoJSON.Polygon => ({
   type: 'Polygon', coordinates: [[[x, 0], [x + s, 0], [x + s, s], [x, s], [x, 0]]],
@@ -55,6 +55,7 @@ const zonePresc = () => ({
   classes: [
     { index: 0, zone_id: T1, label: 'T1', min_pct: null, max_pct: null, rate: 120, area_ha: 1.5, product_total: 180 },
     { index: 1, zone_id: T2, label: 'T2', min_pct: null, max_pct: null, rate: 80, area_ha: 2, product_total: 160 },
+    { index: 2, zone_id: null, rest: true, label: 'Rest of parcel', min_pct: null, max_pct: null, rate: 30, area_ha: 1, product_total: 30 },
   ],
   zones: { type: 'FeatureCollection' as const, features: [] },
   swath_segments: { type: 'FeatureCollection' as const, features: [] },
@@ -138,12 +139,17 @@ describe('zoning selector', () => {
     fireEvent.change(screen.getByLabelText('Dosis de la zona T1'), { target: { value: '120' } });
     fireEvent.change(screen.getByLabelText('Dosis de la zona T2'), { target: { value: '80' } });
     await flush(500);
+    expect(api.prescription).not.toHaveBeenCalled(); // the rest of the parcel has no rate yet
+    fireEvent.change(screen.getByLabelText('Dosis del resto de la parcela'), { target: { value: '30' } });
+    await flush(500);
     const vra = (api.prescription as any).mock.calls.at(-1)[0].vra;
     expect(vra.zoning_run_id).toBe(MANUAL);
     expect(vra.zone_rates).toEqual({ [T1]: 120, [T2]: 80 });
     expect(vra.classes).toEqual([]);
+    expect(vra.rest_rate).toBe(30);
     await flush(0);
-    expect(screen.getByTestId('vra-zone-total').textContent).toContain('340');
+    expect(screen.getByTestId('vra-zone-total').textContent).toContain('370');
+    expect(screen.getByTestId('vra-rest-row').textContent).toContain('30');
   });
 
   it('back to the default zoning leaves per-zone mode', async () => {
@@ -160,16 +166,51 @@ describe('zoning selector', () => {
 
 describe('toVraRequest with per-zone rates', () => {
   const cfg = (zoneRates: Record<string, number | null>) => ({
-    ...initialWorkState.vra.config, enabled: true, zoningRunId: MANUAL, zoneRates,
+    ...initialWorkState.vra.config, enabled: true, zoningRunId: MANUAL, zoneRates, restRate: 0,
   });
   it('is null until every zone has a rate', () => {
     expect(toVraRequest(cfg({ [T1]: 1, [T2]: null }))).toBeNull();
     expect(toVraRequest(cfg({}))).toBeNull();
+  });
+  it('needs the rest-of-parcel rate', () => {
+    expect(toVraRequest({ ...cfg({ [T1]: 1 }), restRate: null })).toBeNull();
+  });
+  it('never sends zone rates with the external source', () => {
+    const fc = { type: 'FeatureCollection' as const, features: [] };
+    const r = toVraRequest({ ...cfg({ [T1]: 1 }), source: 'external', externalFeatures: fc,
+      classes: [{ minPct: 0, maxPct: 100, rate: 5 }] })!;
+    expect(r.zone_rates).toBeUndefined();
+    expect(r.zoning_run_id).toBeUndefined();
+    expect(r.classes).toHaveLength(1);
   });
   it('carries zone_rates and no classes when complete', () => {
     const r = toVraRequest(cfg({ [T1]: 1, [T2]: 0 }))!;
     expect(r.zone_rates).toEqual({ [T1]: 1, [T2]: 0 });
     expect(r.classes).toEqual([]);
     expect(r.zoning_run_id).toBe(MANUAL);
+  });
+});
+
+describe('zoning selector edge cases', () => {
+  it('switching to the external source leaves per-zone mode', async () => {
+    await mount(baseState());
+    fireEvent.change(selector(), { target: { value: MANUAL } });
+    await flush(0);
+    fireEvent.change(screen.getByDisplayValue('Zonas de manejo de la parcela'), { target: { value: 'external' } });
+    await flush(0);
+    expect(latest.vra.config.zoneRates).toBeUndefined();
+    expect(latest.vra.config.zoningRunId).toBeNull();
+    expect(screen.queryByTestId('vra-zone-rates')).toBeNull();
+  });
+
+  it('a zoning that no longer exists falls back to the default and refreshes the list', async () => {
+    await mount(baseState());
+    (api.getDistribution as any).mockRejectedValueOnce(
+      new ApiError(404, { code: 'ZONING_NOT_FOUND', detail: 'gone', params: {} }));
+    fireEvent.change(selector(), { target: { value: 'veg-old' } });
+    await flush(0);
+    await flush(0);
+    expect(latest.vra.config.zoningRunId).toBeNull();
+    expect(api.listZonings).toHaveBeenCalledTimes(2);
   });
 });

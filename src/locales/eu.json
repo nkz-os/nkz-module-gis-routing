@@ -310,7 +310,9 @@
         "yieldMap": "Uzta-mapa",
         "other": "Beste metodo bat",
         "none": "Automatikoa"
-      }
+      },
+      "restOfParcel": "Partzelaren gainerakoa",
+      "rateOfRest": "Partzelaren gainerakoaren dosia"
     },
     "warnings": {
       "UNREACHED_AREA": "{{ha}} ha-ko eremu estali gabea",
@@ -550,7 +552,8 @@
     "reasons": {
       "not_polygon": "ez da poligono bat",
       "invalid_geometry": "geometria baliogabea",
-      "outside_parcel": "partzelatik kanpo"
+      "outside_parcel": "partzelatik kanpo",
+      "not_wgs84": "koordenatuak ez dira WGS84 graduak"
     },
     "save": "Gorde zonifikazioa",
     "saving": "Gordetzen…",
@@ -560,6 +563,7 @@
     "none": "Oraindik ez dago eskuzko zonifikaziorik.",
     "delete": "Ezabatu",
     "deleteOf": "Ezabatu {{label}} zonifikazioa",
-    "loadError": "Ezin izan dira zonifikazioak kargatu."
+    "loadError": "Ezin izan dira zonifikazioak kargatu.",
+    "rejectedNamed": "{{name}}: {{reason}}"
   }
 }

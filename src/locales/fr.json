@@ -310,7 +310,9 @@
         "yieldMap": "Carte de rendement",
         "other": "Autre méthode",
         "none": "Automatique"
-      }
+      },
+      "restOfParcel": "Reste de la parcelle",
+      "rateOfRest": "Dose pour le reste de la parcelle"
     },
     "warnings": {
       "UNREACHED_AREA": "Zone non couverte de {{ha}} ha",
@@ -550,7 +552,8 @@
     "reasons": {
       "not_polygon": "pas un polygone",
       "invalid_geometry": "géométrie non valide",
-      "outside_parcel": "hors de la parcelle"
+      "outside_parcel": "hors de la parcelle",
+      "not_wgs84": "coordonnées hors degrés WGS84"
     },
     "save": "Enregistrer le zonage",
     "saving": "Enregistrement…",
@@ -560,6 +563,7 @@
     "none": "Aucun zonage manuel pour l'instant.",
     "delete": "Supprimer",
     "deleteOf": "Supprimer le zonage {{label}}",
-    "loadError": "Impossible de charger les zonages."
+    "loadError": "Impossible de charger les zonages.",
+    "rejectedNamed": "{{name}} : {{reason}}"
   }
 }

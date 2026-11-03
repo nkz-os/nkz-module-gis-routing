@@ -310,7 +310,9 @@
         "yieldMap": "Mapa de collita",
         "other": "Altre mètode",
         "none": "Automàtica"
-      }
+      },
+      "restOfParcel": "Resta de la parcel·la",
+      "rateOfRest": "Dosi de la resta de la parcel·la"
     },
     "warnings": {
       "UNREACHED_AREA": "Zona sense cobrir de {{ha}} ha",
@@ -550,7 +552,8 @@
     "reasons": {
       "not_polygon": "no és un polígon",
       "invalid_geometry": "geometria no vàlida",
-      "outside_parcel": "fora de la parcel·la"
+      "outside_parcel": "fora de la parcel·la",
+      "not_wgs84": "coordenades que no són graus WGS84"
     },
     "save": "Desa la zonificació",
     "saving": "Desant…",
@@ -560,6 +563,7 @@
     "none": "Encara no hi ha zonificacions manuals.",
     "delete": "Esborra",
     "deleteOf": "Esborra la zonificació {{label}}",
-    "loadError": "No s'han pogut carregar les zonificacions."
+    "loadError": "No s'han pogut carregar les zonificacions.",
+    "rejectedNamed": "{{name}}: {{reason}}"
   }
 }

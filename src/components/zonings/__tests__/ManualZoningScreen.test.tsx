@@ -140,3 +140,27 @@ describe('ManualZoningScreen', () => {
     expect(api.deleteZoning).not.toHaveBeenCalled();
   });
 });
+
+describe('ManualZoningScreen drawing after a review', () => {
+  it('a new drawing discards the review, so nothing drawn is lost on save', async () => {
+    render(<ManualZoningScreen parcelId="p1" parcelGeometry={PARCEL} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Dibujar zonas' }));
+    act(() => { map().onZoneDrawn(poly(0)); });
+    fireEvent.click(screen.getByRole('button', { name: 'Revisar zonas dibujadas' }));
+    expect(await screen.findAllByTestId('zoning-preview-row')).toHaveLength(2);
+    fireEvent.click(screen.getByRole('button', { name: 'Dibujar zonas' }));
+    act(() => { map().onZoneDrawn(poly(2)); });
+    expect(screen.queryAllByTestId('zoning-preview-row')).toHaveLength(0);
+    expect(screen.queryByRole('button', { name: 'Guardar zonificación' })).toBeNull();
+    expect(screen.getByText('2 zonas dibujadas')).toBeTruthy();
+  });
+
+  it('rejected items left out by the reader are shown by name', async () => {
+    (api.previewManualZoning as any).mockResolvedValue({
+      zones: [], rejected: [{ index: null, name: 'fence', reason: 'not_polygon' }], warnings: [],
+    });
+    render(<ManualZoningScreen parcelId="p1" parcelGeometry={PARCEL} />);
+    upload('zonas.kml', '<kml/>');
+    expect((await screen.findByTestId('zoning-rejected')).textContent).toContain('fence: no es un polígono');
+  });
+});

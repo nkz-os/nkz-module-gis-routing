@@ -147,8 +147,11 @@ def plan_feature_collection(entity: dict, parcel_geometry: dict | None = None,
             unit = prescription.get("unit")
             for z in (prescription.get("zones") or {}).get("features") or []:
                 p = z.get("properties") or {}
+                # Per-zone rates carry the zone (None = rest of the parcel) and its name.
+                extra = {k: p.get(k) for k in ("zone_id", "label") if k in p}
                 features.append(_feat("prescription_zone", z.get("geometry"),
-                                      class_index=p.get("class_index"), rate=p.get("rate"), unit=unit))
+                                      class_index=p.get("class_index"), rate=p.get("rate"), unit=unit,
+                                      **extra))
         partial = _attr_value(entity, "planVersion") is None or not swaths or parcel_unavailable
     properties = {"plan_version": PLAN_VERSION, "operation_id": entity.get("id"),
                   "operation_type": op_type, "partial": partial}

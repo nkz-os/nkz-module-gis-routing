@@ -73,6 +73,14 @@ export const ManualZoningScreen: React.FC<Props> = ({ parcelId, parcelGeometry }
   const [error, setError] = useState<ErrorState>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const zoneSeq = useRef(0);
+  const sourceRef = useRef(source);
+  sourceRef.current = source;
+
+  // A drawing changed after "Review": that review no longer matches the map, so it is dropped
+  // (saving it would silently lose what was drawn afterwards).
+  useEffect(() => {
+    if (sourceRef.current?.format === 'drawn') { setPreview(null); setSource(null); }
+  }, [drawn]);
 
   // Another parcel: nothing of the previous one may be saved on it.
   useEffect(() => {
@@ -278,17 +286,23 @@ export const ManualZoningScreen: React.FC<Props> = ({ parcelId, parcelGeometry }
                 <p className="text-nkz-sm font-semibold">{t('zonings.rejectedTitle')}</p>
                 <ul className="text-nkz-xs text-nkz-text-secondary">
                   {preview.rejected.map((r) => (
-                    <li key={r.index}>
-                      {t('zonings.rejectedItem', {
-                        n: r.index + 1, reason: t(`zonings.reasons.${r.reason}`, { defaultValue: r.reason }),
-                      })}
+                    <li key={`${r.index ?? 'x'}-${r.name ?? ''}`}>
+                      {r.index === null
+                        ? t('zonings.rejectedNamed', {
+                          name: r.name ?? '', reason: t(`zonings.reasons.${r.reason}`, { defaultValue: r.reason }),
+                        })
+                        : t('zonings.rejectedItem', {
+                          n: r.index + 1, reason: t(`zonings.reasons.${r.reason}`, { defaultValue: r.reason }),
+                        })}
                     </li>
                   ))}
                 </ul>
               </div>
             )}
             {preview.warnings.map((w) => (
-              <p key={w} className="text-nkz-xs text-nkz-text-secondary">{t(`work.warnings.${w}`, { defaultValue: w })}</p>
+              <p key={w} className="text-nkz-xs text-nkz-text-secondary">
+                {/^[A-Z_]+$/.test(w) ? t(`work.warnings.${w}`, { defaultValue: w }) : w}
+              </p>
             ))}
             <div className="flex gap-2">
               <Button size="sm" disabled={busy || preview.zones.length === 0} onClick={() => { void save(); }}>
