@@ -164,3 +164,41 @@ def test_delete_automatic_zoning_is_refused():
 def test_delete_unknown_zoning_is_404():
     r = client.delete(f"/api/routing/zonings/{PARCEL}/manual-nope")
     assert r.status_code == 404 and r.json()["code"] == "ZONING_NOT_FOUND"
+
+
+def test_preview_clips_polygons_to_the_parcel():
+    half_out = _pm_poly("edge", box(-50, 0, 100, 100))
+    huge = _pm_poly("huge", box(-10000, -10000, 10000, 10000))
+    away = _pm_poly("away", box(5000, 5000, 5100, 5100))
+    b = preview("kml", _b64(_kml(half_out, huge, away))).json()
+    areas = {z["label"]: z["area_m2"] for z in b["zones"]}
+    assert 9000 < areas["edge"] < 11000      # only the part inside the parcel
+    assert 19000 < areas["huge"] < 21000     # the whole 2 ha parcel, not 400 km2
+    assert [(x["index"], x["reason"]) for x in b["rejected"]] == [(2, "outside_parcel")]
+
+
+def test_saved_geometry_is_the_clipped_one():
+    save("kml", _b64(_kml(_pm_poly("edge", box(-50, 0, 100, 100)))))
+    from shapely.geometry import shape
+    from tests.fixtures_parcels import RECT
+    g = shape(FakeOrion.created[0]["location"]["value"])
+    assert g.within(wgs84(RECT).buffer(1e-9))
+    assert 9000 < FakeOrion.created[0]["area"]["value"] < 11000
+
+
+def test_kml_lines_are_listed_as_rejected_with_their_name():
+    line = ("<Placemark><name>fence</name><LineString><coordinates>0,0 1,1</coordinates>"
+            "</LineString></Placemark>")
+    b = preview("kml", _b64(_kml(line, _pm_poly("in", box(0, 0, 100, 100))))).json()
+    assert [z["label"] for z in b["zones"]] == ["in"]
+    assert {"index": None, "name": "fence", "reason": "not_polygon"} in b["rejected"]
+    assert b["warnings"] == []
+
+
+def test_non_wgs84_feature_is_rejected_with_reason():
+    fc = {"type": "FeatureCollection", "features": [
+        {"type": "Feature", "properties": {"name": "utm"},
+         "geometry": {"type": "Polygon", "coordinates": [[[600000, 4700000], [600100, 4700000],
+                                                          [600100, 4700100], [600000, 4700000]]]}}]}
+    b = preview("geojson", _b64(json.dumps(fc).encode())).json()
+    assert b["zones"] == [] and b["rejected"] == [{"index": None, "name": "utm", "reason": "not_wgs84"}]

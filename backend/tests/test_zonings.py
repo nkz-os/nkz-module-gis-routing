@@ -152,7 +152,7 @@ def test_prescription_uses_vra_zoning_run_id():
 
 def test_zone_rates_prescribe_each_manual_zone():
     FakeOrion.entities = veg() + manual()
-    r = _rx(_vra(classes=[], zoning_run_id=MANUAL, zone_rates={T1: 120, T2: 80}))
+    r = _rx(_vra(classes=[], zoning_run_id=MANUAL, zone_rates={T1: 120, T2: 80}, rest_rate=0))
     assert r.status_code == 200, r.text
     p = r.json()["prescription"]
     rows = [(c["index"], c["zone_id"], c["label"], c["rate"]) for c in p["classes"]]
@@ -167,7 +167,7 @@ def test_zone_rates_prescribe_each_manual_zone():
 
 def test_zone_rates_missing_zone_is_422():
     FakeOrion.entities = manual()
-    r = _rx(_vra(classes=[], zoning_run_id=MANUAL, zone_rates={T1: 120}))
+    r = _rx(_vra(classes=[], zoning_run_id=MANUAL, zone_rates={T1: 120}, rest_rate=0))
     assert r.status_code == 422 and r.json()["code"] == "INVALID_VRA"
     assert r.json()["params"]["missing"] == [T2]
 
@@ -175,19 +175,19 @@ def test_zone_rates_missing_zone_is_422():
 def test_zone_rates_unknown_zone_is_422():
     FakeOrion.entities = manual()
     r = _rx(_vra(classes=[], zoning_run_id=MANUAL,
-                 zone_rates={T1: 120, T2: 80, "urn:ngsi-ld:AgriManagementZone:x": 1}))
+                 zone_rates={T1: 120, T2: 80, "urn:ngsi-ld:AgriManagementZone:x": 1}, rest_rate=0))
     assert r.status_code == 422 and r.json()["code"] == "INVALID_VRA"
     assert r.json()["params"]["unknown"] == ["urn:ngsi-ld:AgriManagementZone:x"]
 
 
 def test_zone_rates_negative_is_422():
     FakeOrion.entities = manual()
-    r = _rx(_vra(classes=[], zoning_run_id=MANUAL, zone_rates={T1: -1, T2: 80}))
+    r = _rx(_vra(classes=[], zoning_run_id=MANUAL, zone_rates={T1: -1, T2: 80}, rest_rate=0))
     assert r.status_code == 422
 
 
 def test_zone_rates_with_external_source_is_422():
-    r = _rx(_vra(source="external", classes=[], zone_rates={"a": 1},
+    r = _rx(_vra(source="external", classes=[], zone_rates={"a": 1}, rest_rate=0,
                  external_features={"type": "FeatureCollection", "features": []}))
     assert r.status_code == 422 and r.json()["code"] == "INVALID_VRA"
 
@@ -200,10 +200,11 @@ def test_manual_zoning_without_rates_is_422_no_value():
 
 def test_generate_persists_zone_rates_config():
     FakeOrion.entities = manual()
-    r = gen(vra=_vra(classes=[], zoning_run_id=MANUAL, zone_rates={T1: 120, T2: 80}), persist=True)
+    r = gen(vra=_vra(classes=[], zoning_run_id=MANUAL, zone_rates={T1: 120, T2: 80}, rest_rate=0), persist=True)
     assert r.status_code == 200, r.text
     cfg = FakeOrion.created[0]["vraConfig"]["value"]
     assert cfg["zoning_run_id"] == MANUAL and cfg["zone_rates"] == {T1: 120, T2: 80}
+    assert cfg["rest_rate"] == 0
 
 
 def test_zones_route_returns_label_and_rank():
@@ -219,3 +220,33 @@ def test_zones_route_area_ha_from_manual_area_m2():
     r = client.get(f"/api/routing/zones/{PARCEL}", params={"zoning_run_id": MANUAL})
     by_id = {z["id"]: z for z in r.json()["data"]["zones"]}
     assert by_id[T1]["area_ha"] == 1.2345
+
+
+def test_zone_rates_rest_of_parcel_gets_its_own_rate():
+    FakeOrion.entities = [_zone(T1, 0, 100, run=MANUAL, method="manual",
+                                date="2026-06-01T00:00:00Z", rank=1, label="T1")]
+    r = _rx(_vra(classes=[], zoning_run_id=MANUAL, zone_rates={T1: 120}, rest_rate=30))
+    assert r.status_code == 200, r.text
+    p = r.json()["prescription"]
+    rows = [(c["zone_id"], c.get("rest", False), c["rate"]) for c in p["classes"]]
+    assert rows == [(T1, False, 120), (None, True, 30)]
+    assert p["classes"][1]["area_ha"] > 0.9  # the other half of the 2 ha parcel
+    assert "VRA_UNCOVERED" not in [w["code"] for w in p["warnings"]]
+    assert {f["properties"]["rate"] for f in p["swath_segments"]["features"]} >= {120, 30}
+
+
+def test_zone_rates_require_rest_rate():
+    FakeOrion.entities = manual()
+    r = _rx(_vra(classes=[], zoning_run_id=MANUAL, zone_rates={T1: 120, T2: 80}))
+    assert r.status_code == 422 and r.json()["code"] == "INVALID_VRA"
+
+
+def test_zone_rates_are_capped():
+    rates = {f"urn:ngsi-ld:AgriManagementZone:x{i}": 1 for i in range(51)}
+    FakeOrion.entities = manual()
+    swaths = _swaths()
+    FakeOrion.calls.clear()
+    r = client.post("/api/routing/prescription", json={"parcel_id": PARCEL, "swaths": swaths, "vra": _vra(
+        classes=[], zoning_run_id=MANUAL, zone_rates=rates, rest_rate=0)})
+    assert r.status_code == 422
+    assert FakeOrion.calls == []  # refused by the request model, before any broker read

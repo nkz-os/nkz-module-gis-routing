@@ -524,7 +524,9 @@ class VRAConfig(BaseModel):
     # Zoning of the parcel to use (None = latest automatic) and, for zonings
     # without values (manual treatment zones), one rate per zone id.
     zoning_run_id: Optional[str] = Field(default=None, max_length=120)
-    zone_rates: Optional[dict[str, float]] = None
+    zone_rates: Optional[dict[str, float]] = Field(default=None, max_length=50)
+    # Per-zone mode: rate for the part of the parcel outside every zone (required there).
+    rest_rate: Optional[float] = Field(default=None, ge=0)
 
 
 class GenerateRequest(BaseModel):
@@ -803,7 +805,7 @@ async def _build_vra_prescription(vra: VRAConfig, *, parcel_id, tenant_id: str, 
         rate_zones = await _rate_zones(vra, parcel_id, tenant_id)
         return await run_in_threadpool(
             lambda: build_zone_rate_prescription(
-                zones=rate_zones, zone_rates=vra.zone_rates, unit=vra.unit,
+                zones=rate_zones, zone_rates=vra.zone_rates, rest_rate=vra.rest_rate, unit=vra.unit,
                 product=vra.product, swaths_utm=swaths_utm, parcel_utm=parcel_utm,
                 to_utm=to_utm, to_wgs=to_wgs))
     zones, _missing = await _vra_zones(vra, parcel_id, tenant_id)

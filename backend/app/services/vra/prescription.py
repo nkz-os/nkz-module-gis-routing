@@ -189,14 +189,19 @@ def _render(meta: list[dict], polys: list, rates: list[float], *, unit, product,
 MAX_RATE_ZONES = 50
 
 
-def build_zone_rate_prescription(*, zones, zone_rates: dict, unit, product, swaths_utm,
+REST_LABEL = "Rest of parcel"
+_MIN_REST_M2 = 1.0
+
+
+def build_zone_rate_prescription(*, zones, zone_rates: dict, rest_rate, unit, product, swaths_utm,
                                  parcel_utm, to_utm, to_wgs) -> dict:
     """One rate per zone (zonings without values, e.g. manual treatment zones).
 
     ``zones``: dicts ``{id, label, rank, geometry}`` (shapely, WGS84) of ONE zoning.
     Every zone needs a rate and every rate a zone. Lower rank wins overlaps; the
     output has the class-mode shape with one row per zone, so exports and the map
-    treat it the same way.
+    treat it the same way. The part of the parcel outside every zone gets
+    ``rest_rate`` (required, may be 0) as one more row flagged ``rest``.
     """
     if unit not in UNITS:
         raise _bad("Unsupported VRA unit", unit=unit)
@@ -208,13 +213,17 @@ def build_zone_rate_prescription(*, zones, zone_rates: dict, unit, product, swat
     missing = sorted(i for i in ids if i not in zone_rates)
     if missing:
         raise _bad("Every zone needs a rate", missing=missing)
-    unknown = sorted(k for k in zone_rates if k not in set(ids))
+    id_set = set(ids)
+    unknown = sorted(k for k in zone_rates if k not in id_set)
     if unknown:
         raise _bad("Rate given for a zone outside the zoning", unknown=unknown)
     for zid in ids:
         v = zone_rates[zid]
         if isinstance(v, bool) or not isinstance(v, (int, float)) or not math.isfinite(v) or v < 0:
             raise _bad("Rate must be zero or positive", zone_id=zid)
+    if isinstance(rest_rate, bool) or not isinstance(rest_rate, (int, float)) \
+            or not math.isfinite(rest_rate) or rest_rate < 0:
+        raise _bad("The rest of the parcel needs a rate", field="rest_rate")
     parcel = _polygonal(parcel_utm)
     if parcel is None:
         raise _bad("Parcel geometry is not usable")
@@ -227,10 +236,16 @@ def build_zone_rate_prescription(*, zones, zone_rates: dict, unit, product, swat
         if g is None:
             warnings.append({"code": "VRA_ZONE_INVALID", "params": {"zone_id": z["id"]}})
         groups.append([g] if g is not None else [])
-    polys = _exclusive_polys(groups, parcel)
+    # The whole parcel as a last group: what no zone took is the rest of the parcel.
+    polys = _exclusive_polys(groups + [[parcel]], parcel)
     meta = [{"zone_id": z["id"], "label": z.get("label") or z["id"].rsplit(":", 1)[-1],
              "min_pct": None, "max_pct": None} for z in ordered]
     rates = [float(zone_rates[z["id"]]) for z in ordered]
+    rest = polys.pop()
+    if rest is not None and rest.area >= _MIN_REST_M2:
+        polys.append(rest)
+        meta.append({"zone_id": None, "label": REST_LABEL, "rest": True, "min_pct": None, "max_pct": None})
+        rates.append(float(rest_rate))
     return _render(meta, polys, rates, unit=unit, product=product, swaths_utm=swaths_utm,
                    to_wgs=to_wgs, warnings=warnings)
 

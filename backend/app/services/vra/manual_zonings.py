@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 import uuid
 from datetime import datetime, timezone
 
@@ -31,6 +32,29 @@ LABEL_KEYS = ("zoneLabel", "zone_label", "label", "name", "Name", "NAME", "treat
 
 def _invalid(detail: str, **params) -> PlanError:
     return PlanError("ZONES_FILE_INVALID", detail, params)
+
+
+# Items the SDK geo reader leaves out are reported as warnings; they are turned into
+# rejected entries (no position: the reader dropped them) so nothing reaches the UI as
+# untranslated free text.
+_SKIPS = (
+    (re.compile(r"^placemark (.+): no point or polygon, skipped$"), "not_polygon"),
+    (re.compile(r"^feature (.+): coordinates are not WGS84 lon/lat degrees, skipped$"), "not_wgs84"),
+)
+_MIN_ZONE_M2 = 1.0
+
+
+def split_skips(warnings: list[str]) -> tuple[list[dict], list[str]]:
+    rejected, rest = [], []
+    for w in warnings:
+        for rx, reason in _SKIPS:
+            m = rx.match(w)
+            if m:
+                rejected.append({"index": None, "name": m.group(1), "reason": reason})
+                break
+        else:
+            rest.append(w)
+    return rejected, rest
 
 
 def parse(fmt: str, content: str) -> tuple[list[dict], list[str]]:
@@ -79,9 +103,13 @@ def _polygonal(geom):
 def preview(features: list[dict], parcel, warnings: list[str]) -> dict:
     """Accepted zones (rank = order among accepted) and rejected features with a reason.
 
-    ``parcel`` is the parcel's WGS84 shapely polygon. A polygon is kept when its
-    centroid lies in the parcel. Self-intersections are repaired, not reported.
+    ``parcel`` is the parcel's WGS84 shapely polygon. Every polygon is clipped to the
+    parcel: a zone drawn a little over the border keeps its inside part, a huge one
+    becomes the parcel, and one with nothing inside is rejected as outside_parcel.
+    Self-intersections are repaired, not reported. ``index`` is the position among the
+    features the reader returned; items the reader left out come with index None.
     """
+    skipped, warnings = split_skips(warnings)
     zones, rejected = [], []
     for i, f in enumerate(features):
         geom = (f or {}).get("geometry") or {}
@@ -95,7 +123,11 @@ def preview(features: list[dict], parcel, warnings: list[str]) -> dict:
         if g is None:
             rejected.append({"index": i, "reason": "invalid_geometry"})
             continue
-        if not parcel.covers(g.centroid):
+        try:
+            g = _polygonal(g.intersection(parcel))
+        except Exception:
+            g = None
+        if g is None or area_ha(g) * 10000.0 < _MIN_ZONE_M2:
             rejected.append({"index": i, "reason": "outside_parcel"})
             continue
         rank = len(zones) + 1
@@ -103,7 +135,7 @@ def preview(features: list[dict], parcel, warnings: list[str]) -> dict:
                       "geometry": mapping(g), "area_m2": round(area_ha(g) * 10000.0, 1)})
     if len(zones) > MAX_ZONES:
         raise _invalid("too many zones", count=len(zones), max=MAX_ZONES)
-    return {"zones": zones, "rejected": rejected, "warnings": warnings}
+    return {"zones": zones, "rejected": rejected + skipped, "warnings": warnings}
 
 
 def zone_entities(tenant_id: str, parcel_id: str, zones: list[dict], labels: dict[int, str],
