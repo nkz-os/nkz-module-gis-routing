@@ -53,4 +53,16 @@ describe('planEntitySpecs', () => {
     expect(specs[0].polygons).toHaveLength(2);
     expect(specs[0].polygons![1].holes).toHaveLength(1);
   });
+
+  it('per-zone prescriptions are coloured by rate, also beyond five zones', () => {
+    const rates = [10, 40, 10, 25, 60, 5, 40];
+    const specs = planEntitySpecs(fc(rates.map((rate, i) => f('prescription_zone',
+      { type: 'Polygon', coordinates: [sq(i)] }, { class_index: i, rate, zone_id: `z${i}`, unit: 'kg_ha' }))));
+    const colors = specs.map((s: any) => s.color);
+    expect(colors.every((c: string | undefined) => typeof c === 'string')).toBe(true);
+    expect(colors[5]).toBe(VRA_PALETTE[0]);
+    expect(colors[4]).toBe(VRA_PALETTE[4]);
+    expect(colors[0]).toBe(colors[2]);
+  });
 });
+

@@ -68,6 +68,12 @@ export interface VraConfig {
   unit: 'kg_ha' | 'l_ha';
   product: string;
   externalFeatures?: FeatureCollection;
+  /** Zoning of the parcel (null/undefined = the latest automatic one). */
+  zoningRunId?: string | null;
+  /** Per-zone rates (zone id -> rate); set for zonings without values, e.g. manual. */
+  zoneRates?: Record<string, number | null>;
+  /** Per-zone mode: rate for the part of the parcel outside every zone (required there, may be 0). */
+  restRate?: number | null;
 }
 
 // Backend shapes (snake_case, as returned).
@@ -80,6 +86,30 @@ export interface VraRequest {
   product: string;
   invert: boolean;
   external_features?: FeatureCollection;
+  zoning_run_id?: string;
+  zone_rates?: Record<string, number>;
+  rest_rate?: number;
+}
+
+/** One zoning of a parcel (several coexist: NDVI clustering, manual treatment zones, ...). */
+export interface ZoningSummary {
+  run_id: string;
+  method: string | null;
+  date: string | null;
+  zone_count: number;
+  labels: (string | null)[];
+  is_default: boolean;
+}
+export interface ZoningZone {
+  id: string; label: string | null; rank: number | null; area_ha: number; geometry: Geometry;
+}
+export type ManualZoningFormat = 'kml' | 'kmz' | 'geojson' | 'shapefile' | 'isoxml' | 'drawn';
+export interface ManualZonePreview { rank: number; label: string; geometry: Geometry; area_m2: number }
+export interface ManualZoningPreview {
+  zones: ManualZonePreview[];
+  /** index = position among the features read; null (with name) = left out by the file reader. */
+  rejected: { index: number | null; name?: string; reason: string }[];
+  warnings: string[];
 }
 
 /** Response of the zoning job proxy; only the fields the client may show are typed. */
@@ -99,7 +129,10 @@ export interface Distribution {
 }
 
 export interface PrescriptionClass {
-  index: number; min_pct: number; max_pct: number; rate: number; area_ha: number; product_total: number;
+  /** null for per-zone rates (one row per zone, with zone_id and label). */
+  index: number; min_pct: number | null; max_pct: number | null; rate: number; area_ha: number; product_total: number;
+  /** Per-zone rates: zone_id null + rest true = the rest of the parcel. */
+  zone_id?: string | null; label?: string; rest?: boolean;
 }
 export interface Prescription {
   unit: 'kg_ha' | 'l_ha';
@@ -427,8 +460,30 @@ export const api = {
   },
 
   // VRA by classes
-  getDistribution(parcelId: string) {
-    return request<Distribution>(`/zones/${encodeURIComponent(parcelId)}/distribution?source=orion`);
+  getDistribution(parcelId: string, zoningRunId?: string) {
+    const run = zoningRunId ? `&zoning_run_id=${encodeURIComponent(zoningRunId)}` : '';
+    return request<Distribution>(`/zones/${encodeURIComponent(parcelId)}/distribution?source=orion${run}`);
+  },
+  listZonings(parcelId: string) {
+    return request<{ zonings: ZoningSummary[] }>(`/zonings/${encodeURIComponent(parcelId)}`);
+  },
+  getZoningZones(parcelId: string, zoningRunId: string) {
+    return request<{ data: { zones: ZoningZone[] } }>(
+      `/zones/${encodeURIComponent(parcelId)}?zoning_run_id=${encodeURIComponent(zoningRunId)}`);
+  },
+  previewManualZoning(parcelId: string, format: ManualZoningFormat, content: string) {
+    return request<ManualZoningPreview>('/zonings/manual/preview', {
+      method: 'POST', body: JSON.stringify({ parcel_id: parcelId, format, content }),
+    });
+  },
+  saveManualZoning(parcelId: string, format: ManualZoningFormat, content: string, labels: Record<number, string>) {
+    return request<{ run_id: string; zone_count: number }>('/zonings/manual', {
+      method: 'POST', body: JSON.stringify({ parcel_id: parcelId, format, content, labels }),
+    });
+  },
+  deleteZoning(parcelId: string, runId: string) {
+    return request<{ run_id: string; deleted: number }>(
+      `/zonings/${encodeURIComponent(parcelId)}/${encodeURIComponent(runId)}`, { method: 'DELETE' });
   },
   requestZones(parcelId: string, nZones = 8) {
     return request<ZoningJobResponse>(`/zones/${encodeURIComponent(parcelId)}/generate`, {

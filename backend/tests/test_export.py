@@ -486,3 +486,15 @@ def test_source_has_no_host_name():
     import inspect
     import app.services.export_service as m
     assert "isobus" not in inspect.getsource(m).lower()
+
+
+def test_isoxml_zone_rate_classes_use_zone_labels(sample_op):
+    import xml.etree.ElementTree as ET
+    rx = _rx()
+    rx["classes"] = [
+        {"index": 0, "zone_id": "z1", "label": "T1 compost", "min_pct": None, "max_pct": None, "rate": 120.5},
+        {"index": 1, "zone_id": "z2", "label": "T2", "min_pct": None, "max_pct": None, "rate": 80},
+    ]
+    sample_op["prescription"] = rx
+    tzns = ET.fromstring(RouteExporter().to_isoxml(sample_op)).findall(f"{NS}TSK/{NS}TZN")
+    assert [t.get("B") for t in tzns[:2]] == ["T1 compost", "T2"]

@@ -12,6 +12,7 @@ from app.config import get_settings
 from app.services.coverage.errors import PlanError
 from app.services.routing.base import get_utm_crs
 from app.services.vra.classify import ZoneValue, valid_zones, weighted_percentiles
+from nkz_platform_sdk.gis import Zoning, default_zoning, group_zonings
 from nkz_platform_sdk.orion import OrionClient
 
 logger = logging.getLogger(__name__)
@@ -79,35 +80,34 @@ async def _fetch_entities(tenant_id: str, parcel_id: str) -> list[dict]:
     return out
 
 
-def _stamp(entity: dict) -> str:
-    for key in ("observedAt", "modifiedAt"):
-        v = _prop(entity, key)
-        if isinstance(v, str) and v:
-            return v
-    return ""
+def select_zoning(zonings: list[Zoning], run_id: str | None) -> Zoning | None:
+    """The chosen zoning, or the default (latest automatic) when ``run_id`` is None.
 
-
-def latest_run(entities: list[dict]) -> list[dict]:
-    """Only the zones of the most recent zoningRunId, when any zone carries one.
-
-    Zones without a run id are leftovers of an older generation once a run exists.
-    Without timestamps the run cannot be ranked, so every zone is kept.
+    A manual zoning is never the default. An unknown ``run_id`` is an error, never a
+    silent fallback to another zoning.
     """
-    runs: dict[str, str] = {}
-    for e in entities:
-        run = _prop(e, "zoningRunId")
-        if run:
-            runs[str(run)] = max(runs.get(str(run), ""), _stamp(e))
-    if not runs:
-        return entities
-    if not any(runs.values()):
-        return entities
-    newest = max(runs, key=lambda r: runs[r])
-    return [e for e in entities if str(_prop(e, "zoningRunId") or "") == newest]
+    if run_id is None:
+        return default_zoning(zonings)
+    for z in zonings:
+        if z.run_id == run_id:
+            return z
+    raise PlanError("ZONING_NOT_FOUND", "zoning not found for this parcel", {"run_id": run_id})
 
 
-async def load_zone_entities(tenant_id: str, parcel_id: str) -> list[dict]:
-    return latest_run(await _fetch_entities(tenant_id, parcel_id))
+async def list_zonings(tenant_id: str, parcel_id: str) -> list[Zoning]:
+    """Every zoning of the parcel, most recent first."""
+    return group_zonings(await _fetch_entities(tenant_id, parcel_id))
+
+
+async def load_zone_entities(tenant_id: str, parcel_id: str,
+                             run_id: str | None = None) -> list[dict]:
+    """Zone entities of the chosen zoning (default: the latest automatic one)."""
+    entities = await _fetch_entities(tenant_id, parcel_id)
+    chosen = select_zoning(group_zonings(entities), run_id)
+    if chosen is None:
+        return []
+    ids = {z.id for z in chosen.zones}
+    return [e for e in entities if e.get("id") in ids]
 
 
 def _zone_from_entity(e: dict) -> tuple[ZoneValue | None, str | None]:
@@ -128,7 +128,7 @@ def _zone_from_entity(e: dict) -> tuple[ZoneValue | None, str | None]:
 
 
 def run_id_of(entities: list[dict]) -> str | None:
-    """zoningRunId of the (already latest-run filtered) zones, or None when they carry none."""
+    """zoningRunId of the (already single-zoning) zones, or None when they carry none."""
     ids = sorted({str(_prop(e, "zoningRunId")) for e in entities if _prop(e, "zoningRunId")})
     return ids[-1] if ids else None
 
@@ -145,8 +145,9 @@ def zones_from_entities(entities: list[dict]) -> tuple[list[ZoneValue], list[dic
     return zones, missing
 
 
-async def load_zones(tenant_id: str, parcel_id: str) -> tuple[list[ZoneValue], list[dict]]:
-    return zones_from_entities(await load_zone_entities(tenant_id, parcel_id))
+async def load_zones(tenant_id: str, parcel_id: str,
+                     run_id: str | None = None) -> tuple[list[ZoneValue], list[dict]]:
+    return zones_from_entities(await load_zone_entities(tenant_id, parcel_id, run_id))
 
 
 def external_value(props: dict) -> float | None:

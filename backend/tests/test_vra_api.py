@@ -20,7 +20,7 @@ def _zone(zid, x0, x1, mean=None, run=None, stamp=None, parcel=PARCEL):
     if run:
         e["zoningRunId"] = {"type": "Property", "value": run}
     if stamp:
-        e["observedAt"] = {"type": "Property", "value": stamp}
+        e["modifiedAt"] = stamp  # system attribute (options=sysAttrs)
     return e
 
 

@@ -50,6 +50,26 @@ export function vraClassColors(n: number): string[] {
   return Array.from({ length: k }, (_, i) => VRA_PALETTE[Math.round((i * (VRA_PALETTE.length - 1)) / (k - 1))]);
 }
 
+/**
+ * Per-zone rates (any number of zones): the ramp ordered by rate, so a darker colour
+ * always means a higher dose; equal rates share a colour. One colour per entry.
+ */
+export function vraRateColors(rates: number[]): string[] {
+  const distinct = [...new Set(rates.filter((r) => Number.isFinite(r)))].sort((a, b) => a - b);
+  const k = distinct.length;
+  const last = VRA_PALETTE.length - 1;
+  return rates.map((r) => {
+    const pos = distinct.indexOf(r);
+    if (pos < 0 || k <= 1) return VRA_PALETTE[0];
+    return VRA_PALETTE[Math.round((pos * last) / (k - 1))];
+  });
+}
+
+/** True when the prescription has one row per zone (per-zone rates) rather than value classes. */
+export function isPerZonePrescription(classes: { zone_id?: string | null }[] | undefined): boolean {
+  return Array.isArray(classes) && classes.some((c) => c && 'zone_id' in c);
+}
+
 type Feature = GeoJSON.Feature;
 const feature = (geometry: GeoJSON.Geometry, properties: GeoJSON.GeoJsonProperties): Feature => ({ type: 'Feature', geometry, properties });
 const fc = (features: Feature[]): GeoJSON.FeatureCollection => ({ type: 'FeatureCollection', features });
@@ -109,7 +129,9 @@ export function buildSources(m: MapModel): Record<SourceId, GeoJSON.FeatureColle
   }
 
   const presc = m.vra ?? null;
-  const classColors = presc ? vraClassColors(presc.classes.length) : [];
+  const classColors = !presc ? []
+    : isPerZonePrescription(presc.classes) ? vraRateColors(presc.classes.map((c) => c.rate))
+      : vraClassColors(presc.classes.length);
   const colorOf = (ci: unknown): string =>
     typeof ci === 'number' && classColors[ci] ? classColors[ci] : VRA_UNCOVERED_COLOR;
   const labelOf = m.vraRateLabel ?? ((r: number) => String(r));

@@ -160,20 +160,32 @@ export function savedPlanVraDiffers(s: WorkState): boolean {
 }
 
 // Request form of the VRA config, or null when disabled or any rate is not a number >= 0.
+// Per-zone mode (zoneRates set): every zone of the chosen zoning needs a rate; no classes are sent.
 export function toVraRequest(c: VraConfig): VraRequest | null {
   if (!c.enabled) return null;
   if (c.source === 'external' && !c.externalFeatures) return null;
-  const ok = c.classes.length > 0
-    && c.classes.every((k) => typeof k.rate === 'number' && Number.isFinite(k.rate) && k.rate >= 0);
-  if (!ok) return null;
-  return {
-    enabled: true, source: c.source, variable: c.variable, unit: c.unit, product: c.product,
+  const isRate = (r: number | null | undefined): r is number => typeof r === 'number' && Number.isFinite(r) && r >= 0;
+  const base = {
+    enabled: true as const, source: c.source, variable: c.variable, unit: c.unit, product: c.product,
     // Inversion is applied to the entered rates (StepVra); the backend never inverts.
     invert: false,
+    ...(c.source === 'external' && c.externalFeatures ? { external_features: c.externalFeatures } : {}),
+    ...(c.source === 'orion' && c.zoningRunId ? { zoning_run_id: c.zoningRunId } : {}),
+  };
+  // Per-zone rates exist only for a zoning of the parcel, never for an uploaded file.
+  if (c.source === 'orion' && c.zoneRates) {
+    const entries = Object.entries(c.zoneRates);
+    if (entries.length === 0 || !entries.every(([, r]) => isRate(r)) || !isRate(c.restRate)) return null;
+    return { ...base, classes: [], zone_rates: Object.fromEntries(entries) as Record<string, number>,
+      rest_rate: c.restRate };
+  }
+  const ok = c.classes.length > 0 && c.classes.every((k) => isRate(k.rate));
+  if (!ok) return null;
+  return {
+    ...base,
     classes: c.classes.map((k) => ({
       min_pct: k.minPct, max_pct: k.maxPct, rate: k.rate as number, ...(k.label ? { label: k.label } : {}),
     })),
-    ...(c.source === 'external' && c.externalFeatures ? { external_features: c.externalFeatures } : {}),
   };
 }
 
@@ -197,7 +209,8 @@ function withPlanPrescription(s: WorkState, plan: Plan): VraState {
 function vraForNewParcel(v: VraState): VraState {
   return {
     ...initialVraState, requestId: v.requestId,
-    config: { ...v.config, source: 'orion', externalFeatures: undefined },
+    // Zonings and their zone ids belong to the previous parcel.
+    config: { ...v.config, source: 'orion', externalFeatures: undefined, zoningRunId: null, zoneRates: undefined },
   };
 }
 
@@ -231,13 +244,18 @@ export function workReducer(state: WorkState, event: WorkEvent): WorkState {
       return afterEdit(state, { ...state, pattern: { ...state.pattern, ...event.pattern } });
     case 'VRA_CONFIG_CHANGED': {
       // Deliberately not an "edit": changing the VRA config never marks the route stale.
-      const config = { ...state.vra.config, ...event.config };
+      let config = { ...state.vra.config, ...event.config };
+      // Another source: the parcel zoning (and its per-zone rates) no longer applies.
+      if (config.source !== state.vra.config.source) config = { ...config, zoningRunId: null, zoneRates: undefined };
       const status = state.vra.status === 'error' ? 'idle' : state.vra.status;
       const sameCount = config.classes.length === state.vra.config.classes.length;
-      if (config.enabled && toVraRequest(config) !== null && sameCount) {
+      // Another zoning (or leaving/entering per-zone rates) makes the shown prescription another plan's.
+      const sameZoning = (config.zoningRunId ?? null) === (state.vra.config.zoningRunId ?? null)
+        && Boolean(config.zoneRates) === Boolean(state.vra.config.zoneRates);
+      if (config.enabled && toVraRequest(config) !== null && sameCount && sameZoning) {
         return { ...state, vra: { ...state.vra, config, error: null, status } };
       }
-      // Disabled, incomplete or a different class count: what Save would send is "no VRA", so no prescription may stay
+      // Disabled, incomplete, a different class count or zoning: what Save would send is "no VRA", so no prescription may stay
       // visible, and a result still in flight must be ignored (new requestId).
       return { ...state, vra: { ...state.vra, config, error: null, prescription: null,
         requestId: state.vra.requestId + 1, status: status === 'loading' ? 'idle' : status } };

@@ -220,3 +220,19 @@ def test_transit_does_not_fetch_the_parcel(client):
     finally:
         _Orion.get_entity = orig
     assert asked == [OP_ID]
+
+
+def test_per_zone_prescription_keeps_zone_id_and_label():
+    e = _work(vra=True)
+    rx = e["prescription"]["value"]
+    for i, z in enumerate(rx["zones"]["features"]):
+        z["properties"].update(zone_id=f"z{i}" if i == 0 else None, label="T1" if i == 0 else "Rest of parcel")
+    els = _els(plan_feature_collection(e, parcel_geometry=PARCEL))
+    props = sorted((f["properties"]["class_index"], f["properties"]["zone_id"], f["properties"]["label"])
+                   for f in els["prescription_zone"])
+    assert props == [(0, "z0", "T1"), (1, None, "Rest of parcel")]
+
+
+def test_class_prescription_has_no_zone_keys():
+    els = _els(plan_feature_collection(_work(vra=True), parcel_geometry=PARCEL))
+    assert all("zone_id" not in f["properties"] for f in els["prescription_zone"])

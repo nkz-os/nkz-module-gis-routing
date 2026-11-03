@@ -305,8 +305,11 @@ class RouteExporter:
         for cls in sorted(norm, key=lambda c: c["index"]):
             idx = cls["index"]
             value = int(round(float(cls["rate"]) * self._PDV_PER_UNIT[unit]))
-            label = self._xml_escape(self._cut(f"Class {idx + 1} ({self._pct(cls.get('min_pct'))}-"
-                                               f"{self._pct(cls.get('max_pct'))}%)"))
+            if isinstance(cls.get("label"), str) and cls["label"].strip():
+                label = self._xml_escape(self._cut(cls["label"].strip()))
+            else:
+                label = self._xml_escape(self._cut(f"Class {idx + 1} ({self._pct(cls.get('min_pct'))}-"
+                                                   f"{self._pct(cls.get('max_pct'))}%)"))
             if not by_class.get(idx):
                 logger.warning("isoxml class without zone polygons", extra={"class_index": idx})
             out.append(f'    <TZN A="{idx}" B="{label}">')

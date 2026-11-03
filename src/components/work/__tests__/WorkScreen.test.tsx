@@ -50,6 +50,7 @@ vi.mock('../../../services/api', async (importOriginal) => {
       saveParcelConfig: vi.fn(),
       downloadExport: vi.fn(),
       getDistribution: vi.fn(), prescription: vi.fn(), requestZones: vi.fn(),
+      listZonings: vi.fn(async () => ({ zonings: [] })), getZoningZones: vi.fn(),
     },
   };
 });

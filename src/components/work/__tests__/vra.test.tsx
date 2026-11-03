@@ -29,6 +29,7 @@ vi.mock('../../../services/api', async (importOriginal) => {
     ...actual,
     api: {
       getDistribution: vi.fn(), requestZones: vi.fn(), prescription: vi.fn(), ingestExternalZones: vi.fn(),
+      listZonings: vi.fn(async () => ({ zonings: [] })), getZoningZones: vi.fn(),
     },
   };
 });

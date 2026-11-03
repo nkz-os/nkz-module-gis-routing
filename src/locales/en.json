@@ -293,7 +293,26 @@
       "calculating": "Calculating rates…",
       "summaryOn": "{{n}} classes",
       "summaryOff": "Not applied",
-      "uploadPrompt": "Upload a zones file to continue."
+      "uploadPrompt": "Upload a zones file to continue.",
+      "zoning": "Zoning",
+      "zoningOption": "{{method}} · {{date}} ({{count}} zones)",
+      "zoningDefault": "{{label}} · default",
+      "noDate": "no date",
+      "colZone": "Zone",
+      "rateOfZone": "Rate of zone {{label}}",
+      "zoneRatesHint": "Manual zoning: enter one rate for each zone.",
+      "methods": {
+        "manual": "Manual",
+        "vegetationIndex": "Vegetation index",
+        "terrain": "Terrain",
+        "topographicWetness": "Topographic wetness",
+        "soilSurvey": "Soil survey",
+        "yieldMap": "Yield map",
+        "other": "Other method",
+        "none": "Automatic"
+      },
+      "restOfParcel": "Rest of the parcel",
+      "rateOfRest": "Rate for the rest of the parcel"
     },
     "warnings": {
       "UNREACHED_AREA": "Uncovered area of {{ha}} ha",
@@ -340,7 +359,9 @@
       "PARCEL_READ_FAILED": "The parcel could not be read. Try again.",
       "IMPLEMENT_WIDTH_MISSING": "This operation was saved without a working width and cannot be exported to ISOXML. Plan it again.",
       "EXPORT_NOT_SUPPORTED": "This export format is not available for transits.",
-      "GENERATE_TIMEOUT": "The route is taking too long to calculate. Try again."
+      "GENERATE_TIMEOUT": "The route is taking too long to calculate. Try again.",
+      "ZONING_NOT_FOUND": "That zoning no longer exists on this parcel.",
+      "ZONING_NOT_MANUAL": "Only manual zonings can be deleted."
     },
     "actions": {
       "regenerate": "Regenerate",
@@ -358,7 +379,8 @@
     "title": "GIS Routing",
     "tabs": {
       "work": "Work",
-      "transit": "Transit A-B"
+      "transit": "Transit A-B",
+      "zonings": "Manual zones"
     },
     "empty": "Select a parcel to start",
     "regeneratedOnSave": "Plan regenerated with the current dose before saving",
@@ -509,5 +531,39 @@
     "saveFailed": "The setting could not be saved",
     "loadFailed": "The setting could not be loaded",
     "forbidden": "Only administrators can change this setting"
+  },
+  "zonings": {
+    "title": "Manual zonings",
+    "intro": "Upload a file (KML, KMZ, GeoJSON, zipped shapefile or ISOXML) or draw the zones on the map. They do not replace the automatic zoning: they are used only when you choose them for variable rate.",
+    "noParcel": "Choose a parcel in the Work tab.",
+    "upload": "Upload file",
+    "draw": "Draw zones",
+    "drawing": "Drawing… click to finish",
+    "drawnCount": "{{count}} zones drawn",
+    "previewDrawn": "Review drawn zones",
+    "clearDrawn": "Clear drawing",
+    "previewTitle": "Zones to save",
+    "colRank": "No.",
+    "colLabel": "Name",
+    "colArea": "ha",
+    "labelOf": "Name of zone {{n}}",
+    "rejectedTitle": "Left out",
+    "rejectedItem": "Item {{n}}: {{reason}}",
+    "reasons": {
+      "not_polygon": "not a polygon",
+      "invalid_geometry": "invalid geometry",
+      "outside_parcel": "outside the parcel",
+      "not_wgs84": "coordinates are not WGS84 degrees"
+    },
+    "save": "Save zoning",
+    "saving": "Saving…",
+    "saved": "Zoning saved ({{count}} zones).",
+    "cancel": "Discard",
+    "existingTitle": "Saved manual zonings",
+    "none": "No manual zonings yet.",
+    "delete": "Delete",
+    "deleteOf": "Delete zoning {{label}}",
+    "loadError": "Zonings could not be loaded.",
+    "rejectedNamed": "{{name}}: {{reason}}"
   }
 }

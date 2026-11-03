@@ -293,7 +293,26 @@
       "calculating": "Calculando dosis…",
       "summaryOn": "{{n}} clases",
       "summaryOff": "Sin aplicar",
-      "uploadPrompt": "Sube un fichero de zonas para continuar."
+      "uploadPrompt": "Sube un fichero de zonas para continuar.",
+      "zoning": "Zonificación",
+      "zoningOption": "{{method}} · {{date}} ({{count}} zonas)",
+      "zoningDefault": "{{label}} · por defecto",
+      "noDate": "sin fecha",
+      "colZone": "Zona",
+      "rateOfZone": "Dosis de la zona {{label}}",
+      "zoneRatesHint": "Zonificación manual: indica una dosis para cada zona.",
+      "methods": {
+        "manual": "Manual",
+        "vegetationIndex": "Índice de vegetación",
+        "terrain": "Relieve",
+        "topographicWetness": "Humedad topográfica",
+        "soilSurvey": "Análisis de suelo",
+        "yieldMap": "Mapa de cosecha",
+        "other": "Otro método",
+        "none": "Automática"
+      },
+      "restOfParcel": "Resto de la parcela",
+      "rateOfRest": "Dosis del resto de la parcela"
     },
     "warnings": {
       "UNREACHED_AREA": "Zona sin cubrir de {{ha}} ha",
@@ -340,7 +359,9 @@
       "PARCEL_READ_FAILED": "No se pudo leer la parcela. Inténtalo de nuevo.",
       "IMPLEMENT_WIDTH_MISSING": "Esta operación se guardó sin ancho de trabajo y no se puede exportar a ISOXML. Planifícala de nuevo.",
       "EXPORT_NOT_SUPPORTED": "Este formato de exportación no está disponible para tránsitos.",
-      "GENERATE_TIMEOUT": "La ruta tarda demasiado en calcularse. Inténtalo de nuevo."
+      "GENERATE_TIMEOUT": "La ruta tarda demasiado en calcularse. Inténtalo de nuevo.",
+      "ZONING_NOT_FOUND": "Esa zonificación ya no existe en esta parcela.",
+      "ZONING_NOT_MANUAL": "Solo se pueden borrar zonificaciones manuales."
     },
     "actions": {
       "regenerate": "Regenerar",
@@ -358,7 +379,8 @@
     "title": "Rutas GIS",
     "tabs": {
       "work": "Trabajo",
-      "transit": "Tránsito A-B"
+      "transit": "Tránsito A-B",
+      "zonings": "Zonas manuales"
     },
     "empty": "Selecciona una parcela para empezar",
     "regeneratedOnSave": "Plan regenerado con la dosis actual antes de guardar",
@@ -509,5 +531,39 @@
     "saveFailed": "No se pudo guardar el ajuste",
     "loadFailed": "No se pudo cargar el ajuste",
     "forbidden": "Solo los administradores pueden cambiar este ajuste"
+  },
+  "zonings": {
+    "title": "Zonificaciones manuales",
+    "intro": "Sube un fichero (KML, KMZ, GeoJSON, shapefile .zip o ISOXML) o dibuja las zonas en el mapa. No sustituyen a la zonificación automática: solo se usan si las eliges en la dosis variable.",
+    "noParcel": "Elige una parcela en la pestaña Trabajo.",
+    "upload": "Subir fichero",
+    "draw": "Dibujar zonas",
+    "drawing": "Dibujando… pulsa para terminar",
+    "drawnCount": "{{count}} zonas dibujadas",
+    "previewDrawn": "Revisar zonas dibujadas",
+    "clearDrawn": "Borrar dibujo",
+    "previewTitle": "Zonas a guardar",
+    "colRank": "N.º",
+    "colLabel": "Nombre",
+    "colArea": "ha",
+    "labelOf": "Nombre de la zona {{n}}",
+    "rejectedTitle": "Elementos descartados",
+    "rejectedItem": "Elemento {{n}}: {{reason}}",
+    "reasons": {
+      "not_polygon": "no es un polígono",
+      "invalid_geometry": "geometría no válida",
+      "outside_parcel": "fuera de la parcela",
+      "not_wgs84": "coordenadas que no son grados WGS84"
+    },
+    "save": "Guardar zonificación",
+    "saving": "Guardando…",
+    "saved": "Zonificación guardada ({{count}} zonas).",
+    "cancel": "Descartar",
+    "existingTitle": "Zonificaciones manuales guardadas",
+    "none": "Todavía no hay zonificaciones manuales.",
+    "delete": "Borrar",
+    "deleteOf": "Borrar la zonificación {{label}}",
+    "loadError": "No se pudieron cargar las zonificaciones.",
+    "rejectedNamed": "{{name}}: {{reason}}"
   }
 }

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { FeatureCollection } from 'geojson';
-import { api, ApiError, type Distribution } from '../services/api';
+import { api, ApiError, type Distribution, type ZoningSummary, type ZoningZone } from '../services/api';
 import { toVraRequest, type WorkEvent, type WorkState } from './workMachine';
 
 export const VRA_DEBOUNCE_MS = 500;
@@ -22,6 +22,12 @@ export interface VraSync {
   uploadFile: (file: File) => Promise<void>;
   /** Warning codes of the last accepted upload (e.g. a shapefile without .prj). */
   uploadWarnings: string[];
+  /** Zonings of the parcel, most recent first (empty until loaded or when none). */
+  zonings: ZoningSummary[];
+  /** Zones of the chosen zoning in per-zone mode (labels and areas for the rate table). */
+  rateZones: ZoningZone[];
+  /** Choose a zoning; a manual one switches to one rate per zone. */
+  selectZoning: (runId: string) => void;
 }
 
 function vraError(e: unknown): NonNullable<WorkState['error']> {
@@ -53,11 +59,14 @@ export function useVraSync(state: WorkState, dispatch: React.Dispatch<WorkEvent>
   const [pollError, setPollError] = useState<VraSync['pollError']>(null);
   const [uploadWarnings, setUploadWarnings] = useState<string[]>([]);
   const [retryTick, setRetryTick] = useState(0);
+  const [zonings, setZonings] = useState<ZoningSummary[]>([]);
+  const [rateZones, setRateZones] = useState<ZoningZone[]>([]);
 
   const parcelId = state.parcel?.id ?? null;
   const parcelRequestId = state.parcelRequestId;
   const stepActive = state.activeStep === 'vra';
   const source = state.vra.config.source;
+  const zoningRunId = state.vra.config.zoningRunId ?? null;
 
   const stopPolling = useCallback(() => {
     jobToken.current += 1;
@@ -66,21 +75,45 @@ export function useVraSync(state: WorkState, dispatch: React.Dispatch<WorkEvent>
   }, []);
 
   // A different parcel (or leaving the step's parcel) cancels any running job.
-  useEffect(() => { setJob('idle'); return stopPolling; }, [parcelId, parcelRequestId, stopPolling]);
+  useEffect(() => {
+    setJob('idle'); setZonings([]); setRateZones([]);
+    return stopPolling;
+  }, [parcelId, parcelRequestId, stopPolling]);
 
-  // Load the parcel's zone distribution when the step opens.
+  // Zonings of the parcel, for the selector (a failure leaves the default zoning in use).
+  const [zoningsTick, setZoningsTick] = useState(0);
+  // The chosen zoning was deleted (e.g. in the manual zones tab): back to the default, fresh list.
+  const zoningGone = (e: unknown) => e instanceof ApiError && e.code === 'ZONING_NOT_FOUND';
+  const backToDefault = useCallback(() => {
+    setRateZones([]);
+    dispatch({ type: 'VRA_CONFIG_CHANGED', config: { zoningRunId: null, zoneRates: undefined } });
+    setZoningsTick((n) => n + 1);
+  }, [dispatch]);
   useEffect(() => {
     if (!stepActive || !parcelId || source !== 'orion') return undefined;
     let cancelled = false;
-    api.getDistribution(parcelId)
+    api.listZonings(parcelId)
+      .then((r) => { if (!cancelled) setZonings(r.zonings ?? []); })
+      .catch(() => { if (!cancelled) setZonings([]); });
+    return () => { cancelled = true; };
+  }, [stepActive, parcelId, parcelRequestId, source, zoningsTick]);
+
+  // Load the zone distribution of the chosen zoning when the step opens or the zoning changes.
+  useEffect(() => {
+    if (!stepActive || !parcelId || source !== 'orion') return undefined;
+    let cancelled = false;
+    (zoningRunId ? api.getDistribution(parcelId, zoningRunId) : api.getDistribution(parcelId))
       .then((distribution) => {
         if (!cancelled) dispatch({ type: 'VRA_DISTRIBUTION_LOADED', parcelRequestId, distribution });
       })
       .catch((e) => {
-        if (!cancelled) dispatch({ type: 'VRA_FAILED', parcelRequestId, error: vraError(e) });
+        if (cancelled) return;
+        if (zoningGone(e)) { backToDefault(); return; }
+        dispatch({ type: 'VRA_FAILED', parcelRequestId, error: vraError(e) });
       });
     return () => { cancelled = true; };
-  }, [stepActive, parcelId, parcelRequestId, source, retryTick, dispatch]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [stepActive, parcelId, parcelRequestId, source, zoningRunId, retryTick, dispatch]);
 
   const generateZones = useCallback(() => {
     const id = stateRef.current.parcel?.id;
@@ -110,6 +143,7 @@ export function useVraSync(state: WorkState, dispatch: React.Dispatch<WorkEvent>
               dispatch({ type: 'VRA_DISTRIBUTION_LOADED', parcelRequestId: prId, distribution });
               setJob('idle');
               setPollError(null);
+              setZoningsTick((n) => n + 1);
               return;
             }
           }
@@ -126,6 +160,11 @@ export function useVraSync(state: WorkState, dispatch: React.Dispatch<WorkEvent>
         } else tick();
       }, ZONES_POLL_MS);
     };
+    // A new automatic zoning becomes the default: go back to it.
+    if (stateRef.current.vra.config.zoningRunId || stateRef.current.vra.config.zoneRates) {
+      setRateZones([]);
+      dispatch({ type: 'VRA_CONFIG_CHANGED', config: { zoningRunId: null, zoneRates: undefined } });
+    }
     baseRun = stateRef.current.vra.distribution?.run_id ?? null;
     api.requestZones(id, DEFAULT_N_ZONES)
       .then(() => { if (token === jobToken.current) tick(); })
@@ -135,6 +174,33 @@ export function useVraSync(state: WorkState, dispatch: React.Dispatch<WorkEvent>
         dispatch({ type: 'VRA_FAILED', parcelRequestId: prId, error: vraError(e) });
       });
   }, [dispatch, stopPolling]);
+
+  const selectZoning = useCallback((runId: string) => {
+    const cur = stateRef.current;
+    const id = cur.parcel?.id;
+    const prId = cur.parcelRequestId;
+    const z = zonings.find((x) => x.run_id === runId);
+    if (!id || !z) return;
+    if (z.method !== 'manual') {
+      setRateZones([]);
+      // The default zoning is stored as null so it keeps following the latest automatic run.
+      dispatch({ type: 'VRA_CONFIG_CHANGED', config: { zoningRunId: z.is_default ? null : runId, zoneRates: undefined } });
+      return;
+    }
+    api.getZoningZones(id, runId)
+      .then((r) => {
+        if (stateRef.current.parcelRequestId !== prId) return;
+        const zones = [...(r.data?.zones ?? [])].sort(
+          (a, b) => (a.rank ?? Number.MAX_SAFE_INTEGER) - (b.rank ?? Number.MAX_SAFE_INTEGER) || a.id.localeCompare(b.id));
+        const prev = stateRef.current.vra.config.zoneRates ?? {};
+        setRateZones(zones);
+        dispatch({ type: 'VRA_CONFIG_CHANGED', config: {
+          zoningRunId: runId, zoneRates: Object.fromEntries(zones.map((zz) => [zz.id, prev[zz.id] ?? null])),
+          restRate: stateRef.current.vra.config.restRate ?? null,
+        } });
+      })
+      .catch((e) => dispatch({ type: 'VRA_FAILED', parcelRequestId: prId, error: vraError(e) }));
+  }, [dispatch, zonings]);
 
   const uploadFile = useCallback(async (file: File) => {
     const prId = stateRef.current.parcelRequestId;
@@ -185,9 +251,10 @@ export function useVraSync(state: WorkState, dispatch: React.Dispatch<WorkEvent>
         .then((r) => dispatch({
           type: 'VRA_PRESCRIPTION_RESULT', parcelRequestId: cur.parcelRequestId, requestId, prescription: r.prescription,
         }))
-        .catch((e) => dispatch({
-          type: 'VRA_FAILED', parcelRequestId: cur.parcelRequestId, requestId, error: vraError(e),
-        }));
+        .catch((e) => {
+          if (zoningGone(e)) { backToDefault(); return; }
+          dispatch({ type: 'VRA_FAILED', parcelRequestId: cur.parcelRequestId, requestId, error: vraError(e) });
+        });
     }, VRA_DEBOUNCE_MS);
     return () => clearTimeout(handle);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -199,5 +266,5 @@ export function useVraSync(state: WorkState, dispatch: React.Dispatch<WorkEvent>
     setRetryTick((n) => n + 1);
   }, [dispatch]);
 
-  return { job, pollError, retry, generateZones, uploadFile, uploadWarnings };
+  return { job, pollError, retry, generateZones, uploadFile, uploadWarnings, zonings, rateZones, selectZoning };
 }

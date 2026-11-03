@@ -293,7 +293,26 @@
       "calculating": "A calcular doses…",
       "summaryOn": "{{n}} classes",
       "summaryOff": "Não aplicada",
-      "uploadPrompt": "Carregue um ficheiro de zonas para continuar."
+      "uploadPrompt": "Carregue um ficheiro de zonas para continuar.",
+      "zoning": "Zonamento",
+      "zoningOption": "{{method}} · {{date}} ({{count}} zonas)",
+      "zoningDefault": "{{label}} · predefinido",
+      "noDate": "sem data",
+      "colZone": "Zona",
+      "rateOfZone": "Dose da zona {{label}}",
+      "zoneRatesHint": "Zonamento manual: indique uma dose para cada zona.",
+      "methods": {
+        "manual": "Manual",
+        "vegetationIndex": "Índice de vegetação",
+        "terrain": "Relevo",
+        "topographicWetness": "Humidade topográfica",
+        "soilSurvey": "Análise de solo",
+        "yieldMap": "Mapa de produtividade",
+        "other": "Outro método",
+        "none": "Automático"
+      },
+      "restOfParcel": "Resto da parcela",
+      "rateOfRest": "Dose do resto da parcela"
     },
     "warnings": {
       "UNREACHED_AREA": "Zona não coberta de {{ha}} ha",
@@ -340,7 +359,9 @@
       "PARCEL_READ_FAILED": "Não foi possível ler a parcela. Tente novamente.",
       "IMPLEMENT_WIDTH_MISSING": "Esta operação foi guardada sem largura de trabalho e não pode ser exportada para ISOXML. Planeie-a de novo.",
       "EXPORT_NOT_SUPPORTED": "Este formato de exportação não está disponível para trânsitos.",
-      "GENERATE_TIMEOUT": "O cálculo da rota está a demorar demasiado. Tente novamente."
+      "GENERATE_TIMEOUT": "O cálculo da rota está a demorar demasiado. Tente novamente.",
+      "ZONING_NOT_FOUND": "Esse zonamento já não existe nesta parcela.",
+      "ZONING_NOT_MANUAL": "Só é possível eliminar zonamentos manuais."
     },
     "actions": {
       "regenerate": "Regenerar",
@@ -358,7 +379,8 @@
     "title": "Rotas SIG",
     "tabs": {
       "work": "Trabalho",
-      "transit": "Trânsito A-B"
+      "transit": "Trânsito A-B",
+      "zonings": "Zonas manuais"
     },
     "empty": "Selecione uma parcela para começar",
     "regeneratedOnSave": "Plano regenerado com a dose atual antes de guardar",
@@ -509,5 +531,39 @@
     "saveFailed": "Não foi possível guardar a definição",
     "loadFailed": "Não foi possível carregar a definição",
     "forbidden": "Só os administradores podem alterar esta definição"
+  },
+  "zonings": {
+    "title": "Zonamentos manuais",
+    "intro": "Carregue um ficheiro (KML, KMZ, GeoJSON, shapefile .zip ou ISOXML) ou desenhe as zonas no mapa. Não substituem o zonamento automático: só são usados se os escolher na dose variável.",
+    "noParcel": "Escolha uma parcela no separador Trabalho.",
+    "upload": "Carregar ficheiro",
+    "draw": "Desenhar zonas",
+    "drawing": "A desenhar… clique para terminar",
+    "drawnCount": "{{count}} zonas desenhadas",
+    "previewDrawn": "Rever zonas desenhadas",
+    "clearDrawn": "Apagar desenho",
+    "previewTitle": "Zonas a guardar",
+    "colRank": "N.º",
+    "colLabel": "Nome",
+    "colArea": "ha",
+    "labelOf": "Nome da zona {{n}}",
+    "rejectedTitle": "Elementos excluídos",
+    "rejectedItem": "Elemento {{n}}: {{reason}}",
+    "reasons": {
+      "not_polygon": "não é um polígono",
+      "invalid_geometry": "geometria inválida",
+      "outside_parcel": "fora da parcela",
+      "not_wgs84": "coordenadas que não são graus WGS84"
+    },
+    "save": "Guardar zonamento",
+    "saving": "A guardar…",
+    "saved": "Zonamento guardado ({{count}} zonas).",
+    "cancel": "Descartar",
+    "existingTitle": "Zonamentos manuais guardados",
+    "none": "Ainda não há zonamentos manuais.",
+    "delete": "Eliminar",
+    "deleteOf": "Eliminar o zonamento {{label}}",
+    "loadError": "Não foi possível carregar os zonamentos.",
+    "rejectedNamed": "{{name}}: {{reason}}"
   }
 }

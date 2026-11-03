@@ -1,6 +1,6 @@
 import type { Geometry } from 'geojson';
 import type { OperationPlan } from '../../services/api';
-import { vraClassColors } from '../../map/model';
+import { vraClassColors, vraRateColors } from '../../map/model';
 
 export type PlanElement =
   | 'route' | 'swath' | 'access_path' | 'access_point' | 'exit_point'
@@ -59,7 +59,13 @@ export function planEntitySpecs(plan: OperationPlan | null | undefined): PlanSpe
   const classIndexes = [...new Set(features
     .filter((f) => f?.properties?.element === 'prescription_zone' && typeof f.properties.class_index === 'number')
     .map((f) => f.properties!.class_index as number))].sort((a, b) => a - b);
-  const colors = vraClassColors(classIndexes.length || 1);
+  const zoneFeatures = features.filter((f) => f?.properties?.element === 'prescription_zone');
+  // Per-zone rates (any number of zones): colour by rate; value classes: by class rank.
+  const perZone = zoneFeatures.some((f) => f.properties && 'zone_id' in f.properties);
+  const rateOfClass = new Map(zoneFeatures.map((f) => [f.properties!.class_index, f.properties!.rate as number]));
+  const colors = perZone
+    ? vraRateColors(classIndexes.map((ci) => rateOfClass.get(ci) as number))
+    : vraClassColors(classIndexes.length || 1);
 
   const out: PlanSpec[] = [];
   features.forEach((f, i) => {
