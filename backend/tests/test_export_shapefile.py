@@ -47,13 +47,26 @@ def _read(content):
 
 def test_zip_contents_and_records():
     d, r = _read(RouteExporter().to_shapefile(_op(_rx())))
-    assert sorted(d) == ["prescription.dbf", "prescription.prj", "prescription.shp", "prescription.shx"]
+    assert sorted(d) == ["prescription.cpg", "prescription.dbf", "prescription.prj",
+                         "prescription.shp", "prescription.shx"]
+    assert d["prescription.cpg"] == b"UTF-8"
     assert b"GCS_WGS_1984" in d["prescription.prj"]
     assert [f[0] for f in r.fields[1:]] == ["zone", "rate", "unit", "product"]
     assert len(r) == 3
     recs = [tuple(rec) for rec in r.records()]
     assert recs == [("Zone A", 240.5, "kg/ha", "NAC 27"), ("Zone B", 0.0, "kg/ha", "NAC 27"),
                     ("Rest of parcel", 222.2, "kg/ha", "NAC 27")]
+
+
+def test_accented_text_reads_back_identical():
+    rx = _rx()
+    rx["product"] = "Nitrógeno ñandú 27 %"
+    rx["classes"][0]["label"] = "Zona ácida – Ñ"
+    rx["zones"]["features"][0]["properties"]["label"] = "Zona ácida – Ñ"
+    d, r = _read(RouteExporter().to_shapefile(_op(rx)))
+    assert d["prescription.cpg"] == b"UTF-8"
+    rec = r.record(0)
+    assert rec["zone"] == "Zona ácida – Ñ" and rec["product"] == "Nitrógeno ñandú 27 %"
 
 
 def test_geometries_roundtrip_and_orientation():

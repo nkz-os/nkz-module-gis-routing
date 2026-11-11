@@ -450,6 +450,8 @@ class RouteExporter:
             zf.writestr("prescription.shx", shx.getvalue())
             zf.writestr("prescription.dbf", dbf.getvalue())
             zf.writestr("prescription.prj", self._WGS84_PRJ)
+            # pyshp leaves the .dbf language-driver byte at 0; the .cpg is what declares the encoding.
+            zf.writestr("prescription.cpg", "UTF-8")
         return out.getvalue()
 
     @staticmethod
