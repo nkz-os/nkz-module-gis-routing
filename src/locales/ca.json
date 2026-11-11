@@ -399,7 +399,8 @@
       "strategies": {
         "uniform": "uniforme",
         "potential": "potencial",
-        "compensate": "compensar"
+        "compensate": "compensar",
+        "other": "altra"
       },
       "failed": {
         "linkEncoding": "No s'ha pogut llegir l'enllaç de FaST. No s'ha omplert res.",
@@ -410,7 +411,9 @@
         "parcelLoad": "No s'ha pogut carregar la parcel·la de l'enllaç. No s'ha omplert res.",
         "zoningMissing": "La zonificació de l'enllaç ja no existeix en aquesta parcel·la. No s'ha omplert res.",
         "zonesMismatch": "Les zones d'aquesta zonificació no són aquelles per a les quals es van calcular les dosis. No s'ha omplert res.",
-        "zoningLoad": "No s'ha pogut carregar la zonificació de l'enllaç. No s'ha omplert res."
+        "zoningLoad": "No s'ha pogut carregar la zonificació de l'enllaç. No s'ha omplert res.",
+        "workStarted": "No s'han aplicat: ja havies començat a treballar. Obre l'enllaç de nou per portar les dosis de FaST.",
+        "transient": "No s'ha pogut carregar la parcel·la o la zonificació (error de xarxa o del servidor). Recarrega la pàgina per reintentar."
       }
     }
   },

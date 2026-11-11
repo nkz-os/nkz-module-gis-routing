@@ -399,7 +399,8 @@
       "strategies": {
         "uniform": "uniformea",
         "potential": "potentziala",
-        "compensate": "konpentsatu"
+        "compensate": "konpentsatu",
+        "other": "beste bat"
       },
       "failed": {
         "linkEncoding": "Ezin izan da FaST-en esteka irakurri. Ez da ezer bete.",
@@ -410,7 +411,9 @@
         "parcelLoad": "Ezin izan da estekako partzela kargatu. Ez da ezer bete.",
         "zoningMissing": "Estekako zonifikazioa ez dago jada partzela horretan. Ez da ezer bete.",
         "zonesMismatch": "Zonifikazio horren zonak ez dira dosiak kalkulatu ziren zonak. Ez da ezer bete.",
-        "zoningLoad": "Ezin izan da estekako zonifikazioa kargatu. Ez da ezer bete."
+        "zoningLoad": "Ezin izan da estekako zonifikazioa kargatu. Ez da ezer bete.",
+        "workStarted": "Ez dira aplikatu: lanean hasita zeunden. Ireki esteka berriro FaST-eko dosiak ekartzeko.",
+        "transient": "Ezin izan da partzela edo zonifikazioa kargatu (sare edo zerbitzari errorea). Birkargatu orria berriz saiatzeko."
       }
     }
   },

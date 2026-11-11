@@ -399,7 +399,8 @@
       "strategies": {
         "uniform": "uniforme",
         "potential": "potentiel",
-        "compensate": "compensation"
+        "compensate": "compensation",
+        "other": "autre"
       },
       "failed": {
         "linkEncoding": "Le lien de FaST n'a pas pu être lu. Rien n'a été rempli.",
@@ -410,7 +411,9 @@
         "parcelLoad": "La parcelle du lien n'a pas pu être chargée. Rien n'a été rempli.",
         "zoningMissing": "Le zonage du lien n'existe plus sur cette parcelle. Rien n'a été rempli.",
         "zonesMismatch": "Les zones de ce zonage ne sont pas celles pour lesquelles les doses ont été calculées. Rien n'a été rempli.",
-        "zoningLoad": "Le zonage du lien n'a pas pu être chargé. Rien n'a été rempli."
+        "zoningLoad": "Le zonage du lien n'a pas pu être chargé. Rien n'a été rempli.",
+        "workStarted": "Non appliquées : le travail était déjà commencé. Rouvrez le lien pour récupérer les doses de FaST.",
+        "transient": "La parcelle ou le zonage n'a pas pu être chargé (erreur réseau ou serveur). Rechargez la page pour réessayer."
       }
     }
   },

@@ -399,7 +399,8 @@
       "strategies": {
         "uniform": "uniform",
         "potential": "potential",
-        "compensate": "compensate"
+        "compensate": "compensate",
+        "other": "other"
       },
       "failed": {
         "linkEncoding": "The link from FaST could not be read. Nothing was filled in.",
@@ -410,7 +411,9 @@
         "parcelLoad": "The parcel of the link could not be loaded. Nothing was filled in.",
         "zoningMissing": "The zoning of the link no longer exists on that parcel. Nothing was filled in.",
         "zonesMismatch": "The zones of that zoning are not the ones the doses were calculated for. Nothing was filled in.",
-        "zoningLoad": "The zoning of the link could not be loaded. Nothing was filled in."
+        "zoningLoad": "The zoning of the link could not be loaded. Nothing was filled in.",
+        "workStarted": "Not applied: the work had already started. Open the link again to bring the doses from FaST.",
+        "transient": "The parcel or zoning could not be loaded (network or server error). Reload the page to retry."
       }
     }
   },

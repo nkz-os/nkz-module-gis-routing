@@ -3,7 +3,8 @@ import { api, ApiError, type ZoningZone } from '../services/api';
 import { zoneIdsMatch, type FastLinkReason, type FastPrefillRequest } from './fastLink';
 import type { WorkEvent, WorkState } from './workMachine';
 
-export type PrefillFailure = FastLinkReason | 'parcel' | 'parcel_load' | 'zoning_missing' | 'zones_mismatch' | 'zoning_load';
+export type PrefillFailure = FastLinkReason | 'parcel' | 'parcel_load' | 'zoning_missing' | 'zones_mismatch' | 'zoning_load'
+  | 'work_started' | 'transient';
 
 /** Locale key (under work.fast.failed) that says why the link was not applied. */
 export function failureKey(reason: PrefillFailure): string {
@@ -16,8 +17,23 @@ export function failureKey(reason: PrefillFailure): string {
     case 'zoning_missing': return 'zoningMissing';
     case 'zones_mismatch': return 'zonesMismatch';
     case 'zoning_load': return 'zoningLoad';
+    case 'work_started': return 'workStarted';
+    case 'transient': return 'transient';
     default: return 'linkContent';
   }
+}
+
+const KNOWN_STRATEGIES: ReadonlySet<string> = new Set(['uniform', 'potential', 'compensate']);
+
+/** Locale key suffix for a strategy coming from the URL: only the known ones are translated by name. */
+export function strategyKey(strategy: string): 'uniform' | 'potential' | 'compensate' | 'other' {
+  return KNOWN_STRATEGIES.has(strategy) ? (strategy as 'uniform' | 'potential' | 'compensate') : 'other';
+}
+
+/** A failure worth retrying with a reload: no answer, a server error, a timeout or a rate limit. */
+function isTransient(e: unknown): boolean {
+  if (!(e instanceof ApiError)) return true;
+  return e.status >= 500 || e.status === 408 || e.status === 429 || e.status === 0;
 }
 
 export type PrefillNotice =
@@ -47,13 +63,25 @@ export function useFastPrefill(
   useEffect(() => {
     if (!request || started.current) return;
     started.current = true;
-    const finish = (n: PrefillNotice) => { setNotice(n); onSettled?.(); };
+    // A transient failure keeps the link in the address (a reload retries); every other outcome is final.
+    const finish = (n: PrefillNotice) => { setNotice(n); if (!(n.kind === 'failed' && n.reason === 'transient')) onSettled?.(); };
+    // Whatever the technician does while this loads wins: the link is then not applied at all.
+    const s0 = stateRef.current;
+    const touched = () => {
+      const s = stateRef.current;
+      return s.parcelRequestId !== s0.parcelRequestId || s.phase !== s0.phase || s.zones !== s0.zones
+        || s.accessPoint !== s0.accessPoint || s.machine !== s0.machine || s.pattern !== s0.pattern
+        || s.vra.config !== s0.vra.config;
+    };
     if (request.kind === 'invalid') { finish({ kind: 'failed', reason: request.reason }); return; }
     const { parcelId: id, link } = request;
     // The parcel is not selected until everything checked out.
     Promise.all([api.getParcelGeometry(id), api.getParcelConfig(id)]).then(
-      ([g, cfg]) => api.getZoningZones(id, link.zoningRunId).then(
+      ([g, cfg]) => {
+        if (touched()) { finish({ kind: 'failed', reason: 'work_started' }); return undefined; }
+        return api.getZoningZones(id, link.zoningRunId).then(
         (r) => {
+          if (touched()) { finish({ kind: 'failed', reason: 'work_started' }); return; }
           const zones = [...(r.data?.zones ?? [])].sort(
             (a, b) => (a.rank ?? Number.MAX_SAFE_INTEGER) - (b.rank ?? Number.MAX_SAFE_INTEGER) || a.id.localeCompare(b.id));
           if (zones.length === 0) { finish({ kind: 'failed', reason: 'zoning_missing' }); return; }
@@ -70,11 +98,14 @@ export function useFastPrefill(
           finish({ kind: 'applied', parcelId: id, runId: link.zoningRunId, strategy: link.origin.strategy, nKgHa: link.origin.nKgHa });
         },
         (e) => finish({
-          kind: 'failed', reason: e instanceof ApiError && e.code === 'ZONING_NOT_FOUND' ? 'zoning_missing' : 'zoning_load',
+          kind: 'failed',
+          reason: e instanceof ApiError && e.code === 'ZONING_NOT_FOUND' ? 'zoning_missing'
+            : isTransient(e) ? 'transient' : 'zoning_load',
         }),
-      ),
+        );
+      },
       // A parcel that cannot be read: the zoning is not even asked.
-      () => finish({ kind: 'failed', reason: 'parcel_load' }),
+      (e) => finish({ kind: 'failed', reason: isTransient(e) ? 'transient' : 'parcel_load' }),
     );
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [request]);

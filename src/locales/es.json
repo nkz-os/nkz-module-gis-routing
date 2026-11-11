@@ -399,7 +399,8 @@
       "strategies": {
         "uniform": "uniforme",
         "potential": "potencial",
-        "compensate": "compensar"
+        "compensate": "compensar",
+        "other": "otra"
       },
       "failed": {
         "linkEncoding": "No se pudo leer el enlace de FaST. No se ha rellenado nada.",
@@ -410,7 +411,9 @@
         "parcelLoad": "No se pudo cargar la parcela del enlace. No se ha rellenado nada.",
         "zoningMissing": "La zonificación del enlace ya no existe en esa parcela. No se ha rellenado nada.",
         "zonesMismatch": "Las zonas de esa zonificación no son aquellas para las que se calcularon las dosis. No se ha rellenado nada.",
-        "zoningLoad": "No se pudo cargar la zonificación del enlace. No se ha rellenado nada."
+        "zoningLoad": "No se pudo cargar la zonificación del enlace. No se ha rellenado nada.",
+        "workStarted": "No se han aplicado: ya habías empezado a trabajar. Abre el enlace de nuevo para traer las dosis de FaST.",
+        "transient": "No se pudo cargar la parcela o la zonificación (error de red o del servidor). Recarga la página para reintentar."
       }
     }
   },

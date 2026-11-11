@@ -177,7 +177,7 @@ describe('FaST link prefill', () => {
   });
 
   it('applies nothing when the zoning cannot be loaded', async () => {
-    (api.getZoningZones as any).mockRejectedValue(new ApiError(502, { detail: 'down' }));
+    (api.getZoningZones as any).mockRejectedValue(new ApiError(400, { detail: 'bad' }));
     render(<Harness req={request()} />);
     await flush(0);
     expect(notice()).toEqual({ kind: 'failed', reason: 'zoning_load' });
@@ -190,6 +190,96 @@ describe('FaST link prefill', () => {
     await flush(0);
     expect(notice()).toEqual({ kind: 'failed', reason: 'parcel_load' });
     expect(latest).toEqual(initialWorkState);
+  });
+
+  const deferred = <T,>() => {
+    let resolve!: (v: T) => void; let reject!: (e: unknown) => void;
+    const promise = new Promise<T>((res, rej) => { resolve = res; reject = rej; });
+    return { promise, resolve, reject };
+  };
+  const zonesOk = { data: { zones: [
+    { id: Z1, label: 'Zona A', rank: 1, area_ha: 1.5, geometry: poly(0) },
+    { id: Z2, label: 'Zona B', rank: 2, area_ha: 2, geometry: poly(1) },
+  ] } };
+
+  it('applies nothing when the technician picks a parcel before the zoning answers', async () => {
+    const zones = deferred<any>();
+    (api.getZoningZones as any).mockReturnValue(zones.promise);
+    render(<Harness req={request()} />);
+    await flush(0);
+    act(() => send({ type: 'PARCEL_SELECTED', id: 'parcel-9', requestId: 5 }));
+    act(() => send({ type: 'PARCEL_LOADED', requestId: 5, id: 'parcel-9', name: 'Mine', geometry: poly(0, 0.01),
+      config: { exclusionZones: { type: 'FeatureCollection', features: [] }, accessPoint: null } as any }));
+    zones.resolve(zonesOk);
+    await flush(0);
+    expect(notice()).toEqual({ kind: 'failed', reason: 'work_started' });
+    expect(latest.parcel?.id).toBe('parcel-9');
+    expect(latest.parcelRequestId).toBe(5);
+    expect(latest.vra.config.enabled).toBe(false);
+    expect(settled).toBe(1);
+  });
+
+  const working: WorkState = {
+    ...initialWorkState, phase: 'ready', parcelRequestId: 7, activeStep: 'machine',
+    parcel: { id: 'parcel-9', name: 'Mine', geometry: poly(0, 0.01) },
+    machine: { ...initialWorkState.machine, widthM: 12, turningRadiusM: 5 },
+  };
+
+  it('keeps a route the technician generates meanwhile', async () => {
+    const zones = deferred<any>();
+    (api.getZoningZones as any).mockReturnValue(zones.promise);
+    render(<Harness req={request()} initial={working} />);
+    await flush(0);
+    act(() => send({ type: 'GENERATE_REQUESTED' }));
+    expect(latest.phase).toBe('generating');
+    zones.resolve(zonesOk);
+    await flush(0);
+    expect(notice()).toEqual({ kind: 'failed', reason: 'work_started' });
+    expect(latest.phase).toBe('generating');
+    expect(latest.parcel?.id).toBe('parcel-9');
+    expect(latest.parcelRequestId).toBe(7);
+    expect(latest.vra.config.enabled).toBe(false);
+  });
+
+  it('applies nothing when the technician acts between the parcel and the zoning request', async () => {
+    const geom = deferred<any>();
+    (api.getParcelGeometry as any).mockReturnValue(geom.promise);
+    render(<Harness req={request()} initial={working} />);
+    await flush(0);
+    act(() => send({ type: 'MACHINE_CHANGED', machine: { widthM: 20 } }));
+    geom.resolve({ name: 'Alpha', geometry: poly(0, 0.01) });
+    await flush(0);
+    expect(api.getZoningZones).not.toHaveBeenCalled();
+    expect(notice()).toEqual({ kind: 'failed', reason: 'work_started' });
+    expect(latest.machine.widthM).toBe(20);
+    expect(latest.parcel?.id).toBe('parcel-9');
+  });
+
+  it('a network or server failure is transient: the link is kept for a reload', async () => {
+    (api.getZoningZones as any).mockRejectedValue(new ApiError(503, { detail: 'down' }));
+    render(<Harness req={request()} />);
+    await flush(0);
+    expect(notice()).toEqual({ kind: 'failed', reason: 'transient' });
+    expect(settled).toBe(0);
+    cleanup();
+    (api.getParcelGeometry as any).mockRejectedValue(new TypeError('Failed to fetch'));
+    render(<Harness req={request()} />);
+    await flush(0);
+    expect(notice()).toEqual({ kind: 'failed', reason: 'transient' });
+    expect(settled).toBe(0);
+  });
+
+  it('a definitive refusal clears the link from the address', async () => {
+    (api.getZoningZones as any).mockRejectedValue(new ApiError(422, { code: 'ZONING_NOT_FOUND', detail: 'x', params: {} }));
+    render(<Harness req={request()} />);
+    await flush(0);
+    expect(settled).toBe(1);
+    cleanup();
+    (api.getParcelGeometry as any).mockRejectedValue(new ApiError(404, { detail: 'nope' }));
+    render(<Harness req={request()} />);
+    await flush(0);
+    expect(notice()).toEqual({ kind: 'failed', reason: 'parcel_load' });
+    expect(settled).toBe(2);
   });
 
   it('does nothing without a link', async () => {

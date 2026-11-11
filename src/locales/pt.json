@@ -399,7 +399,8 @@
       "strategies": {
         "uniform": "uniforme",
         "potential": "potencial",
-        "compensate": "compensar"
+        "compensate": "compensar",
+        "other": "outra"
       },
       "failed": {
         "linkEncoding": "Não foi possível ler a ligação do FaST. Nada foi preenchido.",
@@ -410,7 +411,9 @@
         "parcelLoad": "Não foi possível carregar a parcela da ligação. Nada foi preenchido.",
         "zoningMissing": "A zonificação da ligação já não existe nessa parcela. Nada foi preenchido.",
         "zonesMismatch": "As zonas dessa zonificação não são aquelas para as quais as doses foram calculadas. Nada foi preenchido.",
-        "zoningLoad": "Não foi possível carregar a zonificação da ligação. Nada foi preenchido."
+        "zoningLoad": "Não foi possível carregar a zonificação da ligação. Nada foi preenchido.",
+        "workStarted": "Não aplicadas: o trabalho já tinha começado. Abra a ligação de novo para trazer as doses do FaST.",
+        "transient": "Não foi possível carregar a parcela ou a zonificação (erro de rede ou do servidor). Recarregue a página para tentar de novo."
       }
     }
   },
