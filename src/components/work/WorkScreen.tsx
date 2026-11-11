@@ -17,7 +17,7 @@ import { savePlan } from '../../state/savePlan';
 import { downloadBlob } from '../../services/exportTransit';
 import { useConfigAutosave } from '../../state/useConfigAutosave';
 import { useVraSync } from '../../state/useVraSync';
-import { failureKey, useFastPrefill } from '../../state/useFastPrefill';
+import { failureKey, strategyKey, useFastPrefill } from '../../state/useFastPrefill';
 import type { FastPrefillRequest } from '../../state/fastLink';
 import { MapCanvas, type DrawMode, type LayerGroup } from '../../map/MapCanvas';
 import type { MapModel } from '../../map/model';
@@ -81,7 +81,7 @@ interface WorkScreenProps {
 }
 
 export const WorkScreen: React.FC<WorkScreenProps> = ({ onContextChange, prefill = null, onPrefillSettled }) => {
-  const { t } = useTranslation(NS);
+  const { t, i18n } = useTranslation(NS);
   const [state, dispatch] = useReducer(workReducer, initialWorkState);
   const [drawMode, setDrawMode] = useState<DrawMode>('none');
   const [hoveredSwath, setHoveredSwath] = useState<number | null>(null);
@@ -334,8 +334,9 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({ onContextChange, prefill
             <p>
               {fast.notice.kind === 'applied'
                 ? t('work.fast.applied', {
-                  strategy: t(`work.fast.strategies.${fast.notice.strategy}`, { defaultValue: fast.notice.strategy }),
-                  n: fast.notice.nKgHa,
+                  // The strategy comes from the address: only the known ones are named, never used as a key.
+                  strategy: t(`work.fast.strategies.${strategyKey(fast.notice.strategy)}`),
+                  n: new Intl.NumberFormat(i18n.language, { maximumFractionDigits: 1 }).format(fast.notice.nKgHa),
                 })
                 : t(`work.fast.failed.${failureKey(fast.notice.reason)}`)}
             </p>
