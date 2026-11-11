@@ -10,8 +10,8 @@ import { SettingsBlock } from './SettingsBlock';
 
 const NS = 'gis-routing';
 
-type ExportFormat = 'isoxml' | 'geojson' | 'gpx';
-const FORMATS: readonly ExportFormat[] = ['isoxml', 'geojson', 'gpx'];
+type ExportFormat = 'isoxml' | 'geojson' | 'gpx' | 'shapefile';
+const FORMATS: readonly ExportFormat[] = ['isoxml', 'shapefile', 'geojson', 'gpx'];
 const GEOMETRIC_CODES: ReadonlySet<string> = new Set([
   'ACCESS_IN_ZONE', 'ACCESS_OUTSIDE_PARCEL', 'NO_DRIVABLE_AREA', 'INVALID_GEOMETRY',
 ]);

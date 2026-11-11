@@ -293,7 +293,7 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({ onContextChange }) => {
   const onSave = useCallback(() => { void run(true); }, [run]);
 
   const [exportError, setExportError] = useState<NonNullable<WorkState['error']> | null>(null);
-  const onExport = useCallback(async (format: 'isoxml' | 'geojson' | 'gpx') => {
+  const onExport = useCallback(async (format: 'isoxml' | 'geojson' | 'gpx' | 'shapefile') => {
     const id = stateRef.current.result?.operationId;
     if (!id) return;
     setExportError(null);

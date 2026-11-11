@@ -89,6 +89,16 @@ describe('api export download', () => {
     expect(await got.blob.text()).toBe('<xml/>');
   });
 
+  it('requests the shapefile format and falls back to a .zip name', async () => {
+    (window as any).__ENV__ = { VITE_API_URL: 'http://api.test' };
+    const f = vi.fn().mockResolvedValue(new Response('zip', { status: 200 }));
+    vi.stubGlobal('fetch', f);
+    const { api } = await import('../api');
+    const got = await api.downloadExport('urn:ngsi-ld:Op:t:abc', 'shapefile');
+    expect(f.mock.calls[0][0]).toBe('http://api.test/api/routing/export/urn%3Angsi-ld%3AOp%3At%3Aabc?format=shapefile');
+    expect(got.filename).toBe('abc.zip');
+  });
+
   it('a coded refusal becomes an ApiError with the code, not a downloaded JSON file', async () => {
     (window as any).__ENV__ = { VITE_API_URL: 'http://api.test' };
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(

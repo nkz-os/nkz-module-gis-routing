@@ -1361,7 +1361,7 @@ async def generate_vra_zones(request: Request, parcel_id: str, auth: AuthContext
 
 
 @router.get("/export/{operation_id}")
-async def export_operation(request: Request, operation_id: str, format: str = Query("geojson", description="Export format: isoxml, geojson, gpx"),
+async def export_operation(request: Request, operation_id: str, format: str = Query("geojson", description="Export format: isoxml, geojson, gpx, shapefile"),
     auth: AuthContext = require_auth()
 ):
     from app.services.operation_store import _parcel_rel
@@ -1377,9 +1377,10 @@ async def export_operation(request: Request, operation_id: str, format: str = Qu
     if not entity:
         raise HTTPException(status_code=404, detail="Operation not found")
     location = entity.get("location", {}).get("value", {})
-    if entity.get("operationType", {}).get("value") == "transit" and format == "isoxml":
-        raise PlanError("EXPORT_NOT_SUPPORTED", "transit operations cannot be exported as ISOXML",
-                        {"format": "isoxml"})
+    if entity.get("operationType", {}).get("value") == "transit" and format in ("isoxml", "shapefile"):
+        raise PlanError("EXPORT_NOT_SUPPORTED",
+                        f"transit operations cannot be exported as {'ISOXML' if format == 'isoxml' else 'shapefile'}",
+                        {"format": format})
     op_record = {
         "id": entity["id"],
         "name": entity.get("name", {}).get("value", ""),
@@ -1421,6 +1422,15 @@ async def export_operation(request: Request, operation_id: str, format: str = Qu
             media_type="application/xml",
             headers={
                 "Content-Disposition": f'attachment; filename="{operation_id.rsplit(":", 1)[-1]}.xml"'
+            },
+        )
+    elif format == "shapefile":
+        content = exporter.to_shapefile(op_record)
+        return FastAPIResponse(
+            content=content,
+            media_type="application/zip",
+            headers={
+                "Content-Disposition": f'attachment; filename="{operation_id.rsplit(":", 1)[-1]}-prescription.zip"'
             },
         )
     elif format == "gpx":
