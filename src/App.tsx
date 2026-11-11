@@ -11,6 +11,7 @@ import { ErrorBoundary } from './components/ErrorBoundary';
 import { TransitScreen } from './components/transit/TransitScreen';
 import { WorkScreen, type WorkContext } from './components/work/WorkScreen';
 import { ManualZoningScreen } from './components/zonings/ManualZoningScreen';
+import { fastPrefillFromSearch, withoutVra } from './state/fastLink';
 
 const NS = 'gis-routing';
 
@@ -25,8 +26,22 @@ function deepLink(): { tab: Tab; parcelId: string | null } {
     : { tab: 'work', parcelId: null };
 }
 
+/**
+ * Once the FaST link has been applied (or refused) its `vra` parameter goes from the address, so a
+ * reload cannot re-apply it over the technician's edits. `view` and `parcel` stay; the history
+ * state is kept as it was (the host's router owns it).
+ */
+function dropVraFromAddress(): void {
+  if (typeof window === 'undefined') return;
+  const next = withoutVra(window.location.href);
+  if (next !== window.location.pathname + window.location.search + window.location.hash) {
+    window.history.replaceState(window.history.state, '', next);
+  }
+}
+
 const App: React.FC = () => {
   const { t } = useTranslation(NS);
+  const [prefill] = useState(() => (typeof window === 'undefined' ? null : fastPrefillFromSearch(window.location.search)));
   const [ctx, setCtx] = useState<WorkContext>({ parcelId: null, parcelGeometry: null, machineWidthM: null, turningRadiusM: null });
   const [link] = useState(deepLink);
   const [tab, setTab] = useState<Tab>(link.tab);
@@ -55,7 +70,7 @@ const App: React.FC = () => {
           </Tabs>
         </div>
         <div className={tab === 'work' ? undefined : 'hidden'}>
-          <WorkScreen onContextChange={setCtx} />
+          <WorkScreen onContextChange={setCtx} prefill={prefill} onPrefillSettled={dropVraFromAddress} />
         </div>
         {transitVisited && (
           <div className={tab === 'transit' ? undefined : 'hidden'}>

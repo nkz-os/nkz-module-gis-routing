@@ -392,6 +392,29 @@
     "wait": {
       "route": "Calculando la ruta. En parcelas grandes o con muchas zonas puede tardar hasta un minuto; no cierres la página.",
       "zones": "Generando zonas de manejo a partir de la imagen de satélite. Suele tardar 1–2 minutos."
+    },
+    "fast": {
+      "applied": "Dosis traídas de FaST ({{strategy}}, {{n}} kg N/ha de la pasada). Elige máquina y patrón, genera la ruta y revísalas en el paso de dosis variable; puedes cambiarlo todo.",
+      "dismiss": "Cerrar",
+      "strategies": {
+        "uniform": "uniforme",
+        "potential": "potencial",
+        "compensate": "compensar",
+        "other": "otra"
+      },
+      "failed": {
+        "linkEncoding": "No se pudo leer el enlace de FaST. No se ha rellenado nada.",
+        "linkVersion": "El enlace de FaST tiene una versión u origen desconocidos. No se ha rellenado nada.",
+        "linkTooManyZones": "El enlace de FaST trae más de 50 zonas. No se ha rellenado nada.",
+        "linkContent": "El enlace de FaST tiene valores que faltan o no son válidos (dosis, unidad o producto). No se ha rellenado nada.",
+        "noParcel": "El enlace de FaST no indica la parcela. No se ha rellenado nada.",
+        "parcelLoad": "No se pudo cargar la parcela del enlace. No se ha rellenado nada.",
+        "zoningMissing": "La zonificación del enlace ya no existe en esa parcela. No se ha rellenado nada.",
+        "zonesMismatch": "Las zonas de esa zonificación no son aquellas para las que se calcularon las dosis. No se ha rellenado nada.",
+        "zoningLoad": "No se pudo cargar la zonificación del enlace. No se ha rellenado nada.",
+        "workStarted": "No se han aplicado: ya habías empezado a trabajar. Abre el enlace de nuevo para traer las dosis de FaST.",
+        "transient": "No se pudo cargar la parcela o la zonificación (error de red o del servidor). Recarga la página para reintentar."
+      }
     }
   },
   "autosave": {

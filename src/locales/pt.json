@@ -392,6 +392,29 @@
     "wait": {
       "route": "A calcular a rota. Em parcelas grandes ou com muitas zonas pode demorar até um minuto; não feche a página.",
       "zones": "A gerar zonas de gestão a partir da imagem de satélite. Costuma demorar 1–2 minutos."
+    },
+    "fast": {
+      "applied": "Doses trazidas do FaST ({{strategy}}, {{n}} kg N/ha da passagem). Escolha a máquina e o padrão, gere o percurso e reveja-as no passo de dose variável; pode alterar tudo.",
+      "dismiss": "Fechar",
+      "strategies": {
+        "uniform": "uniforme",
+        "potential": "potencial",
+        "compensate": "compensar",
+        "other": "outra"
+      },
+      "failed": {
+        "linkEncoding": "Não foi possível ler a ligação do FaST. Nada foi preenchido.",
+        "linkVersion": "A ligação do FaST tem uma versão ou origem desconhecida. Nada foi preenchido.",
+        "linkTooManyZones": "A ligação do FaST traz mais de 50 zonas. Nada foi preenchido.",
+        "linkContent": "A ligação do FaST tem valores em falta ou inválidos (doses, unidade ou produto). Nada foi preenchido.",
+        "noParcel": "A ligação do FaST não indica a parcela. Nada foi preenchido.",
+        "parcelLoad": "Não foi possível carregar a parcela da ligação. Nada foi preenchido.",
+        "zoningMissing": "A zonificação da ligação já não existe nessa parcela. Nada foi preenchido.",
+        "zonesMismatch": "As zonas dessa zonificação não são aquelas para as quais as doses foram calculadas. Nada foi preenchido.",
+        "zoningLoad": "Não foi possível carregar a zonificação da ligação. Nada foi preenchido.",
+        "workStarted": "Não aplicadas: o trabalho já tinha começado. Abra a ligação de novo para trazer as doses do FaST.",
+        "transient": "Não foi possível carregar a parcela ou a zonificação (erro de rede ou do servidor). Recarregue a página para tentar de novo."
+      }
     }
   },
   "autosave": {

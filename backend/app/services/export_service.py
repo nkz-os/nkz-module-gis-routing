@@ -1,7 +1,9 @@
 """Export routing operations to ISOXML 11783-10, GeoJSON, and GPX formats."""
 import json
 import logging
+import io
 import math
+import zipfile
 from datetime import datetime
 
 from app.services.coverage.errors import PlanError
@@ -341,6 +343,116 @@ class RouteExporter:
         out.append(f'      <PDV A="{self._DDI[unit]}" B="0"/>')
         out.append("    </TZN>")
         return "\n".join(out) + "\n", fallback
+
+    # Shapefile of the stored prescription: one row per zone (and the rest of the parcel).
+    # WGS84; exterior rings are written clockwise as the shapefile spec requires.
+    _WGS84_PRJ = (
+        'GEOGCS["GCS_WGS_1984",DATUM["D_WGS_1984",SPHEROID["WGS_1984",6378137.0,298.257223563]],'
+        'PRIMEM["Greenwich",0.0],UNIT["Degree",0.0174532925199433]]'
+    )
+    _SHP_UNITS = {"kg_ha": "kg/ha", "l_ha": "L/ha"}
+
+    @staticmethod
+    def _dbf_text(text, n: int = 254) -> str:
+        raw = str(text if text is not None else "").encode("utf-8")[:n]
+        return raw.decode("utf-8", errors="ignore")
+
+    def to_shapefile(self, operation: dict) -> bytes:
+        """Zip with .shp/.shx/.dbf/.prj; attributes zone, rate, unit, product."""
+        import shapefile
+        from shapely.geometry import shape
+        from shapely.geometry.polygon import orient
+
+        rx = operation.get("prescription")
+        if rx is None or (isinstance(rx, str) and rx.strip() in ("", "null")):
+            raise PlanError("EXPORT_EMPTY", "operation has no prescription to export",
+                            {"format": "shapefile"})
+
+        def bad(reason: str, **params):
+            raise PlanError("INVALID_VRA", f"stored prescription is invalid: {reason}",
+                            {"reason": reason, **params})
+
+        try:
+            if isinstance(rx, str):
+                try:
+                    rx = json.loads(rx)
+                except json.JSONDecodeError:
+                    bad("not_json")
+            if not isinstance(rx, dict):
+                bad("not_object")
+            unit = self._SHP_UNITS.get(rx.get("unit"))
+            if unit is None:
+                bad("unknown_unit", unit=str(rx.get("unit")))
+            zones = rx.get("zones")
+            if isinstance(zones, str):
+                try:
+                    zones = json.loads(zones)
+                except json.JSONDecodeError:
+                    bad("zones_not_json")
+            if not isinstance(zones, dict) or not isinstance(zones.get("features"), list):
+                bad("zones_invalid")
+            classes = {}
+            for c in rx.get("classes") or []:
+                if isinstance(c, dict) and isinstance(c.get("index"), int) \
+                        and not isinstance(c["index"], bool):
+                    classes[c["index"]] = c
+            product = self._dbf_text(rx.get("product") or "")
+            rows = []
+            for f in zones["features"]:
+                props = f.get("properties") or {}
+                ci = props.get("class_index")
+                cls = classes.get(ci)
+                if cls is None:
+                    bad("zone_class_unknown", class_index=str(ci))
+                rate = cls.get("rate")
+                if isinstance(rate, bool) or not isinstance(rate, (int, float)) \
+                        or not math.isfinite(rate) or rate < 0:
+                    bad("rate_invalid", class_index=ci)
+                label = props.get("label") or cls.get("label") or f"Class {ci + 1}"
+                geom = f.get("geometry")
+                if not isinstance(geom, dict) or geom.get("type") not in ("Polygon", "MultiPolygon"):
+                    continue
+                g = shape(geom)
+                if g.is_empty:
+                    continue
+                polys = [g] if g.geom_type == "Polygon" else list(g.geoms)
+                parts = []
+                for poly in polys:
+                    if poly.is_empty:
+                        continue
+                    poly = orient(poly, sign=-1.0)
+                    parts.append([list(poly.exterior.coords)] + [list(r.coords) for r in poly.interiors])
+                if not parts:
+                    continue
+                rows.append((parts, self._dbf_text(label), float(rate)))
+        except PlanError:
+            raise
+        except (TypeError, ValueError, KeyError, IndexError, AttributeError) as exc:
+            raise PlanError("INVALID_VRA", "stored prescription is malformed",
+                            {"reason": type(exc).__name__}) from exc
+        if not rows:
+            raise PlanError("EXPORT_EMPTY", "prescription has no zone polygons",
+                            {"format": "shapefile"})
+
+        shp, shx, dbf = io.BytesIO(), io.BytesIO(), io.BytesIO()
+        with shapefile.Writer(shp=shp, shx=shx, dbf=dbf, shapeType=shapefile.POLYGON,
+                              encoding="utf-8") as w:
+            w.field("zone", "C", 254)
+            w.field("rate", "N", 14, 3)
+            w.field("unit", "C", 8)
+            w.field("product", "C", 254)
+            for parts, label, rate in rows:
+                w.poly([ring for part in parts for ring in part])
+                w.record(label, rate, unit, product)
+        out = io.BytesIO()
+        with zipfile.ZipFile(out, "w", zipfile.ZIP_DEFLATED) as zf:
+            zf.writestr("prescription.shp", shp.getvalue())
+            zf.writestr("prescription.shx", shx.getvalue())
+            zf.writestr("prescription.dbf", dbf.getvalue())
+            zf.writestr("prescription.prj", self._WGS84_PRJ)
+            # pyshp leaves the .dbf language-driver byte at 0; the .cpg is what declares the encoding.
+            zf.writestr("prescription.cpg", "UTF-8")
+        return out.getvalue()
 
     @staticmethod
     def _pct(v) -> str:

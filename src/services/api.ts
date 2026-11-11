@@ -424,7 +424,7 @@ export const api = {
   // Export
   /** The exported file. A refusal (coded 4xx/5xx) throws ApiError instead of downloading its JSON body. */
   async downloadExport(
-    operationId: string, format: 'isoxml' | 'geojson' | 'gpx',
+    operationId: string, format: 'isoxml' | 'geojson' | 'gpx' | 'shapefile',
   ): Promise<{ blob: Blob; filename: string }> {
     const resp = await fetch(`${BASE_URL}/export/${encodeURIComponent(operationId)}?format=${format}`, {
       headers: await authHeaders(), credentials: 'include',
@@ -434,7 +434,7 @@ export const api = {
       throw new ApiError(resp.status, error);
     }
     const named = /filename="?([^";]+)"?/.exec(resp.headers.get('Content-Disposition') ?? '')?.[1];
-    return { blob: await resp.blob(), filename: named ?? `${operationId.split(':').pop()}.${format === 'isoxml' ? 'xml' : format}` };
+    return { blob: await resp.blob(), filename: named ?? `${operationId.split(':').pop()}.${format === 'isoxml' ? 'xml' : format === 'shapefile' ? 'zip' : format}` };
   },
 
   // Patterns
