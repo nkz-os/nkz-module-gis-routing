@@ -392,6 +392,26 @@
     "wait": {
       "route": "Ibilbidea kalkulatzen. Lursail handietan edo zona askorekin minutu bat arte ehun daiteke; ez itxi orria.",
       "zones": "Kudeaketa-zonak sortzen satelite-irudiaren bidez. Normalean 1–2 minutu behar ditu."
+    },
+    "fast": {
+      "applied": "FaST-etik ekarritako dosiak ({{strategy}}, {{n}} kg N/ha pasaldian). Aukeratu makina eta eredua, sortu ibilbidea eta berrikusi dosi aldakorraren urratsean; dena alda dezakezu.",
+      "dismiss": "Itxi",
+      "strategies": {
+        "uniform": "uniformea",
+        "potential": "potentziala",
+        "compensate": "konpentsatu"
+      },
+      "failed": {
+        "linkEncoding": "Ezin izan da FaST-en esteka irakurri. Ez da ezer bete.",
+        "linkVersion": "FaST-en estekak bertsio edo jatorri ezezaguna du. Ez da ezer bete.",
+        "linkTooManyZones": "FaST-en estekak 50 zona baino gehiago ditu. Ez da ezer bete.",
+        "linkContent": "FaST-en estekak balio falta edo baliogabeak ditu (dosiak, unitatea edo produktua). Ez da ezer bete.",
+        "noParcel": "FaST-en estekak ez du partzela adierazten. Ez da ezer bete.",
+        "parcelLoad": "Ezin izan da estekako partzela kargatu. Ez da ezer bete.",
+        "zoningMissing": "Estekako zonifikazioa ez dago jada partzela horretan. Ez da ezer bete.",
+        "zonesMismatch": "Zonifikazio horren zonak ez dira dosiak kalkulatu ziren zonak. Ez da ezer bete.",
+        "zoningLoad": "Ezin izan da estekako zonifikazioa kargatu. Ez da ezer bete."
+      }
     }
   },
   "autosave": {

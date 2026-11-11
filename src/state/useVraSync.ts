@@ -28,6 +28,8 @@ export interface VraSync {
   rateZones: ZoningZone[];
   /** Choose a zoning; a manual one switches to one rate per zone. */
   selectZoning: (runId: string) => void;
+  /** Zones (labels, areas) to show in the per-zone table when the config is set from outside. */
+  setRateZones: (zones: ZoningZone[]) => void;
 }
 
 function vraError(e: unknown): NonNullable<WorkState['error']> {
@@ -266,5 +268,5 @@ export function useVraSync(state: WorkState, dispatch: React.Dispatch<WorkEvent>
     setRetryTick((n) => n + 1);
   }, [dispatch]);
 
-  return { job, pollError, retry, generateZones, uploadFile, uploadWarnings, zonings, rateZones, selectZoning };
+  return { job, pollError, retry, generateZones, uploadFile, uploadWarnings, zonings, rateZones, selectZoning, setRateZones };
 }

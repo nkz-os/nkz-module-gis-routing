@@ -17,6 +17,8 @@ import { savePlan } from '../../state/savePlan';
 import { downloadBlob } from '../../services/exportTransit';
 import { useConfigAutosave } from '../../state/useConfigAutosave';
 import { useVraSync } from '../../state/useVraSync';
+import { failureKey, useFastPrefill } from '../../state/useFastPrefill';
+import type { FastPrefillRequest } from '../../state/fastLink';
 import { MapCanvas, type DrawMode, type LayerGroup } from '../../map/MapCanvas';
 import type { MapModel } from '../../map/model';
 import { StepList } from './StepList';
@@ -73,9 +75,12 @@ export interface WorkContext {
 
 interface WorkScreenProps {
   onContextChange?: (ctx: WorkContext) => void;
+  /** A link from FaST asking for the wizard to open with the doses already in. */
+  prefill?: FastPrefillRequest | null;
+  onPrefillSettled?: () => void;
 }
 
-export const WorkScreen: React.FC<WorkScreenProps> = ({ onContextChange }) => {
+export const WorkScreen: React.FC<WorkScreenProps> = ({ onContextChange, prefill = null, onPrefillSettled }) => {
   const { t } = useTranslation(NS);
   const [state, dispatch] = useReducer(workReducer, initialWorkState);
   const [drawMode, setDrawMode] = useState<DrawMode>('none');
@@ -140,6 +145,8 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({ onContextChange }) => {
   });
 
   const vraSync = useVraSync(state, dispatch);
+  const fast = useFastPrefill(prefill, state, dispatch, vraSync.setRateZones, onPrefillSettled);
+  const fastFailed = fast.notice?.kind === 'failed';
 
   const plan = state.result?.plan ?? null;
 
@@ -317,6 +324,24 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({ onContextChange }) => {
     >
       <div className="lg:col-span-1 flex flex-col min-h-0 overflow-y-auto space-y-3 p-3">
         {toast && <Badge intent="info">{toast}</Badge>}
+        {fast.notice && (
+          <div
+            role={fastFailed ? 'alert' : 'status'}
+            data-testid="fast-notice"
+            className={`rounded-nkz-md border px-nkz-stack py-2 text-nkz-sm space-y-2 ${
+              fastFailed ? 'bg-nkz-danger-soft border-nkz-danger' : 'bg-nkz-surface-raised border-nkz-border'}`}
+          >
+            <p>
+              {fast.notice.kind === 'applied'
+                ? t('work.fast.applied', {
+                  strategy: t(`work.fast.strategies.${fast.notice.strategy}`, { defaultValue: fast.notice.strategy }),
+                  n: fast.notice.nKgHa,
+                })
+                : t(`work.fast.failed.${failureKey(fast.notice.reason)}`)}
+            </p>
+            <Button variant="ghost" size="sm" onClick={fast.dismiss}>{t('work.fast.dismiss')}</Button>
+          </div>
+        )}
         <StepList state={state} dispatch={dispatch}>
           {(step) => {
             switch (step) {

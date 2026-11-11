@@ -392,6 +392,26 @@
     "wait": {
       "route": "Calcul de l'itinéraire. Sur de grandes parcelles ou avec beaucoup de zones, cela peut prendre jusqu'à une minute ; ne fermez pas la page.",
       "zones": "Génération des zones de gestion à partir de l'image satellite. Cela prend en général 1 à 2 minutes."
+    },
+    "fast": {
+      "applied": "Doses issues de FaST ({{strategy}}, {{n}} kg N/ha pour ce passage). Choisissez la machine et le motif, générez l'itinéraire et vérifiez-les à l'étape de dose variable ; tout reste modifiable.",
+      "dismiss": "Fermer",
+      "strategies": {
+        "uniform": "uniforme",
+        "potential": "potentiel",
+        "compensate": "compensation"
+      },
+      "failed": {
+        "linkEncoding": "Le lien de FaST n'a pas pu être lu. Rien n'a été rempli.",
+        "linkVersion": "Le lien de FaST a une version ou une origine inconnue. Rien n'a été rempli.",
+        "linkTooManyZones": "Le lien de FaST contient plus de 50 zones. Rien n'a été rempli.",
+        "linkContent": "Le lien de FaST contient des valeurs manquantes ou invalides (doses, unité ou produit). Rien n'a été rempli.",
+        "noParcel": "Le lien de FaST n'indique pas la parcelle. Rien n'a été rempli.",
+        "parcelLoad": "La parcelle du lien n'a pas pu être chargée. Rien n'a été rempli.",
+        "zoningMissing": "Le zonage du lien n'existe plus sur cette parcelle. Rien n'a été rempli.",
+        "zonesMismatch": "Les zones de ce zonage ne sont pas celles pour lesquelles les doses ont été calculées. Rien n'a été rempli.",
+        "zoningLoad": "Le zonage du lien n'a pas pu être chargé. Rien n'a été rempli."
+      }
     }
   },
   "autosave": {

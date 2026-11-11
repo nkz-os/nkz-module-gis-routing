@@ -392,6 +392,26 @@
     "wait": {
       "route": "Calculant la ruta. En parcel·les grans o amb moltes zones pot trigar fins a un minut; no tanquis la pàgina.",
       "zones": "Generant zones de maneig a partir de la imatge de satèl·lit. Sol trigar 1–2 minuts."
+    },
+    "fast": {
+      "applied": "Dosis portades de FaST ({{strategy}}, {{n}} kg N/ha de la passada). Tria màquina i patró, genera la ruta i revisa-les al pas de dosi variable; ho pots canviar tot.",
+      "dismiss": "Tanca",
+      "strategies": {
+        "uniform": "uniforme",
+        "potential": "potencial",
+        "compensate": "compensar"
+      },
+      "failed": {
+        "linkEncoding": "No s'ha pogut llegir l'enllaç de FaST. No s'ha omplert res.",
+        "linkVersion": "L'enllaç de FaST té una versió o un origen desconeguts. No s'ha omplert res.",
+        "linkTooManyZones": "L'enllaç de FaST porta més de 50 zones. No s'ha omplert res.",
+        "linkContent": "L'enllaç de FaST té valors que falten o no són vàlids (dosis, unitat o producte). No s'ha omplert res.",
+        "noParcel": "L'enllaç de FaST no indica la parcel·la. No s'ha omplert res.",
+        "parcelLoad": "No s'ha pogut carregar la parcel·la de l'enllaç. No s'ha omplert res.",
+        "zoningMissing": "La zonificació de l'enllaç ja no existeix en aquesta parcel·la. No s'ha omplert res.",
+        "zonesMismatch": "Les zones d'aquesta zonificació no són aquelles per a les quals es van calcular les dosis. No s'ha omplert res.",
+        "zoningLoad": "No s'ha pogut carregar la zonificació de l'enllaç. No s'ha omplert res."
+      }
     }
   },
   "autosave": {

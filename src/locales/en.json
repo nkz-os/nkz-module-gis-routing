@@ -392,6 +392,26 @@
     "wait": {
       "route": "Calculating the route. On large parcels or with many zones it can take up to a minute; do not close the page.",
       "zones": "Generating management zones from the satellite image. It usually takes 1–2 minutes."
+    },
+    "fast": {
+      "applied": "Doses brought from FaST ({{strategy}}, {{n}} kg N/ha in this pass). Choose machine and pattern, generate the route and review them in the variable-rate step; you can change anything.",
+      "dismiss": "Dismiss",
+      "strategies": {
+        "uniform": "uniform",
+        "potential": "potential",
+        "compensate": "compensate"
+      },
+      "failed": {
+        "linkEncoding": "The link from FaST could not be read. Nothing was filled in.",
+        "linkVersion": "The link from FaST has an unknown version or origin. Nothing was filled in.",
+        "linkTooManyZones": "The link from FaST has more than 50 zones. Nothing was filled in.",
+        "linkContent": "The link from FaST has missing or invalid values (doses, unit or product). Nothing was filled in.",
+        "noParcel": "The link from FaST does not say which parcel. Nothing was filled in.",
+        "parcelLoad": "The parcel of the link could not be loaded. Nothing was filled in.",
+        "zoningMissing": "The zoning of the link no longer exists on that parcel. Nothing was filled in.",
+        "zonesMismatch": "The zones of that zoning are not the ones the doses were calculated for. Nothing was filled in.",
+        "zoningLoad": "The zoning of the link could not be loaded. Nothing was filled in."
+      }
     }
   },
   "autosave": {
