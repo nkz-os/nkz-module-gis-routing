@@ -300,10 +300,18 @@
       "noDate": "sin fecha",
       "colZone": "Zona",
       "rateOfZone": "Dosis de la zona {{label}}",
+      "zoneGeneric": "Zona {{n}}",
+      "zoneLevel": {
+        "high": "Vigor alto",
+        "medium": "Vigor medio",
+        "low": "Vigor bajo",
+        "critical": "Vigor crítico"
+      },
       "zoneRatesHint": "Zonificación manual: indica una dosis para cada zona.",
       "methods": {
         "manual": "Manual",
         "vegetationIndex": "Índice de vegetación",
+        "vegetationIndexMultiDate": "Satélite multifecha",
         "terrain": "Relieve",
         "topographicWetness": "Humedad topográfica",
         "soilSurvey": "Análisis de suelo",

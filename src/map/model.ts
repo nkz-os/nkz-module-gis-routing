@@ -21,6 +21,8 @@ export interface MapModel {
   vra?: Prescription | null;
   /** Pre-formatted dose label per rate (unit text comes from i18n in the UI). */
   vraRateLabel?: (rate: number) => string;
+  /** Per-zone prescription whose zone names (level texts) are shown next to the dose. */
+  vraZoneNames?: boolean;
 }
 
 export const SOURCE_IDS = ['parcel', 'parcel-rings', 'zones', 'zones-margin', 'vra-classes', 'swaths', 'route', 'access', 'markers', 'warnings'] as const;
@@ -68,6 +70,14 @@ export function vraRateColors(rates: number[]): string[] {
 /** True when the prescription has one row per zone (per-zone rates) rather than value classes. */
 export function isPerZonePrescription(classes: { zone_id?: string | null }[] | undefined): boolean {
   return Array.isArray(classes) && classes.some((c) => c && 'zone_id' in c);
+}
+
+/** Legend rows (colour and zone name) of a per-zone prescription that shows zone names. */
+export function vraLegendRows(m: Pick<MapModel, 'vra' | 'vraZoneNames'>): { color: string; label: string }[] {
+  const presc = m.vra;
+  if (!m.vraZoneNames || !presc || !isPerZonePrescription(presc.classes)) return [];
+  const colors = vraRateColors(presc.classes.map((c) => c.rate));
+  return presc.classes.flatMap((c, i) => (!c.rest && c.label ? [{ color: colors[i], label: c.label }] : []));
 }
 
 type Feature = GeoJSON.Feature;
@@ -142,7 +152,9 @@ export function buildSources(m: MapModel): Record<SourceId, GeoJSON.FeatureColle
     const rate = z.properties?.rate;
     const color = colorOf(ci);
     vraClasses.push(feature(z.geometry, { part: 'fill', class_index: ci, rate, color }));
-    vraClasses.push(feature(anchorOf(z.geometry), { part: 'label', class_index: ci, rate, color, label: typeof rate === 'number' ? labelOf(rate) : '' }));
+    const dose = typeof rate === 'number' ? labelOf(rate) : '';
+    const name = m.vraZoneNames && typeof z.properties?.label === 'string' ? z.properties.label : '';
+    vraClasses.push(feature(anchorOf(z.geometry), { part: 'label', class_index: ci, rate, color, label: name && dose ? `${name} · ${dose}` : name || dose }));
   }
 
   const kindOf = new Map((plan?.swaths ?? []).map((sw) => [sw.index, sw.kind] as const));
@@ -178,7 +190,7 @@ export function changedSources(prev: MapModel | null, next: MapModel): SourceId[
   if (ch('parcel')) out.push('parcel', 'parcel-rings');
   if (ch('zones')) out.push('zones');
   if (ch('zones', 'marginM')) out.push('zones-margin');
-  if (ch('vra', 'vraRateLabel')) out.push('vra-classes');
+  if (ch('vra', 'vraRateLabel', 'vraZoneNames')) out.push('vra-classes');
   if (ch('plan', 'hoveredSwath', 'vra')) out.push('swaths');
   if (ch('plan', 'stale')) out.push('route');
   if (ch('plan')) out.push('access');

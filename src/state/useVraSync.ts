@@ -1,7 +1,9 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useTranslation } from '@nekazari/sdk';
 import type { FeatureCollection } from 'geojson';
 import { api, ApiError, type Distribution, type ZoningSummary, type ZoningZone } from '../services/api';
 import { toVraRequest, type WorkEvent, type WorkState } from './workMachine';
+import { zoneLabelsFor } from './zoneLabels';
 
 export const VRA_DEBOUNCE_MS = 500;
 export const ZONES_POLL_MS = 5000;
@@ -66,9 +68,25 @@ export function useVraSync(state: WorkState, dispatch: React.Dispatch<WorkEvent>
 
   const parcelId = state.parcel?.id ?? null;
   const parcelRequestId = state.parcelRequestId;
+  const { t, i18n } = useTranslation('gis-routing');
   const stepActive = state.activeStep === 'vra';
   const source = state.vra.config.source;
   const zoningRunId = state.vra.config.zoningRunId ?? null;
+
+  // Zone texts shown on screen (level names, in the user's language) travel with the prescription
+  // request so the exported files carry them; the backend holds no language text.
+  const perZoneMode = source === 'orion' && state.vra.config.zoneRates !== undefined;
+  const zoneLabelsKey = useMemo(() => {
+    const zoning = zonings.find((z) => z.run_id === (zoningRunId ?? zonings.find((x) => x.is_default)?.run_id));
+    const labels = perZoneMode ? zoneLabelsFor(t, rateZones, zoning) : null;
+    return labels ? JSON.stringify(labels) : '';
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [perZoneMode, rateZones, zonings, zoningRunId, i18n.language]);
+  useEffect(() => {
+    const current = stateRef.current.vra.config.zoneLabels;
+    if ((current ? JSON.stringify(current) : '') === zoneLabelsKey) return;
+    dispatch({ type: 'VRA_CONFIG_CHANGED', config: { zoneLabels: zoneLabelsKey ? JSON.parse(zoneLabelsKey) : undefined } });
+  }, [zoneLabelsKey, dispatch]);
 
   const stopPolling = useCallback(() => {
     jobToken.current += 1;

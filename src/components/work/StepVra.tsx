@@ -8,6 +8,7 @@ import type { StepProps } from './StepList';
 import { WaitNotice } from './WaitNotice';
 import { VraHistogram } from './VraHistogram';
 import { equalClasses, MAX_CLASSES, MIN_CLASSES, moveCut } from './vraClasses';
+import { zoneDisplayLabel } from '../../state/zoneLabels';
 
 const NS = 'gis-routing';
 const UNIT_LABEL = { kg_ha: 'kg/ha', l_ha: 'L/ha' } as const;
@@ -77,6 +78,7 @@ export const StepVra: React.FC<Props> = ({ state, dispatch, sync }) => {
   };
   const defaultRun = sync.zonings.find((z) => z.is_default)?.run_id ?? '';
   const selectedRun = config.zoningRunId ?? defaultRun;
+  const selectedMethod = sync.zonings.find((z) => z.run_id === selectedRun)?.method;
 
   return (
     <div className="space-y-3">
@@ -182,7 +184,9 @@ export const StepVra: React.FC<Props> = ({ state, dispatch, sync }) => {
                 <tbody>
                   {Object.keys(config.zoneRates ?? {}).map((zid) => {
                     const meta = sync.rateZones.find((z) => z.id === zid);
-                    const label = meta?.label ?? zid.split(':').pop() ?? zid;
+                    const label = meta
+                      ? zoneDisplayLabel(t, meta, selectedMethod, sync.rateZones.indexOf(meta))
+                      : zid.split(':').pop() ?? zid;
                     const pc = prescription?.classes.find((c) => c.zone_id === zid);
                     const ha = pc ? pc.area_ha : meta?.area_ha;
                     return (

@@ -300,10 +300,18 @@
       "noDate": "no date",
       "colZone": "Zone",
       "rateOfZone": "Rate of zone {{label}}",
+      "zoneGeneric": "Zone {{n}}",
+      "zoneLevel": {
+        "high": "High vigour",
+        "medium": "Medium vigour",
+        "low": "Low vigour",
+        "critical": "Critical vigour"
+      },
       "zoneRatesHint": "Manual zoning: enter one rate for each zone.",
       "methods": {
         "manual": "Manual",
         "vegetationIndex": "Vegetation index",
+        "vegetationIndexMultiDate": "Multi-date satellite",
         "terrain": "Terrain",
         "topographicWetness": "Topographic wetness",
         "soilSurvey": "Soil survey",

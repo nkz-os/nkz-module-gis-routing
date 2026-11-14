@@ -157,6 +157,9 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({ onContextChange, prefill
     [vraPrescription],
   );
 
+  // Zone names on the map only when the screen named the zones (level-named zonings).
+  const vraZoneNames = Object.keys(state.vra.config.zoneLabels ?? {}).length > 0;
+
   const model = useMemo<MapModel>(
     () => ({
       parcel: state.parcel?.geometry ?? null,
@@ -172,9 +175,10 @@ export const WorkScreen: React.FC<WorkScreenProps> = ({ onContextChange, prefill
       focus,
       vra: vraPrescription,
       vraRateLabel,
+      vraZoneNames,
     }),
     [state.parcel, state.zones, state.machine.widthM, state.accessPoint, state.accessIssue,
-      plan, state.stale, hoveredSwath, selectedWarning, focus, vraPrescription, vraRateLabel],
+      plan, state.stale, hoveredSwath, selectedWarning, focus, vraPrescription, vraRateLabel, vraZoneNames],
   );
 
   // The strip appearing shrinks the visible map: refit once (not on every collapse/expand).

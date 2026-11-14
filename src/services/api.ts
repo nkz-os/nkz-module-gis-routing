@@ -72,6 +72,8 @@ export interface VraConfig {
   zoningRunId?: string | null;
   /** Per-zone rates (zone id -> rate); set for zonings without values, e.g. manual. */
   zoneRates?: Record<string, number | null>;
+  /** Text shown for each zone id (per-zone mode), in the user's language; sent so exports carry it. */
+  zoneLabels?: Record<string, string>;
   /** Per-zone mode: rate for the part of the parcel outside every zone (required there, may be 0). */
   restRate?: number | null;
 }
@@ -88,6 +90,7 @@ export interface VraRequest {
   external_features?: FeatureCollection;
   zoning_run_id?: string;
   zone_rates?: Record<string, number>;
+  zone_labels?: Record<string, string>;
   rest_rate?: number;
 }
 
@@ -98,10 +101,14 @@ export interface ZoningSummary {
   date: string | null;
   zone_count: number;
   labels: (string | null)[];
+  /** Level of each zone in rank order (high|medium|low|critical), null when none/unknown. */
+  levels?: (string | null)[];
   is_default: boolean;
 }
 export interface ZoningZone {
   id: string; label: string | null; rank: number | null; area_ha: number; geometry: Geometry;
+  /** high|medium|low|critical for level-named zones; null otherwise. */
+  level?: string | null;
 }
 export type ManualZoningFormat = 'kml' | 'kmz' | 'geojson' | 'shapefile' | 'isoxml' | 'drawn';
 export interface ManualZonePreview { rank: number; label: string; geometry: Geometry; area_m2: number }

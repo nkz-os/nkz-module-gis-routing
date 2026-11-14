@@ -8,7 +8,7 @@ import { injectMapCss } from './injectMapCss';
 import { ensureMapImages } from './markers';
 import { LabelMarkers, gateLabels, zoneLabels } from './labelMarkers';
 import { MapLegend } from './MapLegend';
-import { buildSources, changedSources, layerSpecs, planBounds, type MapModel, type SourceId } from './model';
+import { buildSources, changedSources, layerSpecs, planBounds, vraLegendRows, type MapModel, type SourceId } from './model';
 import { ringToPolygon } from '../services/geo';
 
 export type DrawMode = 'none' | 'zone' | 'access';
@@ -372,6 +372,7 @@ export const MapCanvas: React.FC<MapCanvasProps> = (props) => {
       {/* Bottom-left above the result strip: the layers panel owns the top-left corner. */}
       <MapLegend
         margin={model.marginM !== null && model.zones.length > 0}
+        zones={vraLegendRows(model)}
         className="absolute left-2 z-10"
         style={{ bottom: (props.bottomInset ?? 0) + 8 }}
       />
