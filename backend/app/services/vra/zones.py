@@ -31,6 +31,26 @@ def _prop(entity: dict, key: str):
     return v
 
 
+_PREFIXES = ("", "nkz:", "https://nkz-os.org/ns/", "https://uri.etsi.org/ngsi-ld/default-context/")
+ZONE_LEVELS = ("high", "medium", "low", "critical")
+
+
+def zone_level(entity: dict) -> str | None:
+    """``zoneLevel`` of a zone entity (any of the three spellings, normalized or
+    keyValues), only when it is one of the four known codes; otherwise None."""
+    for prefix in _PREFIXES:
+        key = prefix + "zoneLevel"
+        if key in entity:
+            v = _prop(entity, key)
+            return v if isinstance(v, str) and v in ZONE_LEVELS else None
+    return None
+
+
+def zone_levels(entities: list[dict]) -> dict[str, str | None]:
+    """{zone entity id: level} for the given zone entities."""
+    return {e.get("id", ""): zone_level(e) for e in entities}
+
+
 def _finite(v) -> float | None:
     if isinstance(v, bool) or not isinstance(v, (int, float)):
         return None
@@ -97,6 +117,13 @@ def select_zoning(zonings: list[Zoning], run_id: str | None) -> Zoning | None:
 async def list_zonings(tenant_id: str, parcel_id: str) -> list[Zoning]:
     """Every zoning of the parcel, most recent first."""
     return group_zonings(await _fetch_entities(tenant_id, parcel_id))
+
+
+async def list_zonings_with_levels(tenant_id: str, parcel_id: str
+                                   ) -> tuple[list[Zoning], dict[str, str | None]]:
+    """Every zoning of the parcel (most recent first) and the level of each zone."""
+    entities = await _fetch_entities(tenant_id, parcel_id)
+    return group_zonings(entities), zone_levels(entities)
 
 
 async def load_zone_entities(tenant_id: str, parcel_id: str,

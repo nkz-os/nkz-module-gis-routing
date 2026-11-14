@@ -87,7 +87,7 @@ def _lines(geom) -> list[LineString]:
 
 
 def build_prescription(*, zones, classes, unit, product, invert, swaths_utm,
-                       parcel_utm, to_utm, to_wgs) -> dict:
+                       parcel_utm, to_utm, to_wgs, zone_labels: dict | None = None) -> dict:
     _validate(classes, unit, zones)
     n = len(classes)
     warnings: list[dict] = []
@@ -118,6 +118,16 @@ def build_prescription(*, zones, classes, unit, product, invert, swaths_utm,
     groups = [[zone_utm[i] for i, c in assigned.items() if c == k] for k in range(n)]
     polys = _exclusive_polys(groups, parcel)
     meta = [{"min_pct": c["min_pct"], "max_pct": c["max_pct"]} for c in classes]
+    if zone_labels:
+        # A class gathers several zones: its label is theirs, joined, when they have one.
+        for k in range(n):
+            names = []
+            for i, c in assigned.items():
+                name = zone_labels.get(usable[i].id)
+                if c == k and name and name not in names:
+                    names.append(name)
+            if names:
+                meta[k]["label"] = " + ".join(names)[:_MAX_LABEL]
     return _render(meta, polys, rates, unit=unit, product=product, swaths_utm=swaths_utm,
                    to_wgs=to_wgs, warnings=warnings)
 
@@ -187,6 +197,7 @@ def _render(meta: list[dict], polys: list, rates: list[float], *, unit, product,
 
 
 MAX_RATE_ZONES = 50
+_MAX_LABEL = 80
 
 
 REST_LABEL = "Rest of parcel"
@@ -194,7 +205,7 @@ _MIN_REST_M2 = 1.0
 
 
 def build_zone_rate_prescription(*, zones, zone_rates: dict, rest_rate, unit, product, swaths_utm,
-                                 parcel_utm, to_utm, to_wgs) -> dict:
+                                 parcel_utm, to_utm, to_wgs, zone_labels: dict | None = None) -> dict:
     """One rate per zone (zonings without values, e.g. manual treatment zones).
 
     ``zones``: dicts ``{id, label, rank, geometry}`` (shapely, WGS84) of ONE zoning.
@@ -238,7 +249,9 @@ def build_zone_rate_prescription(*, zones, zone_rates: dict, rest_rate, unit, pr
         groups.append([g] if g is not None else [])
     # The whole parcel as a last group: what no zone took is the rest of the parcel.
     polys = _exclusive_polys(groups + [[parcel]], parcel)
-    meta = [{"zone_id": z["id"], "label": z.get("label") or z["id"].rsplit(":", 1)[-1],
+    labels = zone_labels or {}
+    meta = [{"zone_id": z["id"],
+             "label": labels.get(z["id"]) or z.get("label") or z["id"].rsplit(":", 1)[-1],
              "min_pct": None, "max_pct": None} for z in ordered]
     rates = [float(zone_rates[z["id"]]) for z in ordered]
     rest = polys.pop()

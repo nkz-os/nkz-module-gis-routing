@@ -23,7 +23,7 @@ from fastapi import APIRouter, Request, Query, HTTPException
 from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import JSONResponse
 from fastapi.responses import Response as FastAPIResponse
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, StringConstraints, field_validator
 from typing import Annotated, Optional, Literal, Union
 
 import httpx
@@ -527,6 +527,18 @@ class VRAConfig(BaseModel):
     zone_rates: Optional[dict[str, float]] = Field(default=None, max_length=50)
     # Per-zone mode: rate for the part of the parcel outside every zone (required there).
     rest_rate: Optional[float] = Field(default=None, ge=0)
+    # Optional display text per zone id, chosen by the client (the backend holds no
+    # language text). It replaces the zone label in the prescription and its exports.
+    # Keys that match no zone of the prescription are ignored.
+    zone_labels: Optional[dict[str, Annotated[str, StringConstraints(
+        strip_whitespace=True, min_length=1, max_length=80)]]] = Field(default=None, max_length=50)
+
+    @field_validator("zone_labels")
+    @classmethod
+    def zone_label_keys_are_ids(cls, value):
+        if value is not None and any(not k or len(k) > 200 for k in value):
+            raise ValueError("zone_labels keys must be zone ids of 1 to 200 characters")
+        return value
 
 
 class GenerateRequest(BaseModel):
@@ -807,13 +819,13 @@ async def _build_vra_prescription(vra: VRAConfig, *, parcel_id, tenant_id: str, 
             lambda: build_zone_rate_prescription(
                 zones=rate_zones, zone_rates=vra.zone_rates, rest_rate=vra.rest_rate, unit=vra.unit,
                 product=vra.product, swaths_utm=swaths_utm, parcel_utm=parcel_utm,
-                to_utm=to_utm, to_wgs=to_wgs))
+                to_utm=to_utm, to_wgs=to_wgs, zone_labels=vra.zone_labels))
     zones, _missing = await _vra_zones(vra, parcel_id, tenant_id)
     return await run_in_threadpool(
         lambda: build_prescription(
             zones=zones, classes=[c.model_dump(exclude={"label"}) for c in vra.classes],
             unit=vra.unit, product=vra.product, invert=vra.invert, swaths_utm=swaths_utm,
-            parcel_utm=parcel_utm, to_utm=to_utm, to_wgs=to_wgs))
+            parcel_utm=parcel_utm, to_utm=to_utm, to_wgs=to_wgs, zone_labels=vra.zone_labels))
 
 
 async def _load_parcel_polygon(parcel_id: str, tenant_id: str):
@@ -1267,13 +1279,15 @@ def _zone_area_ha(z: dict) -> float:
 async def list_parcel_zonings(parcel_id: str, auth: AuthContext = require_auth()):
     """Every zoning of the parcel, most recent first; ``is_default`` marks the VRA default."""
     from nkz_platform_sdk.gis import default_zoning
-    from app.services.vra.zones import list_zonings
-    zonings = await list_zonings(auth.tenant_id, parcel_id)
+    from app.services.vra.zones import list_zonings_with_levels
+    zonings, levels = await list_zonings_with_levels(auth.tenant_id, parcel_id)
     default = default_zoning(zonings)
+    ordered = lambda z: sorted(  # noqa: E731
+        z.zones, key=lambda zr: (zr.rank is None, zr.rank or 0, zr.id))
     return {"zonings": [{
         "run_id": z.run_id, "method": z.method, "date": z.date, "zone_count": len(z.zones),
-        "labels": [zr.label for zr in sorted(
-            z.zones, key=lambda zr: (zr.rank is None, zr.rank or 0, zr.id))],
+        "labels": [zr.label for zr in ordered(z)],
+        "levels": [levels.get(zr.id) for zr in ordered(z)],
         "is_default": default is not None and z.run_id == default.run_id,
     } for z in zonings]}
 
@@ -1283,7 +1297,7 @@ async def get_parcel_zones(request: Request, parcel_id: str,
                            zoning_run_id: Optional[str] = Query(None, max_length=120),
                            auth: AuthContext = require_auth()):
     """Zones of one zoning of the parcel (default: the latest automatic zoning)."""
-    from app.services.vra.zones import load_zone_entities
+    from app.services.vra.zones import load_zone_entities, zone_level
     from nkz_platform_sdk.gis import group_zonings
     zones = await load_zone_entities(auth.tenant_id, parcel_id, zoning_run_id)
     refs = {zr.id: zr for zg in group_zonings(zones) for zr in zg.zones}
@@ -1302,6 +1316,7 @@ async def get_parcel_zones(request: Request, parcel_id: str,
             "geometry": location,
             "label": ref.label if ref else None,
             "rank": ref.rank if ref else None,
+            "level": zone_level(z),
         })
     return {"success": True, "data": {"parcel_id": parcel_id, "zones": matched, "count": len(matched)}}
 
