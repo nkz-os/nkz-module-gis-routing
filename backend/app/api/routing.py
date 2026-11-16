@@ -708,7 +708,8 @@ async def _generate_plan(body: GenerateRequest, auth: AuthContext) -> dict:
             time_budget_s=settings.LADDER_TIME_BUDGET_S,
             hard_timeout_s=settings.ENGINE_HARD_TIMEOUT_S,
             log_level=settings.log_level,
-            target=plan_with_fallbacks)
+            target=plan_with_fallbacks,
+            tenant_id=auth.tenant_id, parcel_id=body.parcel_id)
         result = plan.to_route_result(to_wgs84, robot.cov_width)
         plan_dict = plan.as_api_dict(to_wgs84, robot.cov_width)
     except PlanError:

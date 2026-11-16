@@ -104,6 +104,6 @@ def _in_process_engine(request, monkeypatch):
         return
     from fastapi.concurrency import run_in_threadpool
 
-    async def in_process(inp, *, time_budget_s, hard_timeout_s, log_level="INFO", target):
+    async def in_process(inp, *, time_budget_s, target, **_ignored):
         return await run_in_threadpool(target, inp, time_budget_s=time_budget_s)
     monkeypatch.setattr(routing, "run_ladder_isolated", in_process)

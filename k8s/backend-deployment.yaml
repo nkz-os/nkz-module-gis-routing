@@ -111,7 +111,7 @@ spec:
               memory: "256Mi"
               cpu: "200m"
             limits:
-              memory: "512Mi"
+              memory: "1Gi"   # parent + up to 2 route-engine child processes
               cpu: "500m"
           startupProbe:
             httpGet:

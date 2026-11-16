@@ -95,7 +95,8 @@ def test_at_most_two_children(tmp_path, monkeypatch):
 
 
 def _sampler(lon, lat):
-    return lat * 1000.0
+    # Oblique slope: its contour heading differs from F2C's own optimum for RECT.
+    return lon * 1000.0 + lat * 400.0
 
 
 def test_contour_heading_resolved_in_parent():
@@ -106,7 +107,7 @@ def test_contour_heading_resolved_in_parent():
     assert frozen.cfg.dem_sampler is None
     assert frozen.cfg.heading_deg == best_contour_heading_deg((c.x, c.y), bbox, _sampler)
     # A closure sampler cannot be pickled: the runner must still work.
-    lam = replace(inp, cfg=replace(inp.cfg, dem_sampler=lambda lon, lat: lat * 1000.0))
+    lam = replace(inp, cfg=replace(inp.cfg, dem_sampler=lambda lon, lat: lon * 1000.0 + lat * 400.0))
     plan = _run(lam)
     direct = plan_with_fallbacks(inp, time_budget_s=60.0)
     assert plan.as_api_dict(_shift_project, 4.0) == direct.as_api_dict(_shift_project, 4.0)
@@ -123,3 +124,50 @@ def test_child_logs_reach_parent_stream(capfd):
     _run()
     out, err = capfd.readouterr()
     assert "ladder attempt" in out + err
+
+
+def test_queued_generations_leave_the_default_thread_pool_free(tmp_path, monkeypatch):
+    # Waiting generations must not hold the loop's default executor (DNS, other to_thread work).
+    from concurrent.futures import ThreadPoolExecutor
+    monkeypatch.setenv("ISOLATION_OVERLAP_FILE", str(tmp_path / "overlap.log"))
+
+    async def main():
+        asyncio.get_running_loop().set_default_executor(ThreadPoolExecutor(max_workers=1))
+        runs = [asyncio.ensure_future(run_ladder_isolated(
+            _inp(), time_budget_s=60.0, hard_timeout_s=60.0, target=targets.record_overlap))
+            for _ in range(3)]
+        await asyncio.sleep(0.2)
+        other = await asyncio.wait_for(asyncio.to_thread(lambda: 42), timeout=0.5)
+        await asyncio.gather(*runs)
+        return other
+
+    assert asyncio.run(main()) == 42
+
+
+def test_crash_log_names_tenant_and_parcel(caplog):
+    with pytest.raises(EngineCrashed):
+        asyncio.run(run_ladder_isolated(_inp(), time_budget_s=60.0, hard_timeout_s=60.0,
+                                        target=targets.segv, tenant_id="acme", parcel_id="urn:p1"))
+    line = next(r.getMessage() for r in caplog.records if "engine child failed" in r.getMessage())
+    assert "tenant_id=acme" in line and "parcel_id=urn:p1" in line and "exitcode=-11" in line
+
+
+def test_message_cut_short_is_engine_crashed(caplog):
+    from app.services.coverage import isolated
+
+    class Conn:
+        def poll(self, timeout):
+            return True
+
+        def recv(self):
+            raise OSError("got end of file during message")
+
+    class Proc:
+        exitcode, pid = -9, 1
+
+        def join(self, timeout=None):
+            pass
+
+    with pytest.raises(EngineCrashed):
+        isolated._wait(Proc(), Conn(), time.monotonic(), 10.0, {})
+    assert any("engine child failed" in r.getMessage() for r in caplog.records)
