@@ -163,11 +163,17 @@ def plan_coverage(
     )
 
 
-def _transit_area(piece: Polygon, cov_width: float, anchor: Point) -> Polygon | None:
-    """Area the access/return paths may use: the piece eroded so that a path in it
-    (within CLEARANCE_M) stays inside parcel.buffer(-(w/2 - TOL_INSIDE_M))."""
+def transit_parts(piece, cov_width: float) -> list[Polygon]:
+    """Parts of the area transit paths may use (access, return, manual turns), largest first:
+    the piece eroded so that a path in it (within CLEARANCE_M) stays inside
+    parcel.buffer(-(w/2 - TOL_INSIDE_M))."""
     inner = piece.buffer(-(cov_width / 2.0 - TOL_INSIDE_M) - CLEARANCE_M)
-    parts = sorted(_polygon_parts(inner), key=lambda g: g.area, reverse=True)
+    return sorted(_polygon_parts(inner), key=lambda g: g.area, reverse=True)
+
+
+def _transit_area(piece: Polygon, cov_width: float, anchor: Point) -> Polygon | None:
+    """The transit part that holds the anchor (the largest one if none does)."""
+    parts = transit_parts(piece, cov_width)
     if not parts:
         return None
     return next((p for p in parts if p.covers(anchor)), parts[0])

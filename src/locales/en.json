@@ -326,6 +326,7 @@
       "UNREACHED_AREA": "Uncovered area of {{ha}} ha",
       "HEADLAND_WIDENED": "Headland widened from {{requested}} to {{applied}} passes",
       "MANUAL_TURN": "Manual turn between swaths {{from_swath}} and {{to_swath}}",
+      "MANUAL_TURN_OUTSIDE": "Manual turn between swaths {{from_swath}} and {{to_swath}}: no way through inside the parcel",
       "ACCESS_PATH_UNAVAILABLE": "Access path could not be drawn",
       "UNKNOWN": "Warning {{code}}",
       "VRA_UNCOVERED": "{{length_m}} m of route lie outside the management zones: no rate applied",

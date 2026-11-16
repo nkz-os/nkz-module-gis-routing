@@ -326,6 +326,7 @@
       "UNREACHED_AREA": "Zone non couverte de {{ha}} ha",
       "HEADLAND_WIDENED": "Fourrière élargie de {{requested}} à {{applied}} passages",
       "MANUAL_TURN": "Demi-tour manuel entre les passages {{from_swath}} et {{to_swath}}",
+      "MANUAL_TURN_OUTSIDE": "Demi-tour manuel entre les passages {{from_swath}} et {{to_swath}} : aucun passage par l'intérieur de la parcelle",
       "ACCESS_PATH_UNAVAILABLE": "Le chemin d'accès n'a pas pu être tracé",
       "UNKNOWN": "Alerte {{code}}",
       "VRA_UNCOVERED": "{{length_m}} m de parcours sont hors des zones de gestion : aucune dose appliquée",

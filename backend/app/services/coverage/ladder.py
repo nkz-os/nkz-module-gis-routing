@@ -13,7 +13,8 @@ from time import monotonic
 from shapely.geometry import LineString, MultiLineString, Point, Polygon, mapping
 from shapely.ops import transform
 
-from app.services.coverage.f2c_engine import CoverageConfig, plan_coverage
+from app.services.coverage.access import InsidePaths
+from app.services.coverage.f2c_engine import CoverageConfig, plan_coverage, transit_parts
 from app.services.coverage.plan import CoveragePlan, Swath, Turn
 from app.services.coverage.robot_model import RobotParams
 from app.services.coverage.validation import (
@@ -69,10 +70,13 @@ def _turn_violates(turn: Turn, parcel: Polygon, zones: list[Polygon], w: float) 
 
 
 def remove_violating_turns(plan: CoveragePlan, parcel_utm: Polygon, zones_utm: list[Polygon],
-                           cov_width: float) -> tuple[CoveragePlan, list[Warning]]:
+                           cov_width: float, *, piece=None) -> tuple[CoveragePlan, list[Warning]]:
     """Drop violating turns (manual turns); route becomes the continuous runs left.
 
-    Returns the new plan and one MANUAL_TURN warning per removed turn.
+    Returns the new plan and one warning per removed turn: MANUAL_TURN drawn along the
+    shortest path inside the transit area of `piece` (the working area the plan covers),
+    or MANUAL_TURN_OUTSIDE with the straight connection when there is no such path.
+    Without `piece` every warning is a MANUAL_TURN with the straight connection.
     """
     kept, removed = [], []
     for t in plan.turns:
@@ -81,7 +85,8 @@ def remove_violating_turns(plan: CoveragePlan, parcel_utm: Polygon, zones_utm: l
         return plan, []
     route = _rebuild_route(plan.swaths, kept)
     fallbacks = list(plan.fallbacks) + [f"manual_turns:{len(removed)}"]
-    return replace(plan, turns=kept, route=route, fallbacks=fallbacks), _manual_warnings(plan, removed)
+    transit = None if piece is None else [InsidePaths(p) for p in transit_parts(piece, cov_width)]
+    return replace(plan, turns=kept, route=route, fallbacks=fallbacks), _manual_warnings(plan, removed, transit)
 
 
 def ensure_swaths_clear(plan: CoveragePlan, parcel_utm: Polygon, zones_utm: list[Polygon],
@@ -135,14 +140,24 @@ def _rebuild_route(swaths: list[Swath], turns: list[Turn]):
     return lines[0] if len(lines) == 1 else MultiLineString(lines)
 
 
-def _manual_warnings(plan: CoveragePlan, removed: list[Turn]) -> list[Warning]:
+def _manual_warnings(plan: CoveragePlan, removed: list[Turn],
+                     transit: list[InsidePaths] | None) -> list[Warning]:
     by_swath = {s.index: s for s in plan.swaths}
     out = []
     for t in removed:
         a = Point(by_swath[t.from_swath].geometry.coords[-1])
         b = Point(by_swath[t.to_swath].geometry.coords[0])
-        out.append(Warning("MANUAL_TURN", LineString([a, b]),
-                           {"from_swath": t.from_swath, "to_swath": t.to_swath}))
+        params = {"from_swath": t.from_swath, "to_swath": t.to_swath}
+        if transit is None:
+            out.append(Warning("MANUAL_TURN", LineString([a, b]), params))
+            continue
+        path = next((p for p in (part.path(a, b) for part in transit
+                                 if part.covers(a) and part.covers(b)) if p is not None), None)
+        if path is None:
+            logger.info("manual turn without an inside path: from=%d to=%d", t.from_swath, t.to_swath)
+            out.append(Warning("MANUAL_TURN_OUTSIDE", LineString([a, b]), params))
+        else:
+            out.append(Warning("MANUAL_TURN", path, params))
     return out
 
 
@@ -263,7 +278,7 @@ def plan_with_fallbacks(inp: LadderInput, time_budget_s: float | None = None) ->
     worst = min(attempts, key=lambda a: a.hard_score)
     if budget_hit:
         worst.plan.fallbacks.append("time_budget")
-    fixed, manual = remove_violating_turns(worst.plan, inp.parcel_utm, inp.zones_utm, w)
+    fixed, manual = remove_violating_turns(worst.plan, inp.parcel_utm, inp.zones_utm, w, piece=piece)
     report = validate_plan(fixed, inp.parcel_utm, inp.zones_utm, w)
     _, _, _, to_wgs84 = project_polygon_to_utm(inp.wgs84_poly)
     ensure_swaths_clear(fixed, inp.parcel_utm, inp.zones_utm, w, to_wgs84)
