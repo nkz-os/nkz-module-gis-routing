@@ -326,6 +326,7 @@
       "UNREACHED_AREA": "{{ha}} ha-ko eremu estali gabea",
       "HEADLAND_WIDENED": "Muga zabaldua: {{requested}} pasadatik {{applied}} pasadara",
       "MANUAL_TURN": "Eskuzko biraketa {{from_swath}} eta {{to_swath}} pasaden artean",
+      "MANUAL_TURN_OUTSIDE": "Eskuzko biraketa {{from_swath}} eta {{to_swath}} pasaden artean: ez dago pasabiderik partzelaren barrutik",
       "ACCESS_PATH_UNAVAILABLE": "Sarbide bidea ezin izan da trazatu",
       "UNKNOWN": "{{code}} abisua",
       "VRA_UNCOVERED": "Ibilbidearen {{length_m}} m kudeaketa-zonetatik kanpo daude: ez da dosirik aplikatzen",

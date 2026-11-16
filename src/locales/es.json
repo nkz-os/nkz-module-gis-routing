@@ -326,6 +326,7 @@
       "UNREACHED_AREA": "Zona sin cubrir de {{ha}} ha",
       "HEADLAND_WIDENED": "Cabecera ensanchada de {{requested}} a {{applied}} pasadas",
       "MANUAL_TURN": "Giro manual entre las pasadas {{from_swath}} y {{to_swath}}",
+      "MANUAL_TURN_OUTSIDE": "Giro manual entre las pasadas {{from_swath}} y {{to_swath}}: no hay paso por dentro de la parcela",
       "ACCESS_PATH_UNAVAILABLE": "No se pudo trazar el camino de acceso",
       "UNKNOWN": "Aviso {{code}}",
       "VRA_UNCOVERED": "{{length_m}} m de ruta quedan fuera de las zonas de manejo: no se aplica dosis",

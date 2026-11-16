@@ -326,6 +326,7 @@
       "UNREACHED_AREA": "Zona sense cobrir de {{ha}} ha",
       "HEADLAND_WIDENED": "Capçalera eixamplada de {{requested}} a {{applied}} passades",
       "MANUAL_TURN": "Gir manual entre les passades {{from_swath}} i {{to_swath}}",
+      "MANUAL_TURN_OUTSIDE": "Gir manual entre les passades {{from_swath}} i {{to_swath}}: no hi ha pas per dins de la parcel·la",
       "ACCESS_PATH_UNAVAILABLE": "No s'ha pogut traçar el camí d'accés",
       "UNKNOWN": "Avís {{code}}",
       "VRA_UNCOVERED": "{{length_m}} m de ruta queden fora de les zones de maneig: no s'aplica dosi",

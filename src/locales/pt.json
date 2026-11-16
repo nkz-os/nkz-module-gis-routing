@@ -326,6 +326,7 @@
       "UNREACHED_AREA": "Zona não coberta de {{ha}} ha",
       "HEADLAND_WIDENED": "Cabeceira alargada de {{requested}} para {{applied}} passagens",
       "MANUAL_TURN": "Curva manual entre as passagens {{from_swath}} e {{to_swath}}",
+      "MANUAL_TURN_OUTSIDE": "Curva manual entre as passagens {{from_swath}} e {{to_swath}}: não há passagem por dentro da parcela",
       "ACCESS_PATH_UNAVAILABLE": "Não foi possível traçar o caminho de acesso",
       "UNKNOWN": "Aviso {{code}}",
       "VRA_UNCOVERED": "{{length_m}} m do percurso ficam fora das zonas de gestão: nenhuma dose aplicada",
