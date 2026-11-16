@@ -68,6 +68,8 @@ class Settings(BaseSettings):
     # alternatives and return the best so far (manual turns if none is valid); may
     # overshoot by one attempt.
     LADDER_TIME_BUDGET_S: float = Field(default=60.0, gt=0)
+    # Hard ceiling for one generation in its child process; past it the child is killed.
+    ENGINE_HARD_TIMEOUT_S: float = Field(default=300.0, gt=0)
 
     # Sync
     sync_default_schema_version: int = 3

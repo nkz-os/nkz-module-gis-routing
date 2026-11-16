@@ -436,3 +436,28 @@ def test_generate_persist_true_also_returns_plan_id(monkeypatch):
         "pattern_config": {"width_m": 20, "headland_passes": 1, "turning_radius_m": 6.0}})
     b = resp.json()
     assert resp.status_code == 200 and b["persisted"] is True and b["plan_id"]
+
+
+@pytest.mark.real_engine
+def test_generate_uses_child_process(monkeypatch):
+    from app.services.coverage import isolated
+    calls = []
+    real_run_child = isolated._run_child
+    monkeypatch.setattr(isolated, "_run_child", lambda *a: calls.append(1) or real_run_child(*a))
+    resp = _gen(monkeypatch)
+    assert resp.status_code == 200, resp.text
+    assert resp.json()["plan"]["pattern"] in ("boustrophedon", "snake", "spiral")
+    assert calls == [1]
+
+
+@pytest.mark.real_engine
+def test_engine_crash_in_child_is_engine_failure_and_server_lives(monkeypatch):
+    from app.api import routing
+    from tests import isolation_targets
+    real = routing.plan_with_fallbacks
+    monkeypatch.setattr(routing, "plan_with_fallbacks", isolation_targets.segv)
+    resp = _gen(monkeypatch)
+    assert resp.status_code == 500 and resp.json()["code"] == "ENGINE_FAILURE"
+    assert resp.json()["params"] == {}
+    monkeypatch.setattr(routing, "plan_with_fallbacks", real)
+    assert _gen(monkeypatch).status_code == 200

@@ -1,4 +1,5 @@
 import pytest
+import fields2cover as f2c
 from shapely.geometry import Polygon, MultiLineString
 from shapely.ops import unary_union
 from app.services.coverage.robot_model import build_robot
@@ -57,3 +58,32 @@ def test_headland_only_pattern():
     cfg = CoverageConfig(pattern="headland-only", headland_passes=2)
     result = generate_coverage(_rect_200x100(), robot, cfg)
     assert result.headland_count >= 1
+
+
+_SORT_ONE_SWATH = """
+import sys
+import fields2cover as f2c
+from app.services.coverage.f2c_engine import _sort_swaths
+sw = f2c.Swaths()
+sw.emplace_back(f2c.LineString(f2c.VectorPoint([f2c.Point(0, 0), f2c.Point(0, 100)])), 10.0, 0)
+print(_sort_swaths(sys.argv[1], sw).size())
+"""
+
+
+@pytest.mark.parametrize("pattern", ["boustrophedon", "snake", "spiral"])
+def test_sort_swaths_single_swath_every_pattern_in_subprocess(pattern):
+    # Own process: a native crash in the engine must not take pytest down.
+    import subprocess
+    import sys
+    r = subprocess.run([sys.executable, "-c", _SORT_ONE_SWATH, pattern],
+                       capture_output=True, text=True, timeout=60)
+    assert r.returncode == 0, r.stderr[-500:]
+    assert r.stdout.strip() == "1"
+
+
+def test_sort_swaths_keeps_order_for_many():
+    from app.services.coverage.f2c_engine import _sort_swaths
+    sw = f2c.Swaths()
+    for i in range(3):
+        sw.emplace_back(f2c.LineString(f2c.VectorPoint([f2c.Point(i * 10.0, 0), f2c.Point(i * 10.0, 100)])), 10.0, i)
+    assert _sort_swaths("boustrophedon", sw).size() == 3

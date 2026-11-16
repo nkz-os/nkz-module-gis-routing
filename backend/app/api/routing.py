@@ -42,6 +42,7 @@ from app.services.coverage.errors import PlanError
 from app.services.plan_store import PLAN_STORE
 from app.services.pathfinding.job_store import JobStore, JobLimitError
 from app.services.coverage.ladder import plan_with_fallbacks, LadderInput
+from app.services.coverage.isolated import run_ladder_isolated
 from shapely.geometry import mapping
 from app.services.exclusion import validate_access_point
 from app.services.routing.base import project_polygon_to_utm
@@ -698,12 +699,17 @@ async def _generate_plan(body: GenerateRequest, auth: AuthContext) -> dict:
             validate_access_point(access_utm, parcel_utm, zones_utm, robot.cov_width / 2.0,
                                   to_wgs84=to_wgs84)
 
-        # CPU-bound (Fields2Cover): keep it off the event loop.
-        plan = await run_in_threadpool(
-            plan_with_fallbacks,
+        # Fields2Cover is native code: run it in a child process, so a crash in the
+        # engine fails this request only and never the server.
+        settings = get_settings()
+        plan = await run_ladder_isolated(
             LadderInput(parcel_utm=parcel_utm, zones_utm=zones_utm, robot=robot, cfg=cfg,
                         access_utm=access_utm, wgs84_poly=wgs84_poly),
-            time_budget_s=get_settings().LADDER_TIME_BUDGET_S)
+            time_budget_s=settings.LADDER_TIME_BUDGET_S,
+            hard_timeout_s=settings.ENGINE_HARD_TIMEOUT_S,
+            log_level=settings.log_level,
+            target=plan_with_fallbacks,
+            tenant_id=auth.tenant_id, parcel_id=body.parcel_id)
         result = plan.to_route_result(to_wgs84, robot.cov_width)
         plan_dict = plan.as_api_dict(to_wgs84, robot.cov_width)
     except PlanError:
