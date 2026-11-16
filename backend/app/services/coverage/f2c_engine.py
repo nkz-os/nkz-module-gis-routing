@@ -208,8 +208,7 @@ def _interior_parts(piece_utm, robot, cfg, wgs84_poly, passes, swath_cache=None)
     if swaths is None:
         return []
 
-    planner = _ROUTE_PLANNERS.get(cfg.pattern, f2c.RP_Boustrophedon)()
-    ordered = planner.genSortedSwaths(swaths)
+    ordered = _sort_swaths(cfg.pattern, swaths)
     curve = (
         f2c.PP_ReedsSheppCurves() if robot.curve_type == "reeds_shepp"
         else f2c.PP_DubinsCurves()
@@ -218,6 +217,14 @@ def _interior_parts(piece_utm, robot, cfg, wgs84_poly, passes, swath_cache=None)
     path = f2c.PP_PathPlanning().planPath(robot.to_f2c_robot(), ordered, curve)
     return [(k, g.simplify(TURN_SIMPLIFY_M, preserve_topology=True) if k == "turn" else g)
             for k, g in _split_path(path)]
+
+
+def _sort_swaths(pattern: str, swaths):
+    """Order the swaths with the pattern's F2C route planner."""
+    if swaths.size() <= 1:
+        # Nothing to order, and F2C 2.0.0 RP_Snake cannot take a single swath.
+        return swaths
+    return _ROUTE_PLANNERS.get(pattern, f2c.RP_Boustrophedon)().genSortedSwaths(swaths)
 
 
 def _generate_swaths(piece_utm, cov_width: float, passes: int, angle: float | None):
