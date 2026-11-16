@@ -3,7 +3,7 @@ import { useTranslation } from '@nekazari/sdk';
 import type { FeatureCollection } from 'geojson';
 import { api, ApiError, type Distribution, type ZoningSummary, type ZoningZone } from '../services/api';
 import { toVraRequest, type WorkEvent, type WorkState } from './workMachine';
-import { zoneLabelsFor } from './zoneLabels';
+import { MULTI_DATE_METHOD, zoneLabelsFor } from './zoneLabels';
 
 export const VRA_DEBOUNCE_MS = 500;
 export const ZONES_POLL_MS = 5000;
@@ -201,7 +201,8 @@ export function useVraSync(state: WorkState, dispatch: React.Dispatch<WorkEvent>
     const prId = cur.parcelRequestId;
     const z = zonings.find((x) => x.run_id === runId);
     if (!id || !z) return;
-    if (z.method !== 'manual') {
+    // Manual and level-named (multi-date) zonings have one rate per zone; the others have value classes.
+    if (z.method !== 'manual' && z.method !== MULTI_DATE_METHOD) {
       setRateZones([]);
       // The default zoning is stored as null so it keeps following the latest automatic run.
       dispatch({ type: 'VRA_CONFIG_CHANGED', config: { zoningRunId: z.is_default ? null : runId, zoneRates: undefined } });
@@ -221,6 +222,18 @@ export function useVraSync(state: WorkState, dispatch: React.Dispatch<WorkEvent>
       })
       .catch((e) => dispatch({ type: 'VRA_FAILED', parcelRequestId: prId, error: vraError(e) }));
   }, [dispatch, zonings]);
+
+  // A level-named zoning that is the default is not picked by hand: enter per-zone mode for it
+  // (rates start empty, so nothing is requested until they are filled in).
+  const defaultZoning = zonings.find((z) => z.is_default);
+  const effectiveZoning = zonings.find((z) => z.run_id === (zoningRunId ?? defaultZoning?.run_id));
+  const needsPerZone = stepActive && source === 'orion' && state.vra.config.enabled
+    && state.vra.config.zoneRates === undefined && effectiveZoning?.method === MULTI_DATE_METHOD;
+  const effectiveRun = effectiveZoning?.run_id;
+  useEffect(() => {
+    if (needsPerZone && effectiveRun) selectZoning(effectiveRun);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [needsPerZone, effectiveRun]);
 
   const uploadFile = useCallback(async (file: File) => {
     const prId = stateRef.current.parcelRequestId;

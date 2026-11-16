@@ -1,5 +1,5 @@
 import React, { useEffect, useReducer } from 'react';
-import { act, cleanup, render, screen } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { i18n } from '@nekazari/sdk';
 import '../../../i18n';
@@ -106,6 +106,7 @@ describe('multi-date zoning on screen', () => {
     const rows = screen.getAllByTestId('vra-zone-row').map((r) => r.querySelector('td')!.textContent);
     expect(rows).toEqual(['Vigor alto', 'Zona 2', 'Vigor crítico']);
     expect(document.body.textContent).not.toContain('mystery');
+    expect(api.getZoningZones).not.toHaveBeenCalled(); // a link-set per-zone config is left as it is
   });
 
   it('sends the labels the screen shows, and again in the new language', async () => {
@@ -188,5 +189,84 @@ describe('request and map', () => {
     expect(rows[0].color).not.toBe(rows[1].color);
     render(<MapLegend zones={rows} />);
     expect(screen.getAllByTestId('map-legend-zone').map((e) => e.textContent)).toEqual(['Vigor alto', 'Vigor bajo']);
+  });
+});
+
+describe('picking a multi-date zoning by hand', () => {
+  const VEG = 'veg-new';
+  const BOTH = (mdDefault: boolean) => [
+    { ...ZONINGS[0], is_default: mdDefault },
+    { run_id: VEG, method: 'vegetationIndex', date: '2026-05-01T00:00:00Z', zone_count: 4, labels: [], is_default: !mdDefault },
+  ];
+  const classState = (): WorkState => {
+    const s = perZoneState();
+    return { ...s, vra: { ...s.vra, config: { ...s.vra.config, zoningRunId: null, zoneRates: undefined, restRate: undefined } } };
+  };
+  const pick = async (run: string) => {
+    fireEvent.change(screen.getByLabelText('Zonificación'), { target: { value: run } });
+    await flush(0);
+  };
+  async function mountClass(zonings: any[]) {
+    (api.listZonings as any).mockResolvedValue({ zonings });
+    (api.getZoningZones as any).mockResolvedValue({ data: { zones: ZONES } });
+    (api.getDistribution as any).mockResolvedValue({
+      source: 'orion', variable: 'NDVI', missing: [], percentiles: Array.from({ length: 21 }, (_, i) => 0.2 + i * 0.03),
+      zones: [0.3, 0.5, 0.7].map((m, i) => ({ id: `z${i}`, mean: m, area_ha: 2, geometry: poly(i) })),
+    });
+    render(<Harness initial={classState()} zones={[]} />);
+    await flush(0);
+  }
+
+  it('enters per-zone mode with empty rates and level labels; nothing is requested', async () => {
+    await mountClass(BOTH(false));
+    expect(screen.getAllByTestId('vra-row').length).toBeGreaterThan(0); // single-image default: classes
+    await pick(RUN);
+    expect(api.getZoningZones).toHaveBeenCalledWith('p1', RUN);
+    expect(screen.queryByTestId('vra-histogram')).toBeNull();
+    expect(screen.queryAllByTestId('vra-row')).toHaveLength(0);
+    expect(screen.getAllByTestId('vra-zone-row').map((r) => r.querySelector('td')!.textContent))
+      .toEqual(['Vigor alto', 'Zona 2', 'Vigor crítico']);
+    expect(latest.vra.config.zoningRunId).toBe(RUN);
+    expect(Object.values(latest.vra.config.zoneRates!)).toEqual([null, null, null]);
+    expect(toVraRequest(latest.vra.config)).toBeNull();
+    await flush(600);
+    expect(api.prescription).not.toHaveBeenCalled();
+  });
+
+  it('sends rates and zone_labels once every rate and the rest rate are filled', async () => {
+    await mountClass(BOTH(false));
+    await pick(RUN);
+    fireEvent.change(screen.getByLabelText('Dosis de la zona Vigor alto'), { target: { value: '120' } });
+    fireEvent.change(screen.getByLabelText('Dosis de la zona Zona 2'), { target: { value: '90' } });
+    fireEvent.change(screen.getByLabelText('Dosis de la zona Vigor crítico'), { target: { value: '60' } });
+    fireEvent.change(screen.getByLabelText('Dosis del resto de la parcela'), { target: { value: '0' } });
+    await flush(600);
+    const vra = lastVra();
+    expect(vra.zoning_run_id).toBe(RUN);
+    expect(vra.classes).toEqual([]);
+    expect(Object.values(vra.zone_rates)).toEqual([120, 90, 60]);
+    expect(vra.zone_labels).toEqual({ [ID(1)]: 'Vigor alto', [ID(2)]: 'Zona 2', [ID(4)]: 'Vigor crítico' });
+  });
+
+  it('switching to a single-image zoning is class mode again, and back', async () => {
+    await mountClass(BOTH(false));
+    await pick(RUN);
+    await pick(VEG);
+    expect(latest.vra.config.zoneRates).toBeUndefined();
+    expect(latest.vra.config.zoneLabels).toBeUndefined();
+    expect(screen.queryAllByTestId('vra-zone-row')).toHaveLength(0);
+    expect(screen.getAllByTestId('vra-row').length).toBeGreaterThan(0);
+    await pick(RUN);
+    expect(screen.getAllByTestId('vra-zone-row')).toHaveLength(3);
+    expect(screen.queryAllByTestId('vra-row')).toHaveLength(0);
+  });
+
+  it('a multi-date zoning that is the default also enters per-zone mode (no class mode)', async () => {
+    await mountClass(BOTH(true));
+    expect(screen.getAllByTestId('vra-zone-row')).toHaveLength(3);
+    expect(screen.queryAllByTestId('vra-row')).toHaveLength(0);
+    await pick(VEG);
+    expect(screen.queryAllByTestId('vra-zone-row')).toHaveLength(0);
+    expect(screen.getAllByTestId('vra-row').length).toBeGreaterThan(0);
   });
 });
