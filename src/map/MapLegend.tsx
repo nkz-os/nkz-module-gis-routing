@@ -5,8 +5,12 @@ import { gateDataUrl, marginSwatchDataUrl, nogoSwatchDataUrl } from './markers';
 const NS = 'gis-routing';
 
 /** Small key to the gate and NO-GO drawing, shared by the Work, Transit and 3D maps. */
-export const MapLegend: React.FC<{ margin?: boolean; className?: string; style?: React.CSSProperties }> = ({
-  margin = false, className = 'absolute top-2 left-2 z-10', style,
+export const MapLegend: React.FC<{
+  margin?: boolean; className?: string; style?: React.CSSProperties;
+  /** Zone names of a per-zone prescription, each with its map colour. */
+  zones?: { color: string; label: string }[];
+}> = ({
+  margin = false, className = 'absolute top-2 left-2 z-10', style, zones = [],
 }) => {
   const { t } = useTranslation(NS);
   const rows: { src: string; label: string }[] = [
@@ -24,6 +28,12 @@ export const MapLegend: React.FC<{ margin?: boolean; className?: string; style?:
         <li key={r.label} className="flex items-center gap-2">
           <img src={r.src} alt="" width={20} height={14} className="h-4 w-6 object-contain" />
           <span>{r.label}</span>
+        </li>
+      ))}
+      {zones.map((z, i) => (
+        <li key={`zone-${i}-${z.label}`} className="flex items-center gap-2" data-testid="map-legend-zone">
+          <svg width="20" height="14" aria-hidden="true" className="h-4 w-6"><rect width="20" height="14" fill={z.color} /></svg>
+          <span>{z.label}</span>
         </li>
       ))}
     </ul>

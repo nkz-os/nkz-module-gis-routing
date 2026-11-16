@@ -133,7 +133,8 @@ def test_zonings_listing_shape():
     assert [z["run_id"] for z in zs] == [MANUAL, "veg-1"]  # most recent first
     m, v = zs
     assert m == {"run_id": MANUAL, "method": "manual", "date": "2026-06-01T00:00:00Z",
-                 "zone_count": 2, "labels": ["T1", "T2"], "is_default": False}
+                 "zone_count": 2, "labels": ["T1", "T2"], "levels": [None, None],
+                 "is_default": False}
     assert v["is_default"] is True and v["method"] == "vegetationIndex" and v["zone_count"] == 2
 
 

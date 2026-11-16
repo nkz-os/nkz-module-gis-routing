@@ -176,8 +176,9 @@ export function toVraRequest(c: VraConfig): VraRequest | null {
   if (c.source === 'orion' && c.zoneRates) {
     const entries = Object.entries(c.zoneRates);
     if (entries.length === 0 || !entries.every(([, r]) => isRate(r)) || !isRate(c.restRate)) return null;
+    const labels = c.zoneLabels && Object.keys(c.zoneLabels).length > 0 ? c.zoneLabels : null;
     return { ...base, classes: [], zone_rates: Object.fromEntries(entries) as Record<string, number>,
-      rest_rate: c.restRate };
+      ...(labels ? { zone_labels: labels } : {}), rest_rate: c.restRate };
   }
   const ok = c.classes.length > 0 && c.classes.every((k) => isRate(k.rate));
   if (!ok) return null;

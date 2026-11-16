@@ -300,10 +300,18 @@
       "noDate": "datarik gabe",
       "colZone": "Zona",
       "rateOfZone": "{{label}} zonaren dosia",
+      "zoneGeneric": "{{n}}. zona",
+      "zoneLevel": {
+        "high": "Bizi-indar handia",
+        "medium": "Bizi-indar ertaina",
+        "low": "Bizi-indar txikia",
+        "critical": "Bizi-indar kritikoa"
+      },
       "zoneRatesHint": "Eskuzko zonifikazioa: adierazi dosi bat zona bakoitzeko.",
       "methods": {
         "manual": "Eskuzkoa",
         "vegetationIndex": "Landaredi-indizea",
+        "vegetationIndexMultiDate": "Data anitzeko satelitea",
         "terrain": "Erliebea",
         "topographicWetness": "Hezetasun topografikoa",
         "soilSurvey": "Lur-analisia",

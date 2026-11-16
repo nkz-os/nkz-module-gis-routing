@@ -300,10 +300,18 @@
       "noDate": "sense data",
       "colZone": "Zona",
       "rateOfZone": "Dosi de la zona {{label}}",
+      "zoneGeneric": "Zona {{n}}",
+      "zoneLevel": {
+        "high": "Vigor alt",
+        "medium": "Vigor mitjà",
+        "low": "Vigor baix",
+        "critical": "Vigor crític"
+      },
       "zoneRatesHint": "Zonificació manual: indica una dosi per a cada zona.",
       "methods": {
         "manual": "Manual",
         "vegetationIndex": "Índex de vegetació",
+        "vegetationIndexMultiDate": "Satèl·lit multidata",
         "terrain": "Relleu",
         "topographicWetness": "Humitat topogràfica",
         "soilSurvey": "Anàlisi de sòl",
