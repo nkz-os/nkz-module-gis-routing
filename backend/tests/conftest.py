@@ -90,3 +90,20 @@ def settings_store():
     tenant_settings.set_store(store)
     yield store
     tenant_settings.set_store(None)
+
+
+@pytest.fixture(autouse=True)
+def _in_process_engine(request, monkeypatch):
+    """API tests run the ladder in-process (fast, and their patches of
+    routing.plan_with_fallbacks still apply); @pytest.mark.real_engine opts out."""
+    if request.node.get_closest_marker("real_engine"):
+        return
+    try:
+        from app.api import routing
+    except ImportError:
+        return
+    from fastapi.concurrency import run_in_threadpool
+
+    async def in_process(inp, *, time_budget_s, hard_timeout_s, log_level="INFO", target):
+        return await run_in_threadpool(target, inp, time_budget_s=time_budget_s)
+    monkeypatch.setattr(routing, "run_ladder_isolated", in_process)
