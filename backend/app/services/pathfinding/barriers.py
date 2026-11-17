@@ -60,15 +60,16 @@ def _rasterize(geom, raster: dict, cols: int, rows: int) -> set:
     if geom is None or geom.is_empty:
         return cells
     o_lon, o_lat, px = raster["origin_lon"], raster["origin_lat"], raster["pixel_size_deg"]
+    h = raster.get("pixel_height_deg") or px  # row height; absent on square client grids
     minx, miny, maxx, maxy = geom.bounds
     c0 = max(0, int((minx - o_lon) / px))
     c1 = min(cols - 1, int((maxx - o_lon) / px) + 1)
-    r0 = max(0, int((miny - o_lat) / px))
-    r1 = min(rows - 1, int((maxy - o_lat) / px) + 1)
+    r0 = max(0, int((miny - o_lat) / h))
+    r1 = min(rows - 1, int((maxy - o_lat) / h) + 1)
     if c1 < c0 or r1 < r0:
         return cells
     cs, rs = np.meshgrid(np.arange(c0, c1 + 1), np.arange(r0, r1 + 1))
-    inside = shapely.intersects_xy(geom, o_lon + cs * px, o_lat + rs * px)
+    inside = shapely.intersects_xy(geom, o_lon + cs * px, o_lat + rs * h)
     return {(int(c), int(r)) for c, r in zip(cs[inside], rs[inside])}
 
 

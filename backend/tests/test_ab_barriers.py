@@ -358,3 +358,11 @@ def test_retry_skipped_by_cap_is_no_path_not_area_too_large(monkeypatch):
         time.sleep(0.05)
     assert out["error_code"] == "NO_PATH"
     assert out["error_params"] == {"search_margin_m": 500, "retry": "skipped_area_cap"}
+
+
+def test_barrier_rasterize_uses_row_height():
+    from app.services.pathfinding.barriers import _rasterize
+    raster = {"origin_lon": 0.0, "origin_lat": 0.0, "pixel_size_deg": 1.0, "pixel_height_deg": 0.5}
+    line = LineString([(1.0, 1.9), (1.0, 4.1)])
+    cells = _rasterize(line.buffer(0.01), raster, cols=4, rows=10)
+    assert {r for _, r in cells} == {4, 5, 6, 7, 8}

@@ -48,3 +48,41 @@ def test_two_objectives_diverge_on_a_ridge():
     assert least["blocked_cells_hit"] == 0 and least["max_slope_deg_found"] >= 0
     # Both carry an elevation profile.
     assert len(least["elevation_profile"]) == len(least["geometry"]["coordinates"])
+
+
+def test_row_height_used_for_distance_and_coordinates():
+    grid = [[0.0] * 5 for _ in range(5)]
+    routes = compute_ab_routes(
+        grid, origin_lon=-2.0, origin_lat=43.0, pixel_size_deg=0.001,
+        start_col=0, start_row=0, end_col=0, end_row=4, pixel_height_deg=0.0005)
+    fast = {r["id"]: r for r in routes}["fastest"]
+    assert fast["distance_m"] == pytest.approx(4 * 0.0005 * 111320.0, abs=0.1)
+    assert fast["geometry"]["coordinates"][-1][1] == pytest.approx(43.0 + 4 * 0.0005)
+
+
+def test_cell_dist_uses_row_height():
+    assert _cell_dist_m(0, 1, lat=43.0, pixel_size_deg=0.001, pixel_height_deg=0.0005) == \
+        pytest.approx(0.0005 * 111320.0)
+
+
+def test_none_cells_are_impassable():
+    n = 7
+    grid = [[0.0] * n for _ in range(n)]
+    for r in range(n - 1):
+        grid[r][3] = None  # wall of no-data, gap at the top row
+    routes = compute_ab_routes(
+        grid, origin_lon=-2.0, origin_lat=43.0, pixel_size_deg=0.001,
+        start_col=0, start_row=0, end_col=6, end_row=0)
+    assert routes, "a route exists through the gap"
+    for r in routes:
+        assert all(z is not None for _, _, z in r["elevation_profile"])
+
+
+def test_all_none_wall_blocks_route():
+    n = 5
+    grid = [[0.0] * n for _ in range(n)]
+    for r in range(n):
+        grid[r][2] = None
+    assert compute_ab_routes(
+        grid, origin_lon=-2.0, origin_lat=43.0, pixel_size_deg=0.001,
+        start_col=0, start_row=0, end_col=4, end_row=0) == []

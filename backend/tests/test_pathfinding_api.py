@@ -248,3 +248,58 @@ def test_report_has_max_slope_of_alternatives():
     body = _post()
     assert body["status"] == "completed"
     assert body["report"]["max_slope_deg_found"] == max(a["max_slope_deg_found"] for a in body["alternatives"])
+
+
+def _registry_grid(monkeypatch, grid):
+    from app.api import pathfinding_router as pr
+
+    class _Reg:
+        async def fetch_best(self, bbox, resolution_m):
+            return grid
+
+    monkeypatch.setattr(pr, "build_dem_registry", lambda: _Reg())
+
+
+def _backend_grid(**over):
+    g = {**_grid(), "pixel_height_deg": 0.001, "cols": 11, "rows": 11,
+         "source": {"id": "builtin:XX", "category": "custom_wcs:XX", "resolution_m": 25.0,
+                    "fallback_reason": None}}
+    g.update(over)
+    return g
+
+
+@pytest.mark.parametrize("which,cell", [("A", (0, 0)), ("B", (0, 10))])
+def test_point_on_nodata_fails(monkeypatch, which, cell):
+    grid = _backend_grid()
+    grid["elevations"] = [row[:] for row in grid["elevations"]]
+    r, c = cell
+    grid["elevations"][r][c] = None
+    _registry_grid(monkeypatch, grid)
+    body = _post({"elevation_grid": None})
+    assert body["status"] == "failed" and body["error"]
+    assert body["error_code"] == "POINT_NO_ELEVATION"
+    assert body["error_params"] == {"point": which}
+
+
+def test_report_has_dem_source_and_slope_warning(monkeypatch):
+    _registry_grid(monkeypatch, _backend_grid())
+    body = _post({"elevation_grid": None})
+    assert body["status"] == "completed"
+    assert body["report"]["dem"] == {"source_id": "builtin:XX", "category": "custom_wcs:XX",
+                                     "resolution_m": 25.0, "fallback_reason": None}
+    assert {"code": "SLOPE_INDICATIVE", "params": {"resolution": 25.0}} in body["report"]["warnings"]
+
+
+def test_client_grid_has_no_dem_report():
+    body = _post()
+    assert body["status"] == "completed"
+    assert "dem" not in body["report"]
+    assert all(w["code"] != "SLOPE_INDICATIVE" for w in body["report"]["warnings"])
+
+
+def test_legacy_grid_without_height_uses_width():
+    # Square client grid (no pixel_height_deg): B one row north lands on row 1.
+    body = _post({"point_b": [-2.0, 43.0105]})
+    assert body["status"] == "completed"
+    end = body["alternatives"][0]["geometry"]["coordinates"][-1]
+    assert end[1] == pytest.approx(43.01)

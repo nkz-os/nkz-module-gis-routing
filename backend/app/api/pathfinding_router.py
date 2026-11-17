@@ -78,7 +78,7 @@ def _rasterize_constraints(zones, parcels, raster, cols, rows, machine_width_m):
     block_wgs84 = _grow_zones(zones, machine_width_m / 2.0)
     zone_cells = rasterize_blocked_cells(
         block_wgs84, raster["origin_lon"], raster["origin_lat"],
-        raster["pixel_size_deg"], cols, rows)
+        raster["pixel_size_deg"], cols, rows, raster.get("pixel_height_deg"))
     fences = parcel_barrier_map(parcels, raster, machine_width_m, cols=cols, rows=rows)
     return zone_cells, fences
 
@@ -181,6 +181,12 @@ async def _run_pathfinding(job_id: str, body: PathRequest, tenant_id: str):
         _fail(job_id, "ENGINE_FAILURE", "Route calculation failed")
 
 
+def _dem_report(source: dict) -> dict:
+    """Which terrain model the route used (eu-elevation source block)."""
+    return {"source_id": source.get("id"), "category": source.get("category"),
+            "resolution_m": source.get("resolution_m"), "fallback_reason": source.get("fallback_reason")}
+
+
 def _too_large(job_id: str, margin_m: int, first: bool, cells: int) -> None:
     logger.warning("path job %s: search area too large margin_m=%d cells=%d cap=%d",
                    job_id, margin_m, cells, MAX_SEARCH_CELLS)
@@ -216,6 +222,8 @@ async def _search(job_id: str, body: PathRequest, tenant_id: str, machine_width_
         origin_lon = raster["origin_lon"]
         origin_lat = raster["origin_lat"]
         pixel_size = raster["pixel_size_deg"]
+        # Row height: backend grids carry it; square client grids do not.
+        height = raster.get("pixel_height_deg") or pixel_size
         rows = len(elevations)
         cols = len(elevations[0]) if rows > 0 else 0
         if rows * cols > MAX_SEARCH_CELLS:
@@ -223,9 +231,16 @@ async def _search(job_id: str, body: PathRequest, tenant_id: str, machine_width_
             return
 
         start_col = max(0, min(int((lon_a - origin_lon) / pixel_size), cols - 1))
-        start_row = max(0, min(int((lat_a - origin_lat) / pixel_size), rows - 1))
+        start_row = max(0, min(int((lat_a - origin_lat) / height), rows - 1))
         end_col = max(0, min(int((lon_b - origin_lon) / pixel_size), cols - 1))
-        end_row = max(0, min(int((lat_b - origin_lat) / pixel_size), rows - 1))
+        end_row = max(0, min(int((lat_b - origin_lat) / height), rows - 1))
+
+        for name, (c, r) in (("A", (start_col, start_row)), ("B", (end_col, end_row))):
+            if elevations[r][c] is None:
+                logger.info("path job %s: point %s on a no-data DEM cell", job_id, name)
+                _fail(job_id, "POINT_NO_ELEVATION", "No elevation data at the start or end point",
+                      {"point": name})
+                return
 
         prep: dict = {}
         _default_origin, zone_cells, fences = await _resolve_path_constraints(
@@ -257,22 +272,26 @@ async def _search(job_id: str, body: PathRequest, tenant_id: str, machine_width_
             start_col, start_row, end_col, end_row,
             max_slope_deg=body.max_slope_deg,
             blocked=blocked,
+            pixel_height_deg=height,
         )
         if alternatives:
-            JOBS.set(job_id, {
-                "status": "completed",
-                "alternatives": alternatives,
-                "report": {
-                    "max_slope_deg": body.max_slope_deg,
-                    "max_slope_deg_found": max(a["max_slope_deg_found"] for a in alternatives),
-                    "blocked_cells_hit": sum(a["blocked_cells_hit"] for a in alternatives),
-                    "search_margin_m": margin_m,
-                    "warnings": ([{"code": "PARCELS_UNREADABLE", "params": {"count": prep["unreadable_parcels"]}}]
-                                 if prep.get("unreadable_parcels") else []),
-                    "constraints_used": prep.get("constraints_used",
-                                                 {"parcels": 0, "gated": 0, "zones": 0}),
-                },
-            })
+            warnings = ([{"code": "PARCELS_UNREADABLE", "params": {"count": prep["unreadable_parcels"]}}]
+                        if prep.get("unreadable_parcels") else [])
+            report = {
+                "max_slope_deg": body.max_slope_deg,
+                "max_slope_deg_found": max(a["max_slope_deg_found"] for a in alternatives),
+                "blocked_cells_hit": sum(a["blocked_cells_hit"] for a in alternatives),
+                "search_margin_m": margin_m,
+                "warnings": warnings,
+                "constraints_used": prep.get("constraints_used",
+                                             {"parcels": 0, "gated": 0, "zones": 0}),
+            }
+            if not body.elevation_grid:
+                report["dem"] = _dem_report(raster.get("source") or {})
+                warnings.append({"code": "SLOPE_INDICATIVE",
+                                 "params": {"resolution": report["dem"]["resolution_m"]}})
+                logger.info("path job %s: dem source=%s", job_id, report["dem"])
+            JOBS.set(job_id, {"status": "completed", "alternatives": alternatives, "report": report})
             return
         logger.info("path job %s: no route with margin_m=%d cells=%d", job_id, margin_m, rows * cols)
 
