@@ -48,8 +48,13 @@ def contour_heading(grid: dict, wgs84_poly) -> ContourHeading:
     c = wgs84_poly.centroid
     x = (lon_g[use] - c.x) * _M_PER_DEG_LAT * math.cos(math.radians(c.y))
     y = (lat_g[use] - c.y) * _M_PER_DEG_LAT
+    zu = z[use]
     design = np.column_stack([x, y, np.ones_like(x)])
-    (a, b, _c), *_ = np.linalg.lstsq(design, z[use], rcond=None)
+    # Centred z keeps the mean elevation out of the slope terms.
+    (a, b, _c), _res, rank, _sv = np.linalg.lstsq(design, zu - zu.mean(), rcond=None)
+    if rank < 3:
+        # All cells on one row or column (a narrow strip): the slope across it is unknown.
+        return UNAVAILABLE
     slope_pct = float(math.hypot(a, b) * 100.0)
     if slope_pct < FLAT_SLOPE_PCT:
         return ContourHeading(None, slope_pct, "CONTOUR_TERRAIN_FLAT")

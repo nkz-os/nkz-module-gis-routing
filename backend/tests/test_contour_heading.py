@@ -78,3 +78,21 @@ def test_only_cells_inside_the_parcel_count():
     west = box(-2.0, 42.6, -2.0 + 10 * 0.0002, 42.6 + 20 * 0.00015)
     ch = contour_heading(grid, west)
     assert ch.slope_pct == pytest.approx(5.0, abs=0.05)
+
+
+def test_single_row_parcel_is_unavailable():
+    # Every cell centre inside the strip lies in one row: north-south slope is undetermined.
+    grid, _ = _plane_grid(42.6, gx=0.0, gy=0.0)
+    strip = box(-2.0, 42.6 + 3 * 0.00015, -2.0 + 20 * 0.0002, 42.6 + 4 * 0.00015)
+    ch = contour_heading(grid, strip)
+    assert ch == ContourHeading(None, None, "CONTOUR_DEM_UNAVAILABLE")
+
+
+def test_high_elevation_does_not_leak_into_slope():
+    # Flat plane at 500 m over a full 2-D parcel stays flat.
+    grid, poly = _plane_grid(42.6, gx=0.0, gy=0.0)
+    for row in grid["elevations"]:
+        for c in range(len(row)):
+            row[c] += 400.0
+    ch = contour_heading(grid, poly)
+    assert ch.warning == "CONTOUR_TERRAIN_FLAT" and ch.slope_pct == pytest.approx(0.0, abs=1e-6)

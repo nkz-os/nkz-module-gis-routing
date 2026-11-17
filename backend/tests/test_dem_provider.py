@@ -123,3 +123,12 @@ async def test_native_refetch_failure_returns_none(monkeypatch):
     prov, calls = await _provider_with(monkeypatch, [_src_grid(25.0), None])
     assert await prov.fetch((-1.0, 42.0, -0.99, 42.01), 10) is None
     assert calls == [10, 25.0]
+
+
+async def test_missing_source_resolution_is_logged(monkeypatch, caplog):
+    import logging
+    first = {**_GRID, "pixel_height_deg": 0.001, "source": {}}
+    prov, calls = await _provider_with(monkeypatch, [first])
+    with caplog.at_level(logging.WARNING):
+        assert await prov.fetch((-1.0, 42.0, -0.99, 42.01), 10) is first
+    assert "resolution" in caplog.text and calls == [10]

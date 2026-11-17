@@ -67,7 +67,10 @@ class EuElevationProvider:
         if not grid:
             return None
         native_m = (grid.get("source") or {}).get("resolution_m")
-        if not isinstance(native_m, (int, float)) or native_m <= NATIVE_REFETCH_FACTOR * resolution_m:
+        if not isinstance(native_m, (int, float)):
+            logger.warning("DEM source resolution unknown, grid used as served: bbox=%s", bbox)
+            return grid
+        if native_m <= NATIVE_REFETCH_FACTOR * resolution_m:
             return grid
         native = await fetch_dem_raster(self._dem_url, bbox, native_m)
         if not native:

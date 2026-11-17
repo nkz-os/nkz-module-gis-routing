@@ -24,6 +24,15 @@ def dem_secret_configured() -> bool:
     return bool(os.getenv(_SECRET_ENV, ""))
 
 
+def _error_code(resp: httpx.Response) -> str | None:
+    """eu-elevation's own error code (detail.error), e.g. raster_busy, grid_too_large."""
+    try:
+        detail = resp.json().get("detail")
+    except Exception:
+        return None
+    return detail.get("error") if isinstance(detail, dict) else None
+
+
 def _reject(bbox: tuple, reason: str) -> None:
     logger.error("DEM raster rejected: reason=%s bbox=%s", reason, bbox)
 
@@ -35,6 +44,9 @@ def _normalise(payload: dict, bbox: tuple) -> dict | None:
     north_lat = payload.get("north_lat")
     if not isinstance(north_lat, (int, float)):
         _reject(bbox, "north_lat missing")
+        return None
+    if not isinstance(payload.get("origin_lat"), (int, float)) or north_lat <= payload["origin_lat"]:
+        _reject(bbox, "north_lat not above origin_lat")
         return None
     rows, cols = payload.get("rows"), payload.get("cols")
     elevations = payload.get("elevations")
@@ -79,8 +91,8 @@ async def fetch_dem_raster(dem_url: str, bbox: tuple, resolution_m: float = 10) 
                 },
             )
             if resp.status_code != 200:
-                logger.warning("DEM raster fetch returned %s: bbox=%s resolution_m=%s",
-                               resp.status_code, bbox, resolution_m)
+                logger.warning("DEM raster fetch returned %s: error=%s bbox=%s resolution_m=%s",
+                               resp.status_code, _error_code(resp), bbox, resolution_m)
                 return None
             return _normalise(resp.json(), bbox)
     except Exception as e:

@@ -128,3 +128,21 @@ def test_startup_check_silent_with_secret(caplog):
     with caplog.at_level(logging.CRITICAL):
         check_dem_secret()
     assert caplog.text == ""
+
+
+@pytest.mark.parametrize("north", [42.0, 41.999])
+@respx.mock
+async def test_north_not_above_origin_rejected(north, caplog):
+    respx.get(f"{URL}/raster").mock(return_value=Response(200, json=_payload(north_lat=north)))
+    with caplog.at_level(logging.ERROR):
+        assert await fetch_dem_raster(URL, BBOX, 10) is None
+    assert "north_lat" in caplog.text
+
+
+@respx.mock
+async def test_non_200_logs_service_error_code(caplog):
+    respx.get(f"{URL}/raster").mock(return_value=Response(
+        503, json={"detail": {"error": "raster_busy", "message": "Too many"}}))
+    with caplog.at_level(logging.WARNING):
+        assert await fetch_dem_raster(URL, BBOX, 10) is None
+    assert "raster_busy" in caplog.text

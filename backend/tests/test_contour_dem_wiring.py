@@ -92,3 +92,21 @@ def test_explicit_heading_skips_dem(registry, engine_cfg):
     assert registry["calls"] == 0
     assert engine_cfg["cfg"].heading_deg == 30.0
     assert "CONTOUR_DEM_UNAVAILABLE" not in _codes(plan)
+
+
+def test_contour_bbox_is_padded(registry, engine_cfg, monkeypatch):
+    from app.api import routing as r
+    seen = {}
+
+    class _Reg:
+        async def fetch_best(self, bbox, resolution_m):
+            seen["bbox"] = bbox
+            return None
+
+    monkeypatch.setattr(r, "build_dem_registry", lambda: _Reg())
+    _generate()
+    min_lon, min_lat, max_lon, max_lat = seen["bbox"]
+    pad_lat_m = (43.0 - min_lat) * 111320.0
+    pad_lon_m = (-2.0 - min_lon) * 111320.0 * math.cos(math.radians(43.0))
+    assert pad_lat_m >= 30.0 - 1e-6 and pad_lon_m >= 30.0 - 1e-6
+    assert (max_lat - 43.0009) * 111320.0 >= 30.0 - 1e-6

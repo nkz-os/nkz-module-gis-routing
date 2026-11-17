@@ -927,10 +927,21 @@ async def _load_constraints_wgs84(parcel_id, tenant_id: str) -> dict:
     return {"access_point": c["access_point"], "zones": list(c["zones"])}
 
 
+# At least one native cell of the coarsest source in use (Copernicus, 30 m).
+CONTOUR_DEM_MARGIN_M = 30.0
+
+
 async def _resolve_contour_heading(wgs84_poly):
     """Contour heading of the parcel from the terrain (ContourHeading)."""
     from app.services.coverage.contour import UNAVAILABLE, contour_heading
-    grid = await build_dem_registry().fetch_best(wgs84_poly.bounds, resolution_m=10)
+    # Margin beyond the parcel: a coarse source resampled to 10 m is clamped (flat) in
+    # its outer half native cell, which would bias the plane on narrow parcels.
+    min_lon, min_lat, max_lon, max_lat = wgs84_poly.bounds
+    dlat = CONTOUR_DEM_MARGIN_M / 111320.0
+    widest_lat = max(abs(min_lat), abs(max_lat))  # where a degree of longitude is shortest
+    dlon = CONTOUR_DEM_MARGIN_M / (111320.0 * max(math.cos(math.radians(widest_lat)), 0.01))
+    bbox = (min_lon - dlon, min_lat - dlat, max_lon + dlon, max_lat + dlat)
+    grid = await build_dem_registry().fetch_best(bbox, resolution_m=10)
     if not grid:
         return UNAVAILABLE
     return await asyncio.to_thread(contour_heading, grid, wgs84_poly)
