@@ -170,3 +170,28 @@ def test_report_no_cross_slope_warning_on_flat(_fresh_jobs):
     assert body["status"] == "completed", body
     assert body["report"]["max_cross_slope_deg_found"] == 0.0
     assert not [w for w in body["report"]["warnings"] if w["code"] == "CROSS_SLOPE_HIGH"]
+
+
+# --- review fixes ----------------------------------------------------------------
+
+@pytest.mark.parametrize("end", [(20, 7), (10, 10), (7, 20)])
+def test_flat_northbound_line_is_straight_at_mid_latitude(end):
+    elev = [[0.0] * 25 for _ in range(25)]
+    for r in _routes(elev, (0, 0), end).values():
+        assert len(r["geometry"]["coordinates"]) == 2, r["geometry"]["coordinates"]
+
+
+def test_served_steps_pass_search_edge_rule():
+    from app.services.pathfinding.least_cost_path import _segment_cells
+    rng = np.random.default_rng(11)
+    y, x = np.mgrid[0:40, 0:60]
+    z = (14 * np.sin(x / 9.0) * np.cos(y / 7.0) + 6 * np.sin(x / 4.0 + y / 5.0)
+         + 0.5 * rng.standard_normal((40, 60))).tolist()
+    for seed_end in [(57, 37), (50, 5), (30, 38)]:
+        for r in _routes(z, (2, 20), seed_end).values():
+            verts = [(round((lon + 2.0) / PX), round((lat - LAT0) / PX)) for lon, lat in r["geometry"]["coordinates"]]
+            for a, b in zip(verts, verts[1:]):
+                cells = _segment_cells(*a, *b)
+                for (pc, pr), (c, rr) in zip(cells, cells[1:]):
+                    d = _cell_dist_m(c - pc, rr - pr, LAT0 + pr * PX, PX, PX)
+                    assert math.degrees(math.atan2(abs(z[rr][c] - z[pr][pc]), d)) <= 15.0 + 1e-9

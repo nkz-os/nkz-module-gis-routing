@@ -15,6 +15,7 @@ with numpy, so both objectives return an optimal path for their cost.
 from __future__ import annotations
 
 import math
+from functools import lru_cache
 
 import numpy as np
 from scipy.sparse import csr_matrix
@@ -25,6 +26,7 @@ _OBJECTIVES = ("least_slope", "fastest")
 K_SLOPE = 80.0  # least-slope steepness penalty weight
 
 
+@lru_cache(maxsize=8192)
 def _m_per_deg_lon(lat: float) -> float:
     return _M_PER_DEG_LAT * math.cos(math.radians(lat))
 
@@ -184,33 +186,50 @@ def _segment_cells(c0: int, r0: int, c1: int, r1: int) -> list[tuple[int, int]]:
     return cells
 
 
-def _segment_length_m(c0, r0, c1, r1, origin_lat, pixel_size_deg, height) -> float:
-    return _cell_dist_m(c1 - c0, r1 - r0, origin_lat + r0 * height, pixel_size_deg, height)
+def _segment_steps(c0, r0, c1, r1, origin_lat, pixel_size_deg, height):
+    """Steps of the straight segment: (pc, pr, c, r, line_m, edge_m) per Bresenham move.
+
+    line_m: the step's share of the straight line, measured at the latitude of
+    its source row (so a collinear run costs exactly the sum of its search edges);
+    edge_m: the cell-centre distance the search uses for the same move."""
+    cells = _segment_cells(c0, r0, c1, r1)
+    n = len(cells) - 1
+    fc, fr = (c1 - c0) / n, (r1 - r0) / n
+    steps = []
+    for (pc, pr), (c, r) in zip(cells, cells[1:]):
+        lat = origin_lat + pr * height
+        line_m = _cell_dist_m(fc, fr, lat, pixel_size_deg, height)
+        edge_m = _cell_dist_m(c - pc, r - pr, lat, pixel_size_deg, height)
+        steps.append((pc, pr, c, r, line_m, edge_m))
+    return steps
 
 
 def _segment_cost_fn(elevations, origin_lat, pixel_size_deg, height, max_slope_deg, objective):
-    """segment_cost(cells) -> cost of serving the straight segment through `cells`
-    for this objective, or None if any step breaks the slope limit or touches
-    no-data. Each step is measured over its share of the segment length (what a
-    machine following the served line climbs); a one-step segment costs exactly
-    the search edge, so smoothing compares like with like."""
-    max_rad = math.radians(max_slope_deg)
+    """segment_cost(cells, check=True) -> cost of serving the straight segment through
+    `cells` for this objective, or None if a step touches no-data or breaks the slope
+    limit. A step must pass BOTH the slope along the served line (what a machine
+    following it climbs) and the search's own edge rule (cell-centre distance), so
+    the served line stays a path the search could have taken. A one-step segment
+    costs exactly its search edge; check=False skips the limit for path edges the
+    search already accepted (no rounding at the limit can reject them)."""
+    tan_max = math.tan(math.radians(max_slope_deg))
 
-    def segment_cost(cells: list[tuple[int, int]]) -> float | None:
-        n = len(cells) - 1
-        if n <= 0:
+    def segment_cost(cells: list[tuple[int, int]], check: bool = True) -> float | None:
+        if len(cells) <= 1:
             return 0.0
         (c0, r0), (c1, r1) = cells[0], cells[-1]
-        step_m = _segment_length_m(c0, r0, c1, r1, origin_lat, pixel_size_deg, height) / n
         cost = 0.0
-        for (pc, pr), (c, r) in zip(cells, cells[1:]):
+        for pc, pr, c, r, line_m, edge_m in _segment_steps(c0, r0, c1, r1, origin_lat,
+                                                            pixel_size_deg, height):
             z0, z1 = elevations[pr][pc], elevations[r][c]
             if z0 is None or z1 is None:
                 return None
-            slope = math.atan2(abs(z1 - z0), step_m)
-            if slope > max_rad:
+            dz = abs(z1 - z0)
+            # slope > limit  <=>  dz > distance * tan(limit)
+            if check and (dz > line_m * tan_max or dz > edge_m * tan_max):
                 return None
-            cost += step_m if objective == "fastest" else step_m * (1.0 + K_SLOPE * math.tan(slope))
+            # dist * (1 + K * tan(slope)) with tan(slope) = dz / dist
+            cost += line_m if objective == "fastest" else line_m + K_SLOPE * dz
         return cost
 
     return segment_cost
@@ -244,7 +263,7 @@ def _summarize(cells, objective, elevations,
                origin_lon, origin_lat, pixel_size_deg, smoothed=None, blocked=None,
                pixel_height_deg=None) -> dict:
     """Metrics, geometry and profile of the SERVED line (the smoothed vertices):
-    distance = length of its straight segments; climb, max slope and cross slope
+    distance = length of its straight segments (each step at its own latitude); climb, max slope and cross slope
     over one profile point per crossed cell, placed on the segment."""
     height = pixel_height_deg or pixel_size_deg
     vertices = smoothed if smoothed is not None else cells
@@ -257,9 +276,8 @@ def _summarize(cells, objective, elevations,
     for (ac, ar), (bc, br) in zip(vertices, vertices[1:]):
         seg = _segment_cells(ac, ar, bc, br)
         n = len(seg) - 1
-        seg_m = _segment_length_m(ac, ar, bc, br, origin_lat, pixel_size_deg, height)
-        distance_m += seg_m
-        step_m = seg_m / n
+        line_m = [st[4] for st in _segment_steps(ac, ar, bc, br, origin_lat, pixel_size_deg, height)]
+        distance_m += sum(line_m)
         ex = (bc - ac) * pixel_size_deg * _m_per_deg_lon(origin_lat + ar * height)
         ny = (br - ar) * height * _M_PER_DEG_LAT
         norm = math.hypot(ex, ny)
@@ -272,7 +290,7 @@ def _summarize(cells, objective, elevations,
             pc, pr = seg[k - 1]
             dz = elevations[r][c] - elevations[pr][pc]
             climb_m += max(0.0, dz)
-            max_slope = max(max_slope, math.degrees(math.atan2(abs(dz), step_m)))
+            max_slope = max(max_slope, math.degrees(math.atan2(abs(dz), line_m[k - 1])))
             colf = ac + (bc - ac) * k / n
             rowf = ar + (br - ar) * k / n
             profile.append([round(origin_lon + colf * pixel_size_deg, 7),
@@ -348,7 +366,7 @@ def _smooth_cells(cells: list[tuple[int, int]], blocked: set,
     prefix = [0.0]
     if segment_cost is not None:
         for a, b in zip(cells, cells[1:]):
-            prefix.append(prefix[-1] + segment_cost([a, b]))
+            prefix.append(prefix[-1] + segment_cost([a, b], check=False))
     out = [cells[0]]
     anchor = 0
     i = 1
