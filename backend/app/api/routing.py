@@ -36,6 +36,7 @@ from app.services.pmtiles_generator import PMTileGenerator
 from app.services.parcel_constraints import fetch_parcel_constraints, fetch_tenant_parcels_in_bbox
 from app.api.pathfinding_router import build_dem_registry
 from app.config import get_settings
+from nkz_platform_sdk.crypto import generate_hmac_signature
 from app.services.machines import fetch_machine_kinematics
 from app.services.coverage.errors import PlanError
 from app.services.plan_store import PLAN_STORE
@@ -1370,10 +1371,8 @@ async def generate_vra_zones(request: Request, parcel_id: str, auth: AuthContext
     if isinstance(n_zones, bool) or not isinstance(n_zones, int) or not 2 <= n_zones <= 12:
         raise HTTPException(status_code=422, detail="n_zones must be an integer from 2 to 12")
 
-    # vegetation-prime performs its own JWT validation (Bearer/cookie) AND requires
-    # X-Tenant-ID, so forward the caller's auth context. ASSUMPTION: the inbound
-    # request carries a forwardable token (Authorization or nkz_token cookie) —
-    # not guaranteed on gateway-injected-header paths; confirm before relying on it.
+    # vegetation-prime trusts the identity headers only with the platform signature
+    # (HMAC over the forwarded bearer token and the tenant), so sign what is forwarded.
     fwd_headers = {"X-Tenant-ID": tenant_id}
     auth_header = request.headers.get("Authorization")
     if auth_header:
@@ -1383,6 +1382,13 @@ async def generate_vra_zones(request: Request, parcel_id: str, auth: AuthContext
     user_id = request.headers.get("x-user-id")
     if user_id:
         fwd_headers["X-User-ID"] = user_id
+    roles = request.headers.get("x-user-roles")
+    if roles:
+        fwd_headers["X-User-Roles"] = roles
+    secret = os.getenv("HMAC_SECRET", "")
+    if secret:
+        token = fwd_headers.get("Authorization", "").removeprefix("Bearer ").strip()
+        fwd_headers["X-Auth-Signature"] = generate_hmac_signature(secret, token, tenant_id)
 
     async with httpx.AsyncClient(timeout=30.0) as client:
         try:
