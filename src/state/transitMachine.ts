@@ -10,7 +10,8 @@ export interface TransitError { code: string; detail: string; params: Record<str
 export interface TransitResult {
   jobId: string;
   alternatives: PathAlternative[];
-  report: { max_slope_deg_found?: number; search_margin_m?: number; warnings?: { code: string; params?: Record<string, unknown> }[] };
+  report: { max_slope_deg?: number; max_slope_deg_found?: number; max_cross_slope_deg_found?: number;
+    search_margin_m?: number; warnings?: { code: string; params?: Record<string, unknown> }[] };
 }
 
 export type TransitPhase = 'idle' | 'calculating' | 'ready' | 'failed' | 'saving';

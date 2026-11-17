@@ -108,6 +108,34 @@ describe('TransitScreen', () => {
     expect(screen.getByTestId('elevation-profile')).toBeTruthy();
   });
 
+  it('shows the max cross slope per route, flagged above the slope limit, with its warning', async () => {
+    (api.getPathResult as any).mockResolvedValue({
+      status: 'completed',
+      alternatives: [{ ...alt('least_slope', 321), max_cross_slope_deg_found: 9.04 },
+        { ...alt('fastest', 210), max_cross_slope_deg_found: 18.26 }],
+      report: { max_slope_deg: 15, max_cross_slope_deg_found: 18.3,
+        warnings: [{ code: 'CROSS_SLOPE_HIGH', params: { deg: 18.3, limit: 15 } }] },
+    });
+    await setup();
+    await place();
+    await calculate();
+    const slope = await screen.findByTestId('alt-least_slope');
+    const ok = within(slope).getByText(/Inclinación lateral máx\.: 9\.0°/);
+    expect(ok.className).not.toContain('text-nkz-danger');
+    const high = within(screen.getByTestId('alt-fastest')).getByText(/Inclinación lateral máx\.: 18\.3°/);
+    expect(high.className).toContain('text-nkz-danger');
+    expect(screen.getByText('Inclinación lateral de hasta 18.3° en el trayecto (límite 15°): riesgo de vuelco.')).toBeTruthy();
+    expect(screen.queryByText(/Aviso CROSS_SLOPE_HIGH/)).toBeNull();
+  });
+
+  it('omits the cross slope line when the backend does not send it', async () => {
+    await setup();
+    await place();
+    await calculate();
+    const slope = await screen.findByTestId('alt-least_slope');
+    expect(within(slope).queryByText(/Inclinación lateral/)).toBeNull();
+  });
+
   it('marks the point on the map when hovering the profile', async () => {
     await setup();
     await place();

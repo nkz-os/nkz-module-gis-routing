@@ -39,6 +39,7 @@ export function toGeoJson(alt: PathAlternative): GeoJSON.Feature<GeoJSON.LineStr
       distance_m: alt.distance_m,
       cumulative_climb_m: alt.cumulative_climb_m,
       max_slope_deg_found: alt.max_slope_deg_found ?? null,
+      max_cross_slope_deg_found: alt.max_cross_slope_deg_found ?? null,
     },
   };
 }

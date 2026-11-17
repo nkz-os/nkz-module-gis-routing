@@ -500,6 +500,7 @@
     "distance": "Distància",
     "climb": "Desnivell acumulat",
     "maxSlopeFound": "Pendent màx.",
+    "crossSlopeFound": "Inclinació lateral màx.",
     "profile": {
       "label": "Perfil d'elevació de la ruta triada",
       "at": "{{dist}} m · {{z}} m s. n. m."
@@ -551,7 +552,8 @@
     "warnings": {
       "PARCELS_UNREADABLE": "{{count}} parcel·la(es) de la zona no tenen límit llegible: les seves portes no s'apliquen.",
       "UNKNOWN": "Avís {{code}}",
-      "SLOPE_INDICATIVE": "Pendents calculats amb un model del terreny de {{resolution}} m: orientatius, no garanteixen la seguretat davant la bolcada."
+      "SLOPE_INDICATIVE": "Pendents calculats amb un model del terreny de {{resolution}} m: orientatius, no garanteixen la seguretat davant la bolcada.",
+      "CROSS_SLOPE_HIGH": "Inclinació lateral de fins a {{deg}}° al trajecte (límit {{limit}}°): risc de bolcada."
     },
     "wait": {
       "queued": "En cua. Calculant el trajecte; pot trigar fins a un minut",

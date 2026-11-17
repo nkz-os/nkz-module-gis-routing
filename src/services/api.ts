@@ -255,6 +255,7 @@ export interface PathAlternative {
   distance_m: number;
   cumulative_climb_m: number;
   max_slope_deg_found?: number;
+  max_cross_slope_deg_found?: number;
   geometry: { type: 'LineString'; coordinates: number[][] };
   elevation_profile: number[][];
 }
@@ -262,7 +263,8 @@ export interface PathAlternative {
 export interface PathResult {
   status: 'queued' | 'running' | 'completed' | 'failed';
   alternatives?: PathAlternative[];
-  report?: { max_slope_deg?: number; max_slope_deg_found?: number; search_margin_m?: number;
+  report?: { max_slope_deg?: number; max_slope_deg_found?: number; max_cross_slope_deg_found?: number;
+    search_margin_m?: number;
     warnings?: { code: string; params?: Record<string, unknown> }[] };
   error?: string;
   error_code?: string;

@@ -500,6 +500,7 @@
     "distance": "Distância",
     "climb": "Desnível acumulado",
     "maxSlopeFound": "Declive máx.",
+    "crossSlopeFound": "Inclinação lateral máx.",
     "profile": {
       "label": "Perfil de elevação da rota escolhida",
       "at": "{{dist}} m · {{z}} m de altitude"
@@ -551,7 +552,8 @@
     "warnings": {
       "PARCELS_UNREADABLE": "{{count}} parcela(s) da zona não têm limite legível: os seus portões não são aplicados.",
       "UNKNOWN": "Aviso {{code}}",
-      "SLOPE_INDICATIVE": "Declives calculados com um modelo do terreno de {{resolution}} m: indicativos, não garantem a segurança contra capotamento."
+      "SLOPE_INDICATIVE": "Declives calculados com um modelo do terreno de {{resolution}} m: indicativos, não garantem a segurança contra capotamento.",
+      "CROSS_SLOPE_HIGH": "Inclinação lateral de até {{deg}}° no trajeto (limite {{limit}}°): risco de capotamento."
     },
     "wait": {
       "queued": "Em fila. A calcular o trajeto; pode demorar até um minuto",

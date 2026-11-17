@@ -500,6 +500,7 @@
     "distance": "Distance",
     "climb": "Cumulative climb",
     "maxSlopeFound": "Max. slope",
+    "crossSlopeFound": "Max. cross slope",
     "profile": {
       "label": "Elevation profile of the selected route",
       "at": "{{dist}} m · {{z}} m a.s.l."
@@ -551,7 +552,8 @@
     "warnings": {
       "PARCELS_UNREADABLE": "{{count}} parcel(s) in the area have no readable boundary: their gates are not enforced.",
       "UNKNOWN": "Warning {{code}}",
-      "SLOPE_INDICATIVE": "Slopes come from a {{resolution}} m terrain model: indicative only, not a rollover safety guarantee."
+      "SLOPE_INDICATIVE": "Slopes come from a {{resolution}} m terrain model: indicative only, not a rollover safety guarantee.",
+      "CROSS_SLOPE_HIGH": "Cross slope up to {{deg}}° along the route (limit {{limit}}°): rollover risk."
     },
     "wait": {
       "queued": "Queued. Calculating the path; it can take up to a minute",

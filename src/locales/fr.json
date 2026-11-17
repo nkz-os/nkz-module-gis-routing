@@ -500,6 +500,7 @@
     "distance": "Distance",
     "climb": "Dénivelé cumulé",
     "maxSlopeFound": "Pente max.",
+    "crossSlopeFound": "Dévers max.",
     "profile": {
       "label": "Profil altimétrique de l'itinéraire choisi",
       "at": "{{dist}} m · {{z}} m d'altitude"
@@ -551,7 +552,8 @@
     "warnings": {
       "PARCELS_UNREADABLE": "{{count}} parcelle(s) de la zone n'ont pas de limite lisible : leurs portails ne sont pas appliqués.",
       "UNKNOWN": "Avertissement {{code}}",
-      "SLOPE_INDICATIVE": "Pentes calculées avec un modèle de terrain de {{resolution}} m : indicatives, elles ne garantissent pas la sécurité contre le renversement."
+      "SLOPE_INDICATIVE": "Pentes calculées avec un modèle de terrain de {{resolution}} m : indicatives, elles ne garantissent pas la sécurité contre le renversement.",
+      "CROSS_SLOPE_HIGH": "Dévers jusqu'à {{deg}}° sur le trajet (limite {{limit}}°) : risque de renversement."
     },
     "wait": {
       "queued": "En file d'attente. Calcul du trajet ; cela peut prendre jusqu'à une minute",
