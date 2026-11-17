@@ -31,7 +31,7 @@ JOBS = JobStore()
 SEARCH_MARGINS_M = (500, 2000)
 DEM_RESOLUTION_M = 10
 # Cap on planned DEM cells. Measured (scipy Dijkstra, 0.5 CPU): 1M cells take
-# ~4 s for both objectives with a peak of ~400 MB including the raster; the pod
+# ~6 s for both objectives with a peak of ~400 MB including the raster; the pod
 # limit is 1 GiB. The two objectives run one after the other (compute_ab_routes)
 # and each search's structures are freed when it returns.
 MAX_SEARCH_CELLS = 1_000_000

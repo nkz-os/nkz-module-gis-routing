@@ -24,7 +24,8 @@ def path_cost(path, elevations, lat0, px, ph, objective):
 def _terrain(seed, rows, cols, int_elev):
     rng = np.random.default_rng(seed)
     y, x = np.mgrid[0:rows, 0:cols]
-    z = 30 * np.sin(x / 9.0) * np.cos(y / 7.0) + 15 * np.sin(x / 4.0 + y / 5.0) + rng.standard_normal((rows, cols))
+    # Relief tuned so the grid is routable at 15 degrees yet ~13 % of steps exceed it.
+    z = 14 * np.sin(x / 9.0) * np.cos(y / 7.0) + 6 * np.sin(x / 4.0 + y / 5.0) + 0.5 * rng.standard_normal((rows, cols))
     elev = [[int(round(v)) if int_elev else float(v) for v in row] for row in z]
     for r in range(rows // 5, rows // 3):          # a no-data block
         for c in range(cols - cols // 4, cols):
@@ -67,11 +68,13 @@ def test_parity_random_grids(seed, rows, cols, int_elev, ph_ratio):
     imp = _impassable(elev, zones)
     ph = PX * ph_ratio
     start, end = (2, rows // 2), (cols - 3, rows - 3)
+    step_m = _cell_dist_m(1, 0, LAT0, PX, ph)
+    steep = sum(1 for row in elev for a, b in zip(row, row[1:])
+                if a is not None and b is not None and math.degrees(math.atan2(abs(b - a), step_m)) > 15.0)
+    assert steep > 0, "the slope limit must reject some steps"
     for objective in OBJECTIVES:
         ref, new = _both(elev, start, end, objective, imp, ph=ph)
-        assert (ref is None) == (new is None)
-        if ref is None:
-            continue
+        assert ref is not None and new is not None, "terrain must be routable"
         _check_path(new, start, end, imp)
         assert math.isclose(path_cost(new, elev, LAT0, PX, ph, objective),
                             path_cost(ref, elev, LAT0, PX, ph, objective), rel_tol=1e-9)
@@ -83,10 +86,9 @@ def test_start_in_blocked_matches_reference():
     blocked = _impassable(elev, {start, (10, 10)})
     for objective in OBJECTIVES:
         ref, new = _both(elev, start, end, objective, blocked)
-        assert (ref is None) == (new is None)
-        if ref is not None:
-            assert math.isclose(path_cost(new, elev, LAT0, PX, PX, objective),
-                                path_cost(ref, elev, LAT0, PX, PX, objective), rel_tol=1e-9)
+        assert ref is not None and new is not None, "terrain must be routable"
+        assert math.isclose(path_cost(new, elev, LAT0, PX, PX, objective),
+                            path_cost(ref, elev, LAT0, PX, PX, objective), rel_tol=1e-9)
 
 
 def test_out_of_grid_blocked_cells_ignored():
