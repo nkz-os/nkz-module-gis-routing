@@ -338,3 +338,31 @@ def test_distribution_run_id_null_without_run():
     assert client.get(f"/api/routing/zones/{PARCEL}/distribution").json()["run_id"] is None
     FakeOrion.entities = []
     assert client.get(f"/api/routing/zones/{PARCEL}/distribution").json()["run_id"] is None
+
+
+def test_zone_generation_signs_the_forwarded_identity(monkeypatch):
+    """vegetation verifies the platform signature: the proxy signs the token and tenant it forwards."""
+    from nkz_platform_sdk.crypto import verify_hmac_signature
+    sent = {}
+
+    class Resp:
+        def raise_for_status(self): ...
+        def json(self): return {"ok": True}
+
+    class FakeClient:
+        def __init__(self, *a, **k): ...
+        async def __aenter__(self): return self
+        async def __aexit__(self, *a): ...
+        async def post(self, url, json=None, headers=None):
+            sent["headers"] = headers
+            return Resp()
+
+    monkeypatch.setattr("app.api.routing.httpx.AsyncClient", FakeClient)
+    monkeypatch.setenv("HMAC_SECRET", "s3cret")
+    url = f"/api/routing/zones/{PARCEL}/generate"
+    r = client.post(url, json={}, headers={"Authorization": "Bearer tok", "X-User-ID": "u-1",
+                                           "X-User-Roles": "TechnicalConsultant"})
+    assert r.status_code == 200
+    h = sent["headers"]
+    assert h["Authorization"] == "Bearer tok" and h["X-User-Roles"] == "TechnicalConsultant"
+    assert verify_hmac_signature("s3cret", h["X-Auth-Signature"], "tok", h["X-Tenant-ID"])
