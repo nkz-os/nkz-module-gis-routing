@@ -278,7 +278,6 @@ export interface PathRequest {
   parcel_id?: string | null;
   /** Deprecated and ignored by the backend; the 3D cockpit still sends them. */
   min_turn_radius_m?: number;
-  elevation_grid?: unknown;
 }
 
 /** One tenant parcel as drawn on the transit map (outline, gate, no-go zones). */

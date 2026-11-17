@@ -334,7 +334,9 @@
       "VRA_DEGENERATE": "All zones have the same value: a single class applies",
       "VRA_ZONE_INVALID": "Zone {{zone_id}} has an invalid geometry and was ignored",
       "ZONES_NO_PRJ": "Shapefile without .prj: coordinates assumed to be WGS84 (EPSG:4326)",
-      "PLAN_TOO_LARGE_TO_SAVE": "This plan is too large to save ({{size_kb}} KB)."
+      "PLAN_TOO_LARGE_TO_SAVE": "This plan is too large to save ({{size_kb}} KB).",
+      "CONTOUR_DEM_UNAVAILABLE": "No elevation data: the most efficient heading was used instead of following the contours.",
+      "CONTOUR_TERRAIN_FLAT": "Nearly flat parcel with no clear contours: the most efficient heading was used."
     },
     "fallbacks": {
       "headland": "Headland passes adjusted from {{a}} to {{b}}",
@@ -543,11 +545,13 @@
       "UNKNOWN": "The route could not be calculated: {{detail}}",
       "JOBS_LIMIT": "Too many calculations are running ({{max_jobs}}). Wait for one to finish.",
       "EXPORT_EMPTY": "There is nothing to export for this operation.",
-      "PARCEL_READ_FAILED": "The parcel could not be read. Try again."
+      "PARCEL_READ_FAILED": "The parcel could not be read. Try again.",
+      "POINT_NO_ELEVATION": "No elevation data at point {{point}}."
     },
     "warnings": {
       "PARCELS_UNREADABLE": "{{count}} parcel(s) in the area have no readable boundary: their gates are not enforced.",
-      "UNKNOWN": "Warning {{code}}"
+      "UNKNOWN": "Warning {{code}}",
+      "SLOPE_INDICATIVE": "Slopes come from a {{resolution}} m terrain model: indicative only, not a rollover safety guarantee."
     },
     "wait": {
       "queued": "Queued. Calculating the path; it can take up to a minute",

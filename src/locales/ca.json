@@ -334,7 +334,9 @@
       "VRA_DEGENERATE": "Totes les zones tenen el mateix valor: s'aplica una sola classe",
       "VRA_ZONE_INVALID": "La zona {{zone_id}} té una geometria no vàlida i s'ha ignorat",
       "ZONES_NO_PRJ": "Shapefile sense .prj: s'assumeixen coordenades WGS84 (EPSG:4326)",
-      "PLAN_TOO_LARGE_TO_SAVE": "Aquest pla és massa gran per desar-lo ({{size_kb}} KB)."
+      "PLAN_TOO_LARGE_TO_SAVE": "Aquest pla és massa gran per desar-lo ({{size_kb}} KB).",
+      "CONTOUR_DEM_UNAVAILABLE": "Sense dades de relleu: s'ha fet servir el rumb més eficient en lloc de seguir les corbes de nivell.",
+      "CONTOUR_TERRAIN_FLAT": "Parcel·la gairebé plana, sense corbes de nivell clares: s'ha fet servir el rumb més eficient."
     },
     "fallbacks": {
       "headland": "Passades de capçalera ajustades de {{a}} a {{b}}",
@@ -543,11 +545,13 @@
       "UNKNOWN": "No s'ha pogut calcular la ruta: {{detail}}",
       "JOBS_LIMIT": "Hi ha massa càlculs en curs ({{max_jobs}}). Espera que n'acabi algun.",
       "EXPORT_EMPTY": "No hi ha res per exportar en aquesta operació.",
-      "PARCEL_READ_FAILED": "No s'ha pogut llegir la parcel·la. Torna-ho a provar."
+      "PARCEL_READ_FAILED": "No s'ha pogut llegir la parcel·la. Torna-ho a provar.",
+      "POINT_NO_ELEVATION": "No hi ha dades de relleu al punt {{point}}."
     },
     "warnings": {
       "PARCELS_UNREADABLE": "{{count}} parcel·la(es) de la zona no tenen límit llegible: les seves portes no s'apliquen.",
-      "UNKNOWN": "Avís {{code}}"
+      "UNKNOWN": "Avís {{code}}",
+      "SLOPE_INDICATIVE": "Pendents calculats amb un model del terreny de {{resolution}} m: orientatius, no garanteixen la seguretat davant la bolcada."
     },
     "wait": {
       "queued": "En cua. Calculant el trajecte; pot trigar fins a un minut",

@@ -334,7 +334,9 @@
       "VRA_DEGENERATE": "Zona guztiek balio bera dute: klase bakar bat aplikatzen da",
       "VRA_ZONE_INVALID": "{{zone_id}} zonaren geometria ez da baliozkoa eta ez ikusi egin zaio",
       "ZONES_NO_PRJ": "Shapefile .prj gabe: WGS84 (EPSG:4326) koordenatuak suposatzen dira",
-      "PLAN_TOO_LARGE_TO_SAVE": "Plan hau handiegia da gordetzeko ({{size_kb}} KB)."
+      "PLAN_TOO_LARGE_TO_SAVE": "Plan hau handiegia da gordetzeko ({{size_kb}} KB).",
+      "CONTOUR_DEM_UNAVAILABLE": "Ez dago erliebe-daturik: norabide eraginkorrena erabili da, sestra-kurbei jarraitu beharrean.",
+      "CONTOUR_TERRAIN_FLAT": "Lursail ia laua, sestra-kurba argirik gabe: norabide eraginkorrena erabili da."
     },
     "fallbacks": {
       "headland": "Muga-pasadak doituta: {{a}} -> {{b}}",
@@ -543,11 +545,13 @@
       "UNKNOWN": "Ezin izan da ibilbidea kalkulatu: {{detail}}",
       "JOBS_LIMIT": "Kalkulu gehiegi martxan daude ({{max_jobs}}). Itxaron bat amaitu arte.",
       "EXPORT_EMPTY": "Eragiketa honetan ez dago esportatzeko ezer.",
-      "PARCEL_READ_FAILED": "Ezin izan da partzela irakurri. Saiatu berriro."
+      "PARCEL_READ_FAILED": "Ezin izan da partzela irakurri. Saiatu berriro.",
+      "POINT_NO_ELEVATION": "Ez dago erliebe-daturik {{point}} puntuan."
     },
     "warnings": {
       "PARCELS_UNREADABLE": "Eremuko {{count}} lursailek ez dute muga irakurgarririk: haien ateak ez dira aplikatzen.",
-      "UNKNOWN": "Abisua {{code}}"
+      "UNKNOWN": "Abisua {{code}}",
+      "SLOPE_INDICATIVE": "Maldak {{resolution}} m-ko lur-eredu batekin kalkulatuak: gutxi gorabeherakoak dira, ez dute iraulketaren aurkako segurtasuna bermatzen."
     },
     "wait": {
       "queued": "Ilaran. Ibilbidea kalkulatzen; minutu bat arte ehun daiteke",

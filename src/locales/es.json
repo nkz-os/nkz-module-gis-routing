@@ -334,7 +334,9 @@
       "VRA_DEGENERATE": "Todas las zonas tienen el mismo valor: se aplica una sola clase",
       "VRA_ZONE_INVALID": "La zona {{zone_id}} tiene una geometría no válida y se ignoró",
       "ZONES_NO_PRJ": "Shapefile sin .prj: se asumen coordenadas WGS84 (EPSG:4326)",
-      "PLAN_TOO_LARGE_TO_SAVE": "Este plan es demasiado grande para guardarlo ({{size_kb}} KB)."
+      "PLAN_TOO_LARGE_TO_SAVE": "Este plan es demasiado grande para guardarlo ({{size_kb}} KB).",
+      "CONTOUR_DEM_UNAVAILABLE": "Sin datos de relieve: se ha usado el rumbo más eficiente en lugar de seguir las curvas de nivel.",
+      "CONTOUR_TERRAIN_FLAT": "Parcela casi llana, sin curvas de nivel claras: se ha usado el rumbo más eficiente."
     },
     "fallbacks": {
       "headland": "Pasadas de cabecera ajustadas de {{a}} a {{b}}",
@@ -543,11 +545,13 @@
       "UNKNOWN": "No se pudo calcular la ruta: {{detail}}",
       "JOBS_LIMIT": "Hay demasiados cálculos en curso ({{max_jobs}}). Espera a que termine alguno.",
       "EXPORT_EMPTY": "No hay nada que exportar en esta operación.",
-      "PARCEL_READ_FAILED": "No se pudo leer la parcela. Inténtalo de nuevo."
+      "PARCEL_READ_FAILED": "No se pudo leer la parcela. Inténtalo de nuevo.",
+      "POINT_NO_ELEVATION": "No hay datos de relieve en el punto {{point}}."
     },
     "warnings": {
       "PARCELS_UNREADABLE": "{{count}} parcela(s) de la zona no tienen límite legible: sus portones no se aplican.",
-      "UNKNOWN": "Aviso {{code}}"
+      "UNKNOWN": "Aviso {{code}}",
+      "SLOPE_INDICATIVE": "Pendientes calculadas con un modelo del terreno de {{resolution}} m: orientativas, no garantizan la seguridad frente a vuelco."
     },
     "wait": {
       "queued": "En cola. Calculando el trayecto; puede tardar hasta un minuto",
