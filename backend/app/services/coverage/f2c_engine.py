@@ -42,9 +42,7 @@ class CoverageConfig:
     pattern: str = "boustrophedon"     # boustrophedon|snake|spiral|headland-only
     heading_deg: float | None = None   # None + efficiency -> F2C best angle
     headland_passes: int = 1
-    heading_objective: str = "efficiency"   # "efficiency" | "contour"
-    dem_sampler: object = None              # callable(lon,lat)->m, or None
-    parcel_bbox: tuple | None = None        # (min_lon,min_lat,max_lon,max_lat)
+    heading_objective: str = "efficiency"   # "efficiency" | "contour" (resolved into heading_deg by the API)
     return_to_access: bool = False          # close the route back at the access point
     cells: bool = True                      # route concave interiors cell by cell
 
@@ -416,12 +414,6 @@ def _resolve_angle(cfg: CoverageConfig, wgs84_poly) -> float | None:
     """Return the swath angle in radians, or None to let F2C optimize it."""
     if cfg.heading_deg is not None:
         return _deg_to_rad(cfg.heading_deg)
-    if cfg.heading_objective == "contour" and cfg.dem_sampler and cfg.parcel_bbox:
-        from app.services.coverage.contour import best_contour_heading_deg
-        centroid = (wgs84_poly.centroid.x, wgs84_poly.centroid.y)
-        return _deg_to_rad(
-            best_contour_heading_deg(centroid, cfg.parcel_bbox, cfg.dem_sampler)
-        )
     return None
 
 

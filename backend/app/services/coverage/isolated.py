@@ -13,7 +13,6 @@ import logging
 import multiprocessing
 import traceback
 from concurrent.futures import ThreadPoolExecutor
-from dataclasses import replace
 from time import monotonic
 from typing import Callable
 
@@ -42,22 +41,6 @@ class EngineTimeout(RuntimeError):
     """The engine process ran past the hard timeout and was killed."""
 
 
-def freeze_contour_heading(inp: LadderInput) -> LadderInput:
-    """Resolve a contour heading here, so the child gets a plain angle.
-
-    The DEM sampler is a closure and cannot cross a process boundary; the copy
-    never carries it. An explicit heading wins, as in f2c_engine._resolve_angle.
-    """
-    cfg = inp.cfg
-    heading = cfg.heading_deg
-    if (heading is None and cfg.heading_objective == "contour"
-            and cfg.dem_sampler and cfg.parcel_bbox):
-        from app.services.coverage.contour import best_contour_heading_deg
-        c = inp.wgs84_poly.centroid
-        heading = best_contour_heading_deg((c.x, c.y), cfg.parcel_bbox, cfg.dem_sampler)
-    return replace(inp, cfg=replace(cfg, heading_deg=heading, dem_sampler=None))
-
-
 async def run_ladder_isolated(
     inp: LadderInput, *, time_budget_s: float | None, hard_timeout_s: float,
     log_level: str = "INFO", target: Callable = plan_with_fallbacks,
@@ -69,10 +52,9 @@ async def run_ladder_isolated(
     RuntimeError for any other exception in the child, EngineCrashed when the
     child dies without a result and EngineTimeout after hard_timeout_s.
     """
-    frozen = freeze_contour_heading(inp)
     context = {"tenant_id": tenant_id, "parcel_id": parcel_id}
     msg = await asyncio.get_running_loop().run_in_executor(
-        _ENGINE_POOL, _run_child, target, frozen, time_budget_s, hard_timeout_s, log_level, context)
+        _ENGINE_POOL, _run_child, target, inp, time_budget_s, hard_timeout_s, log_level, context)
     kind = msg[0]
     if kind == "ok":
         return msg[1]

@@ -1,15 +1,13 @@
 import asyncio
 import multiprocessing
 import time
-from dataclasses import replace
 
 import pytest
 pytest.importorskip("fields2cover")
 
-from app.services.coverage.contour import best_contour_heading_deg
 from app.services.coverage.f2c_engine import CoverageConfig
 from app.services.coverage.isolated import (
-    EngineCrashed, EngineTimeout, freeze_contour_heading, run_ladder_isolated)
+    EngineCrashed, EngineTimeout, run_ladder_isolated)
 from app.services.coverage.ladder import LadderInput, plan_with_fallbacks
 from app.services.coverage.robot_model import RobotParams
 from app.services.exclusion import ExclusionError
@@ -92,32 +90,6 @@ def test_at_most_two_children(tmp_path, monkeypatch):
         now += 1 if kind == "start" else -1
         peak = max(peak, now)
     assert peak == 2
-
-
-def _sampler(lon, lat):
-    # Oblique slope: its contour heading differs from F2C's own optimum for RECT.
-    return lon * 1000.0 + lat * 400.0
-
-
-def test_contour_heading_resolved_in_parent():
-    bbox = wgs84(RECT).bounds
-    inp = _inp(heading_objective="contour", dem_sampler=_sampler, parcel_bbox=bbox)
-    frozen = freeze_contour_heading(inp)
-    c = inp.wgs84_poly.centroid
-    assert frozen.cfg.dem_sampler is None
-    assert frozen.cfg.heading_deg == best_contour_heading_deg((c.x, c.y), bbox, _sampler)
-    # A closure sampler cannot be pickled: the runner must still work.
-    lam = replace(inp, cfg=replace(inp.cfg, dem_sampler=lambda lon, lat: lon * 1000.0 + lat * 400.0))
-    plan = _run(lam)
-    direct = plan_with_fallbacks(inp, time_budget_s=60.0)
-    assert plan.as_api_dict(_shift_project, 4.0) == direct.as_api_dict(_shift_project, 4.0)
-
-
-def test_explicit_heading_is_kept():
-    inp = _inp(heading_deg=30.0, heading_objective="contour", dem_sampler=_sampler,
-               parcel_bbox=wgs84(RECT).bounds)
-    frozen = freeze_contour_heading(inp)
-    assert frozen.cfg.heading_deg == 30.0 and frozen.cfg.dem_sampler is None
 
 
 def test_child_logs_reach_parent_stream(capfd):

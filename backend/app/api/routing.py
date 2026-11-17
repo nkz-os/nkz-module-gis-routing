@@ -35,7 +35,6 @@ from app.services.export_service import RouteExporter
 from app.services.pmtiles_generator import PMTileGenerator
 from app.services.parcel_constraints import fetch_parcel_constraints, fetch_tenant_parcels_in_bbox
 from app.api.pathfinding_router import build_dem_registry
-from app.services.pathfinding.grid_sampler import make_grid_sampler
 from app.config import get_settings
 from app.services.machines import fetch_machine_kinematics
 from app.services.coverage.errors import PlanError
@@ -671,12 +670,15 @@ async def _generate_plan(body: GenerateRequest, auth: AuthContext) -> dict:
         heading_objective=pc.heading_objective,
         return_to_access=body.return_to_access,
     )
-    # Wire DEM sampler when contour heading is requested.
-    if pc.heading_objective == "contour":
-        sampler, bbox = await _resolve_contour_dem(body.parcel_geometry)
-        if sampler:
-            cfg.dem_sampler = sampler
-            cfg.parcel_bbox = bbox
+    # Contour: resolve the heading from the terrain here; None lets the engine choose
+    # and the reason is reported with the plan.
+    contour_warning = None
+    if pc.heading_objective == "contour" and pc.heading_deg is None:
+        ch = await _resolve_contour_heading(wgs84_poly)
+        cfg.heading_deg = ch.heading_deg
+        contour_warning = ch.warning
+        logger.info("generate: contour heading=%s slope_pct=%s warning=%s parcel_id=%s",
+                    ch.heading_deg, ch.slope_pct, ch.warning, body.parcel_id)
     try:
         try:
             constraints = await _load_constraints_wgs84(body.parcel_id, auth.tenant_id)
@@ -712,6 +714,12 @@ async def _generate_plan(body: GenerateRequest, auth: AuthContext) -> dict:
             tenant_id=auth.tenant_id, parcel_id=body.parcel_id)
         result = plan.to_route_result(to_wgs84, robot.cov_width)
         plan_dict = plan.as_api_dict(to_wgs84, robot.cov_width)
+        if contour_warning:
+            if plan_dict.get("validation") is None:
+                plan_dict["validation"] = {"ok": True, "checks": [], "fallbacks_applied": [],
+                                           "warnings": []}
+            plan_dict["validation"]["warnings"].append(
+                {"code": contour_warning, "geometry": None, "params": {}})
     except PlanError:
         raise
     except Exception as exc:
@@ -919,15 +927,13 @@ async def _load_constraints_wgs84(parcel_id, tenant_id: str) -> dict:
     return {"access_point": c["access_point"], "zones": list(c["zones"])}
 
 
-async def _resolve_contour_dem(parcel_geometry: dict):
-    """Return (sampler, bbox) for contour heading, or (None, None) if no DEM."""
-    from shapely.geometry import shape
-    poly = shape(parcel_geometry)
-    bbox = poly.bounds  # (min_lon, min_lat, max_lon, max_lat)
-    grid = await build_dem_registry().fetch_best(bbox, resolution_m=10)
+async def _resolve_contour_heading(wgs84_poly):
+    """Contour heading of the parcel from the terrain (ContourHeading)."""
+    from app.services.coverage.contour import UNAVAILABLE, contour_heading
+    grid = await build_dem_registry().fetch_best(wgs84_poly.bounds, resolution_m=10)
     if not grid:
-        return None, None
-    return make_grid_sampler(grid), bbox
+        return UNAVAILABLE
+    return await asyncio.to_thread(contour_heading, grid, wgs84_poly)
 
 
 def _zones_from_orion(zones: list[dict], parcel_id: str, zone_ids: list[str] | None) -> list[dict]:
