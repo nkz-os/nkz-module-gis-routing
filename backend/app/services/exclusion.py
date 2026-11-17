@@ -98,7 +98,7 @@ def _polygon_parts(geom) -> list:
 
 def rasterize_blocked_cells(block: "BaseGeometry | None", origin_lon: float,
                             origin_lat: float, pixel_size_deg: float,
-                            cols: int, rows: int) -> set:
+                            cols: int, rows: int, pixel_height_deg: float | None = None) -> set:
     """Return {(col, row)} whose cell centre falls inside `block`.
 
     `block` is a shapely geometry already in the grid's coordinate space.
@@ -109,15 +109,16 @@ def rasterize_blocked_cells(block: "BaseGeometry | None", origin_lon: float,
     blocked: set = set()
     if block is None or block.is_empty:
         return blocked
+    height = pixel_height_deg or pixel_size_deg  # rows may be taller/shorter than columns are wide
     for part in _polygon_parts(block):
         minx, miny, maxx, maxy = part.bounds
         c0 = max(0, int((minx - origin_lon) / pixel_size_deg))
         c1 = min(cols - 1, int((maxx - origin_lon) / pixel_size_deg) + 1)
-        r0 = max(0, int((miny - origin_lat) / pixel_size_deg))
-        r1 = min(rows - 1, int((maxy - origin_lat) / pixel_size_deg) + 1)
+        r0 = max(0, int((miny - origin_lat) / height))
+        r1 = min(rows - 1, int((maxy - origin_lat) / height) + 1)
         if c1 < c0 or r1 < r0:
             continue
         cs, rs = np.meshgrid(np.arange(c0, c1 + 1), np.arange(r0, r1 + 1))
-        inside = shapely.contains_xy(part, origin_lon + cs * pixel_size_deg, origin_lat + rs * pixel_size_deg)
+        inside = shapely.contains_xy(part, origin_lon + cs * pixel_size_deg, origin_lat + rs * height)
         blocked.update((int(c), int(r)) for c, r in zip(cs[inside], rs[inside]))
     return blocked

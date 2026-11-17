@@ -1,7 +1,8 @@
 """A* A->B routing on a DEM grid with two objectives: least slope, fastest.
 
-The grid is geographic (uniform pixel size in degrees). Distances are metric-
-corrected: longitude degrees shrink by cos(latitude). The two objectives use
+The grid is geographic: columns `pixel_size_deg` wide, rows `pixel_height_deg`
+tall (row 0 = south). Distances are metric-corrected: longitude degrees shrink by
+cos(latitude). No-data cells (None) are impassable. The two objectives use
 distinct cost structures so they are guaranteed to differ on sloped terrain:
 
   - "fastest":      step cost = horizontal distance only.
@@ -35,9 +36,10 @@ def _m_per_deg_lon(lat: float) -> float:
     return _M_PER_DEG_LAT * math.cos(math.radians(lat))
 
 
-def _cell_dist_m(dcol: int, drow: int, lat: float, pixel_size_deg: float) -> float:
+def _cell_dist_m(dcol: int, drow: int, lat: float, pixel_size_deg: float,
+                 pixel_height_deg: float | None = None) -> float:
     dx = dcol * pixel_size_deg * _m_per_deg_lon(lat)
-    dy = drow * pixel_size_deg * _M_PER_DEG_LAT
+    dy = drow * (pixel_height_deg or pixel_size_deg) * _M_PER_DEG_LAT
     return math.hypot(dx, dy)
 
 
@@ -52,43 +54,51 @@ def compute_ab_routes(
     end_row: int,
     max_slope_deg: float = 15.0,
     blocked: set | None = None,
+    pixel_height_deg: float | None = None,
 ) -> list[dict]:
     """Return the least-slope and fastest A->B routes (each a dict, or omitted
     if unreachable).
 
     `blocked` is an optional set of (col, row) tuples that are impassable
-    (e.g., rasterized exclusion zones).
+    (e.g., rasterized exclusion zones); no-data cells (None) are impassable too.
+    `pixel_height_deg` defaults to `pixel_size_deg` (square client grids).
     """
+    height = pixel_height_deg or pixel_size_deg
+    # No-data cells join the blocked set, so smoothing never cuts through them either.
+    nodata = {(c, r) for r, row in enumerate(elevations) for c, v in enumerate(row) if v is None}
+    impassable = (blocked or set()) | nodata
     routes = []
     for objective in _OBJECTIVES:
         path = _astar(
             elevations, origin_lon, origin_lat, pixel_size_deg,
             start_col, start_row, end_col, end_row, max_slope_deg, objective,
-            blocked=blocked,
+            blocked=impassable, pixel_height_deg=height,
         )
         if path:
-            smoothed = _smooth_cells(path, blocked or set())
+            smoothed = _smooth_cells(path, impassable)
             routes.append(_summarize(path, objective, elevations,
                                      origin_lon, origin_lat, pixel_size_deg,
-                                     smoothed=smoothed, blocked=blocked))
+                                     smoothed=smoothed, blocked=blocked,
+                                     pixel_height_deg=height))
     return routes
 
 
 def _astar(elevations, origin_lon, origin_lat, pixel_size_deg,
            start_col, start_row, end_col, end_row, max_slope_deg, objective,
-           blocked=None):
+           blocked=None, pixel_height_deg=None):
     rows = len(elevations)
     cols = len(elevations[0]) if rows else 0
     max_slope_rad = math.radians(max_slope_deg)
+    height = pixel_height_deg or pixel_size_deg
 
     def lat_of(r: int) -> float:
-        return origin_lat + r * pixel_size_deg
+        return origin_lat + r * height
 
     def elev(c: int, r: int) -> float:
         return elevations[r][c]
 
     def heuristic(c: int, r: int) -> float:
-        return _cell_dist_m(end_col - c, end_row - r, lat_of(r), pixel_size_deg)
+        return _cell_dist_m(end_col - c, end_row - r, lat_of(r), pixel_size_deg, height)
 
     def neighbors(c: int, r: int):
         for dc, dr in ((1, 0), (-1, 0), (0, 1), (0, -1),
@@ -124,7 +134,7 @@ def _astar(elevations, origin_lon, origin_lat, pixel_size_deg,
                (cur.col + dc, cur.row) in blocked and (cur.col, cur.row + dr) in blocked:
                 continue
             dist = _cell_dist_m(nc - cur.col, nr - cur.row,
-                                lat_of(cur.row), pixel_size_deg)
+                                lat_of(cur.row), pixel_size_deg, height)
             dz = elev(nc, nr) - elev(cur.col, cur.row)
             slope = math.atan2(abs(dz), dist) if dist > 0 else 0.0
             if slope > max_slope_rad:
@@ -152,7 +162,9 @@ def _reconstruct(node) -> list[tuple[int, int]]:
 
 
 def _summarize(cells, objective, elevations,
-               origin_lon, origin_lat, pixel_size_deg, smoothed=None, blocked=None) -> dict:
+               origin_lon, origin_lat, pixel_size_deg, smoothed=None, blocked=None,
+               pixel_height_deg=None) -> dict:
+    height = pixel_height_deg or pixel_size_deg
     # Metrics pass: ALWAYS over the full A* cell path (honest distance/climb).
     distance_m = 0.0
     climb_m = 0.0
@@ -161,8 +173,8 @@ def _summarize(cells, objective, elevations,
         if i > 0:
             pc, pr = cells[i - 1]
             step_m = _cell_dist_m(c - pc, r - pr,
-                                  origin_lat + pr * pixel_size_deg,
-                                  pixel_size_deg)
+                                  origin_lat + pr * height,
+                                  pixel_size_deg, height)
             distance_m += step_m
             dz = elevations[r][c] - elevations[pr][pc]
             climb_m += max(0.0, dz)
@@ -173,7 +185,7 @@ def _summarize(cells, objective, elevations,
     coords, profile = [], []
     for c, r in (smoothed if smoothed is not None else cells):
         lon = round(origin_lon + c * pixel_size_deg, 7)
-        lat = round(origin_lat + r * pixel_size_deg, 7)
+        lat = round(origin_lat + r * height, 7)
         z = elevations[r][c]
         coords.append([lon, lat])
         profile.append([lon, lat, z])

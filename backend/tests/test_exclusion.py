@@ -82,3 +82,13 @@ def test_route_enters_zones_detects_crossing():
     assert route_enters_zones(crossing, [zone]) is True
     assert route_enters_zones(clear, [zone]) is False
     assert route_enters_zones(crossing, []) is False
+
+
+def test_rasterize_uses_row_height():
+    # Rows are half as tall as columns are wide: lat 1.9..4.1 holds row corners 2.0 to 4.0.
+    block = _square(0.5, 1.9, 1.5, 4.1)
+    blocked = rasterize_blocked_cells(
+        block, origin_lon=0.0, origin_lat=0.0, pixel_size_deg=1.0, cols=4, rows=10,
+        pixel_height_deg=0.5,
+    )
+    assert {r for _, r in blocked} == {4, 5, 6, 7, 8}
