@@ -17,9 +17,17 @@ from app.api import router as api_router
 from app.services.coverage.errors import PlanError
 from app.services.tenant_settings import close_store as close_settings_store
 from app.services.subscriptions import reconcile_once, run_subscription_reconciler
+from app.services.pathfinding.dem_fetcher import dem_secret_configured
 from nkz_platform_sdk.lifecycle import lifecycle_hint_router
 
 logger = logging.getLogger(__name__)
+
+
+def check_dem_secret() -> None:
+    """Terrain is peripheral: without the secret the service runs, routes go without
+    DEM (DEM_UNAVAILABLE), and this says so loudly at startup."""
+    if not dem_secret_configured():
+        logger.critical("INTERNAL_SERVICE_SECRET not set: terrain (DEM) disabled")
 
 
 @asynccontextmanager
@@ -29,6 +37,7 @@ async def lifespan(app: FastAPI):
     logger.info("%s v%s starting — prefix=%s debug=%s",
                 settings.app_name, settings.app_version,
                 settings.api_prefix, settings.debug)
+    check_dem_secret()
     # Background: startup must not wait on Orion or the DB.
     reconciler = asyncio.create_task(
         run_subscription_reconciler(settings.subscription_heal_minutes)

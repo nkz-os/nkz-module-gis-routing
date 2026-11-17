@@ -17,13 +17,16 @@ logger = logging.getLogger(__name__)
 Bbox = tuple[float, float, float, float]  # (min_lon, min_lat, max_lon, max_lat)
 
 
-class DemGrid(TypedDict):
-    elevations: list[list[float]]  # elevations[row][col]; row 0 = south, rows increase northward
+class DemGrid(TypedDict, total=False):
+    # elevations[row][col]; row 0 = south, rows increase northward; None = no data
+    elevations: list[list[float | None]]
     origin_lon: float   # west edge (min lon)
     origin_lat: float   # south edge (min lat)
-    pixel_size_deg: float  # square in degrees
+    pixel_size_deg: float    # column width in degrees
+    pixel_height_deg: float  # row height in degrees; absent = pixel_size_deg (client grids)
     cols: int
     rows: int
+    source: dict  # eu-elevation source block (id, category, resolution_m, fallback_reason)
 
 
 @runtime_checkable
