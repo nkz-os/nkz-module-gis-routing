@@ -175,7 +175,9 @@ def test_step5_manual_turn_end_to_end(monkeypatch):
     inp = LadderInput(RECT, [ZONE_CENTER], ROBOT, CoverageConfig("boustrophedon", headland_passes=1),
                       access_utm=None, wgs84_poly=wgs84(RECT))
     plan = plan_with_fallbacks(inp)
-    assert len(calls) == 6                       # 1 pattern x 2 curves x 3 passes
+    # 1 pattern x 2 curves x 3 passes, twice: the zone splits the interior in cells and,
+    # with no cell attempt passing, the same rungs run again over a single cell.
+    assert len(calls) == 12
     assert isinstance(plan.route, MultiLineString) and len(plan.route.geoms) == 2
     assert len([w for w in plan.validation.warnings if w.code == "MANUAL_TURN"]) == 1
     assert "manual_turns:1" in plan.validation.fallbacks_applied
@@ -329,7 +331,8 @@ def test_time_budget_unspent_still_runs_full_ladder(monkeypatch):
     inp = LadderInput(RECT, [ZONE_CENTER], ROBOT, CoverageConfig("auto", headland_passes=1),
                       access_utm=None, wgs84_poly=wgs84(RECT))
     plan = plan_with_fallbacks(inp, time_budget_s=3600.0)
-    assert len(calls) == 18 and "time_budget" not in plan.validation.fallbacks_applied
+    # Cell pass (snake/spiral skipped where the interior is split) + the full single-cell pass.
+    assert len(calls) == 26 and "time_budget" not in plan.validation.fallbacks_applied
 
 
 def test_ladder_reuses_swaths_per_passes(monkeypatch):

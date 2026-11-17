@@ -16,7 +16,7 @@ from shapely.ops import transform
 from app.services.coverage.access import InsidePaths
 from app.services.coverage.errors import PlanError
 from app.services.coverage.f2c_engine import (
-    CoverageConfig, _resolve_angle, has_interior_swaths, plan_coverage, transit_parts)
+    CoverageConfig, _resolve_angle, cell_count, has_interior_swaths, plan_coverage, transit_parts)
 from app.services.coverage.plan import CoveragePlan, Swath, Turn
 from app.services.coverage.robot_model import RobotParams
 from app.services.coverage.turn_fit import HeadlandNeed, headland_need
@@ -164,7 +164,8 @@ def _manual_warnings(plan: CoveragePlan, removed: list[Turn],
     return out
 
 
-def _attempt_fallbacks(inp: LadderInput, pattern: str, curve: str, passes: int) -> list[str]:
+def _attempt_fallbacks(inp: LadderInput, pattern: str, curve: str, passes: int,
+                       plan: CoveragePlan) -> list[str]:
     fb = []
     if passes != inp.cfg.headland_passes:
         fb.append(f"headland_passes:{inp.cfg.headland_passes}->{passes}")
@@ -172,6 +173,10 @@ def _attempt_fallbacks(inp: LadderInput, pattern: str, curve: str, passes: int) 
         fb.append(f"curve:{curve}")
     if inp.cfg.pattern == "auto" and pattern != AUTO_PATTERN_ORDER[0]:
         fb.append(f"pattern:{pattern}")
+    if plan.cells > 1:
+        fb.append(f"cells:{plan.cells}")
+        if inp.cfg.pattern in ("snake", "spiral"):
+            fb.append("pattern:boustrophedon")
     return fb
 
 
@@ -237,10 +242,25 @@ def plan_with_fallbacks(inp: LadderInput, time_budget_s: float | None = None) ->
         (p, c, n) for p in patterns for c in curves
         for n in range(first_passes[c], first_passes[c] + extra + 1)
         if not (c == first_curve and n == first_passes[first_curve])]
-    for pattern, curve, passes in rungs:
+    # Concave interiors are routed cell by cell first; if no cell attempt passes the hard
+    # checks, the same rungs run once more over a single cell (the pre-cells route).
+    angle = _resolve_angle(inp.cfg, inp.wgs84_poly)
+    single_tries = 0
+    cell_rungs = [r + (True,) for r in rungs] if inp.cfg.cells else []
+    for pattern, curve, passes, cells in cell_rungs + [r + (False,) for r in rungs]:
+        if not cells and inp.cfg.cells:
+            if first_ok or not any(cell_count(piece, w, n, angle, swath_cache) > 1
+                                   for n in {r[2] for r in rungs}):
+                break
         if pattern in first_ok:
             continue
-        if _over_budget(inp, time_budget_s, bool(attempts) or last_error is not None, start):
+        if (cells and inp.cfg.pattern == "auto" and pattern != AUTO_PATTERN_ORDER[0]
+                and cell_count(piece, w, passes, angle, swath_cache) > 1):
+            continue  # the cell route ignores the pattern: already tried for this curve/headland
+        tried = (bool(attempts) or last_error is not None) if cells else single_tries > 0
+        if not cells:
+            single_tries += 1
+        if _over_budget(inp, time_budget_s, tried, start):
             budget_hit = True
             logger.warning("ladder time budget spent: elapsed=%.1fs budget=%.1fs "
                            "next_pattern=%s ok_patterns=%s", monotonic() - start,
@@ -249,7 +269,7 @@ def plan_with_fallbacks(inp: LadderInput, time_budget_s: float | None = None) ->
         try:
             plan = plan_coverage(
                 piece, inp.parcel_utm, replace(inp.robot, curve_type=curve),
-                replace(inp.cfg, pattern=pattern, headland_passes=passes),
+                replace(inp.cfg, pattern=pattern, headland_passes=passes, cells=cells),
                 access_utm=inp.access_utm, wgs84_poly=inp.wgs84_poly,
                 swath_cache=swath_cache)
         except ExclusionError as e:
@@ -267,7 +287,7 @@ def plan_with_fallbacks(inp: LadderInput, time_budget_s: float | None = None) ->
             continue
         plan.unreached = list(unreached)
         plan.exclusion_zones = list(inp.zones_utm)
-        plan.fallbacks = _attempt_fallbacks(inp, pattern, curve, passes)
+        plan.fallbacks = _attempt_fallbacks(inp, pattern, curve, passes, plan)
         att = _Attempt(plan, validate_plan(plan, inp.parcel_utm, inp.zones_utm, w), pattern, passes)
         attempts.append(att)
         logger.info("ladder attempt pattern=%s curve=%s passes=%s hard_ok=%s",

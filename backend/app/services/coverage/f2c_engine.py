@@ -46,6 +46,7 @@ class CoverageConfig:
     dem_sampler: object = None              # callable(lon,lat)->m, or None
     parcel_bbox: tuple | None = None        # (min_lon,min_lat,max_lon,max_lat)
     return_to_access: bool = False          # close the route back at the access point
+    cells: bool = True                      # route concave interiors cell by cell
 
 
 def generate_coverage(
@@ -100,8 +101,8 @@ def plan_coverage(
 
     # parts: ("swath", geometry) | ("turn", geometry), in travel order.
     # headland-only: no interior swaths, the rings below are the whole plan.
-    parts = ([] if cfg.pattern == "headland-only"
-             else _interior_parts(piece_utm, robot, cfg, wgs84_poly, passes, swath_cache))
+    parts, n_cells = (([], 1) if cfg.pattern == "headland-only"
+                      else _interior_parts(piece_utm, robot, cfg, wgs84_poly, passes, swath_cache))
 
     # Orient to the access point BEFORE adding the rings.
     if access_utm is not None and parts:
@@ -155,7 +156,8 @@ def plan_coverage(
 
     swaths, turns = _index_parts(parts)
     return CoveragePlan(
-        pattern=cfg.pattern, curve_type=robot.curve_type, headland_passes=passes,
+        pattern="boustrophedon" if n_cells > 1 else cfg.pattern,
+        curve_type=robot.curve_type, headland_passes=passes, cells=n_cells,
         swaths=swaths, turns=turns, route=route, working_area=piece_utm,
         unreached=[], parcel_area_m2=parcel_utm.area, access_point=access_utm,
         access_path=access_path, exit_point=exit_point, exclusion_zones=[],
@@ -195,28 +197,49 @@ def _fence_leg(gate: Point, inner: Polygon) -> tuple[LineString | None, Point]:
     return LineString([(gate.x, gate.y), (entry.x, entry.y)]), entry
 
 
-def _interior_parts(piece_utm, robot, cfg, wgs84_poly, passes, swath_cache=None) -> list:
-    """F2C interior swaths + turns as ordered ("swath"|"turn", LineString) parts."""
+@dataclass
+class _SwathSet:
+    """Passes over one piece for a (headland passes, width, angle): the single-cell
+    set used today and, when the interior is concave, the same area split in cells."""
+    single: object                  # f2c.Swaths
+    by_cells: object | None = None  # f2c.SwathsByCells when n_cells > 1
+    mid_headland: object | None = None  # f2c.Cells: cell-to-cell transit runs along it
+    n_cells: int = 1
+
+
+def _interior_parts(piece_utm, robot, cfg, wgs84_poly, passes, swath_cache=None) -> tuple[list, int]:
+    """F2C interior swaths + turns as ordered ("swath"|"turn", LineString) parts, and the
+    number of cells routed (1 when the interior is convex or cells are off)."""
     angle = _resolve_angle(cfg, wgs84_poly)
     key = (passes, robot.cov_width, angle)
     if swath_cache is not None and key in swath_cache:
-        swaths = swath_cache[key]
+        sset = swath_cache[key]
     else:
-        swaths = _generate_swaths(piece_utm, robot.cov_width, passes, angle)
+        sset = _generate_swath_set(piece_utm, robot.cov_width, passes, angle)
         if swath_cache is not None:
-            swath_cache[key] = swaths
-    if swaths is None:
-        return []
+            swath_cache[key] = sset
+    if sset is None:
+        return [], 1
 
-    ordered = _sort_swaths(cfg.pattern, swaths)
     curve = (
         f2c.PP_ReedsSheppCurves() if robot.curve_type == "reeds_shepp"
         else f2c.PP_DubinsCurves()
     )
     curve.setDiscretization(TURN_DISCRETIZATION_M)
-    path = f2c.PP_PathPlanning().planPath(robot.to_f2c_robot(), ordered, curve)
-    return [(k, g.simplify(TURN_SIMPLIFY_M, preserve_topology=True) if k == "turn" else g)
-            for k, g in _split_path(path)]
+    if cfg.cells and sset.n_cells > 1:
+        path, n_cells = _cells_path(robot, sset, curve), sset.n_cells
+    else:
+        ordered = _sort_swaths(cfg.pattern, sset.single)
+        path, n_cells = f2c.PP_PathPlanning().planPath(robot.to_f2c_robot(), ordered, curve), 1
+    parts = [(k, g.simplify(TURN_SIMPLIFY_M, preserve_topology=True) if k == "turn" else g)
+             for k, g in _split_path(path)]
+    return parts, n_cells
+
+
+def _cells_path(robot, sset: "_SwathSet", curve):
+    """Route the cells (F2C orders them and links them along the mid headland), then plan."""
+    route = f2c.RP_RoutePlannerBase().genRoute(sset.mid_headland, sset.by_cells)
+    return f2c.PP_PathPlanning().planPath(robot.to_f2c_robot(), route, curve)
 
 
 def _sort_swaths(pattern: str, swaths):
@@ -229,8 +252,17 @@ def _sort_swaths(pattern: str, swaths):
 
 def _generate_swaths(piece_utm, cov_width: float, passes: int, angle: float | None):
     """F2C headland reduction + swath generation; None when no swath fits."""
+    sset = _generate_swath_set(piece_utm, cov_width, passes, angle, decompose=False)
+    return None if sset is None else sset.single
+
+
+def _generate_swath_set(piece_utm, cov_width: float, passes: int, angle: float | None,
+                        decompose: bool = True) -> "_SwathSet | None":
+    """Single-cell swaths exactly as before; for a concave interior also the cell split
+    (boustrophedon decomposition along the swath angle). None when no swath fits."""
     cells = shapely_to_f2c_cells(piece_utm)
-    headland = f2c.HG_Const_gen().generateHeadlands(cells, cov_width * passes)
+    hg = f2c.HG_Const_gen()
+    headland = hg.generateHeadlands(cells, cov_width * passes)
     if headland.size() == 0:
         return None
     work_cell = headland.getGeometry(0)
@@ -241,7 +273,36 @@ def _generate_swaths(piece_utm, cov_width: float, passes: int, angle: float | No
         swaths = bf.generateSwaths(angle, cov_width, work_cell)
     else:
         swaths = bf.generateBestSwaths(f2c.OBJ_NSwath(), cov_width, work_cell)
-    return swaths if swaths.size() > 0 else None
+    if swaths.size() == 0:
+        return None
+    if not decompose:
+        return _SwathSet(single=swaths)
+    split = angle if angle is not None else swaths.at(0).getInAngle()
+    try:
+        dec = f2c.DECOMP_Boustrophedon()
+        dec.setSplitAngle(split)
+        parts = dec.decompose(f2c.Cells(work_cell))
+        if parts.size() <= 1:
+            return _SwathSet(single=swaths)
+        by_cells = bf.generateSwaths(split, cov_width, parts)
+        mid = hg.generateHeadlands(cells, cov_width * passes / 2.0)
+    except RuntimeError as e:
+        logger.warning("cell decomposition failed, single cell kept: %s", e)
+        return _SwathSet(single=swaths)
+    return _SwathSet(single=swaths, by_cells=by_cells, mid_headland=mid, n_cells=parts.size())
+
+
+def cell_count(piece_utm, cov_width: float, passes: int, angle: float | None,
+               swath_cache: dict | None) -> int:
+    """Cells the interior splits into for that headland (0: no pass fits); fills the cache."""
+    key = (passes, cov_width, angle)
+    if swath_cache is not None and key in swath_cache:
+        sset = swath_cache[key]
+    else:
+        sset = _generate_swath_set(piece_utm, cov_width, passes, angle)
+        if swath_cache is not None:
+            swath_cache[key] = sset
+    return sset.n_cells if sset is not None else 0
 
 
 def has_interior_swaths(piece_utm, cov_width: float, passes: int, angle: float | None) -> bool:

@@ -28,3 +28,7 @@ def wgs84(poly_utm: Polygon) -> Polygon:
 
 def wgs84_point(p: Point) -> tuple[float, float]:
     return _shift_project(p.x, p.y)
+# Concave "hook": two lobes joined by a bend. With 6 m / r8 the single-cell route has to
+# leave the field between the lobes (synthetic shape, local metres).
+HOOK = Polygon([(0, 0), (140, 0), (160, 200), (330, 330), (420, 300), (450, 400), (300, 450),
+                (90, 280), (60, 130), (0, 120)])
