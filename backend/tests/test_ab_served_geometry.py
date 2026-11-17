@@ -160,8 +160,8 @@ def test_report_warns_cross_slope_above_limit(_fresh_jobs):
     rep = body["report"]
     assert rep["max_cross_slope_deg_found"] > 15.0
     warn = [w for w in rep["warnings"] if w["code"] == "CROSS_SLOPE_HIGH"]
-    assert len(warn) == 1 and warn[0]["params"]["limit"] == 15.0
-    assert warn[0]["params"]["deg"] == rep["max_cross_slope_deg_found"]
+    assert warn and all(w["params"]["limit"] == 15.0 for w in warn)
+    assert max(w["params"]["deg"] for w in warn) == rep["max_cross_slope_deg_found"]
 
 
 def test_report_no_cross_slope_warning_on_flat(_fresh_jobs):
@@ -195,3 +195,55 @@ def test_served_steps_pass_search_edge_rule():
                 for (pc, pr), (c, rr) in zip(cells, cells[1:]):
                     d = _cell_dist_m(c - pc, rr - pr, LAT0 + pr * PX, PX, PX)
                     assert math.degrees(math.atan2(abs(z[rr][c] - z[pr][pc]), d)) <= 15.0 + 1e-9
+
+
+# --- cross slope on the map ------------------------------------------------------
+
+def test_cross_slope_profile_aligned_with_elevation_profile():
+    rng = np.random.default_rng(13)
+    z = (5 * rng.standard_normal((30, 30))).tolist()
+    for r in _routes(z, (1, 1), (28, 25), max_slope=30.0).values():
+        cs = r["cross_slope_profile"]
+        assert len(cs) == len(r["elevation_profile"])
+        assert all(math.isfinite(v) and v >= 0 for v in cs)
+        assert max(cs) == r["max_cross_slope_deg_found"]
+        i = cs.index(max(cs))
+        assert r["max_cross_slope_at"] == r["elevation_profile"][i][:2]
+
+
+def test_max_cross_slope_at_marks_the_steepest_band():
+    # Traverse along row 0 (z = 0, no along-track slope) of a hillside rising north at 5 deg,
+    # except a 25 deg band around columns 9-11.
+    rows, cols = 7, 20
+    elev = []
+    for r in range(rows):
+        row = []
+        for c in range(cols):
+            deg = 25.0 if 9 <= c <= 11 else 5.0
+            row.append(r * PX * M_LAT * math.tan(math.radians(deg)))
+        elev.append(row)
+    route = _routes(elev, (0, 0), (19, 0))["fastest"]
+    lon, _lat = route["max_cross_slope_at"]
+    col = round((lon + 2.0) / PX)
+    assert 9 <= col <= 11
+    assert route["max_cross_slope_deg_found"] == pytest.approx(25.0, abs=0.5)
+
+
+def test_single_cell_route_cross_profile():
+    r = _routes(_tilted(5, 5, 20.0), (2, 2), (2, 2))["fastest"]
+    assert r["cross_slope_profile"] == [0.0]
+    assert r["max_cross_slope_at"] == r["elevation_profile"][0][:2]
+
+
+def test_report_warns_per_route_with_route_id(_fresh_jobs):
+    body = _run(_grid(_tilted(7, 15, 20.0)), [-2.0, LAT0 + 3.5 * PX], [-2.0 + 14.5 * PX, LAT0 + 3.5 * PX], 15.0)
+    assert body["status"] == "completed", body
+    warns = [w for w in body["report"]["warnings"] if w["code"] == "CROSS_SLOPE_HIGH"]
+    by_route = {w["params"]["route"]: w["params"] for w in warns}
+    alts = {a["id"]: a for a in body["alternatives"]}
+    for rid, alt in alts.items():
+        if alt["max_cross_slope_deg_found"] > 15.0:
+            assert by_route[rid] == {"deg": alt["max_cross_slope_deg_found"], "limit": 15.0, "route": rid}
+        else:
+            assert rid not in by_route
+    assert by_route, "the traverse must warn for at least one route"

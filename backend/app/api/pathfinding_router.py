@@ -278,10 +278,13 @@ async def _search(job_id: str, body: PathRequest, tenant_id: str, machine_width_
             warnings = ([{"code": "PARCELS_UNREADABLE", "params": {"count": prep["unreadable_parcels"]}}]
                         if prep.get("unreadable_parcels") else [])
             max_cross = max(a["max_cross_slope_deg_found"] for a in alternatives)
-            # Cross slope is reported, not routed around: warn above the user's slope limit.
-            if max_cross > body.max_slope_deg:
-                warnings.append({"code": "CROSS_SLOPE_HIGH",
-                                 "params": {"deg": max_cross, "limit": body.max_slope_deg}})
+            # Cross slope is reported, not routed around: one warning per route above
+            # the user's slope limit, so the screen can show the chosen route's own.
+            for a in alternatives:
+                if a["max_cross_slope_deg_found"] > body.max_slope_deg:
+                    warnings.append({"code": "CROSS_SLOPE_HIGH",
+                                     "params": {"deg": a["max_cross_slope_deg_found"],
+                                                "limit": body.max_slope_deg, "route": a["id"]}})
             report = {
                 "max_slope_deg": body.max_slope_deg,
                 "max_slope_deg_found": max(a["max_slope_deg_found"] for a in alternatives),
