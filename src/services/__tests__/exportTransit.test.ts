@@ -25,5 +25,11 @@ describe('exportTransit', () => {
     const f = toGeoJson(alt);
     expect(f.geometry.coordinates).toEqual([[-1.5, 42.1, 400], [-1.4, 42.2, 410]]);
     expect(f.properties).toMatchObject({ id: 'fastest', distance_m: 120.5, max_slope_deg_found: 7 });
+    expect(f.properties!.max_cross_slope_deg_found).toBeNull();
+  });
+
+  it('carries the max cross slope when present', () => {
+    expect(toGeoJson({ ...alt, max_cross_slope_deg_found: 12.4 }).properties)
+      .toMatchObject({ max_cross_slope_deg_found: 12.4 });
   });
 });

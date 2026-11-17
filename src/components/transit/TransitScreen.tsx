@@ -64,6 +64,11 @@ export function parcelAtGate(point: LonLat | null, parcels: ContextParcel[]): st
   return best?.id ?? null;
 }
 
+/** Cross slope above the route's slope limit (reported only, the route is not steered by it). */
+export function crossSlopeHigh(deg: number, limit: number | undefined): boolean {
+  return limit !== undefined && deg > limit;
+}
+
 const num = (v: unknown): number | null => {
   const n = v === null || v === undefined || v === '' ? NaN : Number(v);
   return Number.isFinite(n) && n > 0 ? n : null;
@@ -403,8 +408,8 @@ export const TransitScreen: React.FC<Props> = ({ workContext }) => {
           <section className="space-y-2" aria-label={t('transit.results')}>
             <h2 className="text-nkz-sm font-semibold">{t('transit.results')}</h2>
             {state.stale && <Badge intent="warning">{t('transit.stale')}</Badge>}
-            {(state.result.report.warnings ?? []).map((w) => (
-              <p key={w.code} role="status" className="text-nkz-xs text-nkz-text-secondary">
+            {(state.result.report.warnings ?? []).map((w, i) => (
+              <p key={`${w.code}-${i}`} role="status" className="text-nkz-xs text-nkz-text-secondary">
                 {t(`transit.warnings.${w.code}`, { ...(w.params ?? {}), defaultValue: '' }) || t('transit.warnings.UNKNOWN', { code: w.code })}
               </p>
             ))}
@@ -423,6 +428,11 @@ export const TransitScreen: React.FC<Props> = ({ workContext }) => {
                   <p>{t('transit.climb')}: {alt.cumulative_climb_m.toFixed(1)} m</p>
                   {alt.max_slope_deg_found !== undefined && (
                     <p>{t('transit.maxSlopeFound')}: {alt.max_slope_deg_found.toFixed(1)}°</p>
+                  )}
+                  {alt.max_cross_slope_deg_found !== undefined && (
+                    <p className={crossSlopeHigh(alt.max_cross_slope_deg_found, state.result?.report.max_slope_deg) ? 'text-nkz-danger' : undefined}>
+                      {t('transit.crossSlopeFound')}: {alt.max_cross_slope_deg_found.toFixed(1)}°
+                    </p>
                   )}
                 </div>
               </button>

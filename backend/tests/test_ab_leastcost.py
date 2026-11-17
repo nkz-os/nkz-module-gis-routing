@@ -39,15 +39,14 @@ def test_two_objectives_diverge_on_a_ridge():
     assert set(by_id) == {"least_slope", "fastest"}
 
     least, fast = by_id["least_slope"], by_id["fastest"]
-    # After any-angle smoothing, geometry on an open grid may collapse to
-    # the same straight line; the meaningful difference is in the metrics
-    # (computed from the full unsmoothed A* paths).
+    # Metrics describe the served (smoothed) line; a least-slope shortcut may not
+    # cost more than the path piece it replaces, so it keeps its detour.
     # Least-slope climbs less; fastest is shorter.
     assert least["cumulative_climb_m"] < fast["cumulative_climb_m"]
     assert fast["distance_m"] <= least["distance_m"] + 1e-6
     assert least["blocked_cells_hit"] == 0 and least["max_slope_deg_found"] >= 0
-    # Both carry an elevation profile.
-    assert len(least["elevation_profile"]) == len(least["geometry"]["coordinates"])
+    # Both carry an elevation profile: one point per crossed cell, so at least one per vertex.
+    assert len(least["elevation_profile"]) >= len(least["geometry"]["coordinates"])
 
 
 def test_row_height_used_for_distance_and_coordinates():

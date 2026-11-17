@@ -500,6 +500,7 @@
     "distance": "Distancia",
     "climb": "Desnivel acumulado",
     "maxSlopeFound": "Pendiente máx.",
+    "crossSlopeFound": "Inclinación lateral máx.",
     "profile": {
       "label": "Perfil de elevación de la ruta elegida",
       "at": "{{dist}} m · {{z}} m s. n. m."
@@ -551,7 +552,8 @@
     "warnings": {
       "PARCELS_UNREADABLE": "{{count}} parcela(s) de la zona no tienen límite legible: sus portones no se aplican.",
       "UNKNOWN": "Aviso {{code}}",
-      "SLOPE_INDICATIVE": "Pendientes calculadas con un modelo del terreno de {{resolution}} m: orientativas, no garantizan la seguridad frente a vuelco."
+      "SLOPE_INDICATIVE": "Pendientes calculadas con un modelo del terreno de {{resolution}} m: orientativas, no garantizan la seguridad frente a vuelco.",
+      "CROSS_SLOPE_HIGH": "Inclinación lateral de hasta {{deg}}° en el trayecto (límite {{limit}}°): riesgo de vuelco."
     },
     "wait": {
       "queued": "En cola. Calculando el trayecto; puede tardar hasta un minuto",

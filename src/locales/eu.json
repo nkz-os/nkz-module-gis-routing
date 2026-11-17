@@ -500,6 +500,7 @@
     "distance": "Distantzia",
     "climb": "Metatutako desnibela",
     "maxSlopeFound": "Gehienezko malda",
+    "crossSlopeFound": "Gehienezko alboko inklinazioa",
     "profile": {
       "label": "Hautatutako ibilbidearen garaiera-profila",
       "at": "{{dist}} m · {{z}} m itsas mailaren gainetik"
@@ -551,7 +552,8 @@
     "warnings": {
       "PARCELS_UNREADABLE": "Eremuko {{count}} lursailek ez dute muga irakurgarririk: haien ateak ez dira aplikatzen.",
       "UNKNOWN": "Abisua {{code}}",
-      "SLOPE_INDICATIVE": "Maldak {{resolution}} m-ko lur-eredu batekin kalkulatuak: gutxi gorabeherakoak dira, ez dute iraulketaren aurkako segurtasuna bermatzen."
+      "SLOPE_INDICATIVE": "Maldak {{resolution}} m-ko lur-eredu batekin kalkulatuak: gutxi gorabeherakoak dira, ez dute iraulketaren aurkako segurtasuna bermatzen.",
+      "CROSS_SLOPE_HIGH": "Ibilbidean {{deg}}°-ko alboko inklinazioa (muga {{limit}}°): iraulketa-arriskua."
     },
     "wait": {
       "queued": "Ilaran. Ibilbidea kalkulatzen; minutu bat arte ehun daiteke",
