@@ -20,7 +20,7 @@ Precision agriculture guidance module for the Nekazari platform. Interactive rou
 
 **Pathfinding**
 - A-B point picker directly on the Cesium 3D map (unified viewer)
-- Cesium terrain sampling (`sampleTerrainMostDetailed`) for DEM grid — no backend dependency
+- Terrain from the backend DEM (eu-elevation), read at its native resolution; slopes are indicative
 - A* least-cost pathfinding with 3 weighted alternatives
 - Auto-cancel on entity change, visual markers (green A / red B)
 - Pathfinding results visible in both module SVG and Cesium map

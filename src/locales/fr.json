@@ -334,7 +334,9 @@
       "VRA_DEGENERATE": "Toutes les zones ont la même valeur : une seule classe s'applique",
       "VRA_ZONE_INVALID": "La zone {{zone_id}} a une géométrie invalide et a été ignorée",
       "ZONES_NO_PRJ": "Shapefile sans .prj : coordonnées supposées en WGS84 (EPSG:4326)",
-      "PLAN_TOO_LARGE_TO_SAVE": "Ce plan est trop volumineux pour être enregistré ({{size_kb}} Ko)."
+      "PLAN_TOO_LARGE_TO_SAVE": "Ce plan est trop volumineux pour être enregistré ({{size_kb}} Ko).",
+      "CONTOUR_DEM_UNAVAILABLE": "Pas de données de relief : le cap le plus efficace a été utilisé au lieu de suivre les courbes de niveau.",
+      "CONTOUR_TERRAIN_FLAT": "Parcelle presque plate, sans courbes de niveau nettes : le cap le plus efficace a été utilisé."
     },
     "fallbacks": {
       "headland": "Passages de fourrière ajustés de {{a}} à {{b}}",
@@ -543,11 +545,13 @@
       "UNKNOWN": "Impossible de calculer l'itinéraire : {{detail}}",
       "JOBS_LIMIT": "Trop de calculs sont en cours ({{max_jobs}}). Attendez qu'un se termine.",
       "EXPORT_EMPTY": "Il n'y a rien à exporter pour cette opération.",
-      "PARCEL_READ_FAILED": "La parcelle n'a pas pu être lue. Réessayez."
+      "PARCEL_READ_FAILED": "La parcelle n'a pas pu être lue. Réessayez.",
+      "POINT_NO_ELEVATION": "Aucune donnée de relief au point {{point}}."
     },
     "warnings": {
       "PARCELS_UNREADABLE": "{{count}} parcelle(s) de la zone n'ont pas de limite lisible : leurs portails ne sont pas appliqués.",
-      "UNKNOWN": "Avertissement {{code}}"
+      "UNKNOWN": "Avertissement {{code}}",
+      "SLOPE_INDICATIVE": "Pentes calculées avec un modèle de terrain de {{resolution}} m : indicatives, elles ne garantissent pas la sécurité contre le renversement."
     },
     "wait": {
       "queued": "En file d'attente. Calcul du trajet ; cela peut prendre jusqu'à une minute",
