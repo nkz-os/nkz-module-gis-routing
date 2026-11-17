@@ -325,6 +325,7 @@
     "warnings": {
       "UNREACHED_AREA": "Zona não coberta de {{ha}} ha",
       "HEADLAND_WIDENED": "Cabeceira alargada de {{requested}} para {{applied}} passagens",
+      "HEADLAND_WIDENED_M": "Cabeceira alargada para {{applied}} voltas ({{applied_m}} m): a manobra precisa de {{needed_m}} m",
       "MANUAL_TURN": "Curva manual entre as passagens {{from_swath}} e {{to_swath}}",
       "MANUAL_TURN_OUTSIDE": "Curva manual entre as passagens {{from_swath}} e {{to_swath}}: não há passagem por dentro da parcela",
       "ACCESS_PATH_UNAVAILABLE": "Não foi possível traçar o caminho de acesso",
@@ -341,10 +342,12 @@
       "pattern": "Padrão alterado para {{pattern}}",
       "manualTurns_one": "{{count}} curva manual",
       "manualTurns_other": "{{count}} curvas manuais",
-      "timeBudget": "Limite de tempo atingido"
+      "timeBudget": "Limite de tempo atingido",
+      "cells": "Parcela dividida em {{count}} células"
     },
     "errors": {
       "NO_DRIVABLE_AREA": "A parcela não tem área transitável",
+      "TURN_DOES_NOT_FIT": "A manobra não cabe: com raio de {{turning_radius_m}} m e largura de {{width_m}} m são precisos {{needed_headland_m}} m de cabeceira e não resta campo no interior. Experimente «$t(patternLabels.headland-only)» ou uma alfaia com menor raio.",
       "ACCESS_OUTSIDE_PARCEL": "O ponto de acesso está fora da parcela",
       "ACCESS_IN_ZONE": "O ponto de acesso está dentro de uma zona excluída",
       "MACHINE_WIDTH_MISSING": "Falta a largura de trabalho da máquina",

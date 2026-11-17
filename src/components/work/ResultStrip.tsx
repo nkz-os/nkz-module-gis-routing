@@ -36,6 +36,8 @@ export function fallbackText(raw: string, t: TFn): string {
       return t('work.fallbacks.manualTurns', { count: Number(arg) });
     case 'time_budget':
       return t('work.fallbacks.timeBudget');
+    case 'cells':
+      return t('work.fallbacks.cells', { count: Number(arg) });
     default:
       return raw;
   }
@@ -89,7 +91,9 @@ export const ResultStrip: React.FC<Props> = ({ state, onWarningSelect, collapsed
           {rows.length > 0 && (
             <ul className="space-y-1">
               {rows.map((r, i) => {
-                const known = t(`work.warnings.${r.code}`, { ...r.params, defaultValue: '' });
+                // HEADLAND_WIDENED with metres (newer plans) has its own text; saved plans keep the old one.
+                const key = r.code === 'HEADLAND_WIDENED' && r.params?.needed_m != null ? 'HEADLAND_WIDENED_M' : r.code;
+                const known = t(`work.warnings.${key}`, { ...r.params, defaultValue: '' });
                 const text = known || t('work.warnings.UNKNOWN', { code: r.code });
                 return (
                   <li key={`${r.code}-${i}`} className="flex items-center justify-between gap-2 text-nkz-sm">

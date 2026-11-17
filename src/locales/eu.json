@@ -325,6 +325,7 @@
     "warnings": {
       "UNREACHED_AREA": "{{ha}} ha-ko eremu estali gabea",
       "HEADLAND_WIDENED": "Muga zabaldua: {{requested}} pasadatik {{applied}} pasadara",
+      "HEADLAND_WIDENED_M": "Goiburua {{applied}} bueltara zabaldua ({{applied_m}} m): biraketak {{needed_m}} m behar ditu",
       "MANUAL_TURN": "Eskuzko biraketa {{from_swath}} eta {{to_swath}} pasaden artean",
       "MANUAL_TURN_OUTSIDE": "Eskuzko biraketa {{from_swath}} eta {{to_swath}} pasaden artean: ez dago pasabiderik partzelaren barrutik",
       "ACCESS_PATH_UNAVAILABLE": "Sarbide bidea ezin izan da trazatu",
@@ -341,10 +342,12 @@
       "pattern": "Eredua aldatu da: {{pattern}}",
       "manualTurns_one": "Eskuzko {{count}} biraketa",
       "manualTurns_other": "Eskuzko {{count}} biraketa",
-      "timeBudget": "Denbora-muga gaindituta"
+      "timeBudget": "Denbora-muga gaindituta",
+      "cells": "Lursaila {{count}} gelaxkatan banatua"
     },
     "errors": {
       "NO_DRIVABLE_AREA": "Partzelak ez du gidatu daitekeen azalerarik",
+      "TURN_DOES_NOT_FIT": "Biraketa ez da sartzen: {{turning_radius_m}} m-ko erradioarekin eta {{width_m}} m-ko zabalerarekin {{needed_headland_m}} m-ko goiburua behar da eta ez da barruan sororik geratzen. Probatu «$t(patternLabels.headland-only)» edo erradio txikiagoko tresna bat.",
       "ACCESS_OUTSIDE_PARCEL": "Sarbide puntua partzelatik kanpo dago",
       "ACCESS_IN_ZONE": "Sarbide puntua baztertutako eremu baten barruan dago",
       "MACHINE_WIDTH_MISSING": "Makinaren lan-zabalera falta da",

@@ -325,6 +325,7 @@
     "warnings": {
       "UNREACHED_AREA": "Zona sense cobrir de {{ha}} ha",
       "HEADLAND_WIDENED": "Capçalera eixamplada de {{requested}} a {{applied}} passades",
+      "HEADLAND_WIDENED_M": "Capçalera ampliada a {{applied}} voltes ({{applied_m}} m): el gir necessita {{needed_m}} m",
       "MANUAL_TURN": "Gir manual entre les passades {{from_swath}} i {{to_swath}}",
       "MANUAL_TURN_OUTSIDE": "Gir manual entre les passades {{from_swath}} i {{to_swath}}: no hi ha pas per dins de la parcel·la",
       "ACCESS_PATH_UNAVAILABLE": "No s'ha pogut traçar el camí d'accés",
@@ -341,10 +342,12 @@
       "pattern": "Patró canviat a {{pattern}}",
       "manualTurns_one": "{{count}} gir manual",
       "manualTurns_other": "{{count}} girs manuals",
-      "timeBudget": "Límit de temps assolit"
+      "timeBudget": "Límit de temps assolit",
+      "cells": "Parcel·la dividida en {{count}} cel·les"
     },
     "errors": {
       "NO_DRIVABLE_AREA": "No hi ha superfície transitable a la parcel·la",
+      "TURN_DOES_NOT_FIT": "El gir no hi cap: amb radi {{turning_radius_m}} m i amplada {{width_m}} m calen {{needed_headland_m}} m de capçalera i no queda camp a dins. Prova «$t(patternLabels.headland-only)» o un apero amb menys radi.",
       "ACCESS_OUTSIDE_PARCEL": "El punt d'accés és fora de la parcel·la",
       "ACCESS_IN_ZONE": "El punt d'accés és dins d'una zona exclosa",
       "MACHINE_WIDTH_MISSING": "Falta l'amplada de treball de la màquina",
