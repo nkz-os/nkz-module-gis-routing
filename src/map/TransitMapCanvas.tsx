@@ -7,6 +7,7 @@ import { loadMapLibre } from './loadMapLibre';
 import { ensureMapImages } from './markers';
 import { LabelMarkers, gateLabels, zoneLabels, type LabelItem } from './labelMarkers';
 import { MapLegend } from './MapLegend';
+import { crossSlopeZones, maxCrossSlopePoint } from '../services/crossSlope';
 import {
   TRANSIT_COLORS, buildTransitSources, changedTransitSources, transitBounds, transitLayerSpecs,
   type TransitMapModel, type TransitSourceId,
@@ -201,11 +202,17 @@ export const TransitMapCanvas: React.FC<TransitMapCanvasProps> = (props) => {
     const Ctor = markerCtorRef.current;
     if (!Ctor) return;
     if (!labelsRef.current) labelsRef.current = new LabelMarkers(map, Ctor);
-    labelsRef.current.sync(model.context.flatMap((p): LabelItem[] => [
-      ...gateLabels(p.access_point, gateText).map((l) => ({ ...l, key: `${p.id}-${l.key}` })),
-      ...zoneLabels(p.zones.map((g, i) => ({ id: `${p.id}-${i}`, geometry: g })), nogoText),
-    ]));
-  }, [model.context, gateText, nogoText, ready]);
+    const selectedAlt = model.alternatives.find((a) => a.id === model.selected);
+    const max = selectedAlt ? maxCrossSlopePoint(selectedAlt) : null;
+    labelsRef.current.sync([
+      ...model.context.flatMap((p): LabelItem[] => [
+        ...gateLabels(p.access_point, gateText).map((l) => ({ ...l, key: `${p.id}-${l.key}` })),
+        ...zoneLabels(p.zones.map((g, i) => ({ id: `${p.id}-${i}`, geometry: g })), nogoText),
+      ]),
+      ...(max ? [{ key: 'cross-max', at: [max.at[0], max.at[1]] as [number, number], text: `${max.deg.toFixed(1)}°`,
+        kind: (model.slopeLimit != null && max.deg > model.slopeLimit ? 'cross' : 'cross-ok') as LabelItem['kind'] }] : []),
+    ]);
+  }, [model.context, model.alternatives, model.selected, model.slopeLimit, gateText, nogoText, ready]);
 
   // A and B markers (draggable DOM markers).
   useEffect(() => {
@@ -274,10 +281,14 @@ export const TransitMapCanvas: React.FC<TransitMapCanvasProps> = (props) => {
     // eslint-disable-next-line react-hooks/exhaustive-deps -- refit only when fitKey changes
   }, [fitKey, ready]);
 
+  const crossAlt = model.alternatives.find((a) => a.id === model.selected);
+  const crossLegend = crossAlt && crossSlopeZones(crossAlt, model.slopeLimit).length > 0
+    ? [{ color: TRANSIT_COLORS.bad, label: t('map.legend.crossSlope') }] : undefined;
+
   return (
     <div className="absolute inset-0" data-testid="transit-map-canvas">
       <div ref={ref} className="h-full w-full" data-testid="transit-map-container" />
-      <MapLegend />
+      <MapLegend zones={crossLegend} />
     </div>
   );
 };

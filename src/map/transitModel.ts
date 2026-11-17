@@ -2,6 +2,7 @@ import type { LayerSpecification } from 'maplibre-gl';
 import type { ContextParcel, PathAlternative, PathAlternativeId } from '../services/api';
 import type { LonLat } from '../state/transitMachine';
 import { GATE_IMAGE, HATCH_IMAGE, NOGO_COLOR } from './markers';
+import { crossSlopeZones, maxCrossSlopePoint } from '../services/crossSlope';
 
 export interface TransitMapModel {
   a: LonLat | null;
@@ -16,9 +17,11 @@ export interface TransitMapModel {
   /** Profile hover position. */
   hover: LonLat | null;
   context: ContextParcel[];
+  /** Route slope limit (deg): cross slope above it is drawn as a zone. */
+  slopeLimit: number | null;
 }
 
-export const TRANSIT_SOURCE_IDS = ['tr-parcels', 'tr-gates', 'tr-zones', 'tr-alts', 'tr-focus', 'tr-hover'] as const;
+export const TRANSIT_SOURCE_IDS = ['tr-parcels', 'tr-gates', 'tr-zones', 'tr-alts', 'tr-focus', 'tr-cross', 'tr-hover'] as const;
 export type TransitSourceId = (typeof TRANSIT_SOURCE_IDS)[number];
 
 // The map is not DOM: design tokens do not apply, so colours are constants.
@@ -32,10 +35,22 @@ export const TRANSIT_COLORS = {
   a: '#16A34A',
   b: '#7C3AED',
   bad: '#DC2626',
+  /** Cross-slope max point below the slope limit. */
+  crossOk: '#374151',
 } as const;
 
 const feature = (geometry: GeoJSON.Geometry, properties: GeoJSON.GeoJsonProperties = {}): GeoJSON.Feature => ({ type: 'Feature', geometry, properties });
 const fc = (features: GeoJSON.Feature[]): GeoJSON.FeatureCollection => ({ type: 'FeatureCollection', features });
+
+/** Cross-slope zones above the limit and the max point, for the selected route only. */
+function crossFeatures(m: TransitMapModel): GeoJSON.Feature[] {
+  const alt = m.alternatives.find((a) => a.id === m.selected);
+  if (!alt) return [];
+  const zones = crossSlopeZones(alt, m.slopeLimit).map((coordinates) => feature({ type: 'LineString', coordinates }, { kind: 'zone' }));
+  const max = maxCrossSlopePoint(alt);
+  const high = m.slopeLimit != null && max != null && max.deg > m.slopeLimit;
+  return max ? [...zones, feature({ type: 'Point', coordinates: max.at }, { kind: 'max', deg: max.deg, high })] : zones;
+}
 
 export function buildTransitSources(m: TransitMapModel): Record<TransitSourceId, GeoJSON.FeatureCollection> {
   return {
@@ -47,6 +62,7 @@ export function buildTransitSources(m: TransitMapModel): Record<TransitSourceId,
       .sort((x, y) => Number(x.id === m.selected) - Number(y.id === m.selected))
       .map((a) => feature(a.geometry, { id: a.id, selected: a.id === m.selected, stale: m.stale }))),
     'tr-focus': fc(m.focus ? [feature(m.focus)] : []),
+    'tr-cross': fc(crossFeatures(m)),
     'tr-hover': fc(m.hover ? [feature({ type: 'Point', coordinates: m.hover })] : []),
   };
 }
@@ -57,6 +73,7 @@ export function changedTransitSources(prev: TransitMapModel | null, next: Transi
   if (prev.context !== next.context) out.push('tr-parcels', 'tr-gates', 'tr-zones');
   if (prev.alternatives !== next.alternatives || prev.selected !== next.selected || prev.stale !== next.stale) out.push('tr-alts');
   if (prev.focus !== next.focus) out.push('tr-focus');
+  if (prev.alternatives !== next.alternatives || prev.selected !== next.selected || prev.slopeLimit !== next.slopeLimit) out.push('tr-cross');
   if (prev.hover !== next.hover) out.push('tr-hover');
   return out;
 }
@@ -94,6 +111,15 @@ export function transitLayerSpecs(): LayerSpecification[] {
     {
       id: 'tr-focus-point', type: 'circle', source: 'tr-focus', filter: ['==', ['geometry-type'], 'Point'],
       paint: { 'circle-radius': 14, 'circle-color': 'rgba(0,0,0,0)', 'circle-stroke-color': C.bad, 'circle-stroke-width': 3 },
+    },
+    // Cross slope above the limit over the chosen route, and its maximum.
+    {
+      id: 'tr-cross-line', type: 'line', source: 'tr-cross', filter: ['==', ['get', 'kind'], 'zone'],
+      layout: { 'line-cap': 'round' }, paint: { 'line-color': C.bad, 'line-width': 5 },
+    },
+    {
+      id: 'tr-cross-point', type: 'circle', source: 'tr-cross', filter: ['==', ['get', 'kind'], 'max'],
+      paint: { 'circle-radius': 9, 'circle-color': 'rgba(0,0,0,0)', 'circle-stroke-color': ['case', ['get', 'high'], C.bad, C.crossOk], 'circle-stroke-width': 3 },
     },
     {
       id: 'tr-hover-circle', type: 'circle', source: 'tr-hover',

@@ -272,7 +272,8 @@ def _summarize(cells, objective, elevations,
     c0, r0 = vertices[0]
     profile = [[coords[0][0], coords[0][1], elevations[r0][c0]]]
     served = [(c0, r0)]
-    distance_m = climb_m = max_slope = max_cross = 0.0
+    cross = [0.0]  # per profile point; a shared vertex keeps the max of its two segments
+    distance_m = climb_m = max_slope = 0.0
     for (ac, ar), (bc, br) in zip(vertices, vertices[1:]):
         seg = _segment_cells(ac, ar, bc, br)
         n = len(seg) - 1
@@ -284,9 +285,11 @@ def _summarize(cells, objective, elevations,
         nx, nyy = -ny / norm, ex / norm  # unit normal to the direction of travel
         for k, (c, r) in enumerate(seg):
             gx, gy = _gradient(elevations, c, r, origin_lat, pixel_size_deg, height)
-            max_cross = max(max_cross, math.degrees(math.atan(abs(gx * nx + gy * nyy))))
+            cs = round(math.degrees(math.atan(abs(gx * nx + gy * nyy))), 1)
             if k == 0:
+                cross[-1] = max(cross[-1], cs)
                 continue
+            cross.append(cs)
             pc, pr = seg[k - 1]
             dz = elevations[r][c] - elevations[pr][pc]
             climb_m += max(0.0, dz)
@@ -302,7 +305,9 @@ def _summarize(cells, objective, elevations,
         "distance_m": round(distance_m, 1),
         "cumulative_climb_m": round(climb_m, 1),
         "max_slope_deg_found": round(max_slope, 1),
-        "max_cross_slope_deg_found": round(max_cross, 1),
+        "max_cross_slope_deg_found": max(cross),
+        "max_cross_slope_at": profile[cross.index(max(cross))][:2],
+        "cross_slope_profile": cross,
         "blocked_cells_hit": sum(1 for cell in served if cell in blocked) if blocked else 0,
         "geometry": {"type": "LineString", "coordinates": coords},
         "elevation_profile": profile,

@@ -191,6 +191,43 @@ describe('A-B polling', () => {
     expect(states[states.length - 1].error).toBeUndefined();
   });
 
+  it('marks the cross-slope zone and max point of the shown route', async () => {
+    const crossAlt = (id: string, cross: number[]) => ({
+      id, label: id, distance_m: 100, cumulative_climb_m: 1, max_cross_slope_deg_found: Math.max(...cross),
+      geometry: { type: 'LineString', coordinates: [[0, 0], [3, 0]] },
+      elevation_profile: cross.map((_, i) => [i, 0, 1]), cross_slope_profile: cross,
+      max_cross_slope_at: [cross.indexOf(Math.max(...cross)), 0],
+    });
+    vi.mocked(api.getPathResult).mockResolvedValue({
+      status: 'completed', report: { max_slope_deg: 15 },
+      alternatives: [crossAlt('least_slope', [1, 20, 1, 1]), crossAlt('fastest', [1, 2, 3, 2])],
+    } as any);
+    await startAB();
+    await act(async () => { await vi.advanceTimersByTimeAsync(1000); });
+    const zones = added.filter((e) => String(e.id).startsWith('pf-cross-zone-'));
+    expect(zones).toHaveLength(1);
+    expect(zones[0].polyline.positions.a).toEqual([0, 0, 1, 0, 2, 0]);
+    const max = added.find((e) => e.id === 'pf-cross-max');
+    expect(max.position.a).toEqual([1, 0]);
+    expect(max.label.text).toBe('20.0°');
+    expect(max.point.color.name).toBe('#DC2626');
+  });
+
+  it('uses the neutral colour for the max point of a route below the limit', async () => {
+    vi.mocked(api.getPathResult).mockResolvedValue({
+      status: 'completed', report: { max_slope_deg: 15 },
+      alternatives: [{
+        id: 'fastest', label: 'f', distance_m: 100, cumulative_climb_m: 1, max_cross_slope_deg_found: 3,
+        geometry: { type: 'LineString', coordinates: [[0, 0], [1, 0]] },
+        elevation_profile: [[0, 0, 1], [1, 0, 1]], cross_slope_profile: [1, 3], max_cross_slope_at: [1, 0],
+      }],
+    } as any);
+    await startAB();
+    await act(async () => { await vi.advanceTimersByTimeAsync(1000); });
+    expect(added.filter((e) => String(e.id).startsWith('pf-cross-zone-'))).toHaveLength(0);
+    expect(added.find((e) => e.id === 'pf-cross-max').point.color.name).toBe('#374151');
+  });
+
   it('keeps polling for 5 minutes, then reports JOB_TIMEOUT', async () => {
     vi.mocked(api.getPathResult).mockResolvedValue({ status: 'running' } as any);
     await startAB();

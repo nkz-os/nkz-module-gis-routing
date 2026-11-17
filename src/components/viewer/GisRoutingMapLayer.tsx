@@ -14,12 +14,16 @@ import { EV } from './routingMode';
 import { MapLegend } from '../../map/MapLegend';
 import { labelAnchor } from '../../map/markers';
 import { gateEntityOptions, noGoEntityOptions, noGoHoleEntities } from './cesiumStyle';
+import { crossSlopeZones, maxCrossSlopePoint } from '../../services/crossSlope';
 
 interface Props {
   viewer?: any;
 }
 
 const ALT_COLORS = ['#22c55e', '#F59E0B', '#3b82f6'];
+/** Cross slope above the limit; same red as the transit map. Neutral below it. */
+const CROSS_SLOPE_COLOR = '#DC2626';
+const CROSS_SLOPE_OK_COLOR = '#374151';
 
 /** A-B jobs are polled once a second for up to five minutes. */
 const POLL_INTERVAL_MS = 1000;
@@ -57,9 +61,11 @@ export const GisRoutingMapLayer: React.FC<Props> = ({ viewer: propViewer }) => {
     pollTimer: any;
     alternatives: any[];
     selectedAlt: any;
+    /** Report of the last completed job (slope limit for the cross-slope zones). */
+    report: any;
   }>({
     state: 'idle', pointA: null, pointB: null, entities: [],
-    clickHandler: null, pollTimer: null, alternatives: [], selectedAlt: null,
+    clickHandler: null, pollTimer: null, alternatives: [], selectedAlt: null, report: null,
   });
 
   // Helper: emit state to context panel
@@ -84,6 +90,7 @@ export const GisRoutingMapLayer: React.FC<Props> = ({ viewer: propViewer }) => {
       pfRef.current.pointB = null;
       pfRef.current.alternatives = [];
       pfRef.current.selectedAlt = null;
+      pfRef.current.report = null;
       window.dispatchEvent(new CustomEvent('nekazari:pf:stateChange', { detail: { state: 'idle' } }));
     }
   }, [selectedEntityId, viewer]);
@@ -366,7 +373,7 @@ export const GisRoutingMapLayer: React.FC<Props> = ({ viewer: propViewer }) => {
       clearPolling();
       cleanupClickHandler();
       pf.state = 'idle'; pf.pointA = null; pf.pointB = null;
-      pf.alternatives = []; pf.selectedAlt = null;
+      pf.alternatives = []; pf.selectedAlt = null; pf.report = null;
       emitPfState('idle');
     };
 
@@ -428,6 +435,7 @@ export const GisRoutingMapLayer: React.FC<Props> = ({ viewer: propViewer }) => {
           if (result?.status === 'completed') {
             clearPolling();
             pf.alternatives = result.alternatives || [];
+            pf.report = result.report || {};
             pf.state = 'done';
             emitPfState('done');
             renderAlternatives();
@@ -451,7 +459,7 @@ export const GisRoutingMapLayer: React.FC<Props> = ({ viewer: propViewer }) => {
     const renderAlternatives = () => {
       // Remove old path entities
       pf.entities = pf.entities.filter(id => {
-        if (id.startsWith('pf-path-')) {
+        if (id.startsWith('pf-path-') || id.startsWith('pf-cross-')) {
           if (!viewer.isDestroyed?.()) viewer.entities.removeById(id);
           return false;
         }
@@ -487,6 +495,46 @@ export const GisRoutingMapLayer: React.FC<Props> = ({ viewer: propViewer }) => {
           (entity as any)._pfAlt = alt;
         } catch { /* skip */ }
       });
+      renderCrossSlope();
+    };
+
+    // Cross slope of the shown route (the selected one, else the first): red stretches
+    // above the slope limit and a labelled point at the maximum.
+    const renderCrossSlope = () => {
+      const shown = pf.selectedAlt ?? pf.alternatives[0];
+      if (!shown) return;
+      const red = Cesium.Color.fromCssColorString(CROSS_SLOPE_COLOR);
+      crossSlopeZones(shown, pf.report?.max_slope_deg).forEach((coords, i) => {
+        const id = `pf-cross-zone-${i}`;
+        try {
+          viewer.entities.add({
+            id,
+            polyline: {
+              positions: Cesium.Cartesian3.fromDegreesArray(coords.flatMap(([lon, lat]) => [lon, lat])),
+              width: 8, material: red, clampToGround: true,
+            },
+          });
+          pf.entities.push(id);
+        } catch { /* skip */ }
+      });
+      const max = maxCrossSlopePoint(shown);
+      if (!max) return;
+      const limit = pf.report?.max_slope_deg;
+      const tone = limit != null && max.deg > limit ? red : Cesium.Color.fromCssColorString(CROSS_SLOPE_OK_COLOR);
+      try {
+        viewer.entities.add({
+          id: 'pf-cross-max',
+          position: Cesium.Cartesian3.fromDegrees(max.at[0], max.at[1]),
+          point: { pixelSize: 12, color: tone, outlineColor: Cesium.Color.WHITE, outlineWidth: 2,
+            heightReference: Cesium.HeightReference?.CLAMP_TO_GROUND },
+          label: {
+            text: `${max.deg.toFixed(1)}°`, font: '12px sans-serif', fillColor: Cesium.Color.WHITE,
+            showBackground: true, backgroundColor: tone,
+            verticalOrigin: Cesium.VerticalOrigin.BOTTOM, pixelOffset: new Cesium.Cartesian2(0, -12),
+          },
+        });
+        pf.entities.push('pf-cross-max');
+      } catch { /* skip */ }
     };
 
     const onPickStart = () => {

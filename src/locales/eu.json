@@ -468,7 +468,8 @@
     "legend": {
       "gate": "Atea",
       "nogo": "NO-GO",
-      "margin": "Segurtasun-tartea"
+      "margin": "Segurtasun-tartea",
+      "crossSlope": "Alboko inklinazioa > muga"
     }
   },
   "transit": {

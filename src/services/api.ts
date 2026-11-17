@@ -256,6 +256,9 @@ export interface PathAlternative {
   cumulative_climb_m: number;
   max_slope_deg_found?: number;
   max_cross_slope_deg_found?: number;
+  /** Cross slope (deg) per elevation_profile point. */
+  cross_slope_profile?: number[];
+  max_cross_slope_at?: number[];
   geometry: { type: 'LineString'; coordinates: number[][] };
   elevation_profile: number[][];
 }

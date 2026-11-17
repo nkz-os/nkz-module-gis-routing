@@ -468,7 +468,8 @@
     "legend": {
       "gate": "Portail",
       "nogo": "NO-GO",
-      "margin": "Marge de sécurité"
+      "margin": "Marge de sécurité",
+      "crossSlope": "Dévers > limite"
     }
   },
   "transit": {

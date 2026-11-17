@@ -47,7 +47,7 @@ import '../../i18n';
 import { TransitMapCanvas } from '../TransitMapCanvas';
 import type { TransitMapModel } from '../transitModel';
 
-const model: TransitMapModel = { a: [0, 0], b: [0.01, 0.01], badPoint: null, focus: null, alternatives: [], selected: null, stale: false, hover: null, context: [] };
+const model: TransitMapModel = { a: [0, 0], b: [0.01, 0.01], badPoint: null, focus: null, alternatives: [], selected: null, stale: false, hover: null, context: [], slopeLimit: null };
 const base = { model, pick: null, fitKey: null, onPick: vi.fn(), onMarkerMoved: vi.fn(), onViewChange: vi.fn() };
 
 afterEach(() => { vi.unstubAllGlobals(); cleanup(); h.fit.mockClear(); h.handlers = {}; h.markers = []; h.images = []; h.sources = {}; vi.clearAllMocks(); });
@@ -124,5 +124,30 @@ describe('TransitMapCanvas gates and zones', () => {
     await waitFor(() => expect(h.markers).toHaveLength(2));
     expect(h.markers.map((k) => k.el.textContent).sort()).toEqual(['NO-GO', 'Portón']);
     expect(getByTestId('map-legend')).toBeInTheDocument();
+  });
+});
+
+describe('TransitMapCanvas cross slope', () => {
+  const alt = {
+    id: 'fastest', label: 'f', distance_m: 1, cumulative_climb_m: 0, max_cross_slope_deg_found: 22.4,
+    geometry: { type: 'LineString', coordinates: [[0, 0], [0.003, 0]] },
+    elevation_profile: [[0, 0, 1], [0.001, 0, 1], [0.002, 0, 1], [0.003, 0, 1]],
+    cross_slope_profile: [1, 22.4, 1, 1], max_cross_slope_at: [0.001, 0],
+  } as any;
+
+  it('labels the max point with its degrees and adds a legend row when a zone exceeds the limit', async () => {
+    const { getByText } = render(<TransitMapCanvas {...base} model={{ ...model, a: null, b: null, alternatives: [alt], selected: 'fastest', slopeLimit: 15 }} />);
+    await waitFor(() => expect(h.handlers.load).toBeTypeOf('function'));
+    h.handlers.load();
+    await waitFor(() => expect(h.markers.map((k) => k.el.textContent)).toContain('22.4°'));
+    expect(getByText('Inclinación lateral > límite')).toBeInTheDocument();
+  });
+
+  it('labels the max point but adds no legend row below the limit', async () => {
+    const { queryByText } = render(<TransitMapCanvas {...base} model={{ ...model, a: null, b: null, alternatives: [alt], selected: 'fastest', slopeLimit: 30 }} />);
+    await waitFor(() => expect(h.handlers.load).toBeTypeOf('function'));
+    h.handlers.load();
+    await waitFor(() => expect(h.markers.map((k) => k.el.textContent)).toContain('22.4°'));
+    expect(queryByText('Inclinación lateral > límite')).toBeNull();
   });
 });
