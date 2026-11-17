@@ -11,6 +11,7 @@ import logging
 from typing import Protocol, TypedDict, runtime_checkable
 
 from app.services.pathfinding.dem_fetcher import fetch_dem_raster
+from app.services.pathfinding.dem_resample import resample_bilinear
 
 logger = logging.getLogger(__name__)
 
@@ -41,6 +42,9 @@ class DemProvider(Protocol):
 
 # EU-wide coverage bounds (lon/lat) — generous box covering the EU + nearby.
 _EU_BOUNDS = (-31.5, 27.0, 45.0, 72.0)
+# A source coarser than this factor times the requested resolution is re-read at its
+# native resolution and interpolated (see dem_resample).
+NATIVE_REFETCH_FACTOR = 1.5
 
 
 class EuElevationProvider:
@@ -59,7 +63,20 @@ class EuElevationProvider:
                 and max_lon <= b[2] and max_lat <= b[3])
 
     async def fetch(self, bbox: Bbox, resolution_m: float) -> DemGrid | None:
-        return await fetch_dem_raster(self._dem_url, bbox, resolution_m)
+        grid = await fetch_dem_raster(self._dem_url, bbox, resolution_m)
+        if not grid:
+            return None
+        native_m = (grid.get("source") or {}).get("resolution_m")
+        if not isinstance(native_m, (int, float)) or native_m <= NATIVE_REFETCH_FACTOR * resolution_m:
+            return grid
+        native = await fetch_dem_raster(self._dem_url, bbox, native_m)
+        if not native:
+            # The requested grid is block-resampled from the coarse source (false
+            # slopes): never route on it.
+            logger.warning("DEM native re-read failed: native_m=%s bbox=%s", native_m, bbox)
+            return None
+        logger.info("dem resampled native=%s target=%s bbox=%s", native_m, resolution_m, bbox)
+        return resample_bilinear(native, grid)
 
 
 class DemRegistry:
