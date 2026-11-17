@@ -35,6 +35,8 @@ export const TRANSIT_COLORS = {
   a: '#16A34A',
   b: '#7C3AED',
   bad: '#DC2626',
+  /** Cross-slope max point below the slope limit. */
+  crossOk: '#374151',
 } as const;
 
 const feature = (geometry: GeoJSON.Geometry, properties: GeoJSON.GeoJsonProperties = {}): GeoJSON.Feature => ({ type: 'Feature', geometry, properties });
@@ -46,7 +48,8 @@ function crossFeatures(m: TransitMapModel): GeoJSON.Feature[] {
   if (!alt) return [];
   const zones = crossSlopeZones(alt, m.slopeLimit).map((coordinates) => feature({ type: 'LineString', coordinates }, { kind: 'zone' }));
   const max = maxCrossSlopePoint(alt);
-  return max ? [...zones, feature({ type: 'Point', coordinates: max.at }, { kind: 'max', deg: max.deg })] : zones;
+  const high = m.slopeLimit != null && max != null && max.deg > m.slopeLimit;
+  return max ? [...zones, feature({ type: 'Point', coordinates: max.at }, { kind: 'max', deg: max.deg, high })] : zones;
 }
 
 export function buildTransitSources(m: TransitMapModel): Record<TransitSourceId, GeoJSON.FeatureCollection> {
@@ -116,7 +119,7 @@ export function transitLayerSpecs(): LayerSpecification[] {
     },
     {
       id: 'tr-cross-point', type: 'circle', source: 'tr-cross', filter: ['==', ['get', 'kind'], 'max'],
-      paint: { 'circle-radius': 9, 'circle-color': 'rgba(0,0,0,0)', 'circle-stroke-color': C.bad, 'circle-stroke-width': 3 },
+      paint: { 'circle-radius': 9, 'circle-color': 'rgba(0,0,0,0)', 'circle-stroke-color': ['case', ['get', 'high'], C.bad, C.crossOk], 'circle-stroke-width': 3 },
     },
     {
       id: 'tr-hover-circle', type: 'circle', source: 'tr-hover',

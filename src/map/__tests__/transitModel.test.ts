@@ -22,10 +22,12 @@ describe('tr-cross source', () => {
     expect(max).toHaveLength(1);
     expect((max[0].geometry as GeoJSON.Point).coordinates).toEqual([1, 0]);
     expect(max[0].properties!.deg).toBe(20);
+    expect(max[0].properties!.high).toBe(true);
   });
   it('shows the max point even below the limit, with no zone', () => {
     const f = buildTransitSources({ ...base, selected: 'least_slope' })['tr-cross'].features;
     expect(f.map((x) => x.properties!.kind)).toEqual(['max']);
+    expect(f[0].properties!.high).toBe(false);
   });
   it('is empty with no selection', () => {
     expect(buildTransitSources({ ...base, selected: null })['tr-cross'].features).toEqual([]);

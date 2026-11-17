@@ -47,3 +47,17 @@ describe('LabelMarkers.sync', () => {
     void vi;
   });
 });
+
+describe('cross-slope label', () => {
+  it('sits above its point (bottom anchor, offset) and is red only above the limit', () => {
+    FakeMarker.all = [];
+    const lm = new LabelMarkers({} as any, FakeMarker as any);
+    lm.sync([{ key: 'cross-max', at: [1, 2], text: '22.4°', kind: 'cross' }, { key: 'cross-ok', at: [3, 4], text: '3.0°', kind: 'cross-ok' }]);
+    const [high, ok] = FakeMarker.all as any[];
+    expect(high.o.anchor).toBe('bottom');
+    expect(high.o.offset).toEqual([0, -12]);
+    expect(high.o.element.style.background).toBe('rgb(220, 38, 38)');
+    expect(ok.o.anchor).toBe('bottom');
+    expect(ok.o.element.style.background).toBe('rgb(55, 65, 81)');
+  });
+});

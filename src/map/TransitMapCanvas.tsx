@@ -209,9 +209,10 @@ export const TransitMapCanvas: React.FC<TransitMapCanvasProps> = (props) => {
         ...gateLabels(p.access_point, gateText).map((l) => ({ ...l, key: `${p.id}-${l.key}` })),
         ...zoneLabels(p.zones.map((g, i) => ({ id: `${p.id}-${i}`, geometry: g })), nogoText),
       ]),
-      ...(max ? [{ key: 'cross-max', at: [max.at[0], max.at[1]] as [number, number], text: `${max.deg.toFixed(1)}°`, kind: 'cross' as const }] : []),
+      ...(max ? [{ key: 'cross-max', at: [max.at[0], max.at[1]] as [number, number], text: `${max.deg.toFixed(1)}°`,
+        kind: (model.slopeLimit != null && max.deg > model.slopeLimit ? 'cross' : 'cross-ok') as LabelItem['kind'] }] : []),
     ]);
-  }, [model.context, model.alternatives, model.selected, gateText, nogoText, ready]);
+  }, [model.context, model.alternatives, model.selected, model.slopeLimit, gateText, nogoText, ready]);
 
   // A and B markers (draggable DOM markers).
   useEffect(() => {

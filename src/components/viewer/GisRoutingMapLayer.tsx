@@ -21,8 +21,9 @@ interface Props {
 }
 
 const ALT_COLORS = ['#22c55e', '#F59E0B', '#3b82f6'];
-/** Cross slope above the limit; same red as the transit map. */
+/** Cross slope above the limit; same red as the transit map. Neutral below it. */
 const CROSS_SLOPE_COLOR = '#DC2626';
+const CROSS_SLOPE_OK_COLOR = '#374151';
 
 /** A-B jobs are polled once a second for up to five minutes. */
 const POLL_INTERVAL_MS = 1000;
@@ -518,15 +519,17 @@ export const GisRoutingMapLayer: React.FC<Props> = ({ viewer: propViewer }) => {
       });
       const max = maxCrossSlopePoint(shown);
       if (!max) return;
+      const limit = pf.report?.max_slope_deg;
+      const tone = limit != null && max.deg > limit ? red : Cesium.Color.fromCssColorString(CROSS_SLOPE_OK_COLOR);
       try {
         viewer.entities.add({
           id: 'pf-cross-max',
           position: Cesium.Cartesian3.fromDegrees(max.at[0], max.at[1]),
-          point: { pixelSize: 12, color: red, outlineColor: Cesium.Color.WHITE, outlineWidth: 2,
+          point: { pixelSize: 12, color: tone, outlineColor: Cesium.Color.WHITE, outlineWidth: 2,
             heightReference: Cesium.HeightReference?.CLAMP_TO_GROUND },
           label: {
             text: `${max.deg.toFixed(1)}°`, font: '12px sans-serif', fillColor: Cesium.Color.WHITE,
-            showBackground: true, backgroundColor: red,
+            showBackground: true, backgroundColor: tone,
             verticalOrigin: Cesium.VerticalOrigin.BOTTOM, pixelOffset: new Cesium.Cartesian2(0, -12),
           },
         });
