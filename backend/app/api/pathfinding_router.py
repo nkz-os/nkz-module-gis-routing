@@ -30,14 +30,14 @@ JOBS = JobStore()
 # Search area around the A-B box; one wider retry when nothing is found.
 SEARCH_MARGINS_M = (500, 2000)
 DEM_RESOLUTION_M = 10
-# Cap on planned DEM cells. Measured: an exhaustive no-path A* over 1M cells takes
-# ~14 s and ~200 MB; the pod limit is 512 MiB, so 1M is the ceiling. The two
-# objectives run one after the other (compute_ab_routes) and each search's
-# structures are freed when it returns.
+# Cap on planned DEM cells. Measured (scipy Dijkstra, 0.5 CPU): 1M cells take
+# ~6 s for both objectives with a peak of ~400 MB including the raster; the pod
+# limit is 1 GiB. The two objectives run one after the other (compute_ab_routes)
+# and each search's structures are freed when it returns.
 MAX_SEARCH_CELLS = 1_000_000
 _M_PER_DEG_LAT = 111320.0
-# One DEM fetch + search at a time across all jobs: each search can use ~200 MB
-# and the pod limit is 512 MiB. Waiting jobs stay "queued".
+# One DEM fetch + search at a time across all jobs: each search can use ~400 MB
+# and the pod limit is 1 GiB. Waiting jobs stay "queued".
 _SEARCH_LOCK = asyncio.Semaphore(1)
 
 

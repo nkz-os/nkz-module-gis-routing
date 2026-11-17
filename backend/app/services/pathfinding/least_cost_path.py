@@ -1,4 +1,4 @@
-"""A* A->B routing on a DEM grid with two objectives: least slope, fastest.
+"""Least-cost A->B routing on a DEM grid with two objectives: least slope, fastest.
 
 The grid is geographic: columns `pixel_size_deg` wide, rows `pixel_height_deg`
 tall (row 0 = south). Distances are metric-corrected: longitude degrees shrink by
@@ -9,27 +9,20 @@ distinct cost structures so they are guaranteed to differ on sloped terrain:
   - "least_slope":  step cost = distance * (1 + K_SLOPE * tan(slope)), which
                     strongly penalizes steep cells.
 
-Both use an admissible straight-line (meters) heuristic, since every step cost
-is >= its distance term.
+The search is an exact Dijkstra (scipy, in C) over an 8-connected graph built
+with numpy, so both objectives return an optimal path for their cost.
 """
 from __future__ import annotations
 
 import math
-import heapq
-from dataclasses import dataclass, field
+
+import numpy as np
+from scipy.sparse import csr_matrix
+from scipy.sparse.csgraph import dijkstra
 
 _M_PER_DEG_LAT = 111320.0
 _OBJECTIVES = ("least_slope", "fastest")
 K_SLOPE = 80.0  # least-slope steepness penalty weight
-
-
-@dataclass(order=True)
-class _Node:
-    f: float
-    g: float = field(compare=False)
-    col: int = field(compare=False)
-    row: int = field(compare=False)
-    parent: "_Node | None" = field(compare=False, default=None)
 
 
 def _m_per_deg_lon(lat: float) -> float:
@@ -69,7 +62,7 @@ def compute_ab_routes(
     impassable = (blocked or set()) | nodata
     routes = []
     for objective in _OBJECTIVES:
-        path = _astar(
+        path = _shortest_path(
             elevations, origin_lon, origin_lat, pixel_size_deg,
             start_col, start_row, end_col, end_row, max_slope_deg, objective,
             blocked=impassable, pixel_height_deg=height,
@@ -83,80 +76,85 @@ def compute_ab_routes(
     return routes
 
 
-def _astar(elevations, origin_lon, origin_lat, pixel_size_deg,
-           start_col, start_row, end_col, end_row, max_slope_deg, objective,
-           blocked=None, pixel_height_deg=None):
+_DIRS = ((1, 0), (-1, 0), (0, 1), (0, -1), (1, 1), (-1, -1), (1, -1), (-1, 1))
+
+
+def _grid_arrays(elevations, blocked, rows: int, cols: int) -> tuple[np.ndarray, np.ndarray]:
+    """(z, impassable): elevations as float64 with NaN for no-data, and the mask of
+    cells a route may not enter (no-data plus in-grid `blocked` cells; out-of-grid
+    tuples are ignored, never wrapped by negative indexing)."""
+    z = np.array([[np.nan if v is None else v for v in row] for row in elevations],
+                 dtype=np.float64).reshape(rows, cols)
+    impassable = np.isnan(z)
+    for c, r in blocked or ():
+        if 0 <= c < cols and 0 <= r < rows:
+            impassable[r, c] = True
+    return z, impassable
+
+
+def _shortest_path(elevations, origin_lon, origin_lat, pixel_size_deg,
+                   start_col, start_row, end_col, end_row, max_slope_deg, objective,
+                   blocked=None, pixel_height_deg=None) -> list[tuple[int, int]] | None:
+    """Exact least-cost 8-connected path from start to end, or None if unreachable.
+
+    Edge rules: the destination must be passable, the step slope atan2(|dz|, dist)
+    must not exceed max_slope_deg, and a diagonal step may not pass between two
+    impassable side cells. Distance uses cos(latitude of the source row). The graph
+    is built with numpy (one-cell impassable padding, so nothing wraps across the
+    grid edge) and searched with scipy's Dijkstra in C."""
     rows = len(elevations)
     cols = len(elevations[0]) if rows else 0
-    max_slope_rad = math.radians(max_slope_deg)
+    if not rows or not cols:
+        return None
     height = pixel_height_deg or pixel_size_deg
+    z, imp = _grid_arrays(elevations, blocked, rows, cols)
+    zp = np.pad(z, 1, constant_values=np.nan)
+    ip = np.pad(imp, 1, constant_values=True)
+    idx = np.arange(rows * cols, dtype=np.int32).reshape(rows, cols)
+    idxp = np.pad(idx, 1, constant_values=-1)
+    lats = origin_lat + np.arange(rows, dtype=np.float64) * height
+    m_lon = (_M_PER_DEG_LAT * np.cos(np.radians(lats)))[:, None]
 
-    def lat_of(r: int) -> float:
-        return origin_lat + r * height
+    dist = np.empty((rows, cols, 8))
+    slope = np.empty((rows, cols, 8))
+    ok = np.empty((rows, cols, 8), dtype=bool)
+    nbr = np.empty((rows, cols, 8), dtype=np.int32)
+    for k, (dc, dr) in enumerate(_DIRS):
+        dst = (slice(1 + dr, 1 + dr + rows), slice(1 + dc, 1 + dc + cols))
+        d = np.hypot(dc * pixel_size_deg * m_lon, dr * height * _M_PER_DEG_LAT)
+        dist[..., k] = d
+        with np.errstate(invalid="ignore"):
+            slope[..., k] = np.arctan2(np.abs(zp[dst] - z), d)
+        valid = ~ip[dst]
+        if dc and dr:  # no slipping between two impassable side cells
+            valid &= ~(ip[1:1 + rows, 1 + dc:1 + dc + cols] & ip[1 + dr:1 + dr + rows, 1:1 + cols])
+        ok[..., k] = valid
+        nbr[..., k] = idxp[dst]
+    with np.errstate(invalid="ignore"):
+        ok &= slope <= math.radians(max_slope_deg)
 
-    def elev(c: int, r: int) -> float:
-        return elevations[r][c]
+    indptr = np.zeros(rows * cols + 1, dtype=np.int32)
+    np.cumsum(ok.reshape(rows * cols, 8).sum(axis=1), out=indptr[1:])
+    indices = nbr[ok]
+    del nbr
+    if objective == "fastest":
+        weights = dist[ok]
+    else:  # least_slope
+        weights = dist[ok] * (1.0 + K_SLOPE * np.tan(slope[ok]))
+    del dist, slope, ok, zp, ip, idxp
+    graph = csr_matrix((weights, indices, indptr), shape=(rows * cols, rows * cols))
 
-    def heuristic(c: int, r: int) -> float:
-        return _cell_dist_m(end_col - c, end_row - r, lat_of(r), pixel_size_deg, height)
-
-    def neighbors(c: int, r: int):
-        for dc, dr in ((1, 0), (-1, 0), (0, 1), (0, -1),
-                       (1, 1), (-1, -1), (1, -1), (-1, 1)):
-            nc, nr = c + dc, r + dr
-            if 0 <= nc < cols and 0 <= nr < rows:
-                yield nc, nr
-
-    open_set = [_Node(f=heuristic(start_col, start_row), g=0.0,
-                      col=start_col, row=start_row)]
-    best_g = {(start_col, start_row): 0.0}
-    closed = set()
-
-    while open_set:
-        cur = heapq.heappop(open_set)
-        key = (cur.col, cur.row)
-        if key in closed:
-            continue
-        closed.add(key)
-        if key == (end_col, end_row):
-            return _reconstruct(cur)
-
-        for nc, nr in neighbors(cur.col, cur.row):
-            if (nc, nr) in closed:
-                continue
-            if blocked and (nc, nr) in blocked:
-                continue
-            dc = nc - cur.col
-            dr = nr - cur.row
-            # No corner-cutting through a no-go pinch: a diagonal move may not
-            # pass between two blocked cells.
-            if blocked and dc != 0 and dr != 0 and \
-               (cur.col + dc, cur.row) in blocked and (cur.col, cur.row + dr) in blocked:
-                continue
-            dist = _cell_dist_m(nc - cur.col, nr - cur.row,
-                                lat_of(cur.row), pixel_size_deg, height)
-            dz = elev(nc, nr) - elev(cur.col, cur.row)
-            slope = math.atan2(abs(dz), dist) if dist > 0 else 0.0
-            if slope > max_slope_rad:
-                continue
-            if objective == "fastest":
-                step = dist
-            else:  # least_slope
-                step = dist * (1.0 + K_SLOPE * math.tan(slope))
-            g = cur.g + step
-            if g < best_g.get((nc, nr), math.inf):
-                best_g[(nc, nr)] = g
-                heapq.heappush(open_set, _Node(
-                    f=g + heuristic(nc, nr), g=g, col=nc, row=nr, parent=cur))
-    return None
-
-
-def _reconstruct(node) -> list[tuple[int, int]]:
+    start, end = int(idx[start_row, start_col]), int(idx[end_row, end_col])
+    cost, pred = dijkstra(graph, indices=start, return_predecessors=True)
+    if not np.isfinite(cost[end]):
+        return None
     cells = []
-    cur = node
-    while cur:
-        cells.append((cur.col, cur.row))
-        cur = cur.parent
+    node = end
+    while node >= 0:
+        cells.append((node % cols, node // cols))
+        if node == start:
+            break
+        node = int(pred[node])
     cells.reverse()
     return cells
 
@@ -165,7 +163,7 @@ def _summarize(cells, objective, elevations,
                origin_lon, origin_lat, pixel_size_deg, smoothed=None, blocked=None,
                pixel_height_deg=None) -> dict:
     height = pixel_height_deg or pixel_size_deg
-    # Metrics pass: ALWAYS over the full A* cell path (honest distance/climb).
+    # Metrics pass: ALWAYS over the full searched cell path (honest distance/climb).
     distance_m = 0.0
     climb_m = 0.0
     max_slope_deg = 0.0
