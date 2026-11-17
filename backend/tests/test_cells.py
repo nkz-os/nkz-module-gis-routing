@@ -86,3 +86,44 @@ def test_auto_cell_route_is_never_reported_as_snake_or_spiral():
     plan = plan_with_fallbacks(_inp(), time_budget_s=60)
     assert plan.cells > 1
     assert not [f for f in plan.validation.fallbacks_applied if f.startswith("pattern:")]
+
+
+def test_strip_never_returns_rings_only_when_a_turn_fits():
+    # Dubins needs 4 passes and leaves nothing inside; Reeds-Shepp fits: use it, not rings only.
+    strip = Polygon([(0, 0), (200, 0), (200, 40), (0, 40)])
+    plan = plan_with_fallbacks(_inp(parcel=strip, access=Point(0, 20)), time_budget_s=60)
+    assert [s for s in plan.swaths if s.kind == "work"]
+    assert plan.curve_type == "reeds_shepp"
+
+
+def test_engine_error_while_sizing_the_headland_is_one_failed_rung(monkeypatch):
+    real = f2c_engine._generate_swath_set
+
+    def flaky(piece, w, passes, angle, decompose=True):
+        if passes == 4:
+            raise RuntimeError("engine hiccup")
+        return real(piece, w, passes, angle, decompose)
+    monkeypatch.setattr(f2c_engine, "_generate_swath_set", flaky)
+    plan = plan_with_fallbacks(_inp(), time_budget_s=60)
+    assert plan.headland_passes != 4 and _hard_ok(plan)
+
+
+def test_convex_interior_is_never_decomposed(monkeypatch):
+    import fields2cover as f2c
+
+    class NoDecomp:
+        def __init__(self):
+            raise AssertionError("decomposition called on a convex interior")
+    monkeypatch.setattr(f2c, "DECOMP_Boustrophedon", NoDecomp)
+    plan = plan_with_fallbacks(_inp(parcel=RECT, robot=SMALL, access=GATE), time_budget_s=60)
+    assert plan.cells == 1
+
+
+def test_both_lobes_worked_when_the_headland_splits_the_interior():
+    # Two 120 m squares joined by a 36 m neck: a 4-pass (24 m) headland cuts the interior in two.
+    dumbbell = Polygon([(0, 0), (120, 0), (120, 42), (180, 42), (180, 0), (300, 0), (300, 120),
+                        (180, 120), (180, 78), (120, 78), (120, 120), (0, 120)])
+    plan = plan_with_fallbacks(_inp(parcel=dumbbell, access=Point(0, 60)), time_budget_s=60)
+    xs = [s.geometry.centroid.x for s in plan.swaths if s.kind == "work"]
+    assert any(x < 120 for x in xs) and any(x > 180 for x in xs)
+    assert _hard_ok(plan)

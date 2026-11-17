@@ -275,13 +275,15 @@ def _generate_swath_set(piece_utm, cov_width: float, passes: int, angle: float |
         swaths = bf.generateBestSwaths(f2c.OBJ_NSwath(), cov_width, work_cell)
     if swaths.size() == 0:
         return None
-    if not decompose:
-        return _SwathSet(single=swaths)
+    split_interior = headland.size() > 1   # the headland cut the interior in pieces
+    if not decompose or (not split_interior and _is_convex(piece_utm.buffer(-cov_width * passes))):
+        return _SwathSet(single=swaths)   # convex: exactly the native calls of the single cell
     split = angle if angle is not None else swaths.at(0).getInAngle()
     try:
         dec = f2c.DECOMP_Boustrophedon()
         dec.setSplitAngle(split)
-        parts = dec.decompose(f2c.Cells(work_cell))
+        # All interior pieces, so every lobe gets passes (the single cell keeps piece 0 only).
+        parts = dec.decompose(headland if split_interior else f2c.Cells(work_cell))
         if parts.size() <= 1:
             return _SwathSet(single=swaths)
         by_cells = bf.generateSwaths(split, cov_width, parts)
@@ -293,21 +295,28 @@ def _generate_swath_set(piece_utm, cov_width: float, passes: int, angle: float |
 
 
 def cell_count(piece_utm, cov_width: float, passes: int, angle: float | None,
-               swath_cache: dict | None) -> int:
-    """Cells the interior splits into for that headland (0: no pass fits); fills the cache."""
+               swath_cache: dict | None) -> int | None:
+    """Cells the interior splits into for that headland (0: no pass fits; None: the engine
+    failed, which decides nothing). Fills the cache."""
     key = (passes, cov_width, angle)
     if swath_cache is not None and key in swath_cache:
         sset = swath_cache[key]
     else:
-        sset = _generate_swath_set(piece_utm, cov_width, passes, angle)
+        try:
+            sset = _generate_swath_set(piece_utm, cov_width, passes, angle)
+        except RuntimeError as e:
+            logger.warning("swath generation failed: passes=%s cov_width=%s error=%s",
+                           passes, cov_width, e)
+            return None
         if swath_cache is not None:
             swath_cache[key] = sset
     return sset.n_cells if sset is not None else 0
 
 
-def has_interior_swaths(piece_utm, cov_width: float, passes: int, angle: float | None) -> bool:
-    """Whether any pass fits inside a headland of `passes` rings."""
-    return _generate_swaths(piece_utm, cov_width, passes, angle) is not None
+def _is_convex(geom, tol: float = 1e-6) -> bool:
+    """A single polygon without holes that fills its convex hull (shapely, metres)."""
+    return (isinstance(geom, Polygon) and not geom.is_empty and not geom.interiors
+            and geom.area >= geom.convex_hull.area * (1 - tol))
 
 
 def _split_path(path) -> list:

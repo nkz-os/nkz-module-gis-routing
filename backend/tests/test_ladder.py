@@ -175,9 +175,9 @@ def test_step5_manual_turn_end_to_end(monkeypatch):
     inp = LadderInput(RECT, [ZONE_CENTER], ROBOT, CoverageConfig("boustrophedon", headland_passes=1),
                       access_utm=None, wgs84_poly=wgs84(RECT))
     plan = plan_with_fallbacks(inp)
-    # 1 pattern x 2 curves x 3 passes, twice: the zone splits the interior in cells and,
-    # with no cell attempt passing, the same rungs run again over a single cell.
-    assert len(calls) == 12
+    # 1 pattern x 2 curves x 3 passes over cells (the zone splits the interior), then the
+    # single-cell retry of the base rung only.
+    assert len(calls) == 7
     assert isinstance(plan.route, MultiLineString) and len(plan.route.geoms) == 2
     assert len([w for w in plan.validation.warnings if w.code == "MANUAL_TURN"]) == 1
     assert "manual_turns:1" in plan.validation.fallbacks_applied
@@ -228,8 +228,11 @@ def test_headland_widened_warning(monkeypatch):
     plan = plan_with_fallbacks(_inp(access=None, robot=robot))
     from app.services.coverage.turn_fit import headland_need
     used = calls[-1][2]
-    need = headland_need(robot)
-    assert used == need.passes   # measured, deeper than the closed-form 6
+    # r=20, w=4: the Dubins turn needs 14 passes and leaves nothing inside RECT, so the
+    # Reeds-Shepp fallback (shallower turn) is the one that fits.
+    assert headland_need(robot).passes == 14
+    need = headland_need(replace(robot, curve_type=plan.curve_type))
+    assert plan.curve_type == "reeds_shepp" and used == need.passes
     w = [w for w in plan.validation.warnings if w.code == "HEADLAND_WIDENED"]
     assert len(w) == 1
     assert w[0].params == {"requested": 1, "applied": used, "reason": "turning_radius",
@@ -331,8 +334,9 @@ def test_time_budget_unspent_still_runs_full_ladder(monkeypatch):
     inp = LadderInput(RECT, [ZONE_CENTER], ROBOT, CoverageConfig("auto", headland_passes=1),
                       access_utm=None, wgs84_poly=wgs84(RECT))
     plan = plan_with_fallbacks(inp, time_budget_s=3600.0)
-    # Cell pass (snake/spiral skipped where the interior is split) + the full single-cell pass.
-    assert len(calls) == 26 and "time_budget" not in plan.validation.fallbacks_applied
+    # Cell pass (the zone splits the interior in two lobes at the measured headland, so snake
+    # and spiral are skipped there) + the single-cell retry of the base rung block (3 patterns).
+    assert len(calls) == 9 and "time_budget" not in plan.validation.fallbacks_applied
 
 
 def test_ladder_reuses_swaths_per_passes(monkeypatch):
@@ -405,7 +409,8 @@ def test_auto_tries_every_pattern_before_extra_rungs_under_budget(monkeypatch):
         c, r, turn=TURN_OK if c.pattern == "spiral" else TURN_BAD))
     ticks = iter(range(0, 100000, 100))
     monkeypatch.setattr(ladder_mod, "monotonic", lambda: next(ticks))
-    inp = LadderInput(RECT, [ZONE_CENTER], ROBOT, CoverageConfig("auto", headland_passes=1),
+    # Convex interior (one cell): the pattern alternatives are real alternatives.
+    inp = LadderInput(RECT, [], ROBOT, CoverageConfig("auto", headland_passes=1),
                       access_utm=None, wgs84_poly=wgs84(RECT))
     plan = plan_with_fallbacks(inp, time_budget_s=450.0)
     assert [c[0] for c in calls[:3]] == ["boustrophedon", "snake", "spiral"]

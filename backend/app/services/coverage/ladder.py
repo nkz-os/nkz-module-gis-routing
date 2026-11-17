@@ -16,7 +16,7 @@ from shapely.ops import transform
 from app.services.coverage.access import InsidePaths
 from app.services.coverage.errors import PlanError
 from app.services.coverage.f2c_engine import (
-    CoverageConfig, _resolve_angle, cell_count, has_interior_swaths, plan_coverage, transit_parts)
+    CoverageConfig, _resolve_angle, cell_count, plan_coverage, transit_parts)
 from app.services.coverage.plan import CoveragePlan, Swath, Turn
 from app.services.coverage.robot_model import RobotParams
 from app.services.coverage.turn_fit import HeadlandNeed, headland_need
@@ -226,13 +226,20 @@ def plan_with_fallbacks(inp: LadderInput, time_budget_s: float | None = None) ->
     needs = {c: headland_need(replace(inp.robot, curve_type=c)) for c in curves}
     first_passes = ({curves[0]: passes0} if inp.cfg.pattern == HEADLAND_ONLY else
                     {c: max(inp.cfg.headland_passes, needs[c].passes) for c in curves})
+    swath_cache: dict = {}
+    angle = _resolve_angle(inp.cfg, inp.wgs84_poly)
+    # A headland that leaves no pass inside would give a rings-only plan that passes the
+    # checks and hides the unworked middle: such rungs are skipped when the requested
+    # headland does leave passes (rings only stays the answer when nothing ever fits).
+    interior_at_request = False
     if inp.cfg.pattern != HEADLAND_ONLY:
-        _check_turn_fits(inp, piece, needs, first_passes)
+        _check_turn_fits(inp, piece, needs, first_passes, angle, swath_cache)
+        interior_at_request = bool(
+            cell_count(piece, w, max(inp.cfg.headland_passes, 1), angle, swath_cache))
 
     attempts: list[_Attempt] = []
     first_ok: dict[str, _Attempt] = {}
     last_error: ExclusionError | None = None
-    swath_cache: dict = {}
     budget_hit = False
     # TODO: skip curve/passes rungs when the failure comes from straight swath connectors.
     # Every pattern is tried once at the minimum headland (base curve) before the budget is
@@ -243,19 +250,25 @@ def plan_with_fallbacks(inp: LadderInput, time_budget_s: float | None = None) ->
         for n in range(first_passes[c], first_passes[c] + extra + 1)
         if not (c == first_curve and n == first_passes[first_curve])]
     # Concave interiors are routed cell by cell first; if no cell attempt passes the hard
-    # checks, the same rungs run once more over a single cell (the pre-cells route).
-    angle = _resolve_angle(inp.cfg, inp.wgs84_poly)
+    # checks, the base rung block runs once more over a single cell (the pre-cells route).
     single_tries = 0
-    cell_rungs = [r + (True,) for r in rungs] if inp.cfg.cells else []
-    for pattern, curve, passes, cells in cell_rungs + [r + (False,) for r in rungs]:
+    if inp.cfg.cells:
+        base_block = [(p, first_curve, first_passes[first_curve]) for p in patterns]
+        plan_rungs = [r + (True,) for r in rungs] + [r + (False,) for r in base_block]
+    else:
+        plan_rungs = [r + (False,) for r in rungs]
+    for pattern, curve, passes, cells in plan_rungs:
         if not cells and inp.cfg.cells:
-            if first_ok or not any(cell_count(piece, w, n, angle, swath_cache) > 1
+            if first_ok or not any((cell_count(piece, w, n, angle, swath_cache) or 0) > 1
                                    for n in {r[2] for r in rungs}):
                 break
         if pattern in first_ok:
             continue
+        if (interior_at_request and pattern != HEADLAND_ONLY
+                and cell_count(piece, w, passes, angle, swath_cache) == 0):
+            continue  # no pass fits this headland: a rings-only plan would hide the gap
         if (cells and inp.cfg.pattern == "auto" and pattern != AUTO_PATTERN_ORDER[0]
-                and cell_count(piece, w, passes, angle, swath_cache) > 1):
+                and (cell_count(piece, w, passes, angle, swath_cache) or 0) > 1):
             continue  # the cell route ignores the pattern: already tried for this curve/headland
         tried = (bool(attempts) or last_error is not None) if cells else single_tries > 0
         if not cells:
@@ -330,15 +343,16 @@ def plan_with_fallbacks(inp: LadderInput, time_budget_s: float | None = None) ->
 
 
 def _check_turn_fits(inp: LadderInput, piece: Polygon, needs: dict[str, HeadlandNeed],
-                     start: dict[str, int]) -> None:
+                     start: dict[str, int], angle: float | None, swath_cache: dict) -> None:
     """Refuse, with the figures, when the turn's headland leaves no pass inside for any curve
-    the ladder may use, although the requested headland would: the turn is the cause."""
+    the ladder may use, although the requested headland would: the turn is the cause.
+    An engine error while sizing (None) decides nothing: the rungs handle it."""
     w = inp.robot.cov_width
-    angle = _resolve_angle(inp.cfg, inp.wgs84_poly)
-    if any(has_interior_swaths(piece, w, n, angle) for n in set(start.values())):
+    counts = [cell_count(piece, w, n, angle, swath_cache) for n in set(start.values())]
+    if any(c is None or c > 0 for c in counts):
         return
-    if not has_interior_swaths(piece, w, max(inp.cfg.headland_passes, 1), angle):
-        return  # no pass fits even the requested headland: unchanged (rings only)
+    if not cell_count(piece, w, max(inp.cfg.headland_passes, 1), angle, swath_cache):
+        return  # no pass fits even the requested headland (or unknown): unchanged (rings only)
     least = min(needs.values(), key=lambda n: n.needed_m)
     raise PlanError("TURN_DOES_NOT_FIT", "turn does not fit the headland", {
         "needed_headland_m": round(least.needed_m, 1),
