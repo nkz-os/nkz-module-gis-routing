@@ -78,6 +78,7 @@ class CoveragePlan:
     access_leg: LineString | None = None
     # Route end -> leg end, inside the eroded area (not a Turn, not in route).
     return_path: LineString | None = None
+    cells: int = 1   # cells the interior was split into (1: not decomposed)
 
     def _worked(self) -> float:
         return sum(s.geometry.length for s in self.swaths)

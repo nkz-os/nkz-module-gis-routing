@@ -118,10 +118,12 @@ def test_swath_violation_raises_no_drivable_area():
 
 def test_ladder_narrow_parcel_headland_only_or_error():
     narrow = Polygon([(0, 0), (200, 0), (200, 12), (0, 12)])   # 12 m de ancho, w=4, R=6 → min 2 cabeceras = 8 m por lado
+    from app.services.coverage.errors import PlanError
     try:
         plan = plan_with_fallbacks(_inp(parcel=narrow, access=Point(0, 6)))
-    except ExclusionError as e:
-        assert e.code == "NO_DRIVABLE_AREA"
+    except PlanError as e:
+        # The measured turn needs a deeper headland than the strip allows: refused with figures.
+        assert e.code in ("NO_DRIVABLE_AREA", "TURN_DOES_NOT_FIT")
         return
     assert all(s.kind == "headland" for s in plan.swaths) or _hard_ok(plan)
 
@@ -173,7 +175,9 @@ def test_step5_manual_turn_end_to_end(monkeypatch):
     inp = LadderInput(RECT, [ZONE_CENTER], ROBOT, CoverageConfig("boustrophedon", headland_passes=1),
                       access_utm=None, wgs84_poly=wgs84(RECT))
     plan = plan_with_fallbacks(inp)
-    assert len(calls) == 6                       # 1 pattern x 2 curves x 3 passes
+    # 1 pattern x 2 curves x 3 passes over cells (the zone splits the interior), then the
+    # single-cell retry of the base rung only.
+    assert len(calls) == 7
     assert isinstance(plan.route, MultiLineString) and len(plan.route.geoms) == 2
     assert len([w for w in plan.validation.warnings if w.code == "MANUAL_TURN"]) == 1
     assert "manual_turns:1" in plan.validation.fallbacks_applied
@@ -222,10 +226,18 @@ def test_headland_widened_warning(monkeypatch):
     calls = _patch(monkeypatch, lambda c, r: _fake_plan(c, r))
     robot = RobotParams(width=2.0, cov_width=4.0, min_turning_radius=20.0, curve_type="dubins")
     plan = plan_with_fallbacks(_inp(access=None, robot=robot))
+    from app.services.coverage.turn_fit import headland_need
     used = calls[-1][2]
-    assert used == 6
+    # r=20, w=4: the Dubins turn needs 14 passes and leaves nothing inside RECT, so the
+    # Reeds-Shepp fallback (shallower turn) is the one that fits.
+    assert headland_need(robot).passes == 14
+    need = headland_need(replace(robot, curve_type=plan.curve_type))
+    assert plan.curve_type == "reeds_shepp" and used == need.passes
     w = [w for w in plan.validation.warnings if w.code == "HEADLAND_WIDENED"]
-    assert len(w) == 1 and w[0].params == {"requested": 1, "applied": used}
+    assert len(w) == 1
+    assert w[0].params == {"requested": 1, "applied": used, "reason": "turning_radius",
+                           "needed_m": round(need.needed_m, 1), "applied_m": used * 4.0,
+                           "turning_radius_m": 20.0, "width_m": 4.0}
 
 
 def test_access_path_unavailable_warning(monkeypatch):
@@ -322,7 +334,9 @@ def test_time_budget_unspent_still_runs_full_ladder(monkeypatch):
     inp = LadderInput(RECT, [ZONE_CENTER], ROBOT, CoverageConfig("auto", headland_passes=1),
                       access_utm=None, wgs84_poly=wgs84(RECT))
     plan = plan_with_fallbacks(inp, time_budget_s=3600.0)
-    assert len(calls) == 18 and "time_budget" not in plan.validation.fallbacks_applied
+    # Cell pass (the zone splits the interior in two lobes at the measured headland, so snake
+    # and spiral are skipped there) + the single-cell retry of the base rung block (3 patterns).
+    assert len(calls) == 9 and "time_budget" not in plan.validation.fallbacks_applied
 
 
 def test_ladder_reuses_swaths_per_passes(monkeypatch):
@@ -395,7 +409,8 @@ def test_auto_tries_every_pattern_before_extra_rungs_under_budget(monkeypatch):
         c, r, turn=TURN_OK if c.pattern == "spiral" else TURN_BAD))
     ticks = iter(range(0, 100000, 100))
     monkeypatch.setattr(ladder_mod, "monotonic", lambda: next(ticks))
-    inp = LadderInput(RECT, [ZONE_CENTER], ROBOT, CoverageConfig("auto", headland_passes=1),
+    # Convex interior (one cell): the pattern alternatives are real alternatives.
+    inp = LadderInput(RECT, [], ROBOT, CoverageConfig("auto", headland_passes=1),
                       access_utm=None, wgs84_poly=wgs84(RECT))
     plan = plan_with_fallbacks(inp, time_budget_s=450.0)
     assert [c[0] for c in calls[:3]] == ["boustrophedon", "snake", "spiral"]
@@ -429,3 +444,40 @@ def test_engine_runtime_error_in_every_attempt_is_coded_engine_failure(monkeypat
         plan_with_fallbacks(_inp(passes=1, access=None))
     assert ei.value.code == "ENGINE_FAILURE"
     assert "SetSpline" in ei.value.params["engine_error"]
+
+
+OWNER = RobotParams(width=3.0, cov_width=6.0, min_turning_radius=8.0, curve_type="dubins")
+
+
+def test_headland_starts_at_measured_need():
+    plan = plan_with_fallbacks(_inp(robot=OWNER))
+    assert plan.headland_passes >= 4
+    assert any(f.startswith("headland_passes:1->") and int(f.split("->")[1]) >= 4
+               for f in plan.validation.fallbacks_applied)
+
+
+def test_headland_widened_reports_metres():
+    plan = plan_with_fallbacks(_inp(robot=OWNER))
+    w = [x for x in plan.validation.warnings if x.code == "HEADLAND_WIDENED"]
+    assert len(w) == 1
+    p = w[0].params
+    assert p["reason"] == "turning_radius" and p["requested"] == 1 and p["applied"] == 4
+    assert p["applied_m"] == 24.0 and 18.0 < p["needed_m"] <= 24.0
+    assert p["turning_radius_m"] == 8.0 and p["width_m"] == 6.0
+
+
+def test_turn_does_not_fit_on_small_parcel():
+    from app.services.coverage.errors import PlanError
+    # No curve the ladder may use (Dubins, nor the Reeds-Shepp fallback) leaves passes inside.
+    small = Polygon([(0, 0), (30, 0), (30, 20), (0, 20)])
+    with pytest.raises(PlanError) as e:
+        plan_with_fallbacks(_inp(parcel=small, robot=OWNER, access=Point(0, 10)))
+    assert e.value.code == "TURN_DOES_NOT_FIT" and e.value.status == 422
+    assert e.value.params["needed_headland_m"] > 6
+    assert e.value.params["turning_radius_m"] == 8.0 and e.value.params["width_m"] == 6.0
+
+
+def test_headland_only_unchanged():
+    plan = plan_with_fallbacks(_inp(robot=OWNER, pattern="headland-only", passes=1))
+    assert plan.headland_passes == 1
+    assert not [x for x in plan.validation.warnings if x.code == "HEADLAND_WIDENED"]

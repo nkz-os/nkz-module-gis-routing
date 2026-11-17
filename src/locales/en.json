@@ -325,6 +325,7 @@
     "warnings": {
       "UNREACHED_AREA": "Uncovered area of {{ha}} ha",
       "HEADLAND_WIDENED": "Headland widened from {{requested}} to {{applied}} passes",
+      "HEADLAND_WIDENED_M": "Headland widened to {{applied}} passes ({{applied_m}} m): the turn needs {{needed_m}} m",
       "MANUAL_TURN": "Manual turn between swaths {{from_swath}} and {{to_swath}}",
       "MANUAL_TURN_OUTSIDE": "Manual turn between swaths {{from_swath}} and {{to_swath}}: no way through inside the parcel",
       "ACCESS_PATH_UNAVAILABLE": "Access path could not be drawn",
@@ -341,10 +342,12 @@
       "pattern": "Pattern changed to {{pattern}}",
       "manualTurns_one": "{{count}} manual turn",
       "manualTurns_other": "{{count}} manual turns",
-      "timeBudget": "Time limit reached"
+      "timeBudget": "Time limit reached",
+      "cells": "Field split into {{count}} cells"
     },
     "errors": {
       "NO_DRIVABLE_AREA": "The parcel has no drivable area",
+      "TURN_DOES_NOT_FIT": "The turn does not fit: with a {{turning_radius_m}} m radius and a {{width_m}} m width it needs {{needed_headland_m}} m of headland and no field is left inside. Try “$t(patternLabels.headland-only)” or an implement with a smaller radius.",
       "ACCESS_OUTSIDE_PARCEL": "The access point is outside the parcel",
       "ACCESS_IN_ZONE": "The access point is inside an excluded zone",
       "MACHINE_WIDTH_MISSING": "The machine working width is missing",

@@ -5,7 +5,7 @@ import { i18n } from '@nekazari/sdk';
 import '../../../i18n';
 import { initialWorkState, type WorkState } from '../../../state/workMachine';
 import type { Plan } from '../../../services/api';
-import { ResultStrip } from '../ResultStrip';
+import { ResultStrip, fallbackText } from '../ResultStrip';
 import { ActionsBar } from '../ActionsBar';
 import { PatternSaveLoad } from '../../patterns/PatternSaveLoad';
 
@@ -236,5 +236,35 @@ describe('generate progress', () => {
   it('ActionsBar shows no progress line when idle', () => {
     bar(withResult({ phase: 'generated' }));
     expect(screen.queryByRole('status')).toBeNull();
+  });
+});
+
+
+describe('cells and headland metres', () => {
+  const t = (k: string, o?: Record<string, unknown>) => i18n.t(k, { ns: 'gis-routing', ...o });
+  const strip = (warnings: any[], fallbacks: string[] = []) => {
+    const base = withResult();
+    const p = { ...base.result!.plan, validation: { ...base.result!.plan.validation!, warnings, fallbacks_applied: fallbacks } } as Plan;
+    render(<ResultStrip state={{ ...base, result: { ...base.result!, plan: p } }} onWarningSelect={vi.fn()} collapsed={false} onToggle={vi.fn()} />);
+  };
+
+  it('names the cells a concave parcel was split into', () => {
+    expect(fallbackText('cells:7', t as any)).toBe('Parcela dividida en 7 celdas');
+  });
+
+  it('shows the headland metres the turn needs', () => {
+    strip([{ code: 'HEADLAND_WIDENED', geometry: null, params: {
+      requested: 1, applied: 4, reason: 'turning_radius', needed_m: 22.6, applied_m: 24, turning_radius_m: 8, width_m: 6 } }]);
+    expect(screen.getByText('Cabecera ampliada a 4 vueltas (24 m): el giro necesita 22.6 m')).toBeInTheDocument();
+  });
+
+  it('keeps the old text for saved plans without metres', () => {
+    strip([{ code: 'HEADLAND_WIDENED', geometry: null, params: { requested: 1, applied: 2 } }]);
+    expect(screen.getByText('Cabecera ensanchada de 1 a 2 pasadas')).toBeInTheDocument();
+  });
+
+  it('explains a turn that does not fit with its figures', () => {
+    expect(t('work.errors.TURN_DOES_NOT_FIT', { needed_headland_m: 8.8, turning_radius_m: 8, width_m: 6 }))
+      .toBe('El giro no cabe: con radio 8 m y anchura 6 m hacen falta 8.8 m de cabecera y no queda campo dentro. Prueba «Solo cabecero» o un apero con menos radio.');
   });
 });

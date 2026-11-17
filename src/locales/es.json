@@ -325,6 +325,7 @@
     "warnings": {
       "UNREACHED_AREA": "Zona sin cubrir de {{ha}} ha",
       "HEADLAND_WIDENED": "Cabecera ensanchada de {{requested}} a {{applied}} pasadas",
+      "HEADLAND_WIDENED_M": "Cabecera ampliada a {{applied}} vueltas ({{applied_m}} m): el giro necesita {{needed_m}} m",
       "MANUAL_TURN": "Giro manual entre las pasadas {{from_swath}} y {{to_swath}}",
       "MANUAL_TURN_OUTSIDE": "Giro manual entre las pasadas {{from_swath}} y {{to_swath}}: no hay paso por dentro de la parcela",
       "ACCESS_PATH_UNAVAILABLE": "No se pudo trazar el camino de acceso",
@@ -341,10 +342,12 @@
       "pattern": "Patrón cambiado a {{pattern}}",
       "manualTurns_one": "{{count}} giro manual",
       "manualTurns_other": "{{count}} giros manuales",
-      "timeBudget": "Límite de tiempo alcanzado"
+      "timeBudget": "Límite de tiempo alcanzado",
+      "cells": "Parcela dividida en {{count}} celdas"
     },
     "errors": {
       "NO_DRIVABLE_AREA": "No hay superficie transitable en la parcela",
+      "TURN_DOES_NOT_FIT": "El giro no cabe: con radio {{turning_radius_m}} m y anchura {{width_m}} m hacen falta {{needed_headland_m}} m de cabecera y no queda campo dentro. Prueba «$t(patternLabels.headland-only)» o un apero con menos radio.",
       "ACCESS_OUTSIDE_PARCEL": "El punto de acceso está fuera de la parcela",
       "ACCESS_IN_ZONE": "El punto de acceso está dentro de una zona excluida",
       "MACHINE_WIDTH_MISSING": "Falta el ancho de trabajo de la máquina",

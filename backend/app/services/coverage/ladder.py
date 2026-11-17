@@ -14,12 +14,15 @@ from shapely.geometry import LineString, MultiLineString, Point, Polygon, mappin
 from shapely.ops import transform
 
 from app.services.coverage.access import InsidePaths
-from app.services.coverage.f2c_engine import CoverageConfig, plan_coverage, transit_parts
+from app.services.coverage.errors import PlanError
+from app.services.coverage.f2c_engine import (
+    CoverageConfig, _resolve_angle, cell_count, plan_coverage, transit_parts)
 from app.services.coverage.plan import CoveragePlan, Swath, Turn
 from app.services.coverage.robot_model import RobotParams
+from app.services.coverage.turn_fit import HeadlandNeed, headland_need
 from app.services.coverage.validation import (
     ValidationReport, Warning, check_inside_parcel, check_outside_zones,
-    min_headland_passes, split_working_area, validate_plan,
+    split_working_area, validate_plan,
 )
 from app.services.exclusion import ExclusionError, build_working_polygon
 from app.services.routing.base import project_polygon_to_utm
@@ -161,7 +164,8 @@ def _manual_warnings(plan: CoveragePlan, removed: list[Turn],
     return out
 
 
-def _attempt_fallbacks(inp: LadderInput, pattern: str, curve: str, passes: int) -> list[str]:
+def _attempt_fallbacks(inp: LadderInput, pattern: str, curve: str, passes: int,
+                       plan: CoveragePlan) -> list[str]:
     fb = []
     if passes != inp.cfg.headland_passes:
         fb.append(f"headland_passes:{inp.cfg.headland_passes}->{passes}")
@@ -169,14 +173,25 @@ def _attempt_fallbacks(inp: LadderInput, pattern: str, curve: str, passes: int) 
         fb.append(f"curve:{curve}")
     if inp.cfg.pattern == "auto" and pattern != AUTO_PATTERN_ORDER[0]:
         fb.append(f"pattern:{pattern}")
+    if plan.cells > 1:
+        fb.append(f"cells:{plan.cells}")
+        if inp.cfg.pattern in ("snake", "spiral"):
+            fb.append("pattern:boustrophedon")
     return fb
 
 
 def _extra_warnings(inp: LadderInput, plan: CoveragePlan, applied: int) -> list[Warning]:
     out = []
-    if applied > 3:
-        out.append(Warning("HEADLAND_WIDENED", None,
-                           {"requested": inp.cfg.headland_passes, "applied": applied}))
+    requested = inp.cfg.headland_passes
+    if applied > requested and plan.pattern != HEADLAND_ONLY:
+        w = inp.robot.cov_width
+        need = headland_need(replace(inp.robot, curve_type=plan.curve_type))
+        start = max(requested, need.passes)
+        out.append(Warning("HEADLAND_WIDENED", None, {
+            "requested": requested, "applied": applied,
+            "reason": "turning_radius" if applied == start else "validation",
+            "needed_m": round(need.needed_m, 1), "applied_m": round(applied * w, 1),
+            "turning_radius_m": inp.robot.min_turning_radius, "width_m": w}))
     if inp.access_utm is not None and plan.access_path is None:
         out.append(Warning("ACCESS_PATH_UNAVAILABLE", inp.access_utm, {}))
     return out
@@ -204,27 +219,61 @@ def plan_with_fallbacks(inp: LadderInput, time_budget_s: float | None = None) ->
         passes0, extra = max(inp.cfg.headland_passes, 1), 0
         patterns, curves = (HEADLAND_ONLY,), (inp.robot.curve_type,)
     else:
-        passes0 = max(inp.cfg.headland_passes, min_headland_passes(inp.robot.min_turning_radius, w))
         extra = HEADLAND_EXTRA_MAX
         patterns = AUTO_PATTERN_ORDER if inp.cfg.pattern == "auto" else (inp.cfg.pattern,)
         curves = (inp.robot.curve_type,) + (("reeds_shepp",) if inp.robot.curve_type == "dubins" else ())
+    # Each curve starts at the headland its own turn needs (measured), never below the request.
+    needs = {c: headland_need(replace(inp.robot, curve_type=c)) for c in curves}
+    first_passes = ({curves[0]: passes0} if inp.cfg.pattern == HEADLAND_ONLY else
+                    {c: max(inp.cfg.headland_passes, needs[c].passes) for c in curves})
+    swath_cache: dict = {}
+    angle = _resolve_angle(inp.cfg, inp.wgs84_poly)
+    # A headland that leaves no pass inside would give a rings-only plan that passes the
+    # checks and hides the unworked middle: such rungs are skipped when the requested
+    # headland does leave passes (rings only stays the answer when nothing ever fits).
+    interior_at_request = False
+    if inp.cfg.pattern != HEADLAND_ONLY:
+        _check_turn_fits(inp, piece, needs, first_passes, angle, swath_cache)
+        interior_at_request = bool(
+            cell_count(piece, w, max(inp.cfg.headland_passes, 1), angle, swath_cache))
 
     attempts: list[_Attempt] = []
     first_ok: dict[str, _Attempt] = {}
     last_error: ExclusionError | None = None
-    swath_cache: dict = {}
     budget_hit = False
     # TODO: skip curve/passes rungs when the failure comes from straight swath connectors.
     # Every pattern is tried once at the minimum headland (base curve) before the budget is
     # spent on extra passes or the alternative curve of any of them.
     first_curve = curves[0]
-    rungs = [(p, first_curve, passes0) for p in patterns] + [
-        (p, c, n) for p in patterns for c in curves for n in range(passes0, passes0 + extra + 1)
-        if not (c == first_curve and n == passes0)]
-    for pattern, curve, passes in rungs:
+    rungs = [(p, first_curve, first_passes[first_curve]) for p in patterns] + [
+        (p, c, n) for p in patterns for c in curves
+        for n in range(first_passes[c], first_passes[c] + extra + 1)
+        if not (c == first_curve and n == first_passes[first_curve])]
+    # Concave interiors are routed cell by cell first; if no cell attempt passes the hard
+    # checks, the base rung block runs once more over a single cell (the pre-cells route).
+    single_tries = 0
+    if inp.cfg.cells:
+        base_block = [(p, first_curve, first_passes[first_curve]) for p in patterns]
+        plan_rungs = [r + (True,) for r in rungs] + [r + (False,) for r in base_block]
+    else:
+        plan_rungs = [r + (False,) for r in rungs]
+    for pattern, curve, passes, cells in plan_rungs:
+        if not cells and inp.cfg.cells:
+            if first_ok or not any((cell_count(piece, w, n, angle, swath_cache) or 0) > 1
+                                   for n in {r[2] for r in rungs}):
+                break
         if pattern in first_ok:
             continue
-        if _over_budget(inp, time_budget_s, bool(attempts) or last_error is not None, start):
+        if (interior_at_request and pattern != HEADLAND_ONLY
+                and cell_count(piece, w, passes, angle, swath_cache) == 0):
+            continue  # no pass fits this headland: a rings-only plan would hide the gap
+        if (cells and inp.cfg.pattern == "auto" and pattern != AUTO_PATTERN_ORDER[0]
+                and (cell_count(piece, w, passes, angle, swath_cache) or 0) > 1):
+            continue  # the cell route ignores the pattern: already tried for this curve/headland
+        tried = (bool(attempts) or last_error is not None) if cells else single_tries > 0
+        if not cells:
+            single_tries += 1
+        if _over_budget(inp, time_budget_s, tried, start):
             budget_hit = True
             logger.warning("ladder time budget spent: elapsed=%.1fs budget=%.1fs "
                            "next_pattern=%s ok_patterns=%s", monotonic() - start,
@@ -233,7 +282,7 @@ def plan_with_fallbacks(inp: LadderInput, time_budget_s: float | None = None) ->
         try:
             plan = plan_coverage(
                 piece, inp.parcel_utm, replace(inp.robot, curve_type=curve),
-                replace(inp.cfg, pattern=pattern, headland_passes=passes),
+                replace(inp.cfg, pattern=pattern, headland_passes=passes, cells=cells),
                 access_utm=inp.access_utm, wgs84_poly=inp.wgs84_poly,
                 swath_cache=swath_cache)
         except ExclusionError as e:
@@ -251,7 +300,7 @@ def plan_with_fallbacks(inp: LadderInput, time_budget_s: float | None = None) ->
             continue
         plan.unreached = list(unreached)
         plan.exclusion_zones = list(inp.zones_utm)
-        plan.fallbacks = _attempt_fallbacks(inp, pattern, curve, passes)
+        plan.fallbacks = _attempt_fallbacks(inp, pattern, curve, passes, plan)
         att = _Attempt(plan, validate_plan(plan, inp.parcel_utm, inp.zones_utm, w), pattern, passes)
         attempts.append(att)
         logger.info("ladder attempt pattern=%s curve=%s passes=%s hard_ok=%s",
@@ -291,6 +340,23 @@ def plan_with_fallbacks(inp: LadderInput, time_budget_s: float | None = None) ->
                 params={"geometry": None if gj is None else
                         {"type": gj["type"], "coordinates": _to_lists(gj["coordinates"])}})
     return _finish(inp, fixed, report, worst.passes, manual)
+
+
+def _check_turn_fits(inp: LadderInput, piece: Polygon, needs: dict[str, HeadlandNeed],
+                     start: dict[str, int], angle: float | None, swath_cache: dict) -> None:
+    """Refuse, with the figures, when the turn's headland leaves no pass inside for any curve
+    the ladder may use, although the requested headland would: the turn is the cause.
+    An engine error while sizing (None) decides nothing: the rungs handle it."""
+    w = inp.robot.cov_width
+    counts = [cell_count(piece, w, n, angle, swath_cache) for n in set(start.values())]
+    if any(c is None or c > 0 for c in counts):
+        return
+    if not cell_count(piece, w, max(inp.cfg.headland_passes, 1), angle, swath_cache):
+        return  # no pass fits even the requested headland (or unknown): unchanged (rings only)
+    least = min(needs.values(), key=lambda n: n.needed_m)
+    raise PlanError("TURN_DOES_NOT_FIT", "turn does not fit the headland", {
+        "needed_headland_m": round(least.needed_m, 1),
+        "turning_radius_m": inp.robot.min_turning_radius, "width_m": w})
 
 
 def _last_point(route) -> Point:
