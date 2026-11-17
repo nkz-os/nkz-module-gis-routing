@@ -7,6 +7,7 @@ from __future__ import annotations
 
 CODES = (
     "NO_DRIVABLE_AREA",
+    "TURN_DOES_NOT_FIT",
     "ACCESS_OUTSIDE_PARCEL",
     "ACCESS_IN_ZONE",
     "MACHINE_WIDTH_MISSING",

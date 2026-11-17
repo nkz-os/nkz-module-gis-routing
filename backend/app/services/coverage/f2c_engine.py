@@ -244,6 +244,11 @@ def _generate_swaths(piece_utm, cov_width: float, passes: int, angle: float | No
     return swaths if swaths.size() > 0 else None
 
 
+def has_interior_swaths(piece_utm, cov_width: float, passes: int, angle: float | None) -> bool:
+    """Whether any pass fits inside a headland of `passes` rings."""
+    return _generate_swaths(piece_utm, cov_width, passes, angle) is not None
+
+
 def _split_path(path) -> list:
     """Split an F2C Path into ordered ("swath"|"turn", LineString) parts.
 
