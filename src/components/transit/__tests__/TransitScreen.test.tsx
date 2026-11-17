@@ -114,7 +114,7 @@ describe('TransitScreen', () => {
       alternatives: [{ ...alt('least_slope', 321), max_cross_slope_deg_found: 9.04 },
         { ...alt('fastest', 210), max_cross_slope_deg_found: 18.26 }],
       report: { max_slope_deg: 15, max_cross_slope_deg_found: 18.3,
-        warnings: [{ code: 'CROSS_SLOPE_HIGH', params: { deg: 18.3, limit: 15 } }] },
+        warnings: [{ code: 'CROSS_SLOPE_HIGH', params: { deg: 18.3, limit: 15, route: 'fastest' } }] },
     });
     await setup();
     await place();
@@ -124,8 +124,13 @@ describe('TransitScreen', () => {
     expect(ok.className).not.toContain('text-nkz-danger');
     const high = within(screen.getByTestId('alt-fastest')).getByText(/Inclinación lateral máx\.: 18\.3°/);
     expect(high.className).toContain('text-nkz-danger');
-    expect(screen.getByText('Inclinación lateral de hasta 18.3° en el trayecto (límite 15°): riesgo de vuelco.')).toBeTruthy();
+    // The warning belongs to the fastest route: hidden while least_slope is selected.
+    expect(screen.queryByText(/riesgo de vuelco/)).toBeNull();
+    fireEvent.click(screen.getByTestId('alt-fastest'));
+    const warn = screen.getByText('Inclinación lateral de hasta 18.3° en el trayecto (límite 15°): riesgo de vuelco.');
+    expect(warn.className).toContain('text-nkz-danger');
     expect(screen.queryByText(/Aviso CROSS_SLOPE_HIGH/)).toBeNull();
+    expect(tm().model.slopeLimit).toBe(15);
   });
 
   it('omits the cross slope line when the backend does not send it', async () => {

@@ -468,7 +468,8 @@
     "legend": {
       "gate": "Porta",
       "nogo": "NO-GO",
-      "margin": "Marge de seguretat"
+      "margin": "Marge de seguretat",
+      "crossSlope": "Inclinació lateral > límit"
     }
   },
   "transit": {

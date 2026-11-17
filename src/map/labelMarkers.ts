@@ -1,11 +1,14 @@
 import type { Map as MapLibreMap, Marker, MarkerOptions } from 'maplibre-gl';
 import { GATE_COLOR, NOGO_COLOR, labelAnchor } from './markers';
 
+/** Same red as the cross-slope zone on the transit map. */
+const CROSS_COLOR = '#DC2626';
+
 /**
  * Text labels are DOM markers: the basemap style declares no `glyphs`, so symbol-layer text
  * cannot render, and adding a glyph host would be a new external dependency.
  */
-export interface LabelItem { key: string; at: [number, number]; text: string; kind: 'gate' | 'nogo' }
+export interface LabelItem { key: string; at: [number, number]; text: string; kind: 'gate' | 'nogo' | 'cross' }
 
 export function gateLabels(gate: GeoJSON.Point | null | undefined, text: string): LabelItem[] {
   return gate ? [{ key: 'gate', at: labelAnchor(gate), text, kind: 'gate' }] : [];
@@ -23,8 +26,10 @@ function element(item: LabelItem): HTMLDivElement {
   Object.assign(el.style, {
     pointerEvents: 'none', color: '#FFFFFF', fontSize: '11px', fontWeight: '700', lineHeight: '1', letterSpacing: '0.04em',
     padding: '2px 5px', borderRadius: '4px', whiteSpace: 'nowrap', boxShadow: '0 1px 3px rgba(0,0,0,0.5)',
-    background: item.kind === 'gate' ? GATE_COLOR : NOGO_COLOR, border: '1px solid #FFFFFF',
+    background: item.kind === 'gate' ? GATE_COLOR : item.kind === 'cross' ? CROSS_COLOR : NOGO_COLOR, border: '1px solid #FFFFFF',
     marginTop: item.kind === 'gate' ? '4px' : '0',
+    // The cross-slope label sits above its ring so the ring stays visible.
+    marginBottom: item.kind === 'cross' ? '22px' : '0',
   });
   return el;
 }

@@ -64,6 +64,15 @@ export function parcelAtGate(point: LonLat | null, parcels: ContextParcel[]): st
   return best?.id ?? null;
 }
 
+/** Warnings that signal a rollover risk: shown in the danger colour, not as a note. */
+const DANGER_WARNINGS = new Set(['CROSS_SLOPE_HIGH']);
+
+/** A warning tied to one route (`params.route`) is shown only while that route is selected. */
+export function forSelectedRoute(w: { params?: Record<string, unknown> }, selected: string | null): boolean {
+  const route = w.params?.route;
+  return route === undefined || route === selected;
+}
+
 /** Cross slope above the route's slope limit (reported only, the route is not steered by it). */
 export function crossSlopeHigh(deg: number, limit: number | undefined): boolean {
   return limit !== undefined && deg > limit;
@@ -286,7 +295,7 @@ export const TransitScreen: React.FC<Props> = ({ workContext }) => {
   const model = useMemo<TransitMapModel>(() => ({
     a: state.a, b: state.b, badPoint: errPoint, focus: errGeometry,
     alternatives: state.result?.alternatives ?? [], selected: state.selected, stale: state.stale,
-    hover, context,
+    hover, context, slopeLimit: state.result?.report.max_slope_deg ?? null,
   }), [state.a, state.b, errPoint, errGeometry, state.result, state.selected, state.stale, hover, context]);
 
   const homeBounds = useMemo(
@@ -408,8 +417,8 @@ export const TransitScreen: React.FC<Props> = ({ workContext }) => {
           <section className="space-y-2" aria-label={t('transit.results')}>
             <h2 className="text-nkz-sm font-semibold">{t('transit.results')}</h2>
             {state.stale && <Badge intent="warning">{t('transit.stale')}</Badge>}
-            {(state.result.report.warnings ?? []).map((w, i) => (
-              <p key={`${w.code}-${i}`} role="status" className="text-nkz-xs text-nkz-text-secondary">
+            {(state.result.report.warnings ?? []).filter((w) => forSelectedRoute(w, state.selected)).map((w, i) => (
+              <p key={`${w.code}-${i}`} role="status" className={`text-nkz-xs ${DANGER_WARNINGS.has(w.code) ? 'text-nkz-danger' : 'text-nkz-text-secondary'}`}>
                 {t(`transit.warnings.${w.code}`, { ...(w.params ?? {}), defaultValue: '' }) || t('transit.warnings.UNKNOWN', { code: w.code })}
               </p>
             ))}
