@@ -68,7 +68,9 @@ def compute_ab_routes(
             blocked=impassable, pixel_height_deg=height,
         )
         if path:
-            smoothed = _smooth_cells(path, impassable)
+            segment_cost = _segment_cost_fn(elevations, origin_lat, pixel_size_deg, height,
+                                            max_slope_deg, objective)
+            smoothed = _smooth_cells(path, impassable, segment_cost=segment_cost)
             routes.append(_summarize(path, objective, elevations,
                                      origin_lon, origin_lat, pixel_size_deg,
                                      smoothed=smoothed, blocked=blocked,
@@ -159,41 +161,131 @@ def _shortest_path(elevations, origin_lon, origin_lat, pixel_size_deg,
     return cells
 
 
+def _segment_cells(c0: int, r0: int, c1: int, r1: int) -> list[tuple[int, int]]:
+    """Cells of the Bresenham walk from (c0, r0) to (c1, r1), both ends included.
+    Each consecutive pair is one 8-connected move; the major axis advances one
+    cell per step, so step k lies at fraction k/n of the straight segment."""
+    dc = abs(c1 - c0)
+    dr = abs(r1 - r0)
+    sc = 1 if c1 > c0 else -1
+    sr = 1 if r1 > r0 else -1
+    c, r = c0, r0
+    cells = [(c, r)]
+    err = dc - dr
+    while c != c1 or r != r1:
+        e2 = 2 * err
+        if e2 > -dr:
+            err -= dr
+            c += sc
+        if e2 < dc:
+            err += dc
+            r += sr
+        cells.append((c, r))
+    return cells
+
+
+def _segment_length_m(c0, r0, c1, r1, origin_lat, pixel_size_deg, height) -> float:
+    return _cell_dist_m(c1 - c0, r1 - r0, origin_lat + r0 * height, pixel_size_deg, height)
+
+
+def _segment_cost_fn(elevations, origin_lat, pixel_size_deg, height, max_slope_deg, objective):
+    """segment_cost(cells) -> cost of serving the straight segment through `cells`
+    for this objective, or None if any step breaks the slope limit or touches
+    no-data. Each step is measured over its share of the segment length (what a
+    machine following the served line climbs); a one-step segment costs exactly
+    the search edge, so smoothing compares like with like."""
+    max_rad = math.radians(max_slope_deg)
+
+    def segment_cost(cells: list[tuple[int, int]]) -> float | None:
+        n = len(cells) - 1
+        if n <= 0:
+            return 0.0
+        (c0, r0), (c1, r1) = cells[0], cells[-1]
+        step_m = _segment_length_m(c0, r0, c1, r1, origin_lat, pixel_size_deg, height) / n
+        cost = 0.0
+        for (pc, pr), (c, r) in zip(cells, cells[1:]):
+            z0, z1 = elevations[pr][pc], elevations[r][c]
+            if z0 is None or z1 is None:
+                return None
+            slope = math.atan2(abs(z1 - z0), step_m)
+            if slope > max_rad:
+                return None
+            cost += step_m if objective == "fastest" else step_m * (1.0 + K_SLOPE * math.tan(slope))
+        return cost
+
+    return segment_cost
+
+
+def _gradient(elevations, c: int, r: int, origin_lat, pixel_size_deg, height) -> tuple[float, float]:
+    """Terrain gradient (dz/dx east, dz/dy north) in m/m at a cell: centred difference,
+    one-sided next to no-data or the grid edge, 0 on an axis with no usable neighbour."""
+    rows, cols = len(elevations), len(elevations[0])
+    z = elevations[r][c]
+    dx = pixel_size_deg * _m_per_deg_lon(origin_lat + r * height)
+    dy = height * _M_PER_DEG_LAT
+
+    def axis(prev, nxt, spacing):
+        if prev is not None and nxt is not None:
+            return (nxt - prev) / (2.0 * spacing)
+        if nxt is not None:
+            return (nxt - z) / spacing
+        if prev is not None:
+            return (z - prev) / spacing
+        return 0.0
+
+    west = elevations[r][c - 1] if c > 0 else None
+    east = elevations[r][c + 1] if c < cols - 1 else None
+    south = elevations[r - 1][c] if r > 0 else None
+    north = elevations[r + 1][c] if r < rows - 1 else None
+    return axis(west, east, dx), axis(south, north, dy)
+
+
 def _summarize(cells, objective, elevations,
                origin_lon, origin_lat, pixel_size_deg, smoothed=None, blocked=None,
                pixel_height_deg=None) -> dict:
+    """Metrics, geometry and profile of the SERVED line (the smoothed vertices):
+    distance = length of its straight segments; climb, max slope and cross slope
+    over one profile point per crossed cell, placed on the segment."""
     height = pixel_height_deg or pixel_size_deg
-    # Metrics pass: ALWAYS over the full searched cell path (honest distance/climb).
-    distance_m = 0.0
-    climb_m = 0.0
-    max_slope_deg = 0.0
-    for i, (c, r) in enumerate(cells):
-        if i > 0:
-            pc, pr = cells[i - 1]
-            step_m = _cell_dist_m(c - pc, r - pr,
-                                  origin_lat + pr * height,
-                                  pixel_size_deg, height)
-            distance_m += step_m
+    vertices = smoothed if smoothed is not None else cells
+    coords = [[round(origin_lon + c * pixel_size_deg, 7), round(origin_lat + r * height, 7)]
+              for c, r in vertices]
+    c0, r0 = vertices[0]
+    profile = [[coords[0][0], coords[0][1], elevations[r0][c0]]]
+    served = [(c0, r0)]
+    distance_m = climb_m = max_slope = max_cross = 0.0
+    for (ac, ar), (bc, br) in zip(vertices, vertices[1:]):
+        seg = _segment_cells(ac, ar, bc, br)
+        n = len(seg) - 1
+        seg_m = _segment_length_m(ac, ar, bc, br, origin_lat, pixel_size_deg, height)
+        distance_m += seg_m
+        step_m = seg_m / n
+        ex = (bc - ac) * pixel_size_deg * _m_per_deg_lon(origin_lat + ar * height)
+        ny = (br - ar) * height * _M_PER_DEG_LAT
+        norm = math.hypot(ex, ny)
+        nx, nyy = -ny / norm, ex / norm  # unit normal to the direction of travel
+        for k, (c, r) in enumerate(seg):
+            gx, gy = _gradient(elevations, c, r, origin_lat, pixel_size_deg, height)
+            max_cross = max(max_cross, math.degrees(math.atan(abs(gx * nx + gy * nyy))))
+            if k == 0:
+                continue
+            pc, pr = seg[k - 1]
             dz = elevations[r][c] - elevations[pr][pc]
             climb_m += max(0.0, dz)
-            if step_m > 0:
-                max_slope_deg = max(max_slope_deg, math.degrees(math.atan(abs(dz) / step_m)))
-
-    # Geometry/profile pass: over the smoothed any-angle vertices if provided.
-    coords, profile = [], []
-    for c, r in (smoothed if smoothed is not None else cells):
-        lon = round(origin_lon + c * pixel_size_deg, 7)
-        lat = round(origin_lat + r * height, 7)
-        z = elevations[r][c]
-        coords.append([lon, lat])
-        profile.append([lon, lat, z])
+            max_slope = max(max_slope, math.degrees(math.atan2(abs(dz), step_m)))
+            colf = ac + (bc - ac) * k / n
+            rowf = ar + (br - ar) * k / n
+            profile.append([round(origin_lon + colf * pixel_size_deg, 7),
+                            round(origin_lat + rowf * height, 7), elevations[r][c]])
+            served.append((c, r))
     return {
         "id": objective,
         "label": _LABELS[objective],
         "distance_m": round(distance_m, 1),
         "cumulative_climb_m": round(climb_m, 1),
-        "max_slope_deg_found": round(max_slope_deg, 1),
-        "blocked_cells_hit": sum(1 for cell in cells if cell in blocked) if blocked else 0,
+        "max_slope_deg_found": round(max_slope, 1),
+        "max_cross_slope_deg_found": round(max_cross, 1),
+        "blocked_cells_hit": sum(1 for cell in served if cell in blocked) if blocked else 0,
         "geometry": {"type": "LineString", "coordinates": coords},
         "elevation_profile": profile,
     }
@@ -215,56 +307,60 @@ def blocked_terminus(start: tuple, end: tuple, blocked: set) -> str | None:
     return None
 
 
-def _line_of_sight(c0: int, r0: int, c1: int, r1: int, blocked: set) -> bool:
-    """True if the straight segment between two cells crosses no blocked cell.
+def _line_of_sight(c0: int, r0: int, c1: int, r1: int, blocked: set,
+                   segment_ok=None) -> bool:
+    """True if the straight segment between two cells may be served.
 
     Guarantees, for a no-go (fail-safe) context:
-      - the segment does not pass through any blocked cell, and
+      - the segment does not pass through any blocked cell,
       - a diagonal step does not slip between two diagonally-adjacent blocked
-        cells (a "pinch") — the corner gap is treated as crossing.
+        cells (a "pinch") — the corner gap is treated as crossing, and
+      - with segment_ok, the walk passes it (slope limit and objective cost).
 
     This is a Bresenham walk hardened against diagonal-pinch tunneling; it is
     not a full supercover traversal, but it never lets a route squeeze through
     a blocked corner gap."""
-    if not blocked:
+    if not blocked and segment_ok is None:
         return True
-    dc = abs(c1 - c0)
-    dr = abs(r1 - r0)
-    sc = 1 if c1 > c0 else -1
-    sr = 1 if r1 > r0 else -1
-    c, r = c0, r0
-    if (c, r) in blocked:
-        return False
-    err = dc - dr
-    while c != c1 or r != r1:
-        e2 = 2 * err
-        stepped_c = stepped_r = False
-        if e2 > -dr:
-            err -= dr
-            c += sc
-            stepped_c = True
-        if e2 < dc:
-            err += dc
-            r += sr
-            stepped_r = True
-        if stepped_c and stepped_r:
-            # diagonal move: reject if it slips between two blocked corner cells
-            if (c - sc, r) in blocked and (c, r - sr) in blocked:
-                return False
-        if (c, r) in blocked:
+    cells = _segment_cells(c0, r0, c1, r1)
+    if blocked:
+        if cells[0] in blocked:
             return False
-    return True
+        for (pc, pr), (c, r) in zip(cells, cells[1:]):
+            if c != pc and r != pr and (pc, r) in blocked and (c, pr) in blocked:
+                return False  # diagonal move slipping between two blocked corner cells
+            if (c, r) in blocked:
+                return False
+    return segment_ok(cells) if segment_ok is not None else True
 
 
-def _smooth_cells(cells: list[tuple[int, int]], blocked: set) -> list[tuple[int, int]]:
-    """String-pull: keep a vertex only when line-of-sight to the next anchor breaks."""
+def _smooth_cells(cells: list[tuple[int, int]], blocked: set,
+                  segment_cost=None) -> list[tuple[int, int]]:
+    """String-pull: keep a vertex only when line-of-sight to the next anchor breaks.
+
+    With segment_cost, a shortcut is also refused if a step breaks the slope limit
+    or if it costs more, for the route's objective, than the path piece it
+    replaces (so the least-slope line keeps its gentle detour). Consecutive path
+    cells are legal search moves costing exactly their edge, so the pull always
+    progresses."""
     if len(cells) <= 2:
         return list(cells)
+    prefix = [0.0]
+    if segment_cost is not None:
+        for a, b in zip(cells, cells[1:]):
+            prefix.append(prefix[-1] + segment_cost([a, b]))
     out = [cells[0]]
     anchor = 0
     i = 1
     while i < len(cells):
-        if not _line_of_sight(*cells[anchor], *cells[i], blocked):
+        ok = None
+        if segment_cost is not None:
+            budget = prefix[i] - prefix[anchor]
+
+            def ok(walk, budget=budget):
+                cost = segment_cost(walk)
+                return cost is not None and cost <= budget + 1e-9 * max(1.0, budget)
+        if not _line_of_sight(*cells[anchor], *cells[i], blocked, ok):
             out.append(cells[i - 1])
             anchor = i - 1
         i += 1
