@@ -46,10 +46,10 @@ const fc = (features: GeoJSON.Feature[]): GeoJSON.FeatureCollection => ({ type: 
 function crossFeatures(m: TransitMapModel): GeoJSON.Feature[] {
   const alt = m.alternatives.find((a) => a.id === m.selected);
   if (!alt) return [];
-  const zones = crossSlopeZones(alt, m.slopeLimit).map((coordinates) => feature({ type: 'LineString', coordinates }, { kind: 'zone' }));
+  const zones = crossSlopeZones(alt, m.slopeLimit).map((coordinates) => feature({ type: 'LineString', coordinates }, { kind: 'zone', stale: m.stale }));
   const max = maxCrossSlopePoint(alt);
   const high = m.slopeLimit != null && max != null && max.deg > m.slopeLimit;
-  return max ? [...zones, feature({ type: 'Point', coordinates: max.at }, { kind: 'max', deg: max.deg, high })] : zones;
+  return max ? [...zones, feature({ type: 'Point', coordinates: max.at }, { kind: 'max', deg: max.deg, high, stale: m.stale })] : zones;
 }
 
 export function buildTransitSources(m: TransitMapModel): Record<TransitSourceId, GeoJSON.FeatureCollection> {
@@ -73,7 +73,8 @@ export function changedTransitSources(prev: TransitMapModel | null, next: Transi
   if (prev.context !== next.context) out.push('tr-parcels', 'tr-gates', 'tr-zones');
   if (prev.alternatives !== next.alternatives || prev.selected !== next.selected || prev.stale !== next.stale) out.push('tr-alts');
   if (prev.focus !== next.focus) out.push('tr-focus');
-  if (prev.alternatives !== next.alternatives || prev.selected !== next.selected || prev.slopeLimit !== next.slopeLimit) out.push('tr-cross');
+  if (prev.alternatives !== next.alternatives || prev.selected !== next.selected || prev.slopeLimit !== next.slopeLimit
+    || prev.stale !== next.stale) out.push('tr-cross');
   if (prev.hover !== next.hover) out.push('tr-hover');
   return out;
 }
@@ -115,11 +116,12 @@ export function transitLayerSpecs(): LayerSpecification[] {
     // Cross slope above the limit over the chosen route, and its maximum.
     {
       id: 'tr-cross-line', type: 'line', source: 'tr-cross', filter: ['==', ['get', 'kind'], 'zone'],
-      layout: { 'line-cap': 'round' }, paint: { 'line-color': C.bad, 'line-width': 5 },
+      layout: { 'line-cap': 'round' }, paint: { 'line-color': C.bad, 'line-width': 5, 'line-opacity': ['case', ['get', 'stale'], 0.4, 1] },
     },
     {
       id: 'tr-cross-point', type: 'circle', source: 'tr-cross', filter: ['==', ['get', 'kind'], 'max'],
-      paint: { 'circle-radius': 9, 'circle-color': 'rgba(0,0,0,0)', 'circle-stroke-color': ['case', ['get', 'high'], C.bad, C.crossOk], 'circle-stroke-width': 3 },
+      paint: { 'circle-radius': 9, 'circle-color': 'rgba(0,0,0,0)', 'circle-stroke-color': ['case', ['get', 'high'], C.bad, C.crossOk], 'circle-stroke-width': 3,
+        'circle-stroke-opacity': ['case', ['get', 'stale'], 0.4, 1] },
     },
     {
       id: 'tr-hover-circle', type: 'circle', source: 'tr-hover',
