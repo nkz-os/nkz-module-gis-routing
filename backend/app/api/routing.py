@@ -38,7 +38,7 @@ from app.api.pathfinding_router import build_dem_registry
 from app.config import get_settings
 from nkz_platform_sdk.crypto import generate_hmac_signature
 from app.services.machines import fetch_machine_kinematics
-from app.services.coverage.machine_geometry import check_roles, machine_geometry
+from app.services.coverage.machine_geometry import check_roles, machine_geometry, machine_role
 from app.services.coverage.errors import PlanError
 from app.services.plan_store import PLAN_STORE
 from app.services.pathfinding.job_store import JobStore, JobLimitError
@@ -63,12 +63,7 @@ def _relationship_target(entity: dict, key: str) -> str:
 
 
 def _machine_role_from_category(category: str) -> str:
-    value = (category or "").strip().lower()
-    if value in {"tractor", "tractors", "vehicle", "power_unit"}:
-        return "tractor"
-    if value in {"implement", "apero", "tool", "attachment"}:
-        return "implement"
-    return "unknown"
+    return machine_role(category)
 
 
 def _to_float(value, default: float = 0.0) -> float:
@@ -729,8 +724,10 @@ async def _generate_plan(body: GenerateRequest, auth: AuthContext) -> dict:
         from app.services.coverage.tractor_track import tractor_track
         t_lines, t_warnings = tractor_track(plan.swaths, geom.e, (geom.track or 0.0) / 2.0,
                                             parcel_utm, zones_utm)
-        plan_dict["tractor_offset_m"] = geom.e
-        plan_dict["tractor_swaths"] = [geojson_wgs84(g, to_wgs84) for g in t_lines] if t_lines else None
+        # The implement's lateral offset (> 0 right of travel); the tractor runs on the other side.
+        plan_dict["implement_lateral_m"] = geom.e
+        plan_dict["tractor_swaths"] = ([geojson_wgs84(g, to_wgs84) if g is not None else None for g in t_lines]
+                                       if t_lines else None)
         if contour_warning or geom.warnings or t_warnings:
             if plan_dict.get("validation") is None:
                 plan_dict["validation"] = {"ok": True, "checks": [], "fallbacks_applied": [],

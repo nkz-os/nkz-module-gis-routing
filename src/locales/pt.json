@@ -339,7 +339,8 @@
       "CONTOUR_TERRAIN_FLAT": "Parcela quase plana, sem curvas de nível claras: foi usado o rumo mais eficiente.",
       "MACHINE_GEOMETRY_INCOMPLETE": "Faltam medidas da máquina: {{missing}}. Sem elas a cabeceira ignora a distância do trator à alfaia; complete-as no editor da máquina.",
       "MACHINE_GEOMETRY_SUSPECT": "Verifique o sinal de: {{fields}}. Para trás é negativo e para a frente positivo.",
-      "TRACTOR_TRACK_OUTSIDE": "Com a alfaia deslocada, o trator sai da parcela ou entra numa zona NO-GO em alguma passagem."
+      "TRACTOR_TRACK_OUTSIDE": "Com a alfaia deslocada, o trator sai da parcela ou entra numa zona NO-GO em alguma passagem.",
+      "TRACTOR_TRACK_UNAVAILABLE": "Não foi possível traçar a linha do trator em alguma volta: é mais estreita do que o deslocamento da alfaia."
     },
     "fallbacks": {
       "headland": "Passagens de cabeceira ajustadas de {{a}} para {{b}}",

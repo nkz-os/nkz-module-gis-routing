@@ -38,7 +38,9 @@ def _need(width: float, cov_width: float, radius: float, curve_type: str,
     # Next pass (boustrophedon) and the one after (snake): the deeper turn wins. With a side
     # implement the tractor's passes alternate +/- 2|lateral| around that spacing.
     shift = 2.0 * abs(lateral_m)
-    spacings = {s + k for s in (cov_width, 2 * cov_width) for k in (0.0, shift, -shift) if s + k > 0}
+    # A negative spacing is the mirrored turn: same advance as its absolute value.
+    spacings = {abs(s + k) for s in (cov_width, 2 * cov_width) for k in (0.0, shift, -shift)}
+    spacings = {s for s in spacings if s > 1e-3}
     advance = max(_turn_advance(robot, s) for s in spacings)
     # The implement lifts at the pass end with the turning point |lag| further on (or, for
     # a front implement, |lag| behind while the implement leads): either way the turn runs

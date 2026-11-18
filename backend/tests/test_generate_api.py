@@ -543,12 +543,12 @@ def test_side_mower_plan_carries_the_tractor_track(monkeypatch):
     resp = _gen(monkeypatch, tractor_id=_T, implement_id=_I)
     assert resp.status_code == 200, resp.text
     plan = resp.json()["plan"]
-    assert plan["tractor_offset_m"] == 1.5
+    assert plan["implement_lateral_m"] == 1.5
     assert len(plan["tractor_swaths"]) == len(plan["swaths"])
-    assert all(g["type"] == "LineString" for g in plan["tractor_swaths"])
+    assert all(g is None or g["type"] == "LineString" for g in plan["tractor_swaths"])
 
 
 def test_centred_implement_plan_has_no_tractor_track(monkeypatch):
     _machines(monkeypatch, {_T: _TRACTOR, _I: _DRILL})
     plan = _gen(monkeypatch, tractor_id=_T, implement_id=_I).json()["plan"]
-    assert plan["tractor_offset_m"] == 0.0 and plan["tractor_swaths"] is None
+    assert plan["implement_lateral_m"] == 0.0 and plan["tractor_swaths"] is None

@@ -59,7 +59,8 @@ export const StepMachine: React.FC<StepProps> = ({ state, dispatch }) => {
     const implement = list.find((e) => e.id === implementId);
     const tractor = list.find((e) => e.id === tractorId);
     return {
-      widthM: num(implement?.implementWidth) ?? num(tractor?.implementWidth),
+      // An implement without a width leaves it to the user, never the tractor's.
+      widthM: implement ? num(implement.implementWidth) : num(tractor?.implementWidth),
       turningRadiusM: num(tractor?.minTurningRadius) ?? num(implement?.minTurningRadius),
     };
   };

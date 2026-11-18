@@ -339,7 +339,8 @@
       "CONTOUR_TERRAIN_FLAT": "Parcel·la gairebé plana, sense corbes de nivell clares: s'ha fet servir el rumb més eficient.",
       "MACHINE_GEOMETRY_INCOMPLETE": "Falten mesures de la màquina: {{missing}}. Sense elles la capçalera no té en compte la distància del tractor a l'apero; completa-les a l'editor de la màquina.",
       "MACHINE_GEOMETRY_SUSPECT": "Revisa el signe de: {{fields}}. Cap enrere és negatiu i cap endavant positiu.",
-      "TRACTOR_TRACK_OUTSIDE": "Amb l'apero desplaçat, el tractor surt de la parcel·la o trepitja una zona NO-GO en alguna passada."
+      "TRACTOR_TRACK_OUTSIDE": "Amb l'apero desplaçat, el tractor surt de la parcel·la o trepitja una zona NO-GO en alguna passada.",
+      "TRACTOR_TRACK_UNAVAILABLE": "No s'ha pogut traçar la línia del tractor en alguna volta: és més estreta que el desplaçament de l'apero."
     },
     "fallbacks": {
       "headland": "Passades de capçalera ajustades de {{a}} a {{b}}",

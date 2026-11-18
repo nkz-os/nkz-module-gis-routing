@@ -78,8 +78,11 @@ export const WorkRoutePanel: React.FC<Props> = ({ parcelId }) => {
       const res = await api.generate({
         parcel_id: parcelId,
         parcel_geometry: geom.geometry,
-        tractor_id: null,
-        implement_id: implementId || null,
+        // A tractor or self-propelled machine goes as the tractor (it turns and works alone);
+        // anything else as the implement.
+        ...(equipment.find((m: any) => m.id === implementId)?.machine_role === 'tractor'
+          ? { tractor_id: implementId, implement_id: null }
+          : { tractor_id: null, implement_id: implementId || null }),
         pattern: pattern as GenerateRequest['pattern'],
         pattern_config: {
           width_m: widthM, overlap_pct: 10, headland_passes: 1, heading_objective: 'efficiency',

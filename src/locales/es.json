@@ -339,7 +339,8 @@
       "CONTOUR_TERRAIN_FLAT": "Parcela casi llana, sin curvas de nivel claras: se ha usado el rumbo más eficiente.",
       "MACHINE_GEOMETRY_INCOMPLETE": "Faltan medidas de la máquina: {{missing}}. Sin ellas la cabecera no cuenta la distancia del tractor al apero; complétalas en el editor de la máquina.",
       "MACHINE_GEOMETRY_SUSPECT": "Revisa el signo de: {{fields}}. Hacia atrás es negativo y hacia delante positivo.",
-      "TRACTOR_TRACK_OUTSIDE": "Con el apero desplazado, el tractor se sale de la parcela o pisa una zona NO-GO en alguna pasada."
+      "TRACTOR_TRACK_OUTSIDE": "Con el apero desplazado, el tractor se sale de la parcela o pisa una zona NO-GO en alguna pasada.",
+      "TRACTOR_TRACK_UNAVAILABLE": "No se pudo trazar la línea del tractor en alguna vuelta: es más estrecha que el desplazamiento del apero."
     },
     "fallbacks": {
       "headland": "Pasadas de cabecera ajustadas de {{a}} a {{b}}",

@@ -339,7 +339,8 @@
       "CONTOUR_TERRAIN_FLAT": "Lursail ia laua, sestra-kurba argirik gabe: norabide eraginkorrena erabili da.",
       "MACHINE_GEOMETRY_INCOMPLETE": "Makinaren neurriak falta dira: {{missing}}. Haiek gabe goiburuak ez du kontuan hartzen traktoretik tresnarako distantzia; osatu makinaren editorean.",
       "MACHINE_GEOMETRY_SUSPECT": "Egiaztatu zeinua: {{fields}}. Atzerantz negatiboa da eta aurrerantz positiboa.",
-      "TRACTOR_TRACK_OUTSIDE": "Tresna desplazatuta, traktorea partzelatik ateratzen da edo NO-GO eremu bat zapaltzen du pasaldiren batean."
+      "TRACTOR_TRACK_OUTSIDE": "Tresna desplazatuta, traktorea partzelatik ateratzen da edo NO-GO eremu bat zapaltzen du pasaldiren batean.",
+      "TRACTOR_TRACK_UNAVAILABLE": "Ezin izan da traktorearen lerroa marraztu bueltaren batean: tresnaren desplazamendua baino estuagoa da."
     },
     "fallbacks": {
       "headland": "Muga-pasadak doituta: {{a}} -> {{b}}",

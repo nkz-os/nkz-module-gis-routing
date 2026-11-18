@@ -57,3 +57,13 @@ def test_side_offset_tightens_one_of_the_turns_and_never_makes_the_headland_shal
     side = headland_need(RobotParams(width=3.0, cov_width=6.0, min_turning_radius=8.0, curve_type="dubins",
                                      lateral_m=1.5))
     assert side.needed_m >= base.needed_m
+
+
+def test_offset_larger_than_half_the_width_keeps_the_mirrored_tight_turn():
+    # cov 3: e 1.0 and e 2.0 both give a 1 m tractor spacing (3 - 2 and |3 - 4|),
+    # the tightest turn of each set, so they need the same headland.
+    one = headland_need(RobotParams(width=2.0, cov_width=3.0, min_turning_radius=6.0, curve_type="dubins",
+                                    lateral_m=1.0))
+    two = headland_need(RobotParams(width=2.0, cov_width=3.0, min_turning_radius=6.0, curve_type="dubins",
+                                    lateral_m=2.0))
+    assert two.needed_m == pytest.approx(one.needed_m, abs=0.05)

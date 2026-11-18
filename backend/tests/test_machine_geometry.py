@@ -101,3 +101,20 @@ def test_an_empty_string_is_a_gap_not_zero():
     g = machine_geometry({**TRACTOR, "hitchOffsetX": ""}, DRILL)
     assert g.d == 0.0
     assert "hitchOffsetX" in codes(g)["MACHINE_GEOMETRY_INCOMPLETE"]["missing"]
+
+
+def test_implement_without_width_does_not_borrow_the_tractor_width():
+    g = machine_geometry({**TRACTOR, "implementWidth": 2.5}, {k: v for k, v in DRILL.items() if k != "implementWidth"})
+    assert g.width is None  # the typed width applies, not the tractor's
+
+
+def test_roles_are_read_like_the_machine_list_reads_them():
+    with pytest.raises(PlanError):
+        check_roles({"category": "Apero"}, None, tractor_id="t", implement_id=None)
+    with pytest.raises(PlanError):
+        check_roles(None, {"category": "Tractor"}, tractor_id=None, implement_id="i")
+
+
+def test_a_zero_tractor_radius_counts_as_missing():
+    legacy = {**DRILL, "minTurningRadius": 7.0}
+    assert machine_geometry({**TRACTOR, "minTurningRadius": 0}, legacy).radius == 7.0

@@ -35,14 +35,24 @@ def _num(machine: dict | None, key: str) -> float | None:
         return None
 
 
+def machine_role(category) -> str:
+    """tractor | implement | unknown, accepting the aliases older entities carry."""
+    value = str(category or "").strip().lower()
+    if value in {"tractor", "tractors", "vehicle", "power_unit"}:
+        return "tractor"
+    if value in {"implement", "apero", "tool", "attachment"}:
+        return "implement"
+    return "unknown"
+
+
 def check_roles(tractor: dict | None, implement: dict | None, *,
                 tractor_id: str | None, implement_id: str | None) -> None:
     """A machine picked as tractor must not be an implement, and the reverse.
     A machine without a known category is accepted (older entities carry none)."""
-    if tractor is not None and tractor.get("category") == "implement":
+    if tractor is not None and machine_role(tractor.get("category")) == "implement":
         raise PlanError("MACHINE_ROLE_MISMATCH", "the machine picked as tractor is an implement",
                         {"tractor_id": tractor_id})
-    if implement is not None and implement.get("category") == "tractor":
+    if implement is not None and machine_role(implement.get("category")) == "tractor":
         raise PlanError("MACHINE_ROLE_MISMATCH", "the machine picked as implement is a tractor",
                         {"implement_id": implement_id})
 
@@ -84,14 +94,16 @@ def machine_geometry(tractor: dict | None, implement: dict | None) -> MachineGeo
         warnings.append({"code": "MACHINE_GEOMETRY_INCOMPLETE", "params": {"missing": missing}})
     if suspect:
         warnings.append({"code": "MACHINE_GEOMETRY_SUSPECT", "params": {"fields": suspect}})
-    width = _num(implement, "implementWidth")
-    if width is None:
-        width = _num(tractor, "implementWidth")
+    # The working width belongs to the implement; a machine alone carries its own. An
+    # implement without one leaves the width to the user, never the tractor's.
+    width = _num(working, "implementWidth")
+    tractor_radius = _num(tractor, "minTurningRadius")
+    if tractor_radius is not None and tractor_radius <= 0:
+        tractor_radius = None  # a stored 0 cannot be a turning radius
     return MachineGeometry(
         width=width,
         track=track,
-        radius=(_num(tractor, "minTurningRadius") if _num(tractor, "minTurningRadius") is not None
-                else _num(implement, "minTurningRadius")),
+        radius=tractor_radius if tractor_radius is not None else _num(implement, "minTurningRadius"),
         steering=str((tractor or {}).get("steeringType") or (implement or {}).get("steeringType") or ""),
         d=d,
         # Absent lateral offset = centred (nearly every implement): not reported as a gap.

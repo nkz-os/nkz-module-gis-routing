@@ -339,7 +339,8 @@
       "CONTOUR_TERRAIN_FLAT": "Nearly flat parcel with no clear contours: the most efficient heading was used.",
       "MACHINE_GEOMETRY_INCOMPLETE": "Missing machine measures: {{missing}}. Without them the headland ignores the tractor-to-implement distance; complete them in the machine editor.",
       "MACHINE_GEOMETRY_SUSPECT": "Check the sign of: {{fields}}. Behind is negative, ahead is positive.",
-      "TRACTOR_TRACK_OUTSIDE": "With the offset implement, the tractor leaves the parcel or enters a NO-GO zone on some pass."
+      "TRACTOR_TRACK_OUTSIDE": "With the offset implement, the tractor leaves the parcel or enters a NO-GO zone on some pass.",
+      "TRACTOR_TRACK_UNAVAILABLE": "The tractor line could not be drawn on some round: it is narrower than the implement offset."
     },
     "fallbacks": {
       "headland": "Headland passes adjusted from {{a}} to {{b}}",

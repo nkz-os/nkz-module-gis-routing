@@ -266,6 +266,21 @@ describe('work steps', () => {
     });
   });
 
+  it('StepMachine does not borrow the tractor width for an implement without one', async () => {
+    const dispatch = vi.fn();
+    (api.listEquipment as any).mockResolvedValue([
+      { id: 't1', name: 'Tractor', category: 'tractor', minTurningRadius: 5, implementWidth: 2.5 },
+      { id: 'i1', name: 'Roller', category: 'implement' },
+    ]);
+    const state = parcelState({ machine: { ...initialWorkState.machine, tractorId: 't1' } });
+    render(<StepMachine state={state} dispatch={dispatch} />);
+    await screen.findByText('Roller');
+    fireEvent.change(screen.getAllByRole('combobox')[2], { target: { value: 'i1' } });
+    const last = dispatch.mock.calls[dispatch.mock.calls.length - 1][0];
+    expect(last.machine.widthM).toBeUndefined();
+    expect(last.machine.turningRadiusM).toBe(5);
+  });
+
   it('StepMachine shows "from machine" badges and typing dispatches manual', async () => {
     const dispatch = vi.fn();
     (api.listEquipment as any).mockResolvedValue([]);
