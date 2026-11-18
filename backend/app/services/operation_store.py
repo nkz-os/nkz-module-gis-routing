@@ -253,7 +253,7 @@ def build_transit_entity(*, op_id: str, parcel_id: str, name: Optional[str], alt
         "plannedEndAt": {"type": "Property", "value": end},
     }
     # Cross slope along the route (one value per elevationProfile point) and where it peaks,
-    # so a saved transit shows its rollover stretches again. Older routes carry neither.
+    # kept with the saved transit and returned by the plan export. Older routes carry neither.
     if alternative.get("cross_slope_profile") is not None:
         entity["crossSlopeProfile"] = {"type": "Property", "value": alternative["cross_slope_profile"]}
     if alternative.get("max_cross_slope_at") is not None:

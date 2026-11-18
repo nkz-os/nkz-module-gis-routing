@@ -183,13 +183,19 @@ export const StepMachine: React.FC<StepProps> = ({ state, dispatch }) => {
 const PairLines: React.FC<{ geom: ReturnType<typeof pairGeometry>; t: (k: string, o?: any) => string; lang: string }> = ({ geom, t, lang }) => {
   if (!geom) return null;
   const m = (v: number) => Math.abs(v).toLocaleString(lang, { maximumFractionDigits: 1 });
+  const shown = (v: number) => Math.abs(v) >= 0.05; // a value that rounds to 0 says nothing
   return (
     <div className="space-y-1">
-      {geom.d !== null && geom.d !== 0 && (
+      {geom.d !== null && shown(geom.d) && (
         <p className="text-nkz-sm text-nkz-text-secondary">{t(geom.d < 0 ? 'work.machine.lagBehind' : 'work.machine.lagAhead', { m: m(geom.d) })}</p>
       )}
-      {geom.e !== 0 && (
+      {shown(geom.e) && (
         <p className="text-nkz-sm text-nkz-text-secondary">{t(geom.e > 0 ? 'work.machine.lateralRight' : 'work.machine.lateralLeft', { m: m(geom.e) })}</p>
+      )}
+      {geom.suspect.length > 0 && (
+        <p className="text-nkz-sm text-nkz-text-secondary">
+          {t('work.warnings.MACHINE_GEOMETRY_SUSPECT', { fields: geom.suspect.map((f) => t(`work.machineFields.${f}`, { defaultValue: f })).join(', ') })}
+        </p>
       )}
       {geom.missing.length > 0 && (
         <p className="text-nkz-sm text-nkz-text-secondary">
