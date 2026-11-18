@@ -153,10 +153,25 @@ def test_save_transit(client):
     assert ent["location"]["value"]["coordinates"][0][0] == pytest.approx(-1.99)
     assert ent["elevationProfile"]["value"][0] == [-1.99, 43.0, 100.0]
     assert ent["transitMetrics"]["value"] == {
-        "distance_m": 150.0, "cumulative_climb_m": 5.0, "max_slope_deg_found": 3.2}
+        "distance_m": 150.0, "cumulative_climb_m": 5.0, "max_slope_deg_found": 3.2,
+        "max_cross_slope_deg_found": None}
+    assert "crossSlopeProfile" not in ent
     assert ent["plannedStartAt"]["value"]["@value"].endswith("Z")
     assert ent["plannedEndAt"]["value"]["@value"] > ent["plannedStartAt"]["value"]["@value"]
     assert ent["isTemplate"]["value"] is False
+
+
+def test_save_transit_keeps_the_cross_slope(client):
+    jid = JOBS.create("tenant-a")
+    alt = {**_alt("fastest"), "max_cross_slope_deg_found": 21.5, "cross_slope_profile": [3.0, 21.5],
+           "max_cross_slope_at": [-2.0, 43.0]}
+    JOBS.set(jid, {"status": "completed", "alternatives": [alt], "report": {}})
+    r = client.post(URL, json={"kind": "transit", "job_id": jid, "alternative_id": "fastest", "parcel_id": PARCEL})
+    assert r.status_code == 200, r.text
+    ent = _Orion.created[-1]
+    assert ent["crossSlopeProfile"]["value"] == [3.0, 21.5]
+    assert ent["maxCrossSlopeAt"]["value"] == [-2.0, 43.0]
+    assert ent["transitMetrics"]["value"]["max_cross_slope_deg_found"] == 21.5
 
 
 def test_transit_requires_parcel(client):

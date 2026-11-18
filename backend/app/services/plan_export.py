@@ -104,6 +104,8 @@ def plan_feature_collection(entity: dict, parcel_geometry: dict | None = None,
             features.append(_feat(
                 "transit", location,
                 elevation_profile=_attr_value(entity, "elevationProfile") or [],
+                cross_slope_profile=_attr_value(entity, "crossSlopeProfile"),
+                max_cross_slope_at=_attr_value(entity, "maxCrossSlopeAt"),
                 metrics=_attr_value(entity, "transitMetrics") or {}))
         partial = not location
     else:

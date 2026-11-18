@@ -243,7 +243,8 @@ def build_transit_entity(*, op_id: str, parcel_id: str, name: Optional[str], alt
         "transitMetrics": {"type": "Property", "value": {
             "distance_m": alternative.get("distance_m"),
             "cumulative_climb_m": alternative.get("cumulative_climb_m"),
-            "max_slope_deg_found": alternative.get("max_slope_deg_found")}},
+            "max_slope_deg_found": alternative.get("max_slope_deg_found"),
+            "max_cross_slope_deg_found": alternative.get("max_cross_slope_deg_found")}},
         "totalDistanceM": {"type": "Property", "value": alternative.get("distance_m")},
         "isTemplate": {"type": "Property", "value": False},
         "dateCreated": {"type": "Property", "value": _now_iso()},
@@ -251,6 +252,12 @@ def build_transit_entity(*, op_id: str, parcel_id: str, name: Optional[str], alt
         "plannedStartAt": {"type": "Property", "value": start},
         "plannedEndAt": {"type": "Property", "value": end},
     }
+    # Cross slope along the route (one value per elevationProfile point) and where it peaks,
+    # so a saved transit shows its rollover stretches again. Older routes carry neither.
+    if alternative.get("cross_slope_profile") is not None:
+        entity["crossSlopeProfile"] = {"type": "Property", "value": alternative["cross_slope_profile"]}
+    if alternative.get("max_cross_slope_at") is not None:
+        entity["maxCrossSlopeAt"] = {"type": "Property", "value": alternative["max_cross_slope_at"]}
     if constraints_used:
         # What the route had to respect: {parcels, gated, zones} seen when it was computed.
         entity["constraintsUsed"] = {"type": "Property", "value": dict(constraints_used)}
