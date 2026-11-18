@@ -28,15 +28,18 @@ class HeadlandNeed:
 
 def headland_need(robot: RobotParams) -> HeadlandNeed:
     return _need(robot.width, robot.cov_width, robot.min_turning_radius, robot.curve_type,
-                 robot.lag_m, robot.body_half_width)
+                 robot.lag_m, robot.body_half_width, robot.lateral_m)
 
 
 @lru_cache(maxsize=64)
 def _need(width: float, cov_width: float, radius: float, curve_type: str,
-          lag_m: float = 0.0, body_half_width: float = 0.0) -> HeadlandNeed:
+          lag_m: float = 0.0, body_half_width: float = 0.0, lateral_m: float = 0.0) -> HeadlandNeed:
     robot = RobotParams(width=width, cov_width=cov_width, min_turning_radius=radius, curve_type=curve_type)
-    # Next pass (boustrophedon) and the one after (snake): the deeper turn wins.
-    advance = max(_turn_advance(robot, cov_width), _turn_advance(robot, 2 * cov_width))
+    # Next pass (boustrophedon) and the one after (snake): the deeper turn wins. With a side
+    # implement the tractor's passes alternate +/- 2|lateral| around that spacing.
+    shift = 2.0 * abs(lateral_m)
+    spacings = {s + k for s in (cov_width, 2 * cov_width) for k in (0.0, shift, -shift) if s + k > 0}
+    advance = max(_turn_advance(robot, s) for s in spacings)
     # The implement lifts at the pass end with the turning point |lag| further on (or, for
     # a front implement, |lag| behind while the implement leads): either way the turn runs
     # |lag| deeper. The wider of implement and tractor sets the side extent.

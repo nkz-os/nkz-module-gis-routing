@@ -50,3 +50,10 @@ def test_a_tractor_wider_than_the_implement_sets_the_floor():
     wide_body = headland_need(RobotParams(width=3.0, cov_width=2.0, min_turning_radius=4.0, curve_type="dubins",
                                           body_half_width=1.5))
     assert wide_body.needed_m == pytest.approx(narrow.needed_m - 1.0 + 1.5)
+
+
+def test_side_offset_tightens_one_of_the_turns_and_never_makes_the_headland_shallower():
+    base = headland_need(RobotParams(width=3.0, cov_width=6.0, min_turning_radius=8.0, curve_type="dubins"))
+    side = headland_need(RobotParams(width=3.0, cov_width=6.0, min_turning_radius=8.0, curve_type="dubins",
+                                     lateral_m=1.5))
+    assert side.needed_m >= base.needed_m

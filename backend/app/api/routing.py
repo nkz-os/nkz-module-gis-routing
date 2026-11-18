@@ -668,6 +668,7 @@ async def _generate_plan(body: GenerateRequest, auth: AuthContext) -> dict:
         overlap_pct=pc.overlap_pct,
         turning_radius_override=pc.turning_radius_m,
         lag_m=geom.d,
+        lateral_m=geom.e,
     )
     logger.info("generate: machine geometry d=%.2f e=%.2f width=%s radius=%s warnings=%s parcel_id=%s",
                 geom.d, geom.e, geom.width, geom.radius, [w["code"] for w in geom.warnings], body.parcel_id)
@@ -723,7 +724,14 @@ async def _generate_plan(body: GenerateRequest, auth: AuthContext) -> dict:
             tenant_id=auth.tenant_id, parcel_id=body.parcel_id)
         result = plan.to_route_result(to_wgs84, robot.cov_width)
         plan_dict = plan.as_api_dict(to_wgs84, robot.cov_width)
-        if contour_warning or geom.warnings:
+        # Side implement: where the tractor drives, and whether its wheels stay in.
+        from app.services.coverage.plan import geojson_wgs84
+        from app.services.coverage.tractor_track import tractor_track
+        t_lines, t_warnings = tractor_track(plan.swaths, geom.e, (geom.track or 0.0) / 2.0,
+                                            parcel_utm, zones_utm)
+        plan_dict["tractor_offset_m"] = geom.e
+        plan_dict["tractor_swaths"] = [geojson_wgs84(g, to_wgs84) for g in t_lines] if t_lines else None
+        if contour_warning or geom.warnings or t_warnings:
             if plan_dict.get("validation") is None:
                 plan_dict["validation"] = {"ok": True, "checks": [], "fallbacks_applied": [],
                                            "warnings": []}
@@ -733,6 +741,10 @@ async def _generate_plan(body: GenerateRequest, auth: AuthContext) -> dict:
         if geom.warnings:
             plan_dict["validation"]["warnings"].extend(
                 {"code": w["code"], "geometry": None, "params": w["params"]} for w in geom.warnings)
+        if t_warnings:
+            plan_dict["validation"]["warnings"].extend(
+                {"code": w.code, "geometry": geojson_wgs84(w.geometry, to_wgs84), "params": w.params}
+                for w in t_warnings)
     except PlanError:
         raise
     except Exception as exc:

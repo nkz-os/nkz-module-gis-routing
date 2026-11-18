@@ -535,3 +535,20 @@ def test_a_plan_without_validation_and_without_machine_warnings_still_answers(mo
     monkeypatch.setattr(plan_mod.CoveragePlan, "as_api_dict", no_validation)
     resp = _gen(monkeypatch)
     assert resp.status_code == 200, resp.text
+
+
+def test_side_mower_plan_carries_the_tractor_track(monkeypatch):
+    mower = {"category": "implement", "implementWidth": 3.0, "implementOffsetX": -1.0, "implementOffsetY": 1.5}
+    _machines(monkeypatch, {_T: _TRACTOR, _I: mower})
+    resp = _gen(monkeypatch, tractor_id=_T, implement_id=_I)
+    assert resp.status_code == 200, resp.text
+    plan = resp.json()["plan"]
+    assert plan["tractor_offset_m"] == 1.5
+    assert len(plan["tractor_swaths"]) == len(plan["swaths"])
+    assert all(g["type"] == "LineString" for g in plan["tractor_swaths"])
+
+
+def test_centred_implement_plan_has_no_tractor_track(monkeypatch):
+    _machines(monkeypatch, {_T: _TRACTOR, _I: _DRILL})
+    plan = _gen(monkeypatch, tractor_id=_T, implement_id=_I).json()["plan"]
+    assert plan["tractor_offset_m"] == 0.0 and plan["tractor_swaths"] is None
