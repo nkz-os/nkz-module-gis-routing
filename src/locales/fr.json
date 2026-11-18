@@ -258,7 +258,12 @@
       "width": "Largeur de travail (m)",
       "radius": "Rayon de braquage (m)",
       "overlap": "Chevauchement (%)",
-      "summary": "{{w}} m · R {{r}} m"
+      "summary": "{{w}} m · R {{r}} m",
+      "lagBehind": "Outil {{m}} m derrière le point de pivot du tracteur",
+      "lagAhead": "Outil {{m}} m devant le point de pivot du tracteur",
+      "lateralRight": "Déporté de {{m}} m à droite",
+      "lateralLeft": "Déporté de {{m}} m à gauche",
+      "missing": "Mesures manquantes : {{fields}}"
     },
     "pattern": {
       "auto": "Automatique",

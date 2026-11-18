@@ -43,4 +43,16 @@ describe('tr-cross source', () => {
     expect(ids.indexOf('tr-cross-line')).toBeGreaterThan(ids.indexOf('tr-alts-line'));
     expect(ids).toContain('tr-cross-point');
   });
+
+  it('marks the cross-slope overlay stale with the routes, and refreshes it when staleness changes', () => {
+    const f = buildTransitSources({ ...base, stale: true })['tr-cross'].features;
+    expect(f.every((x) => x.properties!.stale === true)).toBe(true);
+    expect(changedTransitSources(base, { ...base, stale: true })).toContain('tr-cross');
+    const specs = transitLayerSpecs();
+    for (const id of ['tr-cross-line', 'tr-cross-point']) {
+      const paint = specs.find((l) => l.id === id)!.paint as Record<string, unknown>;
+      expect(JSON.stringify(paint)).toContain('stale');
+    }
+  });
 });
+

@@ -70,3 +70,24 @@ def test_list_equipment_resolves_auth(monkeypatch):
         "(regression of cf5b228, live 502s in production on 2026-10-07)."
     )
     assert resp.json()[0]["machine_role"] == "tractor"
+
+
+def test_list_equipment_returns_the_pair_geometry(monkeypatch):
+    seen = {}
+
+    class Recording(_FakeOrion):
+        async def query_entities(self, *a, **k):
+            seen["attrs"] = k.get("attrs", "")
+            return list(self._entities)
+
+    mower = {**_machine("urn:m2"), "category": {"type": "Property", "value": "implement"},
+             "implementOffsetY": {"type": "Property", "value": 1.6},
+             "mountPosition": {"type": "Property", "value": "front"},
+             "transportWidth": {"type": "Property", "value": 3.0}}
+    monkeypatch.setattr("app.api.routing.OrionClient", lambda *a, **k: Recording(entities=[mower]))
+    (m,) = TestClient(create_app()).get("/api/routing/equipment").json()
+    for key in ("frontHitchOffsetX", "mountPosition", "implementOffsetY", "transportWidth",
+                "guidanceDeviceOffsetX", "guidanceDeviceOffsetY"):
+        assert key in seen["attrs"], key
+        assert key in m, key
+    assert (m["implementOffsetY"], m["mountPosition"], m["transportWidth"]) == (1.6, "front", 3.0)

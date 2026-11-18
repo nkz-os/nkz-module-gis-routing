@@ -507,13 +507,15 @@ export const GisRoutingMapLayer: React.FC<Props> = ({ viewer: propViewer }) => {
       crossSlopeZones(shown, pf.report?.max_slope_deg).forEach((coords, i) => {
         const id = `pf-cross-zone-${i}`;
         try {
-          viewer.entities.add({
+          // Drawn over the route: a click on it must select the route like a click on the line.
+          const zone = viewer.entities.add({
             id,
             polyline: {
               positions: Cesium.Cartesian3.fromDegreesArray(coords.flatMap(([lon, lat]) => [lon, lat])),
               width: 8, material: red, clampToGround: true,
             },
           });
+          (zone as any)._pfAlt = shown;
           pf.entities.push(id);
         } catch { /* skip */ }
       });
@@ -522,7 +524,7 @@ export const GisRoutingMapLayer: React.FC<Props> = ({ viewer: propViewer }) => {
       const limit = pf.report?.max_slope_deg;
       const tone = limit != null && max.deg > limit ? red : Cesium.Color.fromCssColorString(CROSS_SLOPE_OK_COLOR);
       try {
-        viewer.entities.add({
+        const maxEntity = viewer.entities.add({
           id: 'pf-cross-max',
           position: Cesium.Cartesian3.fromDegrees(max.at[0], max.at[1]),
           point: { pixelSize: 12, color: tone, outlineColor: Cesium.Color.WHITE, outlineWidth: 2,
@@ -533,6 +535,7 @@ export const GisRoutingMapLayer: React.FC<Props> = ({ viewer: propViewer }) => {
             verticalOrigin: Cesium.VerticalOrigin.BOTTOM, pixelOffset: new Cesium.Cartesian2(0, -12),
           },
         });
+        (maxEntity as any)._pfAlt = shown;
         pf.entities.push('pf-cross-max');
       } catch { /* skip */ }
     };

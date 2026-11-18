@@ -236,3 +236,22 @@ def test_per_zone_prescription_keeps_zone_id_and_label():
 def test_class_prescription_has_no_zone_keys():
     els = _els(plan_feature_collection(_work(vra=True), parcel_geometry=PARCEL))
     assert all("zone_id" not in f["properties"] for f in els["prescription_zone"])
+
+
+def test_transit_plan_carries_the_saved_cross_slope():
+    e = {"id": OP_ID, "type": "AgriParcelOperation", "operationType": _p("transit"),
+         "location": _geo(SW0),
+         "elevationProfile": _p([[-1.9999, 43.0002, 100.0], [-1.9976, 43.0002, 105.0]]),
+         "crossSlopeProfile": _p([3.0, 21.5]), "maxCrossSlopeAt": _p([-1.9976, 43.0002]),
+         "transitMetrics": _p({"distance_m": 150.0, "max_cross_slope_deg_found": 21.5})}
+    (t,) = plan_feature_collection(e)["features"]
+    assert t["properties"]["cross_slope_profile"] == [3.0, 21.5]
+    assert t["properties"]["max_cross_slope_at"] == [-1.9976, 43.0002]
+    assert t["properties"]["metrics"]["max_cross_slope_deg_found"] == 21.5
+
+
+def test_older_transit_without_cross_slope_still_exports():
+    e = {"id": OP_ID, "type": "AgriParcelOperation", "operationType": _p("transit"), "location": _geo(SW0)}
+    (t,) = plan_feature_collection(e)["features"]
+    assert t["properties"]["cross_slope_profile"] is None and t["properties"]["max_cross_slope_at"] is None
+

@@ -281,6 +281,19 @@ describe('work steps', () => {
     expect(last.machine.turningRadiusM).toBe(5);
   });
 
+  it('StepMachine shows where the implement works relative to the tractor, or which measures are missing', async () => {
+    (api.listEquipment as any).mockResolvedValue([
+      { id: 't1', name: 'Tractor', category: 'tractor', minTurningRadius: 5, hitchOffsetX: -1.2 },
+      { id: 'i1', name: 'Mower', category: 'implement', implementWidth: 3, implementOffsetX: -2, implementOffsetY: 1.6 },
+      { id: 'i2', name: 'Drill', category: 'implement', implementWidth: 4 },
+    ]);
+    const { rerender } = render(<StepMachine state={parcelState({ machine: { ...initialWorkState.machine, tractorId: 't1', implementId: 'i1' } })} dispatch={vi.fn()} />);
+    expect(await screen.findByText('Apero 3,2 m detrás del punto de giro del tractor')).toBeTruthy();
+    expect(screen.getByText('Desplazado 1,6 m a la derecha')).toBeTruthy();
+    rerender(<StepMachine state={parcelState({ machine: { ...initialWorkState.machine, tractorId: 't1', implementId: 'i2' } })} dispatch={vi.fn()} />);
+    expect(await screen.findByText(/Faltan medidas: centro de trabajo \(X\)/)).toBeTruthy();
+  });
+
   it('StepMachine shows "from machine" badges and typing dispatches manual', async () => {
     const dispatch = vi.fn();
     (api.listEquipment as any).mockResolvedValue([]);

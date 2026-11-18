@@ -258,7 +258,12 @@
       "width": "Working width (m)",
       "radius": "Turning radius (m)",
       "overlap": "Overlap (%)",
-      "summary": "{{w}} m · R {{r}} m"
+      "summary": "{{w}} m · R {{r}} m",
+      "lagBehind": "Implement {{m}} m behind the tractor's turning point",
+      "lagAhead": "Implement {{m}} m ahead of the tractor's turning point",
+      "lateralRight": "Offset {{m}} m to the right",
+      "lateralLeft": "Offset {{m}} m to the left",
+      "missing": "Missing measures: {{fields}}"
     },
     "pattern": {
       "auto": "Automatic",
