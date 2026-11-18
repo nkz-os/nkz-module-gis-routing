@@ -213,6 +213,29 @@ describe('A-B polling', () => {
     expect(max.point.color.name).toBe('#DC2626');
   });
 
+  it('a click on a red cross-slope stretch selects its route', async () => {
+    const crossAlt = (id: string, cross: number[]) => ({
+      id, label: id, distance_m: 100, cumulative_climb_m: 1, max_cross_slope_deg_found: Math.max(...cross),
+      geometry: { type: 'LineString', coordinates: [[0, 0], [3, 0]] },
+      elevation_profile: cross.map((_, i) => [i, 0, 1]), cross_slope_profile: cross,
+      max_cross_slope_at: [cross.indexOf(Math.max(...cross)), 0],
+    });
+    vi.mocked(api.getPathResult).mockResolvedValue({
+      status: 'completed', report: { max_slope_deg: 15 },
+      alternatives: [crossAlt('least_slope', [1, 20, 1, 1]), crossAlt('fastest', [1, 2, 3, 2])],
+    } as any);
+    await startAB();
+    await act(async () => { await vi.advanceTimersByTimeAsync(1600); });
+    const zone = added.find((e) => String(e.id).startsWith('pf-cross-zone-'));
+    const selected: any[] = [];
+    const onSel = (e: Event) => selected.push((e as CustomEvent).detail);
+    window.addEventListener('nekazari:gis-routing:pathAlternativeSelected', onSel);
+    viewer.scene.pick = () => ({ id: zone });
+    await act(async () => { inputActions.click({ position: [5, 5] }); });
+    window.removeEventListener('nekazari:gis-routing:pathAlternativeSelected', onSel);
+    expect(selected.map((a) => a.id)).toEqual(['least_slope']);
+  });
+
   it('uses the neutral colour for the max point of a route below the limit', async () => {
     vi.mocked(api.getPathResult).mockResolvedValue({
       status: 'completed', report: { max_slope_deg: 15 },
