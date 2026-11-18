@@ -118,6 +118,8 @@ def plan_coverage(
         )
     prev = Point(parts[-1][1].coords[-1]) if parts else access_utm
     for ring in rings:
+        if robot.lateral_m:
+            ring = _orient_ring(ring, ccw=robot.lateral_m > 0)
         ring = _rotate_ring(ring, prev)
         if parts and prev is not None and prev.distance(Point(ring.coords[0])) > _EPS:
             parts.append(("turn", LineString([prev.coords[0], ring.coords[0]])))
@@ -378,6 +380,13 @@ def _headland_rings(piece: Polygon, w: float, passes: int) -> list:
             ring_poly = max(ring_poly.geoms, key=lambda g: g.area)
         rings.append(LineString(ring_poly.exterior.coords))
     return rings[::-1]
+
+
+def _orient_ring(ring: LineString, ccw: bool) -> LineString:
+    """A side implement works the outside of each ring: offset right -> anticlockwise
+    (seen from above the outside is on the right), offset left -> clockwise."""
+    from shapely.geometry import LinearRing
+    return ring if LinearRing(ring.coords).is_ccw == ccw else LineString(list(ring.coords)[::-1])
 
 
 def _rotate_ring(ring: LineString, prev: Point | None) -> LineString:

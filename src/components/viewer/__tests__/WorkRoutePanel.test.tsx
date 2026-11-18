@@ -48,6 +48,17 @@ describe('WorkRoutePanel', () => {
     expect(body.pattern_config.turning_radius_m).toBe(6);
   });
 
+  it('sends a tractor or self-propelled machine as the tractor, an implement as the implement', async () => {
+    vi.mocked(api.listEquipment).mockResolvedValue([machine({ id: 'sp1', name: 'Self-propelled', machine_role: 'tractor' })]);
+    render(<WorkRoutePanel parcelId="p" />);
+    await waitFor(() => expect((screen.getByLabelText(/Ancho de trabajo|Working width/i) as HTMLInputElement).value).toBe('18'));
+    clickByText(/Generar|Generate/i);
+    await waitFor(() => expect(api.generate).toHaveBeenCalled());
+    const body = vi.mocked(api.generate).mock.calls[0][0];
+    expect(body.tractor_id).toBe('sp1');
+    expect(body.implement_id).toBeNull();
+  });
+
   it('asks for manual values when the machine lacks them and sends what was typed', async () => {
     vi.mocked(api.listEquipment).mockResolvedValue([machine({ implementWidth: null, minTurningRadius: null })]);
     render(<WorkRoutePanel parcelId="p" />);

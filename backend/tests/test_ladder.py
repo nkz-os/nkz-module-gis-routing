@@ -481,3 +481,25 @@ def test_headland_only_unchanged():
     plan = plan_with_fallbacks(_inp(robot=OWNER, pattern="headland-only", passes=1))
     assert plan.headland_passes == 1
     assert not [x for x in plan.validation.warnings if x.code == "HEADLAND_WIDENED"]
+
+
+def _rings(plan):
+    return [s.geometry for s in plan.swaths if s.kind == "headland"]
+
+
+def _ccw(line):
+    from shapely.geometry import LinearRing
+    return LinearRing(line.coords).is_ccw
+
+
+def test_side_mower_on_the_right_goes_round_anticlockwise_so_it_cuts_the_outside():
+    right = plan_with_fallbacks(_inp(pattern="headland-only", passes=2, robot=replace(ROBOT, lateral_m=1.5)))
+    assert _rings(right) and all(_ccw(r) for r in _rings(right))
+    left = plan_with_fallbacks(_inp(pattern="headland-only", passes=2, robot=replace(ROBOT, lateral_m=-1.5)))
+    assert all(not _ccw(r) for r in _rings(left))
+
+
+def test_centred_implement_keeps_todays_rings():
+    before = plan_with_fallbacks(_inp(pattern="headland-only", passes=2))
+    again = plan_with_fallbacks(_inp(pattern="headland-only", passes=2, robot=replace(ROBOT, lateral_m=0.0)))
+    assert [list(r.coords) for r in _rings(before)] == [list(r.coords) for r in _rings(again)]

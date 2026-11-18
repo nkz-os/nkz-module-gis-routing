@@ -164,7 +164,11 @@ async def _run_pathfinding(job_id: str, body: PathRequest, tenant_id: str):
         machine_width_m = body.machine_width_m
         if body.machine_id:
             kin = await fetch_machine_kinematics(body.machine_id, tenant_id)
-            width = kin.get("implementWidth")
+            # In transit an implement travels folded: its transport width, when known, is
+            # what must clear the no-go zones; otherwise the working width (conservative).
+            width = kin.get("transportWidth")
+            if not isinstance(width, (int, float)) or width <= 0:
+                width = kin.get("implementWidth")
             if not isinstance(width, (int, float)) or width <= 0:
                 logger.error("path/calculate: machine not found or has no implementWidth: machine_id=%s job=%s",
                              body.machine_id, job_id)

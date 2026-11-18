@@ -336,7 +336,11 @@
       "ZONES_NO_PRJ": "Shapefile sem .prj: assumem-se coordenadas WGS84 (EPSG:4326)",
       "PLAN_TOO_LARGE_TO_SAVE": "Este plano é demasiado grande para ser guardado ({{size_kb}} KB).",
       "CONTOUR_DEM_UNAVAILABLE": "Sem dados de relevo: foi usado o rumo mais eficiente em vez de seguir as curvas de nível.",
-      "CONTOUR_TERRAIN_FLAT": "Parcela quase plana, sem curvas de nível claras: foi usado o rumo mais eficiente."
+      "CONTOUR_TERRAIN_FLAT": "Parcela quase plana, sem curvas de nível claras: foi usado o rumo mais eficiente.",
+      "MACHINE_GEOMETRY_INCOMPLETE": "Faltam medidas da máquina: {{missing}}. Sem elas a cabeceira ignora a distância do trator à alfaia; complete-as no editor da máquina.",
+      "MACHINE_GEOMETRY_SUSPECT": "Verifique o sinal de: {{fields}}. Para trás é negativo e para a frente positivo.",
+      "TRACTOR_TRACK_OUTSIDE": "Com a alfaia deslocada, o trator sai da parcela ou entra numa zona NO-GO em alguma passagem.",
+      "TRACTOR_TRACK_UNAVAILABLE": "Não foi possível traçar a linha do trator em alguma volta: é mais estreita do que o deslocamento da alfaia."
     },
     "fallbacks": {
       "headland": "Passagens de cabeceira ajustadas de {{a}} para {{b}}",
@@ -375,7 +379,8 @@
       "EXPORT_NOT_SUPPORTED": "Este formato de exportação não está disponível para trânsitos.",
       "GENERATE_TIMEOUT": "O cálculo da rota está a demorar demasiado. Tente novamente.",
       "ZONING_NOT_FOUND": "Esse zonamento já não existe nesta parcela.",
-      "ZONING_NOT_MANUAL": "Só é possível eliminar zonamentos manuais."
+      "ZONING_NOT_MANUAL": "Só é possível eliminar zonamentos manuais.",
+      "MACHINE_ROLE_MISMATCH": "A máquina escolhida como trator é uma alfaia, ou o contrário. Verifique a seleção."
     },
     "actions": {
       "regenerate": "Regenerar",
@@ -429,6 +434,12 @@
         "workStarted": "Não aplicadas: o trabalho já tinha começado. Abra a ligação de novo para trazer as doses do FaST.",
         "transient": "Não foi possível carregar a parcela ou a zonificação (erro de rede ou do servidor). Recarregue a página para tentar de novo."
       }
+    },
+    "machineFields": {
+      "hitchOffsetX": "engate traseiro",
+      "frontHitchOffsetX": "engate dianteiro",
+      "implementOffsetX": "centro de trabalho (X)",
+      "trackWidth": "bitola"
     }
   },
   "autosave": {

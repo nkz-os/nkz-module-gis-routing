@@ -38,6 +38,7 @@ from app.api.pathfinding_router import build_dem_registry
 from app.config import get_settings
 from nkz_platform_sdk.crypto import generate_hmac_signature
 from app.services.machines import fetch_machine_kinematics
+from app.services.coverage.machine_geometry import check_roles, machine_geometry, machine_role
 from app.services.coverage.errors import PlanError
 from app.services.plan_store import PLAN_STORE
 from app.services.pathfinding.job_store import JobStore, JobLimitError
@@ -62,12 +63,7 @@ def _relationship_target(entity: dict, key: str) -> str:
 
 
 def _machine_role_from_category(category: str) -> str:
-    value = (category or "").strip().lower()
-    if value in {"tractor", "tractors", "vehicle", "power_unit"}:
-        return "tractor"
-    if value in {"implement", "apero", "tool", "attachment"}:
-        return "implement"
-    return "unknown"
+    return machine_role(category)
 
 
 def _to_float(value, default: float = 0.0) -> float:
@@ -656,13 +652,21 @@ async def _generate_plan(body: GenerateRequest, auth: AuthContext) -> dict:
     pc = body.pattern_config
     pattern = _PATTERN_ALIASES.get(body.pattern, body.pattern)
 
-    machine = await _resolve_machine(body, auth)
+    tractor, implement = await _resolve_machine(body, auth)
+    geom = machine_geometry(tractor, implement)
+    machine = {k: v for k, v in (("implementWidth", geom.width), ("trackWidth", geom.track),
+                                  ("minTurningRadius", geom.radius), ("steeringType", geom.steering))
+               if v not in (None, "")}
     machine.setdefault("implementWidth", pc.width_m)
     robot = build_robot(
         machine,
         overlap_pct=pc.overlap_pct,
         turning_radius_override=pc.turning_radius_m,
+        lag_m=geom.d,
+        lateral_m=geom.e,
     )
+    logger.info("generate: machine geometry d=%.2f e=%.2f width=%s radius=%s warnings=%s parcel_id=%s",
+                geom.d, geom.e, geom.width, geom.radius, [w["code"] for w in geom.warnings], body.parcel_id)
 
     cfg = CoverageConfig(
         pattern=pattern,
@@ -715,12 +719,29 @@ async def _generate_plan(body: GenerateRequest, auth: AuthContext) -> dict:
             tenant_id=auth.tenant_id, parcel_id=body.parcel_id)
         result = plan.to_route_result(to_wgs84, robot.cov_width)
         plan_dict = plan.as_api_dict(to_wgs84, robot.cov_width)
-        if contour_warning:
+        # Side implement: where the tractor drives, and whether its wheels stay in.
+        from app.services.coverage.plan import geojson_wgs84
+        from app.services.coverage.tractor_track import tractor_track
+        t_lines, t_warnings = tractor_track(plan.swaths, geom.e, (geom.track or 0.0) / 2.0,
+                                            parcel_utm, zones_utm)
+        # The implement's lateral offset (> 0 right of travel); the tractor runs on the other side.
+        plan_dict["implement_lateral_m"] = geom.e
+        plan_dict["tractor_swaths"] = ([geojson_wgs84(g, to_wgs84) if g is not None else None for g in t_lines]
+                                       if t_lines else None)
+        if contour_warning or geom.warnings or t_warnings:
             if plan_dict.get("validation") is None:
                 plan_dict["validation"] = {"ok": True, "checks": [], "fallbacks_applied": [],
                                            "warnings": []}
+        if contour_warning:
             plan_dict["validation"]["warnings"].append(
                 {"code": contour_warning, "geometry": None, "params": {}})
+        if geom.warnings:
+            plan_dict["validation"]["warnings"].extend(
+                {"code": w["code"], "geometry": None, "params": w["params"]} for w in geom.warnings)
+        if t_warnings:
+            plan_dict["validation"]["warnings"].extend(
+                {"code": w.code, "geometry": geojson_wgs84(w.geometry, to_wgs84), "params": w.params}
+                for w in t_warnings)
     except PlanError:
         raise
     except Exception as exc:
@@ -899,20 +920,23 @@ async def compute_prescription(body: PrescriptionRequest, auth: AuthContext = re
     return {"prescription": prescription}
 
 
-async def _resolve_machine(body: GenerateRequest, auth: AuthContext) -> dict:
-    """Fetch ManufacturingMachine kinematics for the implement (or tractor).
+async def _resolve_machine(body: GenerateRequest, auth: AuthContext) -> tuple[dict | None, dict | None]:
+    """Fetch the tractor and the implement (each None when not picked).
 
-    Returns a dict of attribute values (implementWidth, trackWidth,
-    minTurningRadius, steeringType). Empty dict when no id is provided.
+    A picked machine that does not exist fails the plan (never the request's default
+    width for it); a machine picked in the other role fails with MACHINE_ROLE_MISMATCH.
     """
-    machine_id = body.implement_id or body.tractor_id
-    if not machine_id:
-        return {}
-    machine = await fetch_machine_kinematics(machine_id, auth.tenant_id)
-    if not machine:
-        # Never fall back to the request's default width for a machine that does not exist.
-        raise PlanError("MACHINE_WIDTH_MISSING", f"machine not found: {machine_id}")
-    return machine
+    async def one(machine_id: str | None) -> dict | None:
+        if not machine_id:
+            return None
+        machine = await fetch_machine_kinematics(machine_id, auth.tenant_id)
+        if not machine:
+            raise PlanError("MACHINE_WIDTH_MISSING", f"machine not found: {machine_id}")
+        return machine
+
+    tractor, implement = await one(body.tractor_id), await one(body.implement_id)
+    check_roles(tractor, implement, tractor_id=body.tractor_id, implement_id=body.implement_id)
+    return tractor, implement
 
 
 # Re-export from the shared service so existing monkeypatches on

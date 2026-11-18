@@ -35,3 +35,35 @@ def test_numeric_noise_does_not_add_a_pass(monkeypatch):
     need = headland_need(RobotParams(width=3.0, cov_width=6.0, min_turning_radius=1.0, curve_type="dubins"))
     turn_fit._need.cache_clear()
     assert need.passes == 3
+
+
+def test_implement_behind_the_turning_point_deepens_the_headland_by_that_distance():
+    base = headland_need(RobotParams(width=3.0, cov_width=6.0, min_turning_radius=8.0, curve_type="dubins"))
+    lag = headland_need(RobotParams(width=3.0, cov_width=6.0, min_turning_radius=8.0, curve_type="dubins", lag_m=-3.0))
+    assert lag.needed_m == pytest.approx(base.needed_m + 3.0)
+    lead = headland_need(RobotParams(width=3.0, cov_width=6.0, min_turning_radius=8.0, curve_type="dubins", lag_m=2.0))
+    assert lead.needed_m == pytest.approx(base.needed_m + 2.0)
+
+
+def test_a_tractor_wider_than_the_implement_sets_the_floor():
+    narrow = headland_need(RobotParams(width=3.0, cov_width=2.0, min_turning_radius=4.0, curve_type="dubins"))
+    wide_body = headland_need(RobotParams(width=3.0, cov_width=2.0, min_turning_radius=4.0, curve_type="dubins",
+                                          body_half_width=1.5))
+    assert wide_body.needed_m == pytest.approx(narrow.needed_m - 1.0 + 1.5)
+
+
+def test_side_offset_tightens_one_of_the_turns_and_never_makes_the_headland_shallower():
+    base = headland_need(RobotParams(width=3.0, cov_width=6.0, min_turning_radius=8.0, curve_type="dubins"))
+    side = headland_need(RobotParams(width=3.0, cov_width=6.0, min_turning_radius=8.0, curve_type="dubins",
+                                     lateral_m=1.5))
+    assert side.needed_m >= base.needed_m
+
+
+def test_offset_larger_than_half_the_width_keeps_the_mirrored_tight_turn():
+    # cov 3: e 1.0 and e 2.0 both give a 1 m tractor spacing (3 - 2 and |3 - 4|),
+    # the tightest turn of each set, so they need the same headland.
+    one = headland_need(RobotParams(width=2.0, cov_width=3.0, min_turning_radius=6.0, curve_type="dubins",
+                                    lateral_m=1.0))
+    two = headland_need(RobotParams(width=2.0, cov_width=3.0, min_turning_radius=6.0, curve_type="dubins",
+                                    lateral_m=2.0))
+    assert two.needed_m == pytest.approx(one.needed_m, abs=0.05)

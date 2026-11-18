@@ -31,6 +31,14 @@ class RobotParams:
     cov_width: float        # effective coverage width (m)
     min_turning_radius: float  # m
     curve_type: str         # "dubins" | "reeds_shepp"
+    # Turning point -> working centre along the travel (m; < 0 behind). The headland
+    # needs that much more depth: the machine runs it past the pass end before turning.
+    lag_m: float = 0.0
+    # Half the tractor track (m), 0 when unknown: the turn must keep the tractor inside too.
+    body_half_width: float = 0.0
+    # Working centre lateral offset (m; > 0 right): the tractor runs |lateral| to the other
+    # side, so neighbouring passes are cov_width +/- 2|lateral| apart for the tractor.
+    lateral_m: float = 0.0
 
     def to_f2c_robot(self) -> "f2c.Robot":
         robot = f2c.Robot(self.width, self.cov_width)
@@ -50,6 +58,8 @@ def build_robot(
     *,
     overlap_pct: float,
     turning_radius_override: float | None = None,
+    lag_m: float = 0.0,
+    lateral_m: float = 0.0,
 ) -> RobotParams:
     """Build robot params from a ManufacturingMachine attr dict.
 
@@ -61,7 +71,8 @@ def build_robot(
     if impl_width is None or impl_width <= 0:
         raise PlanError("MACHINE_WIDTH_MISSING", "implementWidth is required and must be > 0")
 
-    track = _num(machine.get("trackWidth"), impl_width) or impl_width
+    known_track = _num(machine.get("trackWidth"))
+    track = known_track or impl_width
 
     radius = turning_radius_override
     if radius is None:
@@ -85,4 +96,7 @@ def build_robot(
         cov_width=cov_width,
         min_turning_radius=radius,
         curve_type=curve_type,
+        lag_m=lag_m,
+        lateral_m=lateral_m,
+        body_half_width=(known_track / 2.0) if known_track else 0.0,
     )
