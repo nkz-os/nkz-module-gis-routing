@@ -52,10 +52,16 @@ export const StepMachine: React.FC<StepProps> = ({ state, dispatch }) => {
     return () => { cancelled = true; };
   }, []);
 
-  // Implement preferred, then tractor (matches backend _resolve_machine).
+  // Each figure from the machine that owns it (matches backend machine_geometry): the working
+  // width from the implement (else the machine alone), the turning radius from the tractor
+  // (else a radius an older implement still carries).
   const resolve = (list: any[], implementId: string | null, tractorId: string | null) => {
-    const sel = list.find((e) => e.id === implementId) || list.find((e) => e.id === tractorId);
-    return { widthM: num(sel?.implementWidth), turningRadiusM: num(sel?.minTurningRadius) };
+    const implement = list.find((e) => e.id === implementId);
+    const tractor = list.find((e) => e.id === tractorId);
+    return {
+      widthM: num(implement?.implementWidth) ?? num(tractor?.implementWidth),
+      turningRadiusM: num(tractor?.minTurningRadius) ?? num(implement?.minTurningRadius),
+    };
   };
 
   const prefill = (r: { widthM: number | null; turningRadiusM: number | null }, onlyEmpty: boolean): Partial<MachineConfig> => {

@@ -336,7 +336,10 @@
       "ZONES_NO_PRJ": "Shapefile without .prj: coordinates assumed to be WGS84 (EPSG:4326)",
       "PLAN_TOO_LARGE_TO_SAVE": "This plan is too large to save ({{size_kb}} KB).",
       "CONTOUR_DEM_UNAVAILABLE": "No elevation data: the most efficient heading was used instead of following the contours.",
-      "CONTOUR_TERRAIN_FLAT": "Nearly flat parcel with no clear contours: the most efficient heading was used."
+      "CONTOUR_TERRAIN_FLAT": "Nearly flat parcel with no clear contours: the most efficient heading was used.",
+      "MACHINE_GEOMETRY_INCOMPLETE": "Missing machine measures: {{missing}}. Without them the headland ignores the tractor-to-implement distance; complete them in the machine editor.",
+      "MACHINE_GEOMETRY_SUSPECT": "Check the sign of: {{fields}}. Behind is negative, ahead is positive.",
+      "TRACTOR_TRACK_OUTSIDE": "With the offset implement, the tractor leaves the parcel or enters a NO-GO zone on some pass."
     },
     "fallbacks": {
       "headland": "Headland passes adjusted from {{a}} to {{b}}",
@@ -375,7 +378,8 @@
       "EXPORT_NOT_SUPPORTED": "This export format is not available for transits.",
       "GENERATE_TIMEOUT": "The route is taking too long to calculate. Try again.",
       "ZONING_NOT_FOUND": "That zoning no longer exists on this parcel.",
-      "ZONING_NOT_MANUAL": "Only manual zonings can be deleted."
+      "ZONING_NOT_MANUAL": "Only manual zonings can be deleted.",
+      "MACHINE_ROLE_MISMATCH": "The machine picked as tractor is an implement, or the other way round. Check the selection."
     },
     "actions": {
       "regenerate": "Regenerate",
@@ -429,6 +433,12 @@
         "workStarted": "Not applied: the work had already started. Open the link again to bring the doses from FaST.",
         "transient": "The parcel or zoning could not be loaded (network or server error). Reload the page to retry."
       }
+    },
+    "machineFields": {
+      "hitchOffsetX": "rear hitch",
+      "frontHitchOffsetX": "front hitch",
+      "implementOffsetX": "working centre (X)",
+      "trackWidth": "track width"
     }
   },
   "autosave": {

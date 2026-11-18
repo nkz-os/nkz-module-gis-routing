@@ -336,7 +336,10 @@
       "ZONES_NO_PRJ": "Shapefile .prj gabe: WGS84 (EPSG:4326) koordenatuak suposatzen dira",
       "PLAN_TOO_LARGE_TO_SAVE": "Plan hau handiegia da gordetzeko ({{size_kb}} KB).",
       "CONTOUR_DEM_UNAVAILABLE": "Ez dago erliebe-daturik: norabide eraginkorrena erabili da, sestra-kurbei jarraitu beharrean.",
-      "CONTOUR_TERRAIN_FLAT": "Lursail ia laua, sestra-kurba argirik gabe: norabide eraginkorrena erabili da."
+      "CONTOUR_TERRAIN_FLAT": "Lursail ia laua, sestra-kurba argirik gabe: norabide eraginkorrena erabili da.",
+      "MACHINE_GEOMETRY_INCOMPLETE": "Makinaren neurriak falta dira: {{missing}}. Haiek gabe goiburuak ez du kontuan hartzen traktoretik tresnarako distantzia; osatu makinaren editorean.",
+      "MACHINE_GEOMETRY_SUSPECT": "Egiaztatu zeinua: {{fields}}. Atzerantz negatiboa da eta aurrerantz positiboa.",
+      "TRACTOR_TRACK_OUTSIDE": "Tresna desplazatuta, traktorea partzelatik ateratzen da edo NO-GO eremu bat zapaltzen du pasaldiren batean."
     },
     "fallbacks": {
       "headland": "Muga-pasadak doituta: {{a}} -> {{b}}",
@@ -375,7 +378,8 @@
       "EXPORT_NOT_SUPPORTED": "Esportazio-formatu hau ez dago erabilgarri igarobideetarako.",
       "GENERATE_TIMEOUT": "Ibilbidea kalkulatzeak luze jotzen du. Saiatu berriro.",
       "ZONING_NOT_FOUND": "Zonifikazio hori ez dago jada partzela honetan.",
-      "ZONING_NOT_MANUAL": "Eskuzko zonifikazioak bakarrik ezaba daitezke."
+      "ZONING_NOT_MANUAL": "Eskuzko zonifikazioak bakarrik ezaba daitezke.",
+      "MACHINE_ROLE_MISMATCH": "Traktore gisa aukeratutako makina tresna bat da, edo alderantziz. Egiaztatu aukeraketa."
     },
     "actions": {
       "regenerate": "Birsortu",
@@ -429,6 +433,12 @@
         "workStarted": "Ez dira aplikatu: lanean hasita zeunden. Ireki esteka berriro FaST-eko dosiak ekartzeko.",
         "transient": "Ezin izan da partzela edo zonifikazioa kargatu (sare edo zerbitzari errorea). Birkargatu orria berriz saiatzeko."
       }
+    },
+    "machineFields": {
+      "hitchOffsetX": "atzeko enganchea",
+      "frontHitchOffsetX": "aurreko enganchea",
+      "implementOffsetX": "lan-erdigunea (X)",
+      "trackWidth": "bide-zabalera"
     }
   },
   "autosave": {

@@ -336,7 +336,10 @@
       "ZONES_NO_PRJ": "Shapefile sense .prj: s'assumeixen coordenades WGS84 (EPSG:4326)",
       "PLAN_TOO_LARGE_TO_SAVE": "Aquest pla és massa gran per desar-lo ({{size_kb}} KB).",
       "CONTOUR_DEM_UNAVAILABLE": "Sense dades de relleu: s'ha fet servir el rumb més eficient en lloc de seguir les corbes de nivell.",
-      "CONTOUR_TERRAIN_FLAT": "Parcel·la gairebé plana, sense corbes de nivell clares: s'ha fet servir el rumb més eficient."
+      "CONTOUR_TERRAIN_FLAT": "Parcel·la gairebé plana, sense corbes de nivell clares: s'ha fet servir el rumb més eficient.",
+      "MACHINE_GEOMETRY_INCOMPLETE": "Falten mesures de la màquina: {{missing}}. Sense elles la capçalera no té en compte la distància del tractor a l'apero; completa-les a l'editor de la màquina.",
+      "MACHINE_GEOMETRY_SUSPECT": "Revisa el signe de: {{fields}}. Cap enrere és negatiu i cap endavant positiu.",
+      "TRACTOR_TRACK_OUTSIDE": "Amb l'apero desplaçat, el tractor surt de la parcel·la o trepitja una zona NO-GO en alguna passada."
     },
     "fallbacks": {
       "headland": "Passades de capçalera ajustades de {{a}} a {{b}}",
@@ -375,7 +378,8 @@
       "EXPORT_NOT_SUPPORTED": "Aquest format d'exportació no està disponible per a trànsits.",
       "GENERATE_TIMEOUT": "La ruta triga massa a calcular-se. Torna-ho a provar.",
       "ZONING_NOT_FOUND": "Aquesta zonificació ja no existeix en aquesta parcel·la.",
-      "ZONING_NOT_MANUAL": "Només es poden esborrar zonificacions manuals."
+      "ZONING_NOT_MANUAL": "Només es poden esborrar zonificacions manuals.",
+      "MACHINE_ROLE_MISMATCH": "La màquina triada com a tractor és un apero, o al revés. Revisa la selecció."
     },
     "actions": {
       "regenerate": "Regenerar",
@@ -429,6 +433,12 @@
         "workStarted": "No s'han aplicat: ja havies començat a treballar. Obre l'enllaç de nou per portar les dosis de FaST.",
         "transient": "No s'ha pogut carregar la parcel·la o la zonificació (error de xarxa o del servidor). Recarrega la pàgina per reintentar."
       }
+    },
+    "machineFields": {
+      "hitchOffsetX": "enganx posterior",
+      "frontHitchOffsetX": "enganx davanter",
+      "implementOffsetX": "centre de treball (X)",
+      "trackWidth": "amplada de via"
     }
   },
   "autosave": {

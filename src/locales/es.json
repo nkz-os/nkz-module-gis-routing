@@ -336,7 +336,10 @@
       "ZONES_NO_PRJ": "Shapefile sin .prj: se asumen coordenadas WGS84 (EPSG:4326)",
       "PLAN_TOO_LARGE_TO_SAVE": "Este plan es demasiado grande para guardarlo ({{size_kb}} KB).",
       "CONTOUR_DEM_UNAVAILABLE": "Sin datos de relieve: se ha usado el rumbo más eficiente en lugar de seguir las curvas de nivel.",
-      "CONTOUR_TERRAIN_FLAT": "Parcela casi llana, sin curvas de nivel claras: se ha usado el rumbo más eficiente."
+      "CONTOUR_TERRAIN_FLAT": "Parcela casi llana, sin curvas de nivel claras: se ha usado el rumbo más eficiente.",
+      "MACHINE_GEOMETRY_INCOMPLETE": "Faltan medidas de la máquina: {{missing}}. Sin ellas la cabecera no cuenta la distancia del tractor al apero; complétalas en el editor de la máquina.",
+      "MACHINE_GEOMETRY_SUSPECT": "Revisa el signo de: {{fields}}. Hacia atrás es negativo y hacia delante positivo.",
+      "TRACTOR_TRACK_OUTSIDE": "Con el apero desplazado, el tractor se sale de la parcela o pisa una zona NO-GO en alguna pasada."
     },
     "fallbacks": {
       "headland": "Pasadas de cabecera ajustadas de {{a}} a {{b}}",
@@ -375,7 +378,8 @@
       "EXPORT_NOT_SUPPORTED": "Este formato de exportación no está disponible para tránsitos.",
       "GENERATE_TIMEOUT": "La ruta tarda demasiado en calcularse. Inténtalo de nuevo.",
       "ZONING_NOT_FOUND": "Esa zonificación ya no existe en esta parcela.",
-      "ZONING_NOT_MANUAL": "Solo se pueden borrar zonificaciones manuales."
+      "ZONING_NOT_MANUAL": "Solo se pueden borrar zonificaciones manuales.",
+      "MACHINE_ROLE_MISMATCH": "La máquina elegida como tractor es un apero, o al revés. Revisa la selección."
     },
     "actions": {
       "regenerate": "Regenerar",
@@ -429,6 +433,12 @@
         "workStarted": "No se han aplicado: ya habías empezado a trabajar. Abre el enlace de nuevo para traer las dosis de FaST.",
         "transient": "No se pudo cargar la parcela o la zonificación (error de red o del servidor). Recarga la página para reintentar."
       }
+    },
+    "machineFields": {
+      "hitchOffsetX": "enganche trasero",
+      "frontHitchOffsetX": "enganche delantero",
+      "implementOffsetX": "centro de trabajo (X)",
+      "trackWidth": "ancho de vía"
     }
   },
   "autosave": {

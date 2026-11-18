@@ -250,6 +250,22 @@ describe('work steps', () => {
     });
   });
 
+  it('StepMachine takes the width from the implement and the turning radius from the tractor', async () => {
+    const dispatch = vi.fn();
+    (api.listEquipment as any).mockResolvedValue([
+      { id: 't1', name: 'Tractor', category: 'tractor', minTurningRadius: 5 },
+      { id: 'i1', name: 'Drill', category: 'implement', implementWidth: 4 },
+    ]);
+    const state = parcelState({ machine: { ...initialWorkState.machine, tractorId: 't1' } });
+    render(<StepMachine state={state} dispatch={dispatch} />);
+    await screen.findByText('Drill');
+    fireEvent.change(screen.getAllByRole('combobox')[2], { target: { value: 'i1' } });
+    expect(dispatch).toHaveBeenLastCalledWith({
+      type: 'MACHINE_CHANGED',
+      machine: { implementId: 'i1', widthM: 4, widthSource: 'machine', turningRadiusM: 5, radiusSource: 'machine' },
+    });
+  });
+
   it('StepMachine shows "from machine" badges and typing dispatches manual', async () => {
     const dispatch = vi.fn();
     (api.listEquipment as any).mockResolvedValue([]);

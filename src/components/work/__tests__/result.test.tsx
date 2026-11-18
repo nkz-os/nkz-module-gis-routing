@@ -117,6 +117,22 @@ describe('result strip and actions bar', () => {
     expect(onWarningSelect).toHaveBeenCalledWith(1);
   });
 
+  it('ResultStrip names missing machine measures in words and explains the tractor track', () => {
+    const base = withResult();
+    const p = plan();
+    p.validation!.warnings = [
+      { code: 'MACHINE_GEOMETRY_INCOMPLETE', geometry: null, params: { missing: ['hitchOffsetX', 'trackWidth'] } },
+      { code: 'TRACTOR_TRACK_OUTSIDE', geometry: point, params: { swaths: [0, 3] } },
+      { code: 'MACHINE_GEOMETRY_SUSPECT', geometry: null, params: { fields: ['implementOffsetX'] } },
+    ];
+    render(<ResultStrip state={{ ...base, result: { ...base.result!, plan: p } }} onWarningSelect={vi.fn()}
+      collapsed={false} onToggle={vi.fn()} />);
+    expect(screen.getByText(/enganche trasero, ancho de vía/)).toBeInTheDocument();
+    expect(screen.queryByText(/hitchOffsetX/)).toBeNull();
+    expect(screen.getByText(/el tractor se sale de la parcela/)).toBeInTheDocument();
+    expect(screen.getByText(/centro de trabajo \(X\)/)).toBeInTheDocument();
+  });
+
   it('ResultStrip renders nothing without a result and hides the body when collapsed', () => {
     const { container, rerender } = render(
       <ResultStrip state={initialWorkState} onWarningSelect={vi.fn()} collapsed={false} onToggle={vi.fn()} />,

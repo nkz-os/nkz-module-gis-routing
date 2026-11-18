@@ -336,7 +336,10 @@
       "ZONES_NO_PRJ": "Shapefile sans .prj : coordonnées supposées en WGS84 (EPSG:4326)",
       "PLAN_TOO_LARGE_TO_SAVE": "Ce plan est trop volumineux pour être enregistré ({{size_kb}} Ko).",
       "CONTOUR_DEM_UNAVAILABLE": "Pas de données de relief : le cap le plus efficace a été utilisé au lieu de suivre les courbes de niveau.",
-      "CONTOUR_TERRAIN_FLAT": "Parcelle presque plate, sans courbes de niveau nettes : le cap le plus efficace a été utilisé."
+      "CONTOUR_TERRAIN_FLAT": "Parcelle presque plate, sans courbes de niveau nettes : le cap le plus efficace a été utilisé.",
+      "MACHINE_GEOMETRY_INCOMPLETE": "Mesures de la machine manquantes : {{missing}}. Sans elles, la fourrière ignore la distance du tracteur à l'outil ; complétez-les dans l'éditeur de la machine.",
+      "MACHINE_GEOMETRY_SUSPECT": "Vérifiez le signe de : {{fields}}. Vers l'arrière est négatif, vers l'avant positif.",
+      "TRACTOR_TRACK_OUTSIDE": "Avec l'outil déporté, le tracteur sort de la parcelle ou entre dans une zone NO-GO sur un passage."
     },
     "fallbacks": {
       "headland": "Passages de fourrière ajustés de {{a}} à {{b}}",
@@ -375,7 +378,8 @@
       "EXPORT_NOT_SUPPORTED": "Ce format d'exportation n'est pas disponible pour les transits.",
       "GENERATE_TIMEOUT": "Le calcul de l'itinéraire prend trop de temps. Réessayez.",
       "ZONING_NOT_FOUND": "Ce zonage n'existe plus sur cette parcelle.",
-      "ZONING_NOT_MANUAL": "Seuls les zonages manuels peuvent être supprimés."
+      "ZONING_NOT_MANUAL": "Seuls les zonages manuels peuvent être supprimés.",
+      "MACHINE_ROLE_MISMATCH": "La machine choisie comme tracteur est un outil, ou l'inverse. Vérifiez la sélection."
     },
     "actions": {
       "regenerate": "Régénérer",
@@ -429,6 +433,12 @@
         "workStarted": "Non appliquées : le travail était déjà commencé. Rouvrez le lien pour récupérer les doses de FaST.",
         "transient": "La parcelle ou le zonage n'a pas pu être chargé (erreur réseau ou serveur). Rechargez la page pour réessayer."
       }
+    },
+    "machineFields": {
+      "hitchOffsetX": "attelage arrière",
+      "frontHitchOffsetX": "attelage avant",
+      "implementOffsetX": "centre de travail (X)",
+      "trackWidth": "voie"
     }
   },
   "autosave": {

@@ -43,8 +43,21 @@ export function fallbackText(raw: string, t: TFn): string {
   }
 }
 
+/** Machine measure keys listed in a warning (missing / fields) read as words, not attribute names. */
+function fieldNamesWith(t: (k: string, o?: Record<string, unknown>) => string) {
+  return (params: Record<string, unknown> | undefined): Record<string, unknown> => {
+    const out: Record<string, unknown> = { ...(params ?? {}) };
+    for (const k of ['missing', 'fields']) {
+      const v = out[k];
+      if (Array.isArray(v)) out[k] = v.map((f) => t(`work.machineFields.${f}`, { defaultValue: String(f) })).join(', ');
+    }
+    return out;
+  };
+}
+
 export const ResultStrip: React.FC<Props> = ({ state, onWarningSelect, collapsed, onToggle }) => {
   const { t, i18n } = useTranslation(NS);
+  const fieldNames = fieldNamesWith(t as (k: string, o?: Record<string, unknown>) => string);
   const result = state.result;
   if (!result) return null;
 
@@ -93,7 +106,7 @@ export const ResultStrip: React.FC<Props> = ({ state, onWarningSelect, collapsed
               {rows.map((r, i) => {
                 // HEADLAND_WIDENED with metres (newer plans) has its own text; saved plans keep the old one.
                 const key = r.code === 'HEADLAND_WIDENED' && r.params?.needed_m != null ? 'HEADLAND_WIDENED_M' : r.code;
-                const known = t(`work.warnings.${key}`, { ...r.params, defaultValue: '' });
+                const known = t(`work.warnings.${key}`, { ...fieldNames(r.params), defaultValue: '' });
                 const text = known || t('work.warnings.UNKNOWN', { code: r.code });
                 return (
                   <li key={`${r.code}-${i}`} className="flex items-center justify-between gap-2 text-nkz-sm">
