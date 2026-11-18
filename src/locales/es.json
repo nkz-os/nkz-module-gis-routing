@@ -258,7 +258,12 @@
       "width": "Ancho de trabajo (m)",
       "radius": "Radio de giro (m)",
       "overlap": "Solape (%)",
-      "summary": "{{w}} m · R {{r}} m"
+      "summary": "{{w}} m · R {{r}} m",
+      "lagBehind": "Apero {{m}} m detrás del punto de giro del tractor",
+      "lagAhead": "Apero {{m}} m delante del punto de giro del tractor",
+      "lateralRight": "Desplazado {{m}} m a la derecha",
+      "lateralLeft": "Desplazado {{m}} m a la izquierda",
+      "missing": "Faltan medidas: {{fields}}"
     },
     "pattern": {
       "auto": "Automático",

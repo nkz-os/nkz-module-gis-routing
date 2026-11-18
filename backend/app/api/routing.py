@@ -300,7 +300,9 @@ async def list_equipment(request: Request, auth: AuthContext = require_auth()):
             attrs=(
                 "name,category,description,serialNumber,isobusCompatible,"
                 "implementWidth,trackWidth,wheelbase,minTurningRadius,gpsOffsetX,gpsOffsetY,gpsOffsetZ,"
-                "hitchType,hitchOffsetX,implementLength,implementOffsetX,steeringType,steeringAxles,dateCreated"
+                "hitchType,hitchOffsetX,implementLength,implementOffsetX,steeringType,steeringAxles,dateCreated,"
+                "frontHitchOffsetX,mountPosition,implementOffsetY,transportWidth,"
+                "guidanceDeviceOffsetX,guidanceDeviceOffsetY"
             ),
             limit=100,
         )
@@ -326,6 +328,9 @@ async def list_equipment(request: Request, auth: AuthContext = require_auth()):
                 "implementOffsetX": (e.get("implementOffsetX", {}) or {}).get("value"),
                 "steeringType": (e.get("steeringType", {}) or {}).get("value"),
                 "steeringAxles": (e.get("steeringAxles", {}) or {}).get("value"),
+                **{k: (e.get(k, {}) or {}).get("value") for k in (
+                    "frontHitchOffsetX", "mountPosition", "implementOffsetY", "transportWidth",
+                    "guidanceDeviceOffsetX", "guidanceDeviceOffsetY")},
             }
             for e in entities
         ]

@@ -258,7 +258,12 @@
       "width": "Largura de trabalho (m)",
       "radius": "Raio de viragem (m)",
       "overlap": "Sobreposição (%)",
-      "summary": "{{w}} m · R {{r}} m"
+      "summary": "{{w}} m · R {{r}} m",
+      "lagBehind": "Alfaia {{m}} m atrás do ponto de viragem do trator",
+      "lagAhead": "Alfaia {{m}} m à frente do ponto de viragem do trator",
+      "lateralRight": "Deslocada {{m}} m para a direita",
+      "lateralLeft": "Deslocada {{m}} m para a esquerda",
+      "missing": "Faltam medidas: {{fields}}"
     },
     "pattern": {
       "auto": "Automático",

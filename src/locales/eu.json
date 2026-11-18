@@ -258,7 +258,12 @@
       "width": "Lan-zabalera (m)",
       "radius": "Biraketa-erradioa (m)",
       "overlap": "Gainjartzea (%)",
-      "summary": "{{w}} m · R {{r}} m"
+      "summary": "{{w}} m · R {{r}} m",
+      "lagBehind": "Tresna traktorearen biraketa-puntutik {{m}} m atzean",
+      "lagAhead": "Tresna traktorearen biraketa-puntutik {{m}} m aurrean",
+      "lateralRight": "{{m}} m eskuinera desplazatuta",
+      "lateralLeft": "{{m}} m ezkerrera desplazatuta",
+      "missing": "Neurriak falta dira: {{fields}}"
     },
     "pattern": {
       "auto": "Automatikoa",

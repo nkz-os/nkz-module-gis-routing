@@ -4,6 +4,7 @@ import { Badge, Input, Select, Slider, Spinner } from '@nekazari/ui-kit';
 import { api } from '../../services/api';
 import type { MachineConfig } from '../../state/workMachine';
 import type { StepProps } from './StepList';
+import { pairGeometry } from '../../services/machineGeometry';
 
 const NS = 'gis-routing';
 const OPERATIONS = ['spraying', 'fertilizing', 'seeding', 'tillage'] as const;
@@ -34,7 +35,7 @@ const NumberField: React.FC<{ id?: string; value: number | null; onValue: (v: nu
 };
 
 export const StepMachine: React.FC<StepProps> = ({ state, dispatch }) => {
-  const { t } = useTranslation(NS);
+  const { t, i18n } = useTranslation(NS);
   const [equipment, setEquipment] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const m = state.machine;
@@ -172,6 +173,30 @@ export const StepMachine: React.FC<StepProps> = ({ state, dispatch }) => {
       {effective !== null && (
         <p className="text-nkz-sm text-nkz-text-secondary">{t('work.machine.effectiveWidth', { w: effective })}</p>
       )}
+      <PairLines geom={pairGeometry(equipment.find((e) => e.id === m.tractorId) ?? null,
+        equipment.find((e) => e.id === m.implementId) ?? null)} t={t} lang={i18n.language} />
     </div>
   );
 };
+
+/** Where the implement works relative to the tractor (headland and guidance use it). */
+const PairLines: React.FC<{ geom: ReturnType<typeof pairGeometry>; t: (k: string, o?: any) => string; lang: string }> = ({ geom, t, lang }) => {
+  if (!geom) return null;
+  const m = (v: number) => Math.abs(v).toLocaleString(lang, { maximumFractionDigits: 1 });
+  return (
+    <div className="space-y-1">
+      {geom.d !== null && geom.d !== 0 && (
+        <p className="text-nkz-sm text-nkz-text-secondary">{t(geom.d < 0 ? 'work.machine.lagBehind' : 'work.machine.lagAhead', { m: m(geom.d) })}</p>
+      )}
+      {geom.e !== 0 && (
+        <p className="text-nkz-sm text-nkz-text-secondary">{t(geom.e > 0 ? 'work.machine.lateralRight' : 'work.machine.lateralLeft', { m: m(geom.e) })}</p>
+      )}
+      {geom.missing.length > 0 && (
+        <p className="text-nkz-sm text-nkz-text-secondary">
+          {t('work.machine.missing', { fields: geom.missing.map((f) => t(`work.machineFields.${f}`, { defaultValue: f })).join(', ') })}
+        </p>
+      )}
+    </div>
+  );
+};
+
