@@ -2,7 +2,9 @@
 from app.config import get_settings
 from nkz_platform_sdk.orion import OrionClient
 
-_KEYS = ("implementWidth", "trackWidth", "minTurningRadius", "steeringType")
+_KEYS = ("category", "implementWidth", "trackWidth", "minTurningRadius", "steeringType", "wheelbase",
+         "hitchOffsetX", "frontHitchOffsetX", "mountPosition", "implementOffsetX", "implementOffsetY",
+         "transportWidth")
 
 
 async def fetch_machine_kinematics(machine_id: str, tenant_id: str) -> dict:

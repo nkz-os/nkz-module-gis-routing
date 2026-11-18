@@ -27,15 +27,20 @@ class HeadlandNeed:
 
 
 def headland_need(robot: RobotParams) -> HeadlandNeed:
-    return _need(robot.width, robot.cov_width, robot.min_turning_radius, robot.curve_type)
+    return _need(robot.width, robot.cov_width, robot.min_turning_radius, robot.curve_type,
+                 robot.lag_m, robot.body_half_width)
 
 
 @lru_cache(maxsize=64)
-def _need(width: float, cov_width: float, radius: float, curve_type: str) -> HeadlandNeed:
+def _need(width: float, cov_width: float, radius: float, curve_type: str,
+          lag_m: float = 0.0, body_half_width: float = 0.0) -> HeadlandNeed:
     robot = RobotParams(width=width, cov_width=cov_width, min_turning_radius=radius, curve_type=curve_type)
     # Next pass (boustrophedon) and the one after (snake): the deeper turn wins.
     advance = max(_turn_advance(robot, cov_width), _turn_advance(robot, 2 * cov_width))
-    needed_m = advance + cov_width / 2.0
+    # The implement lifts at the pass end with the turning point |lag| further on (or, for
+    # a front implement, |lag| behind while the implement leads): either way the turn runs
+    # |lag| deeper. The wider of implement and tractor sets the side extent.
+    needed_m = abs(lag_m) + advance + max(cov_width / 2.0, body_half_width)
     # Centimetre rounding: discretization noise (18.00003 m) must not cost a whole pass.
     passes = max(math.ceil(round(needed_m, 2) / cov_width), min_headland_passes(radius, cov_width))
     return HeadlandNeed(needed_m=needed_m, passes=passes)

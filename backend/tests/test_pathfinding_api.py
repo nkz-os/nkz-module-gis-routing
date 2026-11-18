@@ -124,6 +124,29 @@ def test_machine_id_sets_width(monkeypatch):
     assert seen["w"] == 5.5
 
 
+def test_machine_transport_width_is_used_for_the_a_b_clearance(monkeypatch):
+    """Implements travel folded: a 24 m sprayer moves at its transport width."""
+    seen = {}
+
+    async def fake_machine(machine_id, tenant_id):
+        return {"implementWidth": 24.0, "transportWidth": 3.0}
+
+    async def fake_constraints(parcel_id, tenant_id, raster, cols, rows, machine_width_m, bbox, report=None):
+        seen["w"] = machine_width_m
+        return None, set(), {}
+
+    from app.api import pathfinding_router as pr
+    monkeypatch.setattr(pr, "fetch_machine_kinematics", fake_machine)
+    monkeypatch.setattr(pr, "_resolve_path_constraints", fake_constraints)
+    job_id = client.post("/api/routing/path/calculate", json={"point_a": [-2.0, 43.0], "point_b": [-1.99, 43.0],
+                                                             "elevation_grid": _grid(), "machine_id": "urn:m1"}).json()["job_id"]
+    for _ in range(50):
+        if client.get(f"/api/routing/path/{job_id}").json()["status"] in ("completed", "failed"):
+            break
+        time.sleep(0.05)
+    assert seen["w"] == 3.0
+
+
 @pytest.mark.asyncio
 async def test_without_parcel_uses_tenant_zones_in_bbox(monkeypatch):
     from app.api import pathfinding_router as pr

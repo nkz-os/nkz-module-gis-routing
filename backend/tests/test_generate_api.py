@@ -461,3 +461,77 @@ def test_engine_crash_in_child_is_engine_failure_and_server_lives(monkeypatch):
     assert resp.json()["params"] == {}
     monkeypatch.setattr(routing, "plan_with_fallbacks", real)
     assert _gen(monkeypatch).status_code == 200
+
+
+# --- tractor + implement geometry ----------------------------------------------------------
+
+_T = "urn:ngsi-ld:ManufacturingMachine:t1"
+_I = "urn:ngsi-ld:ManufacturingMachine:i1"
+
+
+def _machines(monkeypatch, entities: dict):
+    class FakeOrion:
+        def __init__(self, *a, **k): ...
+        async def get_entity(self, eid):
+            return {k: {"type": "Property", "value": v} for k, v in entities.get(eid, {}).items()}
+        async def close(self): ...
+    monkeypatch.setattr("app.services.machines.OrionClient", FakeOrion)
+
+
+_TRACTOR = {"category": "tractor", "minTurningRadius": 6.0, "trackWidth": 1.9, "hitchOffsetX": -1.2,
+            "steeringType": "ackermann"}
+_DRILL = {"category": "implement", "implementWidth": 4.0, "implementOffsetX": -2.0}
+
+
+def _warn_codes(resp):
+    return {w["code"]: w["params"] for w in resp.json()["plan"]["validation"]["warnings"]}
+
+
+def test_pair_uses_the_tractor_radius_without_a_typed_radius(monkeypatch):
+    _machines(monkeypatch, {_T: _TRACTOR, _I: _DRILL})
+    resp = _gen(monkeypatch, tractor_id=_T, implement_id=_I,
+                pattern_config={"width_m": 4, "headland_passes": 1})
+    assert resp.status_code == 200, resp.text
+    assert "MACHINE_GEOMETRY_INCOMPLETE" not in _warn_codes(resp)
+
+
+def test_implement_far_behind_widens_the_headland(monkeypatch):
+    _machines(monkeypatch, {_T: _TRACTOR, _I: _DRILL, "urn:far": {**_DRILL, "implementOffsetX": -9.0}})
+    near = _gen(monkeypatch, tractor_id=_T, implement_id=_I, pattern_config={"width_m": 4, "headland_passes": 1})
+    far = _gen(monkeypatch, tractor_id=_T, implement_id="urn:far", pattern_config={"width_m": 4, "headland_passes": 1})
+    assert near.status_code == 200 and far.status_code == 200
+    assert far.json()["plan"]["headland_passes"] > near.json()["plan"]["headland_passes"]
+
+
+def test_missing_hitch_is_reported_and_the_plan_still_comes(monkeypatch):
+    tractor = {k: v for k, v in _TRACTOR.items() if k != "hitchOffsetX"}
+    _machines(monkeypatch, {_T: tractor, _I: _DRILL})
+    resp = _gen(monkeypatch, tractor_id=_T, implement_id=_I)
+    assert resp.status_code == 200, resp.text
+    assert _warn_codes(resp)["MACHINE_GEOMETRY_INCOMPLETE"] == {"missing": ["hitchOffsetX"]}
+
+
+def test_crossed_roles_are_rejected(monkeypatch):
+    _machines(monkeypatch, {_T: _TRACTOR, _I: _DRILL})
+    resp = _gen(monkeypatch, tractor_id=_I, implement_id=_T)
+    assert resp.status_code == 422
+    assert resp.json()["code"] == "MACHINE_ROLE_MISMATCH"
+
+
+def test_unknown_tractor_is_machine_width_missing_like_an_unknown_implement(monkeypatch):
+    _machines(monkeypatch, {_I: _DRILL})
+    resp = _gen(monkeypatch, tractor_id="urn:ngsi-ld:ManufacturingMachine:gone", implement_id=_I)
+    assert resp.status_code == 422 and resp.json()["code"] == "MACHINE_WIDTH_MISSING"
+
+
+def test_a_plan_without_validation_and_without_machine_warnings_still_answers(monkeypatch):
+    from app.services.coverage import plan as plan_mod
+    real = plan_mod.CoveragePlan.as_api_dict
+
+    def no_validation(self, *a, **k):
+        d = real(self, *a, **k)
+        d["validation"] = None
+        return d
+    monkeypatch.setattr(plan_mod.CoveragePlan, "as_api_dict", no_validation)
+    resp = _gen(monkeypatch)
+    assert resp.status_code == 200, resp.text
